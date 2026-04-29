@@ -27,7 +27,7 @@ export async function middleware(req: NextRequest) {
 
   // 🔒 BLOQUEIO REAL
   if (!user && req.nextUrl.pathname.startsWith('/app')) {
-    return NextResponse.redirect(new URL('/login', req.url))
+   return NextResponse.redirect(new URL('/login', req.nextUrl.origin))
   }
 
   return res
