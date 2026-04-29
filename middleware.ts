@@ -25,15 +25,15 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // 🔒 BLOQUEIO REAL
   if (!user && req.nextUrl.pathname.startsWith('/app')) {
-   return NextResponse.redirect(new URL('/login', req.nextUrl.origin))
+    return NextResponse.redirect(
+      new URL('/login', req.nextUrl.origin)
+    )
   }
 
   return res
 }
 
-// Define onde o middleware atua
 export const config = {
   matcher: ['/app/:path*'],
 }
