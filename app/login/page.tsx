@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
   const [loading, setLoading] = useState(false);
+  const [modoRecuperacao, setModoRecuperacao] = useState(false);
 
   const captchaRef = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
@@ -56,6 +57,8 @@ export default function LoginPage() {
       alert("Preencha o e-mail.");
       return false;
     }
+
+    if (modoRecuperacao) return true;
 
     if (!senha.trim()) {
       alert("Preencha a senha.");
@@ -156,14 +159,15 @@ export default function LoginPage() {
   }
 
   async function esqueciSenha() {
-    if (!email.trim()) {
-      alert("Digite seu e-mail primeiro.");
-      return;
-    }
+    if (!validarFormulario()) return;
+
+    setLoading(true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/login`,
     });
+
+    setLoading(false);
 
     if (error) {
       alert("Erro ao enviar recuperação: " + error.message);
@@ -171,6 +175,7 @@ export default function LoginPage() {
     }
 
     alert("Enviamos um link para redefinir sua senha.");
+    setModoRecuperacao(false);
   }
 
   return (
@@ -234,154 +239,215 @@ export default function LoginPage() {
           <h2 style={{ fontSize: 44, textAlign: "center", margin: 0 }}>OmniStage</h2>
 
           <h3 style={{ fontSize: 26, textAlign: "center", marginTop: 10, marginBottom: 28 }}>
-            Acesse sua conta
+            {modoRecuperacao ? "Recuperar senha" : "Acesse sua conta"}
           </h3>
 
-          <button
-            onClick={entrarComGoogle}
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: 15,
-              borderRadius: 12,
-              border: "1px solid #d1d5db",
-              background: "#fff",
-              fontWeight: 700,
-              cursor: "pointer",
-              marginBottom: 22,
-            }}
-          >
-            Entrar com Google
-          </button>
+          {modoRecuperacao ? (
+            <>
+              <p style={{ color: "#6b7280", textAlign: "center", marginBottom: 22 }}>
+                Digite seu e-mail cadastrado para receber o link de recuperação.
+              </p>
 
-          <input
-            type="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "16px 18px",
-              borderRadius: 12,
-              border: "1px solid #d1d5db",
-              marginBottom: 14,
-              fontSize: 16,
-              background: "#f3f6fb",
-            }}
-          />
+              <input
+                type="email"
+                placeholder="E-mail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "16px 18px",
+                  borderRadius: 12,
+                  border: "1px solid #d1d5db",
+                  marginBottom: 18,
+                  fontSize: 16,
+                  background: "#f3f6fb",
+                }}
+              />
 
-          <div style={{ position: "relative", marginBottom: 12 }}>
-            <input
-              type={mostrarSenha ? "text" : "password"}
-              placeholder="Senha"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "16px 52px 16px 18px",
-                borderRadius: 12,
-                border: "1px solid #d1d5db",
-                fontSize: 16,
-                background: "#f3f6fb",
-              }}
-            />
+              <button
+                onClick={esqueciSenha}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: 16,
+                  borderRadius: 999,
+                  border: "none",
+                  background: "linear-gradient(135deg, #7c3aed, #4c1d95)",
+                  color: "#fff",
+                  fontSize: 18,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? "Enviando..." : "Enviar link de recuperação"}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setMostrarSenha(!mostrarSenha)}
-              style={{
-                position: "absolute",
-                right: 12,
-                top: 12,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                color: "#6b7280",
-                fontWeight: 700,
-              }}
-            >
-              {mostrarSenha ? "Ocultar" : "Ver"}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={esqueciSenha}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#7c3aed",
-              cursor: "pointer",
-              fontWeight: 700,
-              padding: 0,
-              marginBottom: 16,
-            }}
-          >
-            Já tenho conta / Esqueci minha senha
-          </button>
-
-          <label style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 18 }}>
-            <input
-              type="checkbox"
-              checked={aceitouTermos}
-              onChange={(e) => setAceitouTermos(e.target.checked)}
-            />
-            <span>
-              Concordo com os <a href="/terms">Termos de Serviço</a> e a{" "}
-              <a href="/privacy">Política de Privacidade</a>.
-            </span>
-          </label>
-
-          {turnstileKey ? (
-            <div ref={captchaRef} style={{ minHeight: 70, marginBottom: 18 }} />
+              <button
+                type="button"
+                onClick={() => setModoRecuperacao(false)}
+                style={{
+                  width: "100%",
+                  marginTop: 16,
+                  border: "none",
+                  background: "transparent",
+                  color: "#7c3aed",
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  fontSize: 15,
+                }}
+              >
+                Voltar para login
+              </button>
+            </>
           ) : (
-            <p style={{ color: "red", fontSize: 13 }}>
-              CAPTCHA não carregou: variável NEXT_PUBLIC_TURNSTILE_SITE_KEY ausente.
-            </p>
+            <>
+              <button
+                onClick={entrarComGoogle}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: 15,
+                  borderRadius: 12,
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  marginBottom: 22,
+                }}
+              >
+                Entrar com Google
+              </button>
+
+              <input
+                type="email"
+                placeholder="E-mail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "16px 18px",
+                  borderRadius: 12,
+                  border: "1px solid #d1d5db",
+                  marginBottom: 14,
+                  fontSize: 16,
+                  background: "#f3f6fb",
+                }}
+              />
+
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <input
+                  type={mostrarSenha ? "text" : "password"}
+                  placeholder="Senha"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "16px 52px 16px 18px",
+                    borderRadius: 12,
+                    border: "1px solid #d1d5db",
+                    fontSize: 16,
+                    background: "#f3f6fb",
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenha(!mostrarSenha)}
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    top: 12,
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    fontWeight: 700,
+                  }}
+                >
+                  {mostrarSenha ? "Ocultar" : "Ver"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModoRecuperacao(true)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#7c3aed",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  padding: 0,
+                  marginBottom: 16,
+                }}
+              >
+                Já tenho conta / Esqueci minha senha
+              </button>
+
+              <label style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 18 }}>
+                <input
+                  type="checkbox"
+                  checked={aceitouTermos}
+                  onChange={(e) => setAceitouTermos(e.target.checked)}
+                />
+                <span>
+                  Concordo com os <a href="/terms">Termos de Serviço</a> e a{" "}
+                  <a href="/privacy">Política de Privacidade</a>.
+                </span>
+              </label>
+
+              {turnstileKey ? (
+                <div ref={captchaRef} style={{ minHeight: 70, marginBottom: 18 }} />
+              ) : (
+                <p style={{ color: "red", fontSize: 13 }}>
+                  CAPTCHA não carregou: variável NEXT_PUBLIC_TURNSTILE_SITE_KEY ausente.
+                </p>
+              )}
+
+              <button
+                onClick={entrar}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: 16,
+                  borderRadius: 999,
+                  border: "none",
+                  background: "linear-gradient(135deg, #7c3aed, #4c1d95)",
+                  color: "#fff",
+                  fontSize: 18,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? "Aguarde..." : "Entrar"}
+              </button>
+
+              <button
+                onClick={criarConta}
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: 16,
+                  borderRadius: 999,
+                  border: "1px solid #7c3aed",
+                  background: "#fff",
+                  color: "#4c1d95",
+                  fontSize: 16,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  marginTop: 12,
+                }}
+              >
+                Criar conta
+              </button>
+
+              <p style={{ color: "#6b7280", fontSize: 12, textAlign: "center", marginTop: 12 }}>
+                Se este e-mail já tiver cadastro, use “Entrar” ou “Esqueci minha senha”.
+                <br />
+                Se for novo, enviaremos confirmação por e-mail.
+              </p>
+            </>
           )}
-
-          <button
-            onClick={entrar}
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: 16,
-              borderRadius: 999,
-              border: "none",
-              background: "linear-gradient(135deg, #7c3aed, #4c1d95)",
-              color: "#fff",
-              fontSize: 18,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            {loading ? "Aguarde..." : "Entrar"}
-          </button>
-
-          <button
-            onClick={criarConta}
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: 16,
-              borderRadius: 999,
-              border: "1px solid #7c3aed",
-              background: "#fff",
-              color: "#4c1d95",
-              fontSize: 16,
-              fontWeight: 800,
-              cursor: "pointer",
-              marginTop: 12,
-            }}
-          >
-            Criar conta
-          </button>
-
-          <p style={{ color: "#6b7280", fontSize: 12, textAlign: "center", marginTop: 12 }}>
-            Se este e-mail já tiver cadastro, use “Entrar” ou “Esqueci minha senha”.
-            <br />
-            Se for novo, enviaremos confirmação por e-mail.
-          </p>
 
           <p style={{ textAlign: "center", marginTop: 22, color: "#6b7280", fontSize: 14 }}>
             OmniStage © 2026
