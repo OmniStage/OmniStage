@@ -72,6 +72,7 @@ export default function LoginPage() {
 
   function resetCaptcha() {
     setCaptchaToken("");
+
     if (window.turnstile && widgetId.current) {
       window.turnstile.reset(widgetId.current);
     }
@@ -86,7 +87,7 @@ export default function LoginPage() {
       email: email.trim(),
       password: senha.trim(),
       options: {
-        captchaToken: captchaToken || undefined,
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
 
@@ -111,7 +112,7 @@ export default function LoginPage() {
       password: senha.trim(),
       options: {
         emailRedirectTo: `${window.location.origin}/login`,
-        captchaToken: captchaToken || undefined,
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
 
@@ -345,13 +346,7 @@ export default function LoginPage() {
           </label>
 
           {turnstileKey ? (
-            <div
-              ref={captchaRef}
-              style={{
-                minHeight: 70,
-                marginBottom: 18,
-              }}
-            />
+            <div ref={captchaRef} style={{ minHeight: 70, marginBottom: 18 }} />
           ) : (
             <p style={{ color: "#9ca3af", fontSize: 13 }}>
               CAPTCHA ainda não configurado.
