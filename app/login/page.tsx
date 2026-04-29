@@ -1,111 +1,406 @@
 "use client";
 
-import Header from "@/components/Header";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function Login() {
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (el: HTMLElement, options: any) => string;
+      reset: (id?: string) => void;
+    };
+  }
+}
+
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const captchaRef = useRef<HTMLDivElement | null>(null);
+  const widgetId = useRef<string | null>(null);
+
+  const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  useEffect(() => {
+    if (!turnstileKey) return;
+
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      if (captchaRef.current && window.turnstile && !widgetId.current) {
+        widgetId.current = window.turnstile.render(captchaRef.current, {
+          sitekey: turnstileKey,
+          callback: (token: string) => setCaptchaToken(token),
+          "expired-callback": () => setCaptchaToken(""),
+        });
+      }
+    };
+
+    document.body.appendChild(script);
+  }, [turnstileKey]);
+
+  function validarFormulario() {
     if (!email || !senha) {
-      alert("Preencha email e senha");
-      return;
+      alert("Preencha e-mail e senha.");
+      return false;
     }
+
+    if (senha.length < 6) {
+      alert("A senha precisa ter no mínimo 6 caracteres.");
+      return false;
+    }
+
+    if (!aceitouTermos) {
+      alert("Você precisa aceitar os Termos de Serviço e a Política de Privacidade.");
+      return false;
+    }
+
+    if (turnstileKey && !captchaToken) {
+      alert("Confirme que você não é um robô.");
+      return false;
+    }
+
+    return true;
+  }
+
+  function resetCaptcha() {
+    setCaptchaToken("");
+    if (window.turnstile && widgetId.current) {
+      window.turnstile.reset(widgetId.current);
+    }
+  }
+
+  async function entrar() {
+    if (!validarFormulario()) return;
 
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: senha.trim(),
+      options: {
+        captchaToken: captchaToken || undefined,
+      },
     });
 
     setLoading(false);
 
     if (error) {
-      alert("Erro: " + error.message);
+      resetCaptcha();
+      alert("Erro ao entrar: " + error.message);
       return;
     }
 
-    window.location.href = "/";
-  };
+    window.location.href = "/app";
+  }
 
-  const handleCadastro = async () => {
-    if (!email || !senha) {
-      alert("Preencha email e senha");
-      return;
-    }
-
-    if (senha.length < 6) {
-      alert("Senha precisa ter no mínimo 6 caracteres");
-      return;
-    }
+  async function criarConta() {
+    if (!validarFormulario()) return;
 
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password: senha.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+        captchaToken: captchaToken || undefined,
+      },
     });
-
-    console.log("CADASTRO:", data, error);
 
     setLoading(false);
 
     if (error) {
-      alert("Erro: " + error.message);
+      resetCaptcha();
+      alert("Erro ao criar conta: " + error.message);
       return;
     }
 
-    alert("Conta criada com sucesso! Agora faça login.");
-  };
+    alert("Enviamos um e-mail de confirmação. Confirme seu e-mail antes de entrar.");
+  }
+
+  async function entrarComGoogle() {
+    if (!aceitouTermos) {
+      alert("Você precisa aceitar os Termos de Serviço e a Política de Privacidade.");
+      return;
+    }
+
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/app`,
+      },
+    });
+  }
+
+  async function esqueciSenha() {
+    if (!email) {
+      alert("Digite seu e-mail primeiro.");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login`,
+    });
+
+    if (error) {
+      alert("Erro ao enviar recuperação: " + error.message);
+      return;
+    }
+
+    alert("Enviamos um e-mail para recuperação de senha.");
+  }
 
   return (
-    <>
-      <Header />
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        gridTemplateColumns: "1.1fr 0.9fr",
+        background: "#eef1f5",
+        fontFamily: "Arial, Helvetica, sans-serif",
+      }}
+    >
+      <section
+        style={{
+          padding: "80px",
+          background:
+            "radial-gradient(circle at 25% 20%, rgba(124,58,237,0.30), transparent 32%), linear-gradient(135deg, #020617, #060816)",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
+        <h1 style={{ fontSize: 62, lineHeight: 1, margin: 0 }}>
+          Bem-vindo ao <br />
+          <span style={{ color: "#a78bfa" }}>OmniStage</span>
+        </h1>
 
-      <div style={{ padding: 40 }}>
-        <h1>Login OmniStage</h1>
+        <p style={{ fontSize: 22, maxWidth: 650, color: "#cbd5e1", marginTop: 24 }}>
+          Plataforma premium para criar eventos, gerenciar RSVP, convidados e check-in com QR Code.
+        </p>
 
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+        <div
           style={{
-            display: "block",
-            marginBottom: 10,
-            padding: 10,
-            width: 300,
+            marginTop: 50,
+            maxWidth: 620,
+            borderRadius: 28,
+            background: "rgba(15,23,42,0.78)",
+            border: "1px solid rgba(167,139,250,0.28)",
+            boxShadow: "0 30px 90px rgba(124,58,237,0.22)",
+            padding: 32,
           }}
-        />
-
-        <input
-          type="password"
-          placeholder="Senha"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          style={{
-            display: "block",
-            marginBottom: 20,
-            padding: 10,
-            width: 300,
-          }}
-        />
-
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          style={{ marginRight: 10 }}
         >
-          {loading ? "Aguarde..." : "Entrar"}
-        </button>
+          <h2 style={{ marginTop: 0 }}>Sistema RSVP Premium</h2>
+          <p style={{ color: "#94a3b8" }}>Convites digitais personalizados</p>
+          <p style={{ color: "#94a3b8" }}>Confirmação de presença em tempo real</p>
+          <p style={{ color: "#94a3b8" }}>Check-in com QR Code e controle de entrada</p>
+        </div>
+      </section>
 
-        <button onClick={handleCadastro} disabled={loading}>
-          Criar conta
-        </button>
-      </div>
-    </>
+      <section
+        style={{
+          background: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 50,
+          color: "#111827",
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: 430 }}>
+          <h2 style={{ fontSize: 44, textAlign: "center", margin: 0 }}>
+            OmniStage
+          </h2>
+
+          <h3 style={{ fontSize: 26, textAlign: "center", marginTop: 10, marginBottom: 28 }}>
+            Acesse sua conta
+          </h3>
+
+          <button
+            onClick={entrarComGoogle}
+            style={{
+              width: "100%",
+              padding: 15,
+              borderRadius: 12,
+              border: "1px solid #d1d5db",
+              background: "#fff",
+              color: "#111827",
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: "pointer",
+              marginBottom: 22,
+            }}
+          >
+            Entrar com Google
+          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+            <div style={{ height: 1, background: "#e5e7eb", flex: 1 }} />
+            <span style={{ color: "#6b7280" }}>ou</span>
+            <div style={{ height: 1, background: "#e5e7eb", flex: 1 }} />
+          </div>
+
+          <input
+            type="email"
+            placeholder="E-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "16px 18px",
+              borderRadius: 12,
+              border: "1px solid #d1d5db",
+              marginBottom: 14,
+              fontSize: 16,
+              background: "#f3f6fb",
+            }}
+          />
+
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <input
+              type={mostrarSenha ? "text" : "password"}
+              placeholder="Senha"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "16px 52px 16px 18px",
+                borderRadius: 12,
+                border: "1px solid #d1d5db",
+                fontSize: 16,
+                background: "#f3f6fb",
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setMostrarSenha(!mostrarSenha)}
+              style={{
+                position: "absolute",
+                right: 12,
+                top: 12,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "#6b7280",
+                fontWeight: 700,
+              }}
+            >
+              {mostrarSenha ? "Ocultar" : "Ver"}
+            </button>
+          </div>
+
+          <button
+            onClick={esqueciSenha}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#7c3aed",
+              cursor: "pointer",
+              fontWeight: 700,
+              marginBottom: 16,
+              padding: 0,
+            }}
+          >
+            Esqueci minha senha
+          </button>
+
+          <label
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              fontSize: 14,
+              color: "#4b5563",
+              marginBottom: 18,
+              lineHeight: 1.4,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={aceitouTermos}
+              onChange={(e) => setAceitouTermos(e.target.checked)}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              Concordo com os{" "}
+              <a href="/terms" style={{ color: "#7c3aed", fontWeight: 700 }}>
+                Termos de Serviço
+              </a>{" "}
+              e a{" "}
+              <a href="/privacy" style={{ color: "#7c3aed", fontWeight: 700 }}>
+                Política de Privacidade
+              </a>
+              .
+            </span>
+          </label>
+
+          {turnstileKey ? (
+            <div
+              ref={captchaRef}
+              style={{
+                minHeight: 70,
+                marginBottom: 18,
+              }}
+            />
+          ) : (
+            <p style={{ color: "#9ca3af", fontSize: 13 }}>
+              CAPTCHA ainda não configurado.
+            </p>
+          )}
+
+          <button
+            onClick={entrar}
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: 16,
+              borderRadius: 999,
+              border: "none",
+              background: "linear-gradient(135deg, #7c3aed, #4c1d95)",
+              color: "#fff",
+              fontSize: 18,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: "0 16px 36px rgba(124,58,237,0.35)",
+            }}
+          >
+            {loading ? "Aguarde..." : "Entrar"}
+          </button>
+
+          <button
+            onClick={criarConta}
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: 16,
+              borderRadius: 999,
+              border: "1px solid #7c3aed",
+              background: "#fff",
+              color: "#4c1d95",
+              fontSize: 16,
+              fontWeight: 800,
+              cursor: "pointer",
+              marginTop: 12,
+            }}
+          >
+            Criar conta
+          </button>
+
+          <p style={{ textAlign: "center", marginTop: 22, color: "#6b7280", fontSize: 14 }}>
+            OmniStage © 2026
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }
