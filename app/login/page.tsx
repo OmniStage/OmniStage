@@ -93,7 +93,42 @@ export default function LoginPage() {
   }
 
   async function entrar() {
-    if (!validarFormulario()) return; 
+  if (!validarFormulario()) return;
+
+  // 🔐 valida captcha no backend
+  const validacao = await fetch("/api/validate-captcha", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: captchaToken }),
+  });
+
+  const result = await validacao.json();
+
+  if (!result.success) {
+    alert("Falha na validação de segurança.");
+    return;
+  }
+
+  setLoading(true);
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password: senha.trim(),
+    options: {
+      ...(captchaToken ? { captchaToken } : {}),
+    },
+  });
+
+  setLoading(false);
+
+  if (error) {
+    resetCaptcha();
+    alert("Erro ao entrar: " + error.message);
+    return;
+  }
+
+  window.location.href = "/app";
+}
 
     if (window.turnstile && widgetId.current) {
   window.turnstile.reset(widgetId.current);
