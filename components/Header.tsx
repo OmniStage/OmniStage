@@ -1,6 +1,6 @@
 "use client";
 
-export default function Header() {
+function Header() {
   return (
     <header
       style={{
@@ -13,25 +13,17 @@ export default function Header() {
         background: "#020617",
       }}
     >
-      <h1
-        style={{
-          margin: 0,
-          fontSize: 28,
-          fontWeight: 800,
-          letterSpacing: 1,
-        }}
-      >
+      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>
         Omni<span style={{ color: "#a78bfa" }}>Stage</span>
       </h1>
 
       <nav style={{ display: "flex", gap: 20 }}>
-        <a href="/" style={{ color: "#cbd5e1" }}>
-          Home
-        </a>
-        <a href="/login" style={{ color: "#cbd5e1" }}>
-          Login
-        </a>
+        <a href="/" style={{ color: "#cbd5e1" }}>Home</a>
+        <a href="/login" style={{ color: "#cbd5e1" }}>Login</a>
       </nav>
     </header>
   );
 }
+
+export { Header };
+export default Header;
