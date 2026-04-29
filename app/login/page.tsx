@@ -22,7 +22,6 @@ export default function LoginPage() {
 
   const captchaRef = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
-
   const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
@@ -83,6 +82,7 @@ export default function LoginPage() {
 
   function resetCaptcha() {
     setCaptchaToken("");
+
     if (window.turnstile && widgetId.current) {
       window.turnstile.reset(widgetId.current);
     }
@@ -135,7 +135,10 @@ export default function LoginPage() {
     }
 
     resetCaptcha();
-    alert("Enviamos um e-mail de confirmação. Confirme seu e-mail antes de entrar.");
+
+    alert(
+      "Se este e-mail já tiver cadastro, use Entrar ou Esqueci minha senha.\n\nSe for um novo cadastro, enviamos um e-mail de confirmação."
+    );
   }
 
   async function entrarComGoogle() {
@@ -150,6 +153,24 @@ export default function LoginPage() {
         redirectTo: `${window.location.origin}/app`,
       },
     });
+  }
+
+  async function esqueciSenha() {
+    if (!email.trim()) {
+      alert("Digite seu e-mail primeiro.");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login`,
+    });
+
+    if (error) {
+      alert("Erro ao enviar recuperação: " + error.message);
+      return;
+    }
+
+    alert("Enviamos um link para redefinir sua senha.");
   }
 
   return (
@@ -283,6 +304,22 @@ export default function LoginPage() {
             </button>
           </div>
 
+          <button
+            type="button"
+            onClick={esqueciSenha}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#7c3aed",
+              cursor: "pointer",
+              fontWeight: 700,
+              padding: 0,
+              marginBottom: 16,
+            }}
+          >
+            Já tenho conta / Esqueci minha senha
+          </button>
+
           <label style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 18 }}>
             <input
               type="checkbox"
@@ -339,6 +376,12 @@ export default function LoginPage() {
           >
             Criar conta
           </button>
+
+          <p style={{ color: "#6b7280", fontSize: 12, textAlign: "center", marginTop: 12 }}>
+            Se este e-mail já tiver cadastro, use “Entrar” ou “Esqueci minha senha”.
+            <br />
+            Se for novo, enviaremos confirmação por e-mail.
+          </p>
 
           <p style={{ textAlign: "center", marginTop: 22, color: "#6b7280", fontSize: 14 }}>
             OmniStage © 2026
