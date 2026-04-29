@@ -8,7 +8,7 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const { data: guests, error } = await supabase
     .from("convidados")
-    .select("id, nome, telefone, status, criado_em");
+    .select("*");
 
   // 🚨 Se der erro, mostra na tela (muito importante)
   if (error) {
