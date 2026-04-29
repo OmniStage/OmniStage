@@ -22,12 +22,11 @@ export default function LoginPage() {
 
   const captchaRef = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
+
   const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
     if (!turnstileKey) return;
-
-    const scriptId = "turnstile-script";
 
     const renderCaptcha = () => {
       if (captchaRef.current && window.turnstile && !widgetId.current) {
@@ -40,36 +39,31 @@ export default function LoginPage() {
       }
     };
 
-    if (document.getElementById(scriptId)) {
+    if (window.turnstile) {
       renderCaptcha();
       return;
     }
 
     const script = document.createElement("script");
-    script.id = scriptId;
     script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
     script.async = true;
     script.defer = true;
     script.onload = renderCaptcha;
-
     document.body.appendChild(script);
   }, [turnstileKey]);
 
   function validarFormulario() {
-    const emailLimpo = email.trim();
-    const senhaLimpa = senha.trim();
-
-    if (!emailLimpo) {
+    if (!email.trim()) {
       alert("Preencha o e-mail.");
       return false;
     }
 
-    if (!senhaLimpa) {
+    if (!senha.trim()) {
       alert("Preencha a senha.");
       return false;
     }
 
-    if (senhaLimpa.length < 6) {
+    if (senha.trim().length < 6) {
       alert("A senha precisa ter no mínimo 6 caracteres.");
       return false;
     }
@@ -89,7 +83,6 @@ export default function LoginPage() {
 
   function resetCaptcha() {
     setCaptchaToken("");
-
     if (window.turnstile && widgetId.current) {
       window.turnstile.reset(widgetId.current);
     }
@@ -159,39 +152,20 @@ export default function LoginPage() {
     });
   }
 
-  async function esqueciSenha() {
-    if (!email.trim()) {
-      alert("Digite seu e-mail primeiro.");
-      return;
-    }
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login`,
-    });
-
-    if (error) {
-      alert("Erro ao enviar recuperação: " + error.message);
-      return;
-    }
-
-    alert("Enviamos um e-mail para recuperação de senha.");
-  }
-
   return (
     <main
       style={{
         minHeight: "100vh",
         display: "grid",
         gridTemplateColumns: "1.1fr 0.9fr",
-        background: "#eef1f5",
         fontFamily: "Arial, Helvetica, sans-serif",
       }}
     >
       <section
         style={{
-          padding: "80px",
+          padding: 80,
           background:
-            "radial-gradient(circle at 25% 20%, rgba(124,58,237,0.30), transparent 32%), linear-gradient(135deg, #020617, #060816)",
+            "radial-gradient(circle at 25% 20%, rgba(124,58,237,0.35), transparent 32%), linear-gradient(135deg, #020617, #060816)",
           color: "#fff",
           display: "flex",
           flexDirection: "column",
@@ -228,11 +202,11 @@ export default function LoginPage() {
       <section
         style={{
           background: "#fff",
+          color: "#111827",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: 50,
-          color: "#111827",
         }}
       >
         <div style={{ width: "100%", maxWidth: 430 }}>
@@ -251,8 +225,6 @@ export default function LoginPage() {
               borderRadius: 12,
               border: "1px solid #d1d5db",
               background: "#fff",
-              color: "#111827",
-              fontSize: 16,
               fontWeight: 700,
               cursor: "pointer",
               marginBottom: 22,
@@ -260,12 +232,6 @@ export default function LoginPage() {
           >
             Entrar com Google
           </button>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
-            <div style={{ height: 1, background: "#e5e7eb", flex: 1 }} />
-            <span style={{ color: "#6b7280" }}>ou</span>
-            <div style={{ height: 1, background: "#e5e7eb", flex: 1 }} />
-          </div>
 
           <input
             type="email"
@@ -317,57 +283,23 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={esqueciSenha}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#7c3aed",
-              cursor: "pointer",
-              fontWeight: 700,
-              marginBottom: 16,
-              padding: 0,
-            }}
-          >
-            Esqueci minha senha
-          </button>
-
-          <label
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-start",
-              fontSize: 14,
-              color: "#4b5563",
-              marginBottom: 18,
-              lineHeight: 1.4,
-            }}
-          >
+          <label style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 18 }}>
             <input
               type="checkbox"
               checked={aceitouTermos}
               onChange={(e) => setAceitouTermos(e.target.checked)}
-              style={{ marginTop: 2 }}
             />
             <span>
-              Concordo com os{" "}
-              <a href="/terms" style={{ color: "#7c3aed", fontWeight: 700 }}>
-                Termos de Serviço
-              </a>{" "}
-              e a{" "}
-              <a href="/privacy" style={{ color: "#7c3aed", fontWeight: 700 }}>
-                Política de Privacidade
-              </a>
-              .
+              Concordo com os <a href="/terms">Termos de Serviço</a> e a{" "}
+              <a href="/privacy">Política de Privacidade</a>.
             </span>
           </label>
 
           {turnstileKey ? (
             <div ref={captchaRef} style={{ minHeight: 70, marginBottom: 18 }} />
           ) : (
-            <p style={{ color: "#9ca3af", fontSize: 13 }}>
-              CAPTCHA ainda não configurado.
+            <p style={{ color: "red", fontSize: 13 }}>
+              CAPTCHA não carregou: variável NEXT_PUBLIC_TURNSTILE_SITE_KEY ausente.
             </p>
           )}
 
@@ -384,7 +316,6 @@ export default function LoginPage() {
               fontSize: 18,
               fontWeight: 800,
               cursor: "pointer",
-              boxShadow: "0 16px 36px rgba(124,58,237,0.35)",
             }}
           >
             {loading ? "Aguarde..." : "Entrar"}
