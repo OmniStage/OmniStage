@@ -1,5 +1,5 @@
 import { Header } from "@/components/Header";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/biblioteca/supabase";
 
 // 🔥 FORÇA o Next.js a NÃO cachear (ESSENCIAL)
 export const dynamic = "force-dynamic";
