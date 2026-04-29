@@ -21,3 +21,4 @@ npm run dev
 1. Conectar Supabase em `lib/supabase.ts`
 2. Criar tabelas `eventos`, `convidados`, `checkins`, `envios`
 3. Substituir dados mockados por consultas reais
+deploy teste
