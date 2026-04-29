@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (data.user) {
+        window.location.href = "/app";
+      }
+    };
+
+    checkUser();
+  }, []);
 
   async function entrar() {
     setLoading(true);
@@ -23,7 +35,7 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = "/";
+    window.location.href = "/app";
   }
 
   async function criarConta() {
@@ -32,6 +44,11 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password: senha,
+      options: {
+        data: {
+          nome: "Cliente OmniStage",
+        },
+      },
     });
 
     setLoading(false);
