@@ -10,42 +10,56 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email || !senha) {
+      alert("Preencha email e senha");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
+      email: email.trim(),
+      password: senha.trim(),
     });
 
     setLoading(false);
 
     if (error) {
       alert("Erro: " + error.message);
-    } else {
-      window.location.href = "/";
+      return;
     }
+
+    window.location.href = "/";
   };
 
   const handleCadastro = async () => {
+    if (!email || !senha) {
+      alert("Preencha email e senha");
+      return;
+    }
+
+    if (senha.length < 6) {
+      alert("Senha precisa ter no mínimo 6 caracteres");
+      return;
+    }
+
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        data: {
-          nome: "Cliente OmniStage",
-        },
-      },
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: senha.trim(),
     });
+
+    console.log("CADASTRO:", data, error);
 
     setLoading(false);
 
     if (error) {
       alert("Erro: " + error.message);
-    } else {
-      alert("Conta criada! Faça login.");
+      return;
     }
+
+    alert("Conta criada com sucesso! Agora faça login.");
   };
 
   return (
@@ -85,7 +99,7 @@ export default function Login() {
           disabled={loading}
           style={{ marginRight: 10 }}
         >
-          {loading ? "Entrando..." : "Entrar"}
+          {loading ? "Aguarde..." : "Entrar"}
         </button>
 
         <button onClick={handleCadastro} disabled={loading}>
