@@ -1,32 +1,49 @@
+"use client";
 
-import { Header } from "@/components/Header";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function HomePage() {
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (!data.user) {
+        window.location.href = "/login";
+      }
+    };
+
+    checkUser();
+  }, []);
+
   return (
     <main className="page">
       <div className="shell">
-        <Header />
-        <section className="grid">
-          <div className="card hero">
-            <p>Base profissional</p>
-            <h1>Sistema OmniStage</h1>
-            <p>
-              Estrutura inicial em Next.js para convite digital, check-in com QR Code,
-              dashboard do evento e futura integração com Supabase.
-            </p>
-            <div className="nav" style={{ marginTop: 18 }}>
-              <a className="btn gold" href="/dashboard">Abrir dashboard</a>
-              <a className="btn" href="/checkin">Ir para check-in</a>
-            </div>
-          </div>
-          <aside className="card side">
-            <h2>Módulos</h2>
-            <p>Convite digital</p>
-            <p>Check-in</p>
-            <p>Painel de resultados</p>
-            <p>Supabase pronto para conectar</p>
-          </aside>
-        </section>
+        <h1>Área do Cliente</h1>
+        <p>Gerencie seus eventos, convidados, RSVP e check-in.</p>
+
+        <div className="nav" style={{ marginTop: 24 }}>
+          <button
+            className="btn gold"
+            onClick={() => (window.location.href = "/eventos/novo")}
+          >
+            Criar Evento
+          </button>
+
+          <button
+            className="btn"
+            onClick={() => (window.location.href = "/dashboard")}
+          >
+            Ver Dashboard
+          </button>
+
+          <button
+            className="btn"
+            onClick={() => (window.location.href = "/checkin")}
+          >
+            Ir para Check-in
+          </button>
+        </div>
       </div>
     </main>
   );
