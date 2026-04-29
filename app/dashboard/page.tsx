@@ -1,5 +1,5 @@
-import { Header } from "@/components/Header";
-import { DashboardClient } from "@/componentes/DashboardClient";
+import { Header } from "../../componentes/Header";
+import { DashboardClient } from "../../componentes/DashboardClient";
 
 export default function DashboardPage() {
   return (
