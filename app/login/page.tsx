@@ -31,10 +31,11 @@ export default function LoginPage() {
     const renderCaptcha = () => {
       if (captchaRef.current && window.turnstile && !widgetId.current) {
         widgetId.current = window.turnstile.render(captchaRef.current, {
-          sitekey: turnstileKey,
-          callback: (token: string) => setCaptchaToken(token),
-          "expired-callback": () => setCaptchaToken(""),
-          "error-callback": () => setCaptchaToken(""),
+  sitekey: turnstileKey,
+  size: "invisible",
+  callback: (token: string) => setCaptchaToken(token),
+  "expired-callback": () => setCaptchaToken(""),
+  "error-callback": () => setCaptchaToken(""),
         });
       }
     };
