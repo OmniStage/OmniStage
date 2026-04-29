@@ -93,8 +93,11 @@ export default function LoginPage() {
   }
 
   async function entrar() {
-    if (!validarFormulario()) return;
+    if (!validarFormulario()) return; 
 
+    if (window.turnstile && widgetId.current) {
+  window.turnstile.reset(widgetId.current);
+}
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
