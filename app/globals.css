@@ -166,3 +166,35 @@ p { color: var(--muted); line-height: 1.55; }
   .hero, .side { grid-column: 1 / -1; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
+.kpis .card {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  transition: 0.3s;
+}
+
+.kpis .card strong {
+  font-size: 32px;
+  color: #f5c96a;
+}
+
+.kpis .card:hover {
+  transform: translateY(-4px);
+}
+
+.badge.entrou {
+  background: #16a34a;
+  color: white;
+}
+
+.badge.confirmado {
+  background: #2563eb;
+  color: white;
+}
+
+.badge.pendente {
+  background: #f59e0b;
+  color: black;
+}
