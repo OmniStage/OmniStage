@@ -8,10 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.0.0",
     "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@types/react": "latest",
+    "@types/node": "latest"
   }
 }
