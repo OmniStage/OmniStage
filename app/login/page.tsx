@@ -122,6 +122,10 @@ export default function LoginPage() {
   async function criarConta() {
     if (!validarFormulario()) return;
 
+    if (window.turnstile && widgetId.current) {
+    window.turnstile.reset(widgetId.current);
+  }
+    
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
@@ -165,6 +169,9 @@ export default function LoginPage() {
   async function esqueciSenha() {
     if (!validarFormulario()) return;
 
+    if (window.turnstile && widgetId.current) {
+    window.turnstile.reset(widgetId.current);
+  }
     setLoading(true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
