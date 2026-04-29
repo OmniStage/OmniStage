@@ -7,7 +7,8 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const { data: guests, error } = await supabase
     .from("convidados")
-    .select("*");
+    .select("*")
+    .order("criado_em", { ascending: false });
 
   if (error) {
     return (
@@ -26,9 +27,9 @@ export default async function DashboardPage() {
   const safeGuests = guests || [];
 
   const total = safeGuests.length;
-  const confirmados = safeGuests.filter((g) => g.status === "confirmado").length;
-  const pendentes = safeGuests.filter((g) => g.status === "pendente").length;
-  const entradas = safeGuests.filter((g) => g.status === "entrou").length;
+  const confirmados = safeGuests.filter((g) => g.status_rsvp === "confirmado").length;
+  const pendentes = safeGuests.filter((g) => g.status_rsvp === "pendente").length;
+  const entradas = safeGuests.filter((g) => g.checkin_realizado === true).length;
 
   return (
     <main className="page">
@@ -71,11 +72,13 @@ export default async function DashboardPage() {
                   <div key={g.id} className="guest">
                     <div>
                       <strong>{g.nome}</strong>
-                      <p>{g.telefone}</p>
+                      <p>
+                        {g.telefone || "Sem telefone"} · Token {g.token}
+                      </p>
                     </div>
 
-                    <span className={`badge ${g.status}`}>
-                      {g.status}
+                    <span className={`badge ${g.checkin_realizado ? "entrou" : g.status_rsvp}`}>
+                      {g.checkin_realizado ? "entrou" : g.status_rsvp}
                     </span>
                   </div>
                 ))
