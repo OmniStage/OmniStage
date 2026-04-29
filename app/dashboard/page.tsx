@@ -1,3 +1,7 @@
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { Header } from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 
