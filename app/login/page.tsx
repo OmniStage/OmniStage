@@ -22,37 +22,54 @@ export default function LoginPage() {
 
   const captchaRef = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
-
   const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
     if (!turnstileKey) return;
 
-    const script = document.createElement("script");
-    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-    script.async = true;
-    script.defer = true;
+    const scriptId = "turnstile-script";
 
-    script.onload = () => {
+    const renderCaptcha = () => {
       if (captchaRef.current && window.turnstile && !widgetId.current) {
         widgetId.current = window.turnstile.render(captchaRef.current, {
           sitekey: turnstileKey,
           callback: (token: string) => setCaptchaToken(token),
           "expired-callback": () => setCaptchaToken(""),
+          "error-callback": () => setCaptchaToken(""),
         });
       }
     };
+
+    if (document.getElementById(scriptId)) {
+      renderCaptcha();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderCaptcha;
 
     document.body.appendChild(script);
   }, [turnstileKey]);
 
   function validarFormulario() {
-    if (!email || !senha) {
-      alert("Preencha e-mail e senha.");
+    const emailLimpo = email.trim();
+    const senhaLimpa = senha.trim();
+
+    if (!emailLimpo) {
+      alert("Preencha o e-mail.");
       return false;
     }
 
-    if (senha.length < 6) {
+    if (!senhaLimpa) {
+      alert("Preencha a senha.");
+      return false;
+    }
+
+    if (senhaLimpa.length < 6) {
       alert("A senha precisa ter no mínimo 6 caracteres.");
       return false;
     }
@@ -124,6 +141,7 @@ export default function LoginPage() {
       return;
     }
 
+    resetCaptcha();
     alert("Enviamos um e-mail de confirmação. Confirme seu e-mail antes de entrar.");
   }
 
@@ -142,7 +160,7 @@ export default function LoginPage() {
   }
 
   async function esqueciSenha() {
-    if (!email) {
+    if (!email.trim()) {
       alert("Digite seu e-mail primeiro.");
       return;
     }
@@ -218,9 +236,7 @@ export default function LoginPage() {
         }}
       >
         <div style={{ width: "100%", maxWidth: 430 }}>
-          <h2 style={{ fontSize: 44, textAlign: "center", margin: 0 }}>
-            OmniStage
-          </h2>
+          <h2 style={{ fontSize: 44, textAlign: "center", margin: 0 }}>OmniStage</h2>
 
           <h3 style={{ fontSize: 26, textAlign: "center", marginTop: 10, marginBottom: 28 }}>
             Acesse sua conta
@@ -228,6 +244,7 @@ export default function LoginPage() {
 
           <button
             onClick={entrarComGoogle}
+            disabled={loading}
             style={{
               width: "100%",
               padding: 15,
@@ -301,6 +318,7 @@ export default function LoginPage() {
           </div>
 
           <button
+            type="button"
             onClick={esqueciSenha}
             style={{
               border: "none",
