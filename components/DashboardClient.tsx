@@ -3,92 +3,47 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Guest = {
-  id: string;
-  nome: string;
-  telefone: string | null;
-  token: string;
-  status_rsvp: string;
-  checkin_realizado: boolean;
-};
-
 export function DashboardClient() {
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [status, setStatus] = useState("Carregando...");
+  const [dados, setDados] = useState<any[]>([]);
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     async function carregar() {
       const { data, error } = await supabase
         .from("convidados")
-        .select("*")
-        .order("criado_em", { ascending: false });
+        .select("*");
 
       if (error) {
-        setError(error.message);
-      } else {
-        setGuests(data || []);
+        setErro(`${error.code || ""} - ${error.message}`);
+        setStatus("Erro");
+        return;
       }
 
-      setLoading(false);
+      setDados(data || []);
+      setStatus("Conectado");
     }
 
     carregar();
   }, []);
 
-  const total = guests.length;
-  const confirmados = guests.filter((g) => g.status_rsvp === "confirmado").length;
-  const pendentes = guests.filter((g) => g.status_rsvp === "pendente").length;
-  const entradas = guests.filter((g) => g.checkin_realizado === true).length;
-
-  if (loading) {
-    return (
-      <section className="card full">
-        <h2>Carregando dados...</h2>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section className="card full">
-        <h2>Erro ao carregar dados</h2>
-        <p>{error}</p>
-      </section>
-    );
-  }
-
   return (
-    <section className="grid">
-      <div className="full kpis">
-        <div className="card"><strong>{total}</strong><p>Total</p></div>
-        <div className="card"><strong>{confirmados}</strong><p>Confirmados</p></div>
-        <div className="card"><strong>{pendentes}</strong><p>Pendentes</p></div>
-        <div className="card"><strong>{entradas}</strong><p>Entradas</p></div>
-      </div>
+    <section className="card full">
+      <h2>Diagnóstico Supabase</h2>
 
-      <section className="card full">
-        <h2>Convidados</h2>
+      <p>Status: {status}</p>
+      <p>Registros encontrados: {dados.length}</p>
 
-        <div className="list">
-          {guests.length === 0 ? (
-            <p style={{ opacity: 0.6 }}>Nenhum convidado encontrado no banco.</p>
-          ) : (
-            guests.map((g) => (
-              <div key={g.id} className="guest">
-                <div>
-                  <strong>{g.nome}</strong>
-                  <p>{g.telefone || "Sem telefone"} · Token {g.token}</p>
-                </div>
+      {erro && (
+        <>
+          <h3>Erro:</h3>
+          <p>{erro}</p>
+        </>
+      )}
 
-                <span className={`badge ${g.checkin_realizado ? "entrou" : g.status_rsvp}`}>
-                  {g.checkin_realizado ? "entrou" : g.status_rsvp}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+      <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>
+        {JSON.stringify(dados, null, 2)}
+      </pre>
     </section>
   );
 }
