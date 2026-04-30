@@ -6,8 +6,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/dashboard";
-  const redirectTo = next.startsWith("/") ? next : "/dashboard";
+
+  // 🔥 CORRETO AGORA
+  const next = requestUrl.searchParams.get("next") || "/app/dashboard";
+  const redirectTo = next.startsWith("/") ? next : "/app/dashboard";
 
   let response = NextResponse.redirect(new URL(redirectTo, requestUrl.origin));
 
@@ -23,7 +25,13 @@ export async function GET(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options: any;
+          }[]
+        ) {
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
@@ -42,4 +50,3 @@ export async function GET(request: NextRequest) {
 
   return response;
 }
-
