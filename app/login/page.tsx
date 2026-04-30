@@ -31,11 +31,11 @@ export default function LoginPage() {
     const renderCaptcha = () => {
       if (captchaRef.current && window.turnstile && !widgetId.current) {
         widgetId.current = window.turnstile.render(captchaRef.current, {
-  sitekey: turnstileKey,
-  size: "invisible",
-  callback: (token: string) => setCaptchaToken(token),
-  "expired-callback": () => setCaptchaToken(""),
-  "error-callback": () => setCaptchaToken(""),
+          sitekey: turnstileKey,
+          size: "invisible",
+          callback: (token: string) => setCaptchaToken(token),
+          "expired-callback": () => setCaptchaToken(""),
+          "error-callback": () => setCaptchaToken(""),
         });
       }
     };
@@ -77,7 +77,7 @@ export default function LoginPage() {
     }
 
     if (turnstileKey && !captchaToken) {
-      alert("Confirme que você não é um robô.");
+      alert("Validação de segurança ainda não concluída. Tente novamente em alguns segundos.");
       return false;
     }
 
@@ -92,47 +92,32 @@ export default function LoginPage() {
     }
   }
 
+  async function validarCaptchaBackend() {
+    if (!turnstileKey) return true;
+
+    const validacao = await fetch("/api/validate-captcha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: captchaToken }),
+    });
+
+    const result = await validacao.json();
+
+    if (!result.success) {
+      alert("Falha na validação de segurança.");
+      resetCaptcha();
+      return false;
+    }
+
+    return true;
+  }
+
   async function entrar() {
-  if (!validarFormulario()) return;
+    if (!validarFormulario()) return;
 
-  // 🔐 valida captcha no backend
-  const validacao = await fetch("/api/validate-captcha", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: captchaToken }),
-  });
+    const captchaOk = await validarCaptchaBackend();
+    if (!captchaOk) return;
 
-  const result = await validacao.json();
-
-  if (!result.success) {
-    alert("Falha na validação de segurança.");
-    return;
-  }
-
-  setLoading(true);
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email: email.trim(),
-    password: senha.trim(),
-    options: {
-      ...(captchaToken ? { captchaToken } : {}),
-    },
-  });
-
-  setLoading(false);
-
-  if (error) {
-    resetCaptcha();
-    alert("Erro ao entrar: " + error.message);
-    return;
-  }
-
-  window.location.href = "/app";
-}
-
-    if (window.turnstile && widgetId.current) {
-  window.turnstile.reset(widgetId.current);
-}
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -151,52 +136,16 @@ export default function LoginPage() {
       return;
     }
 
+    resetCaptcha();
     window.location.href = "/app";
   }
 
   async function criarConta() {
-  if (!validarFormulario()) return;
+    if (!validarFormulario()) return;
 
-  // 🔐 valida captcha no backend
-  const validacao = await fetch("/api/validate-captcha", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: captchaToken }),
-  });
+    const captchaOk = await validarCaptchaBackend();
+    if (!captchaOk) return;
 
-  const result = await validacao.json();
-
-  if (!result.success) {
-    alert("Falha na validação de segurança.");
-    return;
-  }
-
-  setLoading(true);
-
-  const { error } = await supabase.auth.signUp({
-    email: email.trim(),
-    password: senha.trim(),
-    options: {
-      ...(captchaToken ? { captchaToken } : {}),
-    },
-  });
-
-  setLoading(false);
-
-  if (error) {
-    alert("Erro ao criar conta: " + error.message);
-    return;
-  }
-
-  alert(
-    "Se este e-mail já tiver cadastro, use Entrar ou Esqueci minha senha.\nSe for novo, enviamos um e-mail de confirmação."
-  );
-
-  // 🔄 reset só depois de usar
-  if (window.turnstile && widgetId.current) {
-    window.turnstile.reset(widgetId.current);
-  }
-}   
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
@@ -238,40 +187,31 @@ export default function LoginPage() {
   }
 
   async function esqueciSenha() {
-  if (!validarFormulario()) return;
+    if (!validarFormulario()) return;
 
-  const validacao = await fetch("/api/validate-captcha", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: captchaToken }),
-  });
+    const captchaOk = await validarCaptchaBackend();
+    if (!captchaOk) return;
 
-  const result = await validacao.json();
+    setLoading(true);
 
-  if (!result.success) {
-    alert("Falha na validação de segurança.");
-    return;
-  }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login`,
+      ...(captchaToken ? { captchaToken } : {}),
+    });
 
-  setLoading(true);
+    setLoading(false);
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: `${window.location.origin}/login`,
-    ...(captchaToken ? { captchaToken } : {}),
-  });
+    if (error) {
+      resetCaptcha();
+      alert("Erro ao enviar recuperação: " + error.message);
+      return;
+    }
 
-  setLoading(false);
-
-  if (error) {
     resetCaptcha();
-    alert("Erro ao enviar recuperação: " + error.message);
-    return;
+    alert("Enviamos um link para redefinir sua senha.");
+    setModoRecuperacao(false);
   }
 
-  resetCaptcha();
-  alert("Enviamos um link para redefinir sua senha.");
-  setModoRecuperacao(false);
-}
   return (
     <main
       style={{
@@ -281,6 +221,8 @@ export default function LoginPage() {
         fontFamily: "Arial, Helvetica, sans-serif",
       }}
     >
+      <div ref={captchaRef} style={{ display: "none" }} />
+
       <section
         style={{
           padding: 80,
@@ -490,9 +432,7 @@ export default function LoginPage() {
                 </span>
               </label>
 
-              {turnstileKey ? (
-                <div ref={captchaRef} style={{ minHeight: 70, marginBottom: 18 }} />
-              ) : (
+              {!turnstileKey && (
                 <p style={{ color: "red", fontSize: 13 }}>
                   CAPTCHA não carregou: variável NEXT_PUBLIC_TURNSTILE_SITE_KEY ausente.
                 </p>
