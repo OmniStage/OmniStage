@@ -16,6 +16,7 @@ export default function AdminLayout({
     { name: "Redes / Franquias", href: "/admin/redes" },
     { name: "Eventos", href: "/admin/eventos" },
     { name: "Usuários", href: "/admin/usuarios" },
+    { name: "Usuários x Redes", href: "/admin/usuarios-rede" },
     { name: "Planos", href: "/admin/planos" },
     { name: "Configurações", href: "/admin/configuracoes" },
   ];
