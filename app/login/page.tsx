@@ -164,6 +164,21 @@ export default function LoginPage() {
       return;
     }
 
+    const { data: networkAccess, error: networkError } = await supabase
+      .from("network_members")
+      .select("network_id")
+      .eq("user_id", userId);
+
+    if (networkError) {
+      console.error("Erro ao buscar redes do usuário:", networkError);
+    }
+
+    if (networkAccess && networkAccess.length > 0) {
+      router.replace("/app/network");
+      router.refresh();
+      return;
+    }
+
     router.replace("/app/dashboard");
     router.refresh();
   }
