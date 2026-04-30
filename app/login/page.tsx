@@ -139,6 +139,21 @@ export default function LoginPage() {
     });
   }
 
+  async function redirecionarAposLogin(userId: string) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (profile?.role === "platform_admin") {
+      window.location.href = "/admin";
+      return;
+    }
+
+    window.location.href = "/app/dashboard";
+  }
+
   async function entrar() {
     if (!validarFormulario()) return;
 
@@ -150,7 +165,7 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: senha.trim(),
       options: {
@@ -167,7 +182,13 @@ export default function LoginPage() {
     }
 
     resetCaptcha();
-    window.location.href = "/dashboard";
+
+    if (data.user?.id) {
+      await redirecionarAposLogin(data.user.id);
+      return;
+    }
+
+    window.location.href = "/app/dashboard";
   }
 
   async function criarConta() {
@@ -216,7 +237,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/app/dashboard`,
       },
     });
 
