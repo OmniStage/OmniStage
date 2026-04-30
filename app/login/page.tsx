@@ -7,6 +7,7 @@ declare global {
   interface Window {
     turnstile?: {
       render: (el: HTMLElement, options: any) => string;
+      execute: (id?: string) => void;
       reset: (id?: string) => void;
     };
   }
@@ -23,6 +24,8 @@ export default function LoginPage() {
 
   const captchaRef = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
+  const captchaResolve = useRef<((token: string) => void) | null>(null);
+  const captchaReject = useRef<(() => void) | null>(null);
   const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
@@ -33,9 +36,25 @@ export default function LoginPage() {
         widgetId.current = window.turnstile.render(captchaRef.current, {
           sitekey: turnstileKey,
           size: "invisible",
-          callback: (token: string) => setCaptchaToken(token),
-          "expired-callback": () => setCaptchaToken(""),
-          "error-callback": () => setCaptchaToken(""),
+          execution: "execute",
+          callback: (token: string) => {
+            setCaptchaToken(token);
+            captchaResolve.current?.(token);
+            captchaResolve.current = null;
+            captchaReject.current = null;
+          },
+          "expired-callback": () => {
+            setCaptchaToken("");
+            captchaReject.current?.();
+            captchaResolve.current = null;
+            captchaReject.current = null;
+          },
+          "error-callback": () => {
+            setCaptchaToken("");
+            captchaReject.current?.();
+            captchaResolve.current = null;
+            captchaReject.current = null;
+          },
         });
       }
     };
@@ -76,11 +95,6 @@ export default function LoginPage() {
       return false;
     }
 
-    if (turnstileKey && !captchaToken) {
-      alert("Validação de segurança ainda não concluída. Tente novamente em alguns segundos.");
-      return false;
-    }
-
     return true;
   }
 
@@ -92,8 +106,47 @@ export default function LoginPage() {
     }
   }
 
+  async function gerarCaptchaToken() {
+    if (!turnstileKey) return "";
+
+    if (!window.turnstile || !widgetId.current) {
+      alert("Validação de segurança ainda não carregou. Tente novamente em alguns segundos.");
+      return null;
+    }
+
+    setCaptchaToken("");
+
+    return new Promise<string | null>((resolve) => {
+      const timeout = window.setTimeout(() => {
+        captchaResolve.current = null;
+        captchaReject.current = null;
+        resetCaptcha();
+        resolve(null);
+      }, 12000);
+
+      captchaResolve.current = (token: string) => {
+        window.clearTimeout(timeout);
+        resolve(token);
+      };
+
+      captchaReject.current = () => {
+        window.clearTimeout(timeout);
+        resolve(null);
+      };
+
+      window.turnstile?.reset(widgetId.current || undefined);
+      window.turnstile?.execute(widgetId.current || undefined);
+    });
+  }
+
   async function entrar() {
     if (!validarFormulario()) return;
+
+    const token = await gerarCaptchaToken();
+    if (token === null) {
+      alert("Falha na validação de segurança.");
+      return;
+    }
 
     setLoading(true);
 
@@ -101,7 +154,7 @@ export default function LoginPage() {
       email: email.trim(),
       password: senha.trim(),
       options: {
-        ...(captchaToken ? { captchaToken } : {}),
+        ...(token ? { captchaToken: token } : {}),
       },
     });
 
@@ -114,11 +167,17 @@ export default function LoginPage() {
     }
 
     resetCaptcha();
-    window.location.href = "/app";
+    window.location.href = "/dashboard";
   }
 
   async function criarConta() {
     if (!validarFormulario()) return;
+
+    const token = await gerarCaptchaToken();
+    if (token === null) {
+      alert("Falha na validação de segurança.");
+      return;
+    }
 
     setLoading(true);
 
@@ -127,7 +186,7 @@ export default function LoginPage() {
       password: senha.trim(),
       options: {
         emailRedirectTo: `${window.location.origin}/login`,
-        ...(captchaToken ? { captchaToken } : {}),
+        ...(token ? { captchaToken: token } : {}),
       },
     });
 
@@ -152,22 +211,36 @@ export default function LoginPage() {
       return;
     }
 
-    await supabase.auth.signInWithOAuth({
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/app`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
       },
     });
+
+    setLoading(false);
+
+    if (error) {
+      alert("Erro ao entrar com Google: " + error.message);
+    }
   }
 
   async function esqueciSenha() {
     if (!validarFormulario()) return;
 
+    const token = await gerarCaptchaToken();
+    if (token === null) {
+      alert("Falha na validação de segurança.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/login`,
-      ...(captchaToken ? { captchaToken } : {}),
+      ...(token ? { captchaToken: token } : {}),
     });
 
     setLoading(false);
