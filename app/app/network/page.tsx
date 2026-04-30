@@ -68,10 +68,12 @@ export default function NetworkDashboardPage() {
       setLoading(false);
       return;
     }
+const member = memberData as any;
 
-    const member = memberData as NetworkMember;
-    setNetworkName(member.networks?.nome || "Rede");
+const network = member?.networks?.[0];
 
+setNetworkName(network?.nome || "Rede");
+    
     const { data: empresasDaRede, error: empresasError } = await supabase
       .from("network_tenants")
       .select("tenant_id, tenants(id, nome, plano, status)")
