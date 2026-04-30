@@ -10,19 +10,6 @@ type Empresa = {
   status?: string | null;
 };
 
-type NetworkTenant = {
-  tenant_id: string;
-  tenants: Empresa | null;
-};
-
-type NetworkMember = {
-  network_id: string;
-  networks: {
-    id: string;
-    nome: string;
-  } | null;
-};
-
 type Convidado = {
   id: string;
   tenant_id: string;
@@ -68,12 +55,15 @@ export default function NetworkDashboardPage() {
       setLoading(false);
       return;
     }
-const member = memberData as any;
 
-const network = member?.networks?.[0];
+    const member = memberData as any;
 
-setNetworkName(network?.nome || "Rede");
-    
+    const network = Array.isArray(member?.networks)
+      ? member.networks[0]
+      : member?.networks;
+
+    setNetworkName(network?.nome || "Rede");
+
     const { data: empresasDaRede, error: empresasError } = await supabase
       .from("network_tenants")
       .select("tenant_id, tenants(id, nome, plano, status)")
@@ -86,9 +76,12 @@ setNetworkName(network?.nome || "Rede");
     }
 
     const listaEmpresas =
-  ((empresasDaRede || []) as any[])
-    .map((item) => Array.isArray(item.tenants) ? item.tenants[0] : item.tenants)
-    .filter(Boolean) as Empresa[];
+      ((empresasDaRede || []) as any[])
+        .map((item) =>
+          Array.isArray(item.tenants) ? item.tenants[0] : item.tenants
+        )
+        .filter(Boolean) as Empresa[];
+
     setEmpresas(listaEmpresas);
 
     const tenantIds = listaEmpresas.map((empresa) => empresa.id);
@@ -272,7 +265,8 @@ const gridCards: React.CSSProperties = {
 };
 
 const metricCard: React.CSSProperties = {
-  background: "linear-gradient(145deg, rgba(15,23,42,0.95), rgba(30,41,59,0.82))",
+  background:
+    "linear-gradient(145deg, rgba(15,23,42,0.95), rgba(30,41,59,0.82))",
   border: "1px solid rgba(167,139,250,0.22)",
   borderRadius: 26,
   padding: 26,
@@ -323,3 +317,6 @@ const rankingRow: React.CSSProperties = {
   borderBottom: "1px solid rgba(148,163,184,0.14)",
   padding: "16px 0",
 };
+
+   
+    
