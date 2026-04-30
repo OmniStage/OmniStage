@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  })
 
   // 🔐 cria cliente Supabase no server
   const supabase = createServerClient(
@@ -11,14 +15,19 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value
+        getAll() {
+          return req.cookies.getAll()
         },
-        set(name: string, value: string, options: any) {
-          res.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options: any) {
-          res.cookies.set({ name, value: '', ...options })
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value))
+          res = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+          )
         },
       },
     }
@@ -29,8 +38,8 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // 🚫 bloqueia acesso ao /app sem login
-  if (!user && req.nextUrl.pathname.startsWith('/app')) {
+  // 🚫 bloqueia acesso às áreas internas sem login
+  if (!user) {
     return NextResponse.redirect(
       new URL('/login', req.nextUrl.origin)
     )
@@ -41,5 +50,5 @@ export async function middleware(req: NextRequest) {
 
 // 🎯 define rotas protegidas
 export const config = {
-  matcher: ['/app/:path*'],
+  matcher: ['/dashboard/:path*', '/invites/:path*', '/checkin/:path*'],
 }
