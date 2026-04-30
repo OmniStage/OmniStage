@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 declare global {
@@ -14,6 +15,8 @@ declare global {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -140,18 +143,29 @@ export default function LoginPage() {
   }
 
   async function redirecionarAposLogin(userId: string) {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single();
 
-    if (profile?.role === "platform_admin") {
-      window.location.href = "/admin";
+    await supabase.auth.getSession();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    if (error) {
+      console.error("Erro ao buscar profile:", error);
+      router.replace("/app/dashboard");
       return;
     }
 
-    window.location.href = "/app/dashboard";
+    if (profile?.role === "platform_admin") {
+      router.replace("/admin");
+      router.refresh();
+      return;
+    }
+
+    router.replace("/app/dashboard");
+    router.refresh();
   }
 
   async function entrar() {
@@ -184,11 +198,13 @@ export default function LoginPage() {
     resetCaptcha();
 
     if (data.user?.id) {
+      await supabase.auth.getSession();
       await redirecionarAposLogin(data.user.id);
       return;
     }
 
-    window.location.href = "/app/dashboard";
+    router.replace("/app/dashboard");
+    router.refresh();
   }
 
   async function criarConta() {
@@ -237,7 +253,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/app/dashboard`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/admin`,
       },
     });
 
