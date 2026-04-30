@@ -155,12 +155,48 @@ export default function LoginPage() {
   }
 
   async function criarConta() {
-    if (!validarFormulario()) return;
+  if (!validarFormulario()) return;
 
-    if (window.turnstile && widgetId.current) {
+  // 🔐 valida captcha no backend
+  const validacao = await fetch("/api/validate-captcha", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: captchaToken }),
+  });
+
+  const result = await validacao.json();
+
+  if (!result.success) {
+    alert("Falha na validação de segurança.");
+    return;
+  }
+
+  setLoading(true);
+
+  const { error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password: senha.trim(),
+    options: {
+      ...(captchaToken ? { captchaToken } : {}),
+    },
+  });
+
+  setLoading(false);
+
+  if (error) {
+    alert("Erro ao criar conta: " + error.message);
+    return;
+  }
+
+  alert(
+    "Se este e-mail já tiver cadastro, use Entrar ou Esqueci minha senha.\nSe for novo, enviamos um e-mail de confirmação."
+  );
+
+  // 🔄 reset só depois de usar
+  if (window.turnstile && widgetId.current) {
     window.turnstile.reset(widgetId.current);
   }
-    
+}   
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
@@ -202,28 +238,40 @@ export default function LoginPage() {
   }
 
   async function esqueciSenha() {
-    if (!validarFormulario()) return;
+  if (!validarFormulario()) return;
 
-    if (window.turnstile && widgetId.current) {
-    window.turnstile.reset(widgetId.current);
-  }
-    setLoading(true);
+  const validacao = await fetch("/api/validate-captcha", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: captchaToken }),
+  });
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login`,
-    });
+  const result = await validacao.json();
 
-    setLoading(false);
-
-    if (error) {
-      alert("Erro ao enviar recuperação: " + error.message);
-      return;
-    }
-
-    alert("Enviamos um link para redefinir sua senha.");
-    setModoRecuperacao(false);
+  if (!result.success) {
+    alert("Falha na validação de segurança.");
+    return;
   }
 
+  setLoading(true);
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/login`,
+    ...(captchaToken ? { captchaToken } : {}),
+  });
+
+  setLoading(false);
+
+  if (error) {
+    resetCaptcha();
+    alert("Erro ao enviar recuperação: " + error.message);
+    return;
+  }
+
+  resetCaptcha();
+  alert("Enviamos um link para redefinir sua senha.");
+  setModoRecuperacao(false);
+}
   return (
     <main
       style={{
