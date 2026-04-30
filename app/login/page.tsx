@@ -90,9 +90,7 @@ export default function LoginPage() {
     if (window.turnstile && widgetId.current) {
       window.turnstile.reset(widgetId.current);
     }
-  }
-
-  async function validarCaptchaBackend() {
+  } 
     if (!turnstileKey) return true;
 
     const validacao = await fetch("/api/validate-captcha", {
@@ -115,16 +113,13 @@ export default function LoginPage() {
   async function entrar() {
     if (!validarFormulario()) return;
 
-    const captchaOk = await validarCaptchaBackend();
-    if (!captchaOk) return;
-
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: senha.trim(),
       options: {
-        ...(captchaToken ? { captchaToken } : {}),
+        ....(captchaToken ? { captchaToken } : {}),
       },
     });
 
@@ -142,9 +137,6 @@ export default function LoginPage() {
 
   async function criarConta() {
     if (!validarFormulario()) return;
-
-    const captchaOk = await validarCaptchaBackend();
-    if (!captchaOk) return;
 
     setLoading(true);
 
@@ -188,9 +180,6 @@ export default function LoginPage() {
 
   async function esqueciSenha() {
     if (!validarFormulario()) return;
-
-    const captchaOk = await validarCaptchaBackend();
-    if (!captchaOk) return;
 
     setLoading(true);
 
