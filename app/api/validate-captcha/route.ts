@@ -1,14 +1,39 @@
 import { NextResponse } from "next/server";
 
+type TurnstileResult = {
+  success: boolean;
+  "error-codes"?: string[];
+};
+
 export async function POST(req: Request) {
   try {
     const { token } = await req.json();
+    const secret = process.env.TURNSTILE_SECRET_KEY;
 
     if (!token) {
-      return NextResponse.json({ success: false }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "missing_token" },
+        { status: 400 }
+      );
     }
 
-    const secret = process.env.TURNSTILE_SECRET_KEY;
+    if (!secret) {
+      return NextResponse.json(
+        { success: false, error: "missing_turnstile_secret" },
+        { status: 500 }
+      );
+    }
+
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const remoteIp = forwardedFor?.split(",")[0]?.trim();
+    const formData = new URLSearchParams();
+
+    formData.set("secret", secret);
+    formData.set("response", token);
+
+    if (remoteIp) {
+      formData.set("remoteip", remoteIp);
+    }
 
     const response = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
@@ -17,16 +42,20 @@ export async function POST(req: Request) {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `secret=${secret}&response=${token}`,
+        body: formData,
       }
     );
 
-    const data = await response.json();
+    const data = (await response.json()) as TurnstileResult;
 
     return NextResponse.json({
       success: data.success,
+      errorCodes: data["error-codes"] || [],
     });
   } catch (err) {
-    return NextResponse.json({ success: false }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "captcha_validation_failed" },
+      { status: 500 }
+    );
   }
 }
