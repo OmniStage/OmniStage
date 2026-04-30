@@ -1,12 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = requestUrl.searchParams.get("next") || "/dashboard";
   const redirectTo = next.startsWith("/") ? next : "/dashboard";
+
   let response = NextResponse.redirect(new URL(redirectTo, requestUrl.origin));
 
   if (!code) {
@@ -40,3 +42,4 @@ export async function GET(request: NextRequest) {
 
   return response;
 }
+
