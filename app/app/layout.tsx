@@ -1,28 +1,7 @@
-import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-
-export default async function AppLayout({
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const { data: membership } = await supabase
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!membership) {
-    redirect("/criar-empresa");
-  }
-
   return <>{children}</>;
 }
