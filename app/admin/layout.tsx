@@ -1,24 +1,28 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { redirect } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-export default async function AdminLayout({ children }) {
-  const supabase = createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login')
+    redirect("/login");
   }
 
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
-  if (profile?.role !== 'platform_admin') {
-    redirect('/app')
+  if (profile?.role !== "platform_admin") {
+    redirect("/app/dashboard");
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }
