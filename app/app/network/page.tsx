@@ -86,10 +86,9 @@ setNetworkName(network?.nome || "Rede");
     }
 
     const listaEmpresas =
-      ((empresasDaRede || []) as NetworkTenant[])
-        .map((item) => item.tenants)
-        .filter(Boolean) as Empresa[];
-
+  ((empresasDaRede || []) as any[])
+    .map((item) => Array.isArray(item.tenants) ? item.tenants[0] : item.tenants)
+    .filter(Boolean) as Empresa[];
     setEmpresas(listaEmpresas);
 
     const tenantIds = listaEmpresas.map((empresa) => empresa.id);
