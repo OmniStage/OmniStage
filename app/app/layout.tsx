@@ -1,24 +1,28 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { redirect } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-export default async function AppLayout({ children }) {
-  const supabase = createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login')
+    redirect("/login");
   }
 
   const { data: membership } = await supabase
-    .from('tenant_members')
-    .select('tenant_id')
-    .eq('user_id', user.id)
-    .single()
+    .from("tenant_members")
+    .select("tenant_id")
+    .eq("user_id", user.id)
+    .single();
 
   if (!membership) {
-    redirect('/criar-empresa')
+    redirect("/criar-empresa");
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }
