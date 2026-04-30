@@ -90,24 +90,6 @@ export default function LoginPage() {
     if (window.turnstile && widgetId.current) {
       window.turnstile.reset(widgetId.current);
     }
-  } 
-    if (!turnstileKey) return true;
-
-    const validacao = await fetch("/api/validate-captcha", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: captchaToken }),
-    });
-
-    const result = await validacao.json();
-
-    if (!result.success) {
-      alert("Falha na validação de segurança.");
-      resetCaptcha();
-      return false;
-    }
-
-    return true;
   }
 
   async function entrar() {
@@ -119,7 +101,7 @@ export default function LoginPage() {
       email: email.trim(),
       password: senha.trim(),
       options: {
-        ....(captchaToken ? { captchaToken } : {}),
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
 
