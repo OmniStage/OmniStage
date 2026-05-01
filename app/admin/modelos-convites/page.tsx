@@ -10,6 +10,9 @@ export default function ModelosConvitePage() {
   const [preview, setPreview] = useState("");
   const [htmlTemplate, setHtmlTemplate] = useState("");
 
+  const [novaCategoria, setNovaCategoria] = useState("");
+  const [salvandoCategoria, setSalvandoCategoria] = useState(false);
+
   const [templates, setTemplates] = useState<any[]>([]);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,6 +44,36 @@ export default function ModelosConvitePage() {
     }
 
     setCategorias(data || []);
+  }
+
+  async function criarCategoria() {
+    if (!novaCategoria.trim()) {
+      alert("Digite o nome da categoria");
+      return;
+    }
+
+    const novoSlug = gerarSlug(novaCategoria);
+
+    setSalvandoCategoria(true);
+
+    const { error } = await supabase
+      .from("invite_template_categories")
+      .insert({
+        nome: novaCategoria.trim(),
+        slug: novoSlug,
+        active: true,
+      });
+
+    setSalvandoCategoria(false);
+
+    if (error) {
+      alert("Erro ao criar categoria: " + error.message);
+      return;
+    }
+
+    setNovaCategoria("");
+    await carregarCategorias();
+    alert("Categoria criada!");
   }
 
   async function carregarTemplates() {
@@ -198,6 +231,43 @@ export default function ModelosConvitePage() {
   return (
     <main style={{ color: "#fff" }}>
       <h1 style={{ fontSize: 36 }}>Modelos de Convite</h1>
+
+      <div style={sectionCard}>
+        <h2 style={{ fontSize: 22, marginBottom: 10 }}>
+          Categorias de Convite
+        </h2>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <input
+            placeholder="Nova categoria: 15 anos, Casamento, Infantil..."
+            value={novaCategoria}
+            onChange={(e) => setNovaCategoria(e.target.value)}
+            style={input}
+          />
+
+          <button
+            onClick={criarCategoria}
+            style={btn}
+            disabled={salvandoCategoria}
+          >
+            {salvandoCategoria ? "Criando..." : "Criar categoria"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+          {categorias.length === 0 && (
+            <span style={{ color: "#94a3b8" }}>
+              Nenhuma categoria cadastrada.
+            </span>
+          )}
+
+          {categorias.map((c) => (
+            <span key={c.id} style={pill}>
+              {c.nome}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <div style={{ marginTop: 20, maxWidth: 760 }}>
         <input
@@ -389,7 +459,7 @@ const textarea: React.CSSProperties = {
 };
 
 const btn: React.CSSProperties = {
-  marginTop: 15,
+  marginTop: 10,
   padding: "12px 16px",
   borderRadius: 10,
   background: "#22c55e",
@@ -397,6 +467,7 @@ const btn: React.CSSProperties = {
   color: "#fff",
   fontWeight: "bold",
   cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const btnSmall: React.CSSProperties = {
@@ -414,4 +485,21 @@ const card: React.CSSProperties = {
   borderRadius: 12,
   padding: 15,
   background: "#020617",
+};
+
+const sectionCard: React.CSSProperties = {
+  marginTop: 20,
+  maxWidth: 760,
+  padding: 16,
+  borderRadius: 14,
+  border: "1px solid #334155",
+  background: "#020617",
+};
+
+const pill: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  background: "#1e293b",
+  color: "#c4b5fd",
+  fontSize: 13,
 };
