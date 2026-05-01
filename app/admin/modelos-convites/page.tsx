@@ -3,39 +3,56 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function ModelosConvitesAdmin() {
-  const [modelos, setModelos] = useState<any[]>([]);
+export default function ModelosConvitePage() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
-  const [background, setBackground] = useState("");
-  const [logo, setLogo] = useState("");
-  const [musica, setMusica] = useState("");
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  async function carregarModelos() {
+  // =========================
+  // GERAR SLUG AUTOMÁTICO
+  // =========================
+  function gerarSlug(text: string) {
+    return text
+      .toLowerCase()
+      .replace(/ /g, "-")
+      .replace(/[^\w-]+/g, "");
+  }
+
+  useEffect(() => {
+    setSlug(gerarSlug(nome));
+  }, [nome]);
+
+  // =========================
+  // CARREGAR TEMPLATES
+  // =========================
+  async function carregarTemplates() {
     const { data } = await supabase
       .from("invite_templates")
       .select("*")
       .order("created_at", { ascending: false });
 
-    setModelos(data || []);
+    setTemplates(data || []);
   }
 
-  async function criarModelo() {
-    if (!nome || !slug) {
-      alert("Preencha nome e slug");
+  // =========================
+  // CRIAR TEMPLATE
+  // =========================
+  async function criarTemplate() {
+    if (!nome) {
+      alert("Digite o nome");
       return;
     }
 
+    setLoading(true);
+
     const { error } = await supabase.from("invite_templates").insert({
-      nome,
       name: nome,
-      slug,
+      slug: slug,
       active: true,
-      status: "ativo",
-      background_url: background,
-      logo_url: logo,
-      music_url: musica,
     });
+
+    setLoading(false);
 
     if (error) {
       alert("Erro: " + error.message);
@@ -44,55 +61,90 @@ export default function ModelosConvitesAdmin() {
 
     setNome("");
     setSlug("");
-    setBackground("");
-    setLogo("");
-    setMusica("");
 
-    carregarModelos();
-  }
+    carregarTemplates();
 
-  async function toggleAtivo(id: string, atual: boolean) {
-    await supabase
-      .from("invite_templates")
-      .update({ active: !atual })
-      .eq("id", id);
-
-    carregarModelos();
+    alert("Modelo criado!");
   }
 
   useEffect(() => {
-    carregarModelos();
+    carregarTemplates();
   }, []);
 
   return (
     <main style={{ color: "#fff" }}>
       <h1 style={{ fontSize: 36 }}>Modelos de Convite</h1>
 
+      {/* ========================= */}
       {/* FORM */}
-      <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
-        <input placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
-        <input placeholder="Slug (ex: valentina-xv)" value={slug} onChange={(e) => setSlug(e.target.value)} />
-        <input placeholder="Background URL" value={background} onChange={(e) => setBackground(e.target.value)} />
-        <input placeholder="Logo URL" value={logo} onChange={(e) => setLogo(e.target.value)} />
-        <input placeholder="Música URL" value={musica} onChange={(e) => setMusica(e.target.value)} />
+      {/* ========================= */}
+      <div style={{ marginTop: 20, maxWidth: 500 }}>
+        <input
+          placeholder="Nome do modelo"
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          style={input}
+        />
 
-        <button onClick={criarModelo}>Criar Modelo</button>
+        <input
+          placeholder="Slug"
+          value={slug}
+          disabled
+          style={{ ...input, opacity: 0.6 }}
+        />
+
+        <button onClick={criarTemplate} style={btn}>
+          {loading ? "Criando..." : "Criar modelo"}
+        </button>
       </div>
 
+      {/* ========================= */}
       {/* LISTA */}
+      {/* ========================= */}
       <div style={{ marginTop: 40 }}>
-        {modelos.map((m) => (
-          <div key={m.id} style={{ marginBottom: 20 }}>
-            <strong>{m.nome}</strong>
-            <p>{m.slug}</p>
-            <p>{m.active ? "Ativo" : "Inativo"}</p>
+        <h2>Modelos criados</h2>
 
-            <button onClick={() => toggleAtivo(m.id, m.active)}>
-              {m.active ? "Desativar" : "Ativar"}
-            </button>
-          </div>
-        ))}
+        <div style={{ display: "grid", gap: 20, marginTop: 20 }}>
+          {templates.map((t) => (
+            <div key={t.id} style={card}>
+              <strong>{t.name}</strong>
+              <div style={{ opacity: 0.6 }}>/{t.slug}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </main>
   );
 }
+
+// =========================
+// ESTILOS
+// =========================
+
+const input = {
+  width: "100%",
+  padding: 12,
+  marginTop: 10,
+  borderRadius: 10,
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "#fff",
+};
+
+const btn = {
+  marginTop: 15,
+  padding: "12px 16px",
+  borderRadius: 10,
+  background: "#22c55e",
+  border: "none",
+  color: "#fff",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const card = {
+  border: "1px solid #334155",
+  borderRadius: 12,
+  padding: 15,
+  background: "#020617",
+};
