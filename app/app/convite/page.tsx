@@ -15,6 +15,9 @@ type Evento = {
   horario?: string | null;
   endereco?: string | null;
   mapa_url?: string | null;
+  background_image?: string | null;
+  logo_image?: string | null;
+  music_file?: string | null;
 };
 
 type Template = {
@@ -53,22 +56,217 @@ function formatarData(data: string | null) {
   }).format(date);
 }
 
+function criarDataEvento(evento: Evento | null) {
+  if (!evento?.data_evento) return null;
+
+  const horario = normalizarHorario(evento.horario);
+  const date = new Date(`${evento.data_evento}T${horario}:00-03:00`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizarHorario(horario: string | null | undefined) {
+  if (!horario) return "20:00";
+
+  const match = horario.match(/(\d{1,2})(?::|h)?(\d{2})?/i);
+
+  if (!match) return "20:00";
+
+  const horas = match[1].padStart(2, "0");
+  const minutos = (match[2] || "00").padStart(2, "0");
+
+  return `${horas}:${minutos}`;
+}
+
+function formatarHorario(horario: string | null | undefined) {
+  if (!horario) return "";
+  const horarioNormalizado = normalizarHorario(horario);
+  const [horas, minutos] = horarioNormalizado.split(":");
+
+  return minutos === "00" ? `${Number(horas)}h` : `${Number(horas)}h${minutos}`;
+}
+
+function injetarModoPreview(html: string, evento?: Evento | null) {
+  const dataEvento = criarDataEvento(evento || null);
+  const dataFormatada = evento ? formatarData(evento.data_evento) : "";
+  const horarioFormatado = evento ? formatarHorario(evento.horario) : "";
+  const local = evento ? evento.local || evento.endereco || "" : "";
+  const nome = evento?.nome || "";
+  const eventTimestamp = dataEvento?.getTime() || 0;
+
+  const previewCss = `
+    <style>
+      html { overflow: hidden !important; }
+      body { overflow: hidden !important; }
+      #guestName { display: none !important; }
+      #namePicker, .name-picker, #hintText, .hint, #statusMessage, .status { display: none !important; }
+      input[name="guest-confirmation"], .name-option { display: none !important; }
+      #confirmBtn { pointer-events: none !important; }
+    </style>
+    <script>
+      window.__OMNISTAGE_PREVIEW__ = true;
+      window.__OMNISTAGE_EVENT__ = ${JSON.stringify({
+        nome,
+        data: dataFormatada,
+        horario: horarioFormatado,
+        local,
+        mapa: evento?.mapa_url || "",
+        timestamp: eventTimestamp,
+      })};
+      window.addEventListener("DOMContentLoaded", function () {
+        var eventData = window.__OMNISTAGE_EVENT__ || {};
+        var guestName = document.getElementById("guestName");
+        var picker = document.getElementById("namePicker");
+        var hint = document.getElementById("hintText");
+        var status = document.getElementById("statusMessage");
+        var confirmBtn = document.getElementById("confirmBtn");
+        var mapsLink = document.getElementById("mapsLink");
+        var calendarLink = document.getElementById("calendarLink");
+
+        if (guestName) guestName.textContent = "";
+        if (picker) picker.innerHTML = "";
+        if (hint) hint.textContent = "";
+        if (status) status.textContent = "";
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.removeAttribute("onclick");
+        }
+        if (mapsLink && eventData.mapa) mapsLink.href = eventData.mapa;
+        if (calendarLink && eventData.nome && eventData.timestamp) {
+          var start = new Date(eventData.timestamp);
+          var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
+          function toGoogleDate(date) {
+            return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
+          }
+          calendarLink.href =
+            "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+            "&text=" + encodeURIComponent(eventData.nome) +
+            "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
+            "&location=" + encodeURIComponent(eventData.local || "");
+        }
+
+        if (eventData.nome || eventData.data || eventData.local) {
+          var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          var node;
+          while ((node = walker.nextNode())) {
+            var text = node.nodeValue || "";
+            text = text
+              .replace(/VALENTINA XV/g, (eventData.nome || "").toUpperCase())
+              .replace(/Valentina XV/g, eventData.nome || "")
+              .replace(/Guerrah Hall/g, eventData.local || "")
+              .replace(/16 de maio de 2026/g, eventData.data || "")
+              .replace(/21h/g, eventData.horario || "")
+              .replace(/20h/g, eventData.horario || "");
+            node.nodeValue = text;
+          }
+
+          var meta = document.querySelector(".meta");
+          if (meta) {
+            var linhas = meta.querySelectorAll("div");
+            if (linhas[0]) linhas[0].textContent = [eventData.data, eventData.horario].filter(Boolean).join(" • ");
+            if (linhas[1]) linhas[1].textContent = eventData.local || "";
+          }
+        }
+
+        var daysEl = document.getElementById("days");
+        var hoursEl = document.getElementById("hours");
+        var minutesEl = document.getElementById("minutes");
+        var secondsEl = document.getElementById("seconds");
+        if (daysEl && hoursEl && minutesEl && secondsEl) {
+          var target = Number(eventData.timestamp || 0);
+          var distance = target ? target - Date.now() : 0;
+          if (!target || distance <= 0) {
+            daysEl.textContent = "00";
+            hoursEl.textContent = "00";
+            minutesEl.textContent = "00";
+            secondsEl.textContent = "00";
+          } else {
+            daysEl.textContent = String(Math.floor(distance / 86400000)).padStart(2, "0");
+            hoursEl.textContent = String(Math.floor((distance / 3600000) % 24)).padStart(2, "0");
+            minutesEl.textContent = String(Math.floor((distance / 60000) % 60)).padStart(2, "0");
+            secondsEl.textContent = String(Math.floor((distance / 1000) % 60)).padStart(2, "0");
+          }
+        }
+      });
+    </script>
+  `;
+
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${previewCss}</head>`);
+  }
+
+  return `${previewCss}${html}`;
+}
+
 function preencherTemplate(html: string, evento: Evento | null) {
-  if (!evento) return html;
+  if (!evento) return injetarModoPreview(html);
+
+  const dataEvento = criarDataEvento(evento);
+  const dataFormatada = formatarData(evento.data_evento);
+  const horarioFormatado = formatarHorario(evento.horario);
+  const local = evento.local || evento.endereco || "";
+  const eventoDataIso = dataEvento?.toISOString() || "";
+  const eventoDataScript = dataEvento?.toISOString() || "";
 
   const valores: Record<string, string> = {
     evento_nome: evento.nome || "",
+    EVENTO_NOME: evento.nome || "",
     nome_evento: evento.nome || "",
-    data_evento: formatarData(evento.data_evento),
-    horario_evento: evento.horario || "",
-    local_evento: evento.local || "",
+    NOME_EVENTO: evento.nome || "",
+    nome: evento.nome || "",
+    NOME: evento.nome || "",
+    data_evento: dataFormatada,
+    DATA_EVENTO: dataFormatada,
+    data: dataFormatada,
+    DATA: dataFormatada,
+    horario_evento: horarioFormatado,
+    HORARIO_EVENTO: horarioFormatado,
+    horario: horarioFormatado,
+    HORARIO: horarioFormatado,
+    data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
+    DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
+    local_evento: local,
+    LOCAL_EVENTO: local,
+    local: local,
+    LOCAL: local,
     endereco_evento: evento.endereco || "",
+    ENDERECO_EVENTO: evento.endereco || "",
     mapa_url: evento.mapa_url || "",
+    MAPA_URL: evento.mapa_url || "",
+    background_image: evento.background_image || "",
+    BACKGROUND_IMAGE: evento.background_image || "",
+    logo_image: evento.logo_image || "",
+    LOGO_IMAGE: evento.logo_image || "",
+    music_file: evento.music_file || "",
+    MUSIC_FILE: evento.music_file || "",
+    data_iso_evento: eventoDataIso,
+    DATA_ISO_EVENTO: eventoDataIso,
   };
 
-  return Object.entries(valores).reduce((content, [key, value]) => {
+  const preenchido = Object.entries(valores).reduce((content, [key, value]) => {
     return content.replaceAll(`{{${key}}}`, value || "");
   }, html);
+
+  return injetarModoPreview(
+    preenchido
+      .replaceAll("VALENTINA XV", (evento.nome || "Evento").toUpperCase())
+      .replaceAll("Valentina XV", evento.nome || "Evento")
+      .replaceAll("Guerrah Hall", local || "Local do evento")
+      .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
+      .replaceAll("20h", horarioFormatado || "Horário")
+      .replaceAll("21h", horarioFormatado || "Horário")
+      .replace(/const EVENT_LOCATION = ["'].*?["'];/g, `const EVENT_LOCATION = ${JSON.stringify(local || "")};`)
+      .replace(/const EVENT_TITLE = ["'].*?["'];/g, `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`)
+      .replace(
+        /const EVENT_DATE = new Date\(["'].*?["']\);/g,
+        `const EVENT_DATE = new Date(${JSON.stringify(eventoDataScript || eventoDataIso)});`
+      )
+      .replace(
+        /const EVENT_END = new Date\(["'].*?["']\);/g,
+        `const EVENT_END = new Date(${JSON.stringify(dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : "")});`
+      ),
+    evento
+  );
 }
 
 export default function ConvitePage() {
@@ -129,7 +327,7 @@ export default function ConvitePage() {
 
     const { data: eventosData, error: eventosError } = await supabase
       .from("eventos")
-      .select("id,nome,data_evento,local,status,tenant_id,invite_template_id,created_at,horario,endereco,mapa_url")
+      .select("id,nome,data_evento,local,status,tenant_id,invite_template_id,created_at,horario,endereco,mapa_url,background_image,logo_image,music_file")
       .eq("tenant_id", membership.tenant_id)
       .order("created_at", { ascending: false });
 
@@ -426,15 +624,15 @@ const filterSelectStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(170px, 190px))",
-  gap: 14,
+  gridTemplateColumns: "repeat(auto-fill, minmax(210px, 240px))",
+  gap: 18,
 };
 
 const templateCardStyle: React.CSSProperties = {
   display: "grid",
   textAlign: "left",
-  borderRadius: 14,
-  padding: 10,
+  borderRadius: 18,
+  padding: 14,
   cursor: "pointer",
   background: "#0f172a",
   color: "#fff",
@@ -443,37 +641,41 @@ const templateCardStyle: React.CSSProperties = {
 
 const templateThumbStyle: React.CSSProperties = {
   width: "100%",
-  height: 230,
+  height: 310,
   objectFit: "contain",
-  borderRadius: 12,
+  borderRadius: 16,
   border: "1px solid #334155",
   background: "#020617",
 };
 
 const templateThumbFrameStyle: React.CSSProperties = {
   width: 430,
-  height: 690,
+  height: 760,
   border: 0,
   background: "#020617",
   pointerEvents: "none",
-  transform: "scale(0.34)",
-  transformOrigin: "top left",
+  position: "absolute",
+  left: "50%",
+  top: 0,
+  transform: "translateX(-50%) scale(0.38)",
+  transformOrigin: "top center",
   overflow: "hidden",
 };
 
 const templateThumbFrameWrapStyle: React.CSSProperties = {
   width: "100%",
-  height: 230,
-  borderRadius: 12,
+  height: 310,
+  borderRadius: 16,
   border: "1px solid #334155",
   background: "#020617",
   overflow: "hidden",
+  position: "relative",
 };
 
 const templateThumbEmptyStyle: React.CSSProperties = {
   width: "100%",
-  height: 230,
-  borderRadius: 12,
+  height: 310,
+  borderRadius: 16,
   border: "1px dashed #334155",
   display: "grid",
   placeItems: "center",
@@ -489,18 +691,22 @@ const emptyStyle: React.CSSProperties = {
 };
 
 const previewFrameStyle: React.CSSProperties = {
-  width: "100%",
-  height: 720,
-  borderRadius: 16,
+  width: "min(100%, 430px)",
+  height: 760,
+  display: "block",
+  margin: "0 auto",
+  borderRadius: 22,
   border: "1px solid #334155",
   background: "#020617",
 };
 
 const previewImageStyle: React.CSSProperties = {
-  width: "100%",
-  maxHeight: 420,
-  objectFit: "cover",
-  borderRadius: 16,
+  width: "min(100%, 430px)",
+  maxHeight: 760,
+  display: "block",
+  margin: "0 auto",
+  objectFit: "contain",
+  borderRadius: 22,
   border: "1px solid #334155",
 };
 
