@@ -90,6 +90,24 @@ export default function ModelosConvitePage() {
     carregarTemplates();
   }
 
+  // ✅ NOVO: EXCLUIR TEMPLATE
+  async function deletarTemplate(id: string) {
+    const confirmacao = confirm("Tem certeza que deseja excluir este modelo?");
+    if (!confirmacao) return;
+
+    const { error } = await supabase
+      .from("invite_templates")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
+    }
+
+    carregarTemplates();
+  }
+
   useEffect(() => {
     carregarTemplates();
   }, []);
@@ -121,7 +139,7 @@ export default function ModelosConvitePage() {
         />
 
         <textarea
-          placeholder="Cole aqui o código HTML do modelo. Use variáveis como {{nome_convidado}}, {{background_image}}, {{logo_image}}, {{music_file}}, {{data_evento}}, {{horario}}, {{local}}, {{endereco}}"
+          placeholder="Cole aqui o código HTML do modelo..."
           value={htmlTemplate}
           onChange={(e) => setHtmlTemplate(e.target.value)}
           style={textarea}
@@ -155,15 +173,28 @@ export default function ModelosConvitePage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => alternarStatus(t.id, t.active)}
-                  style={{
-                    ...btnSmall,
-                    background: t.active ? "#ef4444" : "#22c55e",
-                  }}
-                >
-                  {t.active ? "Desativar" : "Ativar"}
-                </button>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() => alternarStatus(t.id, t.active)}
+                    style={{
+                      ...btnSmall,
+                      background: t.active ? "#ef4444" : "#22c55e",
+                    }}
+                  >
+                    {t.active ? "Desativar" : "Ativar"}
+                  </button>
+
+                  {/* ✅ BOTÃO EXCLUIR */}
+                  <button
+                    onClick={() => deletarTemplate(t.id)}
+                    style={{
+                      ...btnSmall,
+                      background: "#991b1b",
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
 
               {t.preview_image && (
