@@ -15,6 +15,7 @@ export default function AdminLayout({
     { name: "Clientes / Empresas", href: "/admin/clientes" },
     { name: "Redes / Franquias", href: "/admin/redes" },
     { name: "Eventos", href: "/admin/eventos" },
+    { name: "Modelos de Convite", href: "/admin/modelos-convites" },
     { name: "Usuários", href: "/admin/usuarios" },
     { name: "Usuários x Redes", href: "/admin/usuarios-rede" },
     { name: "Planos", href: "/admin/planos" },
@@ -23,7 +24,6 @@ export default function AdminLayout({
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* MENU LATERAL */}
       <aside
         style={{
           width: 260,
@@ -63,7 +63,6 @@ export default function AdminLayout({
         </nav>
       </aside>
 
-      {/* CONTEÚDO */}
       <main
         style={{
           flex: 1,
