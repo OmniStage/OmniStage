@@ -10,6 +10,7 @@ export default function ModelosConvitePage() {
   const [htmlTemplate, setHtmlTemplate] = useState("");
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   function gerarSlug(text: string) {
     return text
@@ -21,8 +22,8 @@ export default function ModelosConvitePage() {
   }
 
   useEffect(() => {
-    setSlug(gerarSlug(nome));
-  }, [nome]);
+    if (!editandoId) setSlug(gerarSlug(nome));
+  }, [nome, editandoId]);
 
   async function carregarTemplates() {
     const { data, error } = await supabase
@@ -31,23 +32,24 @@ export default function ModelosConvitePage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Erro ao carregar modelos:", error);
+      alert("Erro ao carregar modelos: " + error.message);
       return;
     }
 
     setTemplates(data || []);
   }
 
-  async function criarTemplate() {
-    if (!nome.trim()) {
-      alert("Digite o nome do modelo");
-      return;
-    }
+  function limparFormulario() {
+    setNome("");
+    setSlug("");
+    setPreview("");
+    setHtmlTemplate("");
+    setEditandoId(null);
+  }
 
-    if (!htmlTemplate.trim()) {
-      alert("Cole o código HTML do modelo");
-      return;
-    }
+  async function criarTemplate() {
+    if (!nome.trim()) return alert("Digite o nome do modelo");
+    if (!htmlTemplate.trim()) return alert("Cole o código HTML do modelo");
 
     setLoading(true);
 
@@ -61,19 +63,46 @@ export default function ModelosConvitePage() {
 
     setLoading(false);
 
-    if (error) {
-      alert("Erro: " + error.message);
-      return;
-    }
+    if (error) return alert("Erro: " + error.message);
 
-    setNome("");
-    setSlug("");
-    setPreview("");
-    setHtmlTemplate("");
-
+    limparFormulario();
     await carregarTemplates();
-
     alert("Modelo criado!");
+  }
+
+  function editarTemplate(t: any) {
+    setEditandoId(t.id);
+    setNome(t.name || "");
+    setSlug(t.slug || "");
+    setPreview(t.preview_image || "");
+    setHtmlTemplate(t.html_template || "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function salvarEdicao() {
+    if (!editandoId) return;
+    if (!nome.trim()) return alert("Digite o nome do modelo");
+    if (!htmlTemplate.trim()) return alert("Cole o código HTML do modelo");
+
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("invite_templates")
+      .update({
+        name: nome.trim(),
+        slug,
+        preview_image: preview.trim() || null,
+        html_template: htmlTemplate,
+      })
+      .eq("id", editandoId);
+
+    setLoading(false);
+
+    if (error) return alert("Erro ao salvar edição: " + error.message);
+
+    limparFormulario();
+    await carregarTemplates();
+    alert("Modelo atualizado!");
   }
 
   async function alternarStatus(id: string, active: boolean) {
@@ -82,16 +111,43 @@ export default function ModelosConvitePage() {
       .update({ active: !active })
       .eq("id", id);
 
-    if (error) {
-      alert("Erro ao alterar status: " + error.message);
-      return;
-    }
+    if (error) return alert("Erro ao alterar status: " + error.message);
 
     carregarTemplates();
   }
 
-  // ✅ NOVO: EXCLUIR TEMPLATE
+  async function duplicarTemplate(template: any) {
+    const { error } = await supabase.from("invite_templates").insert({
+      name: `${template.name} - Cópia`,
+      slug: `${template.slug}-copia-${Date.now()}`,
+      preview_image: template.preview_image || null,
+      html_template: template.html_template || "",
+      active: false,
+    });
+
+    if (error) return alert("Erro ao duplicar: " + error.message);
+
+    carregarTemplates();
+    alert("Modelo duplicado!");
+  }
+
   async function deletarTemplate(id: string) {
+    const { data: eventosUsando, error: usoError } = await supabase
+      .from("eventos")
+      .select("id")
+      .eq("invite_template_id", id)
+      .limit(1);
+
+    if (usoError) {
+      alert("Erro ao verificar uso do modelo: " + usoError.message);
+      return;
+    }
+
+    if (eventosUsando && eventosUsando.length > 0) {
+      alert("Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua.");
+      return;
+    }
+
     const confirmacao = confirm("Tem certeza que deseja excluir este modelo?");
     if (!confirmacao) return;
 
@@ -100,10 +156,7 @@ export default function ModelosConvitePage() {
       .delete()
       .eq("id", id);
 
-    if (error) {
-      alert("Erro ao excluir: " + error.message);
-      return;
-    }
+    if (error) return alert("Erro ao excluir: " + error.message);
 
     carregarTemplates();
   }
@@ -127,8 +180,8 @@ export default function ModelosConvitePage() {
         <input
           placeholder="Slug"
           value={slug}
-          disabled
-          style={{ ...input, opacity: 0.6 }}
+          onChange={(e) => setSlug(e.target.value)}
+          style={input}
         />
 
         <input
@@ -145,9 +198,25 @@ export default function ModelosConvitePage() {
           style={textarea}
         />
 
-        <button onClick={criarTemplate} style={btn} disabled={loading}>
-          {loading ? "Criando..." : "Criar modelo"}
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={editandoId ? salvarEdicao : criarTemplate}
+            style={btn}
+            disabled={loading}
+          >
+            {loading
+              ? "Salvando..."
+              : editandoId
+              ? "Salvar alteração"
+              : "Criar modelo"}
+          </button>
+
+          {editandoId && (
+            <button onClick={limparFormulario} style={{ ...btn, background: "#475569" }}>
+              Cancelar edição
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ marginTop: 40 }}>
@@ -159,39 +228,32 @@ export default function ModelosConvitePage() {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
                 <div>
                   <strong>{t.name}</strong>
-
-                  <div style={{ opacity: 0.6, marginTop: 5 }}>
-                    /{t.slug}
-                  </div>
-
+                  <div style={{ opacity: 0.6, marginTop: 5 }}>/{t.slug}</div>
                   <div style={{ marginTop: 8, color: t.active ? "#22c55e" : "#ef4444" }}>
                     {t.active ? "Ativo" : "Inativo"}
                   </div>
-
                   <div style={{ marginTop: 8, opacity: 0.7 }}>
                     HTML: {t.html_template ? "cadastrado" : "não cadastrado"}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button onClick={() => editarTemplate(t)} style={{ ...btnSmall, background: "#2563eb" }}>
+                    Editar
+                  </button>
+
+                  <button onClick={() => duplicarTemplate(t)} style={{ ...btnSmall, background: "#7c3aed" }}>
+                    Duplicar
+                  </button>
+
                   <button
                     onClick={() => alternarStatus(t.id, t.active)}
-                    style={{
-                      ...btnSmall,
-                      background: t.active ? "#ef4444" : "#22c55e",
-                    }}
+                    style={{ ...btnSmall, background: t.active ? "#ef4444" : "#22c55e" }}
                   >
                     {t.active ? "Desativar" : "Ativar"}
                   </button>
 
-                  {/* ✅ BOTÃO EXCLUIR */}
-                  <button
-                    onClick={() => deletarTemplate(t.id)}
-                    style={{
-                      ...btnSmall,
-                      background: "#991b1b",
-                    }}
-                  >
+                  <button onClick={() => deletarTemplate(t.id)} style={{ ...btnSmall, background: "#991b1b" }}>
                     Excluir
                   </button>
                 </div>
