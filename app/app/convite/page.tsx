@@ -111,6 +111,9 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
         horario: horarioFormatado,
         local,
         mapa: evento?.mapa_url || "",
+        logo: evento?.logo_image || "",
+        fundo: evento?.background_image || "",
+        musica: evento?.music_file || "",
         timestamp: eventTimestamp,
       })};
       window.addEventListener("DOMContentLoaded", function () {
@@ -122,6 +125,8 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
         var confirmBtn = document.getElementById("confirmBtn");
         var mapsLink = document.getElementById("mapsLink");
         var calendarLink = document.getElementById("calendarLink");
+        var musicSource = document.querySelector("#bgMusic source");
+        var musicAudio = document.getElementById("bgMusic");
 
         if (guestName) guestName.textContent = "";
         if (picker) picker.innerHTML = "";
@@ -132,6 +137,10 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
           confirmBtn.removeAttribute("onclick");
         }
         if (mapsLink && eventData.mapa) mapsLink.href = eventData.mapa;
+        if (musicSource && eventData.musica) {
+          musicSource.setAttribute("src", eventData.musica);
+          if (musicAudio && musicAudio.load) musicAudio.load();
+        }
         if (calendarLink && eventData.nome && eventData.timestamp) {
           var start = new Date(eventData.timestamp);
           var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
@@ -165,6 +174,72 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
             var linhas = meta.querySelectorAll("div");
             if (linhas[0]) linhas[0].textContent = [eventData.data, eventData.horario].filter(Boolean).join(" • ");
             if (linhas[1]) linhas[1].textContent = eventData.local || "";
+          }
+        }
+
+        if (eventData.logo) {
+          var titleImage = document.querySelector(".title-image");
+          var logoImage = document.querySelector("[data-logo-evento]");
+          var firstEventImage = titleImage || logoImage;
+
+          if (!firstEventImage) {
+            var imagens = Array.from(document.querySelectorAll("img"));
+            firstEventImage = imagens.find(function (img) {
+              var alt = (img.getAttribute("alt") || "").toLowerCase();
+              var className = (img.getAttribute("class") || "").toLowerCase();
+              return alt.includes("valentina") || alt.includes("logo") || className.includes("title") || className.includes("logo");
+            }) || null;
+          }
+
+          if (firstEventImage) {
+            firstEventImage.setAttribute("src", eventData.logo);
+            firstEventImage.setAttribute("alt", eventData.nome || "Logo do evento");
+            firstEventImage.style.maxWidth = "78%";
+            firstEventImage.style.height = "auto";
+            firstEventImage.style.objectFit = "contain";
+          } else {
+            var tituloEvento =
+              document.querySelector(".event-title") ||
+              document.querySelector(".title") ||
+              document.querySelector(".main-title") ||
+              document.querySelector(".hero-title") ||
+              document.querySelector("h1");
+
+            var logoCriada = document.createElement("img");
+            logoCriada.setAttribute("src", eventData.logo);
+            logoCriada.setAttribute("alt", eventData.nome || "Logo do evento");
+            logoCriada.setAttribute("data-logo-evento", "true");
+            logoCriada.style.display = "block";
+            logoCriada.style.width = "min(78%, 520px)";
+            logoCriada.style.maxHeight = "170px";
+            logoCriada.style.objectFit = "contain";
+            logoCriada.style.margin = "18px auto 12px";
+
+            if (tituloEvento && tituloEvento.parentNode) {
+              tituloEvento.parentNode.insertBefore(logoCriada, tituloEvento);
+              tituloEvento.style.display = "none";
+            } else {
+              var cardParaLogo = document.querySelector(".card") || document.body;
+              cardParaLogo.insertBefore(logoCriada, cardParaLogo.firstChild);
+            }
+          }
+        }
+
+        if (eventData.fundo) {
+          var card = document.querySelector(".card");
+          var motion = document.querySelector(".card-bg-motion");
+          var bgValue = "linear-gradient(180deg, rgba(12, 28, 60, 0.68) 0%, rgba(10, 24, 54, 0.84) 45%, rgba(6, 14, 36, 0.96) 100%), url('" + eventData.fundo + "')";
+
+          if (card) {
+            card.style.backgroundImage = bgValue;
+            card.style.backgroundPosition = "center center";
+            card.style.backgroundSize = "cover";
+          }
+
+          if (motion) {
+            motion.style.backgroundImage = "url('" + eventData.fundo + "')";
+            motion.style.backgroundPosition = "center center";
+            motion.style.backgroundSize = "cover";
           }
         }
 
@@ -237,8 +312,12 @@ function preencherTemplate(html: string, evento: Evento | null) {
     BACKGROUND_IMAGE: evento.background_image || "",
     logo_image: evento.logo_image || "",
     LOGO_IMAGE: evento.logo_image || "",
+    logo_evento: evento.logo_image || "",
+    LOGO_EVENTO: evento.logo_image || "",
     music_file: evento.music_file || "",
     MUSIC_FILE: evento.music_file || "",
+    musica_evento: evento.music_file || "",
+    MUSICA_EVENTO: evento.music_file || "",
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
