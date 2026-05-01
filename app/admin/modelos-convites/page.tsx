@@ -6,12 +6,7 @@ import { supabase } from "@/lib/supabase";
 export default function ModelosConvitePage() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
-
-  const [background, setBackground] = useState("");
-  const [logo, setLogo] = useState("");
-  const [musica, setMusica] = useState("");
   const [preview, setPreview] = useState("");
-
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +16,9 @@ export default function ModelosConvitePage() {
   function gerarSlug(text: string) {
     return text
       .toLowerCase()
-      .replace(/ /g, "-")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "-")
       .replace(/[^\w-]+/g, "");
   }
 
@@ -55,10 +52,7 @@ export default function ModelosConvitePage() {
     const { error } = await supabase.from("invite_templates").insert({
       name: nome,
       slug: slug,
-      preview_image: preview,
-      background_image: background,
-      logo_image: logo,
-      music_file: musica,
+      preview_image: preview || null,
       active: true,
     });
 
@@ -69,17 +63,16 @@ export default function ModelosConvitePage() {
       return;
     }
 
-    // limpar
     setNome("");
     setSlug("");
-    setBackground("");
-    setLogo("");
-    setMusica("");
     setPreview("");
 
     carregarTemplates();
+
+    alert("Modelo criado!");
   }
 
+  // =========================
   useEffect(() => {
     carregarTemplates();
   }, []);
@@ -88,9 +81,7 @@ export default function ModelosConvitePage() {
     <main style={{ color: "#fff" }}>
       <h1 style={{ fontSize: 36 }}>Modelos de Convite</h1>
 
-      {/* ========================= */}
       {/* FORM */}
-      {/* ========================= */}
       <div style={{ marginTop: 20, maxWidth: 500 }}>
         <input
           placeholder="Nome do modelo"
@@ -107,30 +98,9 @@ export default function ModelosConvitePage() {
         />
 
         <input
-          placeholder="Preview (imagem do modelo)"
+          placeholder="Preview (URL da imagem)"
           value={preview}
           onChange={(e) => setPreview(e.target.value)}
-          style={input}
-        />
-
-        <input
-          placeholder="Background (opcional)"
-          value={background}
-          onChange={(e) => setBackground(e.target.value)}
-          style={input}
-        />
-
-        <input
-          placeholder="Logo (opcional)"
-          value={logo}
-          onChange={(e) => setLogo(e.target.value)}
-          style={input}
-        />
-
-        <input
-          placeholder="Música (opcional)"
-          value={musica}
-          onChange={(e) => setMusica(e.target.value)}
           style={input}
         />
 
@@ -139,9 +109,7 @@ export default function ModelosConvitePage() {
         </button>
       </div>
 
-      {/* ========================= */}
       {/* LISTA */}
-      {/* ========================= */}
       <div style={{ marginTop: 40 }}>
         <h2>Modelos criados</h2>
 
@@ -149,7 +117,10 @@ export default function ModelosConvitePage() {
           {templates.map((t) => (
             <div key={t.id} style={card}>
               <strong>{t.name}</strong>
-              <div style={{ opacity: 0.6 }}>/{t.slug}</div>
+
+              <div style={{ opacity: 0.6, marginTop: 5 }}>
+                /{t.slug}
+              </div>
 
               {t.preview_image && (
                 <img
