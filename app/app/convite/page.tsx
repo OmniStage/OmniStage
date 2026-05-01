@@ -69,7 +69,6 @@ export default function ConvitePage() {
       .from("tenant_members")
       .select("tenant_id")
       .eq("user_id", user.id)
-      .eq("status", "ativo")
       .limit(1)
       .maybeSingle();
 
