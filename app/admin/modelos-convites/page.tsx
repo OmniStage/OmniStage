@@ -6,9 +6,12 @@ import { supabase } from "@/lib/supabase";
 export default function ModelosConvitePage() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
+  const [categoriaId, setCategoriaId] = useState("");
   const [preview, setPreview] = useState("");
   const [htmlTemplate, setHtmlTemplate] = useState("");
+
   const [templates, setTemplates] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
@@ -25,10 +28,31 @@ export default function ModelosConvitePage() {
     if (!editandoId) setSlug(gerarSlug(nome));
   }, [nome, editandoId]);
 
+  async function carregarCategorias() {
+    const { data, error } = await supabase
+      .from("invite_template_categories")
+      .select("*")
+      .eq("active", true)
+      .order("nome");
+
+    if (error) {
+      alert("Erro ao carregar categorias: " + error.message);
+      return;
+    }
+
+    setCategorias(data || []);
+  }
+
   async function carregarTemplates() {
     const { data, error } = await supabase
       .from("invite_templates")
-      .select("*")
+      .select(`
+        *,
+        categoria:invite_template_categories (
+          id,
+          nome
+        )
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -42,6 +66,7 @@ export default function ModelosConvitePage() {
   function limparFormulario() {
     setNome("");
     setSlug("");
+    setCategoriaId("");
     setPreview("");
     setHtmlTemplate("");
     setEditandoId(null);
@@ -56,6 +81,7 @@ export default function ModelosConvitePage() {
     const { error } = await supabase.from("invite_templates").insert({
       name: nome.trim(),
       slug,
+      categoria_id: categoriaId || null,
       preview_image: preview.trim() || null,
       html_template: htmlTemplate,
       active: true,
@@ -74,6 +100,7 @@ export default function ModelosConvitePage() {
     setEditandoId(t.id);
     setNome(t.name || "");
     setSlug(t.slug || "");
+    setCategoriaId(t.categoria_id || "");
     setPreview(t.preview_image || "");
     setHtmlTemplate(t.html_template || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -91,6 +118,7 @@ export default function ModelosConvitePage() {
       .update({
         name: nome.trim(),
         slug,
+        categoria_id: categoriaId || null,
         preview_image: preview.trim() || null,
         html_template: htmlTemplate,
       })
@@ -120,6 +148,7 @@ export default function ModelosConvitePage() {
     const { error } = await supabase.from("invite_templates").insert({
       name: `${template.name} - Cópia`,
       slug: `${template.slug}-copia-${Date.now()}`,
+      categoria_id: template.categoria_id || null,
       preview_image: template.preview_image || null,
       html_template: template.html_template || "",
       active: false,
@@ -162,6 +191,7 @@ export default function ModelosConvitePage() {
   }
 
   useEffect(() => {
+    carregarCategorias();
     carregarTemplates();
   }, []);
 
@@ -176,6 +206,19 @@ export default function ModelosConvitePage() {
           onChange={(e) => setNome(e.target.value)}
           style={input}
         />
+
+        <select
+          value={categoriaId}
+          onChange={(e) => setCategoriaId(e.target.value)}
+          style={input}
+        >
+          <option value="">Selecione a categoria</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nome}
+            </option>
+          ))}
+        </select>
 
         <input
           placeholder="Slug"
@@ -212,7 +255,10 @@ export default function ModelosConvitePage() {
           </button>
 
           {editandoId && (
-            <button onClick={limparFormulario} style={{ ...btn, background: "#475569" }}>
+            <button
+              onClick={limparFormulario}
+              style={{ ...btn, background: "#475569" }}
+            >
               Cancelar edição
             </button>
           )}
@@ -225,35 +271,74 @@ export default function ModelosConvitePage() {
         <div style={{ display: "grid", gap: 20, marginTop: 20 }}>
           {templates.map((t) => (
             <div key={t.id} style={card}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 20,
+                }}
+              >
                 <div>
                   <strong>{t.name}</strong>
-                  <div style={{ opacity: 0.6, marginTop: 5 }}>/{t.slug}</div>
-                  <div style={{ marginTop: 8, color: t.active ? "#22c55e" : "#ef4444" }}>
+
+                  <div style={{ opacity: 0.6, marginTop: 5 }}>
+                    /{t.slug}
+                  </div>
+
+                  <div style={{ marginTop: 6, color: "#c4b5fd" }}>
+                    Categoria: {t.categoria?.nome || "Sem categoria"}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 8,
+                      color: t.active ? "#22c55e" : "#ef4444",
+                    }}
+                  >
                     {t.active ? "Ativo" : "Inativo"}
                   </div>
+
                   <div style={{ marginTop: 8, opacity: 0.7 }}>
                     HTML: {t.html_template ? "cadastrado" : "não cadastrado"}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <button onClick={() => editarTemplate(t)} style={{ ...btnSmall, background: "#2563eb" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button
+                    onClick={() => editarTemplate(t)}
+                    style={{ ...btnSmall, background: "#2563eb" }}
+                  >
                     Editar
                   </button>
 
-                  <button onClick={() => duplicarTemplate(t)} style={{ ...btnSmall, background: "#7c3aed" }}>
+                  <button
+                    onClick={() => duplicarTemplate(t)}
+                    style={{ ...btnSmall, background: "#7c3aed" }}
+                  >
                     Duplicar
                   </button>
 
                   <button
                     onClick={() => alternarStatus(t.id, t.active)}
-                    style={{ ...btnSmall, background: t.active ? "#ef4444" : "#22c55e" }}
+                    style={{
+                      ...btnSmall,
+                      background: t.active ? "#ef4444" : "#22c55e",
+                    }}
                   >
                     {t.active ? "Desativar" : "Ativar"}
                   </button>
 
-                  <button onClick={() => deletarTemplate(t.id)} style={{ ...btnSmall, background: "#991b1b" }}>
+                  <button
+                    onClick={() => deletarTemplate(t.id)}
+                    style={{ ...btnSmall, background: "#991b1b" }}
+                  >
                     Excluir
                   </button>
                 </div>
