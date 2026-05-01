@@ -56,13 +56,11 @@ export default function ModelosConvitePage() {
 
     setSalvandoCategoria(true);
 
-    const { error } = await supabase
-      .from("invite_template_categories")
-      .insert({
-        nome: novaCategoria.trim(),
-        slug: novoSlug,
-        active: true,
-      });
+    const { error } = await supabase.from("invite_template_categories").insert({
+      nome: novaCategoria.trim(),
+      slug: novoSlug,
+      active: true,
+    });
 
     setSalvandoCategoria(false);
 
@@ -117,7 +115,7 @@ export default function ModelosConvitePage() {
       slug,
       categoria_id: categoriaId || null,
       preview_image: preview.trim() || null,
-      html_template: htmlTemplate,
+      html_template: htmlTemplate.trim(),
       active: true,
     });
 
@@ -155,7 +153,7 @@ export default function ModelosConvitePage() {
         slug,
         categoria_id: categoriaId || null,
         preview_image: preview.trim() || null,
-        html_template: htmlTemplate,
+        html_template: htmlTemplate.trim(),
       })
       .eq("id", editandoId);
 
@@ -261,9 +259,7 @@ export default function ModelosConvitePage() {
           </button>
         </div>
 
-        <div
-          style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}
-        >
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
           {categorias.length === 0 && (
             <span style={{ color: "#94a3b8" }}>
               Nenhuma categoria cadastrada.
@@ -424,32 +420,7 @@ export default function ModelosConvitePage() {
               </div>
 
               {t.preview_image ? (
-  <img
-    src={t.preview_image}
-    alt={t.nome || t.name || "Preview do modelo"}
-    style={{
-      width: "100%",
-      maxHeight: 280,
-      objectFit: "cover",
-      marginTop: 14,
-      borderRadius: 10,
-      opacity: 0.9,
-    }}
-  />
-) : t.html_template ? (
-  <iframe
-    title={`Preview ${t.nome || t.name}`}
-    srcDoc={t.html_template}
-    style={{
-      width: "100%",
-      height: 720,
-      marginTop: 18,
-      borderRadius: 16,
-      border: "1px solid #334155",
-      background: "#020617",
-    }}
-  />
-) : null}
+                <img
                   src={t.preview_image}
                   alt={t.nome || t.name || "Preview do modelo"}
                   style={{
@@ -461,7 +432,20 @@ export default function ModelosConvitePage() {
                     opacity: 0.9,
                   }}
                 />
-              )}
+              ) : t.html_template ? (
+                <iframe
+                  title={`Preview ${t.nome || t.name}`}
+                  srcDoc={t.html_template}
+                  style={{
+                    width: "100%",
+                    height: 720,
+                    marginTop: 18,
+                    borderRadius: 16,
+                    border: "1px solid #334155",
+                    background: "#020617",
+                  }}
+                />
+              ) : null}
             </div>
           ))}
         </div>
