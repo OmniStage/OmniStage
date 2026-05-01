@@ -286,11 +286,13 @@ export default function ConvitePage() {
                         style={templateThumbStyle}
                       />
                     ) : template.html_template ? (
-                      <iframe
-                        title={`Preview ${templateNome}`}
-                        srcDoc={template.html_template}
-                        style={templateThumbFrameStyle}
-                      />
+                      <div style={templateThumbFrameWrapStyle}>
+                        <iframe
+                          title={`Preview ${templateNome}`}
+                          srcDoc={template.html_template}
+                          style={templateThumbFrameStyle}
+                        />
+                      </div>
                     ) : (
                       <div style={templateThumbEmptyStyle}>Sem preview</div>
                     )}
@@ -386,7 +388,7 @@ const filterSelectStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 220px))",
   gap: 16,
 };
 
@@ -402,24 +404,35 @@ const templateCardStyle: React.CSSProperties = {
 
 const templateThumbStyle: React.CSSProperties = {
   width: "100%",
-  aspectRatio: "4 / 3",
-  objectFit: "cover",
-  borderRadius: 12,
-  border: "1px solid #334155",
-};
-
-const templateThumbFrameStyle: React.CSSProperties = {
-  width: "100%",
-  aspectRatio: "4 / 3",
+  aspectRatio: "9 / 14",
+  objectFit: "contain",
   borderRadius: 12,
   border: "1px solid #334155",
   background: "#020617",
+};
+
+const templateThumbFrameStyle: React.CSSProperties = {
+  width: "142.86%",
+  height: "142.86%",
+  border: 0,
+  background: "#020617",
   pointerEvents: "none",
+  transform: "scale(0.7)",
+  transformOrigin: "top left",
+};
+
+const templateThumbFrameWrapStyle: React.CSSProperties = {
+  width: "100%",
+  aspectRatio: "9 / 14",
+  borderRadius: 12,
+  border: "1px solid #334155",
+  background: "#020617",
+  overflow: "hidden",
 };
 
 const templateThumbEmptyStyle: React.CSSProperties = {
   width: "100%",
-  aspectRatio: "4 / 3",
+  aspectRatio: "9 / 14",
   borderRadius: 12,
   border: "1px dashed #334155",
   display: "grid",
