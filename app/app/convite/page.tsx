@@ -25,10 +25,16 @@ type Template = {
   html_template: string | null;
   active: boolean | null;
   tenant_id: string | null;
-  categoria?: {
-    nome: string;
-  } | null;
+  categoria?: { nome: string } | { nome: string }[] | null;
 };
+
+function getCategoriaNome(categoria: Template["categoria"]) {
+  if (Array.isArray(categoria)) {
+    return categoria[0]?.nome || "Sem categoria";
+  }
+
+  return categoria?.nome || "Sem categoria";
+}
 
 export default function ConvitePage() {
   const [tenantId, setTenantId] = useState("");
@@ -124,7 +130,12 @@ export default function ConvitePage() {
       return;
     }
 
-    setTemplates((templatesData || []) as Template[]);
+    setTemplates((templatesData || []).map((template) => ({
+      ...template,
+      categoria: Array.isArray(template.categoria)
+        ? template.categoria[0] || null
+        : template.categoria || null,
+    })) as Template[]);
     setLoading(false);
   }
 
@@ -236,7 +247,7 @@ export default function ConvitePage() {
                   >
                     <strong>{templateNome}</strong>
                     <span style={{ color: "#94a3b8", marginTop: 6 }}>
-                      {template.categoria?.nome || "Sem categoria"} · /{template.slug}
+                      {getCategoriaNome(template.categoria)} · /{template.slug}
                     </span>
                     <span style={{ color: template.tenant_id ? "#a78bfa" : "#facc15", marginTop: 6 }}>
                       {template.tenant_id ? "Modelo do cliente" : "Modelo global OmniStage"}
