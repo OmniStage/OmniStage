@@ -4,227 +4,167 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function ConvitePage() {
-  const [nomes, setNomes] = useState<string[]>([]);
-  const [tokens, setTokens] = useState<string[]>([]);
-  const [selecionados, setSelecionados] = useState<string[]>([]);
-  const [play, setPlay] = useState(false);
+  const [eventos, setEventos] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [eventoSelecionado, setEventoSelecionado] = useState<string>("");
+  const [templateSelecionado, setTemplateSelecionado] = useState<string>("");
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
+  // ===============================
+  // CARREGAR EVENTOS DO CLIENTE
+  // ===============================
+  async function carregarEventos() {
+    const { data: userData } = await supabase.auth.getUser();
 
-    const nomesParam = url.searchParams.get("nomes");
-    const tokensParam = url.searchParams.get("tokens");
+    if (!userData.user) return;
 
-    if (nomesParam) {
-      const lista = decodeURIComponent(nomesParam).split("|");
-      setNomes(lista);
-      setSelecionados(lista);
-    }
+    const { data: memberships } = await supabase
+      .from("network_members")
+      .select("tenant_id")
+      .eq("user_id", userData.user.id)
+      .limit(1)
+      .single();
 
-    if (tokensParam) {
-      const lista = decodeURIComponent(tokensParam).split("|");
-      setTokens(lista);
-    }
-  }, []);
+    if (!memberships) return;
 
-  function toggleNome(nome: string) {
-    if (selecionados.includes(nome)) {
-      setSelecionados(selecionados.filter((n) => n !== nome));
-    } else {
-      setSelecionados([...selecionados, nome]);
-    }
+    const { data } = await supabase
+      .from("eventos")
+      .select("*")
+      .eq("tenant_id", memberships.tenant_id)
+      .order("created_at", { ascending: false });
+
+    setEventos(data || []);
   }
 
-  async function confirmarPresenca() {
-    if (selecionados.length === 0) {
-      alert("Selecione pelo menos um nome.");
+  // ===============================
+  // CARREGAR TEMPLATES (ADMIN)
+  // ===============================
+  async function carregarTemplates() {
+    const { data } = await supabase
+      .from("invite_templates")
+      .select("*")
+      .eq("active", true);
+
+    setTemplates(data || []);
+  }
+
+  // ===============================
+  // SALVAR TEMPLATE NO EVENTO
+  // ===============================
+  async function salvarTemplate() {
+    if (!eventoSelecionado || !templateSelecionado) {
+      alert("Selecione evento e modelo");
       return;
     }
 
-    for (let i = 0; i < nomes.length; i++) {
-      const nome = nomes[i];
-      const token = tokens[i];
+    const { error } = await supabase
+      .from("eventos")
+      .update({
+        invite_template_id: templateSelecionado,
+      })
+      .eq("id", eventoSelecionado);
 
-      if (!token) continue;
-
-      const confirmado = selecionados.includes(nome);
-
-      await supabase
-        .from("convidados")
-        .update({
-          status_rsvp: confirmado ? "confirmado" : "nao",
-          data_resposta: new Date().toISOString(),
-        })
-        .eq("token", token);
+    if (error) {
+      alert("Erro ao salvar: " + error.message);
+      return;
     }
 
-    alert("Presença confirmada!");
+    alert("Modelo aplicado ao evento!");
   }
 
-  function tocarMusica() {
-    const audio = document.getElementById("audio") as HTMLAudioElement;
-
-    if (!audio) return;
-
-    if (play) {
-      audio.pause();
-      setPlay(false);
-    } else {
-      audio.play();
-      setPlay(true);
-    }
-  }
+  useEffect(() => {
+    carregarEventos();
+    carregarTemplates();
+  }, []);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: `url("/fundo.jpg") center/cover no-repeat`,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-      }}
-    >
-      <audio id="audio" src="/musica.mp3" loop />
+    <main style={{ color: "#fff" }}>
+      <h1 style={{ fontSize: 40 }}>Convite Digital</h1>
 
-      <div
-        style={{
-          width: 360,
-          borderRadius: 24,
-          padding: 24,
-          backdropFilter: "blur(20px)",
-          background: "rgba(0,0,0,0.6)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          color: "#fff",
-          textAlign: "center",
-        }}
-      >
-        {/* botão música */}
-        <button
-          onClick={tocarMusica}
-          style={{
-            position: "absolute",
-            top: 20,
-            right: 20,
-            background: "#111827",
-            border: "none",
-            color: "#fff",
-            padding: "6px 12px",
-            borderRadius: 20,
-            cursor: "pointer",
-          }}
+      {/* ========================= */}
+      {/* SELEÇÃO DE EVENTO */}
+      {/* ========================= */}
+      <div style={{ marginTop: 20 }}>
+        <label>Selecione o evento</label>
+        <select
+          value={eventoSelecionado}
+          onChange={(e) => setEventoSelecionado(e.target.value)}
+          style={selectStyle}
         >
-          {play ? "⏸ Pausar" : "▶ Tocar"}
-        </button>
+          <option value="">Selecione...</option>
+          {eventos.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.nome}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        <img
-          src="/logo.png"
-          style={{
-            width: 180,
-            marginBottom: 10,
-          }}
-        />
+      {/* ========================= */}
+      {/* LISTA DE TEMPLATES */}
+      {/* ========================= */}
+      <div style={{ marginTop: 40 }}>
+        <h2>Escolha o modelo</h2>
 
-        <p style={{ color: "#cbd5f5", fontSize: 12 }}>
-          CONVITE DIGITAL
-        </p>
-
-        <h1
-          style={{
-            fontSize: 36,
-            color: "#facc15",
-            marginBottom: 10,
-          }}
-        >
-          VALENTINA XV
-        </h1>
-
-        <p style={{ color: "#cbd5f5" }}>
-          16 de maio de 2026 • 21h
-        </p>
-
-        <p style={{ marginBottom: 20 }}>
-          Guerrah Hall
-        </p>
-
-        {/* seleção nomes */}
-        <div
-          style={{
-            background: "rgba(255,255,255,0.05)",
-            padding: 12,
-            borderRadius: 12,
-            marginBottom: 20,
-          }}
-        >
-          {nomes.map((nome) => (
-            <label
-              key={nome}
+        <div style={{ display: "grid", gap: 20 }}>
+          {templates.map((t) => (
+            <div
+              key={t.id}
               style={{
-                display: "block",
-                marginBottom: 8,
+                border:
+                  templateSelecionado === t.id
+                    ? "2px solid #22c55e"
+                    : "1px solid #334155",
+                borderRadius: 16,
+                padding: 20,
                 cursor: "pointer",
+                background: "#020617",
               }}
+              onClick={() => setTemplateSelecionado(t.id)}
             >
-              <input
-                type="checkbox"
-                checked={selecionados.includes(nome)}
-                onChange={() => toggleNome(nome)}
-                style={{ marginRight: 8 }}
-              />
-              {nome}
-            </label>
+              <strong>{t.name}</strong>
+
+              <div style={{ marginTop: 10 }}>
+                <img
+                  src={t.background_url}
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    opacity: 0.7,
+                  }}
+                />
+              </div>
+            </div>
           ))}
         </div>
-
-        <button
-          onClick={confirmarPresenca}
-          style={{
-            width: "100%",
-            padding: 14,
-            borderRadius: 12,
-            background: "#22c55e",
-            border: "none",
-            color: "#fff",
-            fontWeight: "bold",
-            marginBottom: 10,
-            cursor: "pointer",
-          }}
-        >
-          CONFIRMAR PRESENÇA
-        </button>
-
-        <button
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 12,
-            background: "#111827",
-            border: "1px solid #334155",
-            color: "#fff",
-            marginBottom: 10,
-          }}
-        >
-          VER LOCALIZAÇÃO
-        </button>
-
-        <button
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 12,
-            background: "#111827",
-            border: "1px solid #334155",
-            color: "#fff",
-          }}
-        >
-          ADICIONAR AO CALENDÁRIO
-        </button>
-
-        <p style={{ marginTop: 20, color: "#94a3b8" }}>
-          Esperamos você ✨
-        </p>
       </div>
+
+      {/* ========================= */}
+      {/* BOTÃO SALVAR */}
+      {/* ========================= */}
+      <button
+        onClick={salvarTemplate}
+        style={{
+          marginTop: 30,
+          padding: "14px 20px",
+          borderRadius: 10,
+          background: "#22c55e",
+          border: "none",
+          color: "#fff",
+          fontWeight: "bold",
+          cursor: "pointer",
+        }}
+      >
+        Aplicar modelo ao evento
+      </button>
     </main>
   );
 }
+
+const selectStyle = {
+  padding: 12,
+  borderRadius: 10,
+  background: "#020617",
+  color: "#fff",
+  border: "1px solid #334155",
+  marginTop: 10,
+};
