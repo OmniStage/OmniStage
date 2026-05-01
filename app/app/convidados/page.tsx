@@ -251,4 +251,3 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #334155",
   minWidth: 240,
 };
-};
