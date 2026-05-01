@@ -42,6 +42,7 @@ export default function ConvitePage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [eventoSelecionado, setEventoSelecionado] = useState("");
   const [templateSelecionado, setTemplateSelecionado] = useState("");
+  const [temaSelecionado, setTemaSelecionado] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -52,6 +53,17 @@ export default function ConvitePage() {
   const templateAtual = useMemo(() => {
     return templates.find((template) => template.id === templateSelecionado) || null;
   }, [templates, templateSelecionado]);
+
+  const temas = useMemo(() => {
+    const nomes = templates.map((template) => getCategoriaNome(template.categoria));
+    return ["todos", ...Array.from(new Set(nomes)).sort((a, b) => a.localeCompare(b))];
+  }, [templates]);
+
+  const templatesFiltrados = useMemo(() => {
+    if (temaSelecionado === "todos") return templates;
+
+    return templates.filter((template) => getCategoriaNome(template.categoria) === temaSelecionado);
+  }, [templates, temaSelecionado]);
 
   async function carregarDados() {
     setLoading(true);
@@ -220,7 +232,26 @@ export default function ConvitePage() {
           </section>
 
           <section style={sectionStyle}>
-            <h2 style={{ marginTop: 0 }}>Modelos disponíveis</h2>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <h2 style={{ margin: 0 }}>Modelos disponíveis</h2>
+                <p style={{ color: "#94a3b8", margin: "8px 0 0" }}>
+                  Filtre por tema e escolha pelo preview visual do convite.
+                </p>
+              </div>
+
+              <select
+                value={temaSelecionado}
+                onChange={(event) => setTemaSelecionado(event.target.value)}
+                style={filterSelectStyle}
+              >
+                {temas.map((tema) => (
+                  <option key={tema} value={tema}>
+                    {tema === "todos" ? "Todos os temas" : tema}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {templates.length === 0 && (
               <div style={emptyStyle}>
@@ -228,8 +259,12 @@ export default function ConvitePage() {
               </div>
             )}
 
+            {templates.length > 0 && templatesFiltrados.length === 0 && (
+              <div style={emptyStyle}>Nenhum modelo encontrado para este tema.</div>
+            )}
+
             <div style={gridStyle}>
-              {templates.map((template) => {
+              {templatesFiltrados.map((template) => {
                 const selected = templateSelecionado === template.id;
                 const templateNome = template.nome || template.name || "Modelo";
                 const preview = template.preview_image || template.background_image || "";
@@ -244,27 +279,26 @@ export default function ConvitePage() {
                     }}
                     onClick={() => setTemplateSelecionado(template.id)}
                   >
-                    <strong>{templateNome}</strong>
-                    <span style={{ color: "#94a3b8", marginTop: 6 }}>
-                      {getCategoriaNome(template.categoria)} · /{template.slug}
-                    </span>
-                    <span style={{ color: template.tenant_id ? "#a78bfa" : "#facc15", marginTop: 6 }}>
-                      {template.tenant_id ? "Modelo do cliente" : "Modelo global OmniStage"}
-                    </span>
-
-                    {preview && (
+                    {preview ? (
                       <img
                         src={preview}
                         alt={templateNome}
-                        style={{
-                          width: "100%",
-                          maxHeight: 220,
-                          objectFit: "cover",
-                          borderRadius: 12,
-                          marginTop: 14,
-                        }}
+                        style={templateThumbStyle}
                       />
+                    ) : template.html_template ? (
+                      <iframe
+                        title={`Preview ${templateNome}`}
+                        srcDoc={template.html_template}
+                        style={templateThumbFrameStyle}
+                      />
+                    ) : (
+                      <div style={templateThumbEmptyStyle}>Sem preview</div>
                     )}
+
+                    <strong style={{ marginTop: 12 }}>{templateNome}</strong>
+                    <span style={{ color: "#94a3b8", marginTop: 4 }}>
+                      {getCategoriaNome(template.categoria)}
+                    </span>
                   </button>
                 );
               })}
@@ -324,8 +358,25 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
+const sectionHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  alignItems: "flex-start",
+  marginBottom: 18,
+};
+
 const selectStyle: React.CSSProperties = {
   width: "100%",
+  padding: 12,
+  borderRadius: 10,
+  background: "#020617",
+  color: "#fff",
+  border: "1px solid #334155",
+};
+
+const filterSelectStyle: React.CSSProperties = {
+  minWidth: 220,
   padding: 12,
   borderRadius: 10,
   background: "#020617",
@@ -343,10 +394,37 @@ const templateCardStyle: React.CSSProperties = {
   display: "grid",
   textAlign: "left",
   borderRadius: 16,
-  padding: 18,
+  padding: 12,
   cursor: "pointer",
   background: "#0f172a",
   color: "#fff",
+};
+
+const templateThumbStyle: React.CSSProperties = {
+  width: "100%",
+  aspectRatio: "4 / 3",
+  objectFit: "cover",
+  borderRadius: 12,
+  border: "1px solid #334155",
+};
+
+const templateThumbFrameStyle: React.CSSProperties = {
+  width: "100%",
+  aspectRatio: "4 / 3",
+  borderRadius: 12,
+  border: "1px solid #334155",
+  background: "#020617",
+  pointerEvents: "none",
+};
+
+const templateThumbEmptyStyle: React.CSSProperties = {
+  width: "100%",
+  aspectRatio: "4 / 3",
+  borderRadius: 12,
+  border: "1px dashed #334155",
+  display: "grid",
+  placeItems: "center",
+  color: "#94a3b8",
 };
 
 const emptyStyle: React.CSSProperties = {
