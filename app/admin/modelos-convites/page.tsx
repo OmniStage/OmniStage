@@ -423,8 +423,33 @@ export default function ModelosConvitePage() {
                 </div>
               </div>
 
-              {t.preview_image && (
-                <img
+              {t.preview_image ? (
+  <img
+    src={t.preview_image}
+    alt={t.nome || t.name || "Preview do modelo"}
+    style={{
+      width: "100%",
+      maxHeight: 280,
+      objectFit: "cover",
+      marginTop: 14,
+      borderRadius: 10,
+      opacity: 0.9,
+    }}
+  />
+) : t.html_template ? (
+  <iframe
+    title={`Preview ${t.nome || t.name}`}
+    srcDoc={t.html_template}
+    style={{
+      width: "100%",
+      height: 720,
+      marginTop: 18,
+      borderRadius: 16,
+      border: "1px solid #334155",
+      background: "#020617",
+    }}
+  />
+) : null}
                   src={t.preview_image}
                   alt={t.nome || t.name || "Preview do modelo"}
                   style={{
