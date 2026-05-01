@@ -6,6 +6,12 @@ import { supabase } from "@/lib/supabase";
 export default function ModelosConvitePage() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
+
+  const [background, setBackground] = useState("");
+  const [logo, setLogo] = useState("");
+  const [musica, setMusica] = useState("");
+  const [preview, setPreview] = useState("");
+
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +55,10 @@ export default function ModelosConvitePage() {
     const { error } = await supabase.from("invite_templates").insert({
       name: nome,
       slug: slug,
+      preview_image: preview,
+      background_image: background,
+      logo_image: logo,
+      music_file: musica,
       active: true,
     });
 
@@ -59,12 +69,15 @@ export default function ModelosConvitePage() {
       return;
     }
 
+    // limpar
     setNome("");
     setSlug("");
+    setBackground("");
+    setLogo("");
+    setMusica("");
+    setPreview("");
 
     carregarTemplates();
-
-    alert("Modelo criado!");
   }
 
   useEffect(() => {
@@ -93,6 +106,34 @@ export default function ModelosConvitePage() {
           style={{ ...input, opacity: 0.6 }}
         />
 
+        <input
+          placeholder="Preview (imagem do modelo)"
+          value={preview}
+          onChange={(e) => setPreview(e.target.value)}
+          style={input}
+        />
+
+        <input
+          placeholder="Background (opcional)"
+          value={background}
+          onChange={(e) => setBackground(e.target.value)}
+          style={input}
+        />
+
+        <input
+          placeholder="Logo (opcional)"
+          value={logo}
+          onChange={(e) => setLogo(e.target.value)}
+          style={input}
+        />
+
+        <input
+          placeholder="Música (opcional)"
+          value={musica}
+          onChange={(e) => setMusica(e.target.value)}
+          style={input}
+        />
+
         <button onClick={criarTemplate} style={btn}>
           {loading ? "Criando..." : "Criar modelo"}
         </button>
@@ -109,6 +150,18 @@ export default function ModelosConvitePage() {
             <div key={t.id} style={card}>
               <strong>{t.name}</strong>
               <div style={{ opacity: 0.6 }}>/{t.slug}</div>
+
+              {t.preview_image && (
+                <img
+                  src={t.preview_image}
+                  style={{
+                    width: "100%",
+                    marginTop: 10,
+                    borderRadius: 10,
+                    opacity: 0.8,
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>
