@@ -1,21 +1,64 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Evento = {
   id: string;
   nome: string;
+  data_evento: string | null;
+  horario: string | null;
+  local: string | null;
+  endereco: string | null;
+  mapa_url: string | null;
   status: string | null;
   tenant_id: string;
-  created_at: string;
+  created_at: string | null;
+  background_image?: string | null;
+  logo_image?: string | null;
+  music_file?: string | null;
+};
+
+type EventForm = {
+  nome: string;
+  data_evento: string;
+  horario: string;
+  local: string;
+  endereco: string;
+  mapa_url: string;
+  status: string;
+};
+
+const initialForm: EventForm = {
+  nome: "",
+  data_evento: "",
+  horario: "",
+  local: "",
+  endereco: "",
+  mapa_url: "",
+  status: "ativo",
 };
 
 export default function EventosPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [nome, setNome] = useState("");
+  const [form, setForm] = useState<EventForm>(initialForm);
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [musicFile, setMusicFile] = useState<File | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  function updateForm(field: keyof EventForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function limparFormulario() {
+    setForm(initialForm);
+    setBackgroundFile(null);
+    setLogoFile(null);
+    setMusicFile(null);
+  }
 
   async function carregarTenant() {
     const {
@@ -23,7 +66,7 @@ export default function EventosPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Usuário não autenticado");
+      alert("Usuário não autenticado.");
       return null;
     }
 
@@ -46,7 +89,21 @@ export default function EventosPage() {
   async function carregarEventos(tenant: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome, status, tenant_id, created_at")
+      .select(`
+        id,
+        nome,
+        data_evento,
+        horario,
+        local,
+        endereco,
+        mapa_url,
+        status,
+        tenant_id,
+        created_at,
+        background_image,
+        logo_image,
+        music_file
+      `)
       .eq("tenant_id", tenant)
       .order("created_at", { ascending: false });
 
@@ -60,14 +117,48 @@ export default function EventosPage() {
 
   async function iniciarTela() {
     const tenant = await carregarTenant();
+
     if (tenant) {
       await carregarEventos(tenant);
     }
   }
 
+  function slugify(text: string) {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
+  async function uploadArquivo(tenant: string, eventoSlug: string, file: File | null, tipo: string) {
+    if (!file) return null;
+
+    const extension = file.name.split(".").pop() || "file";
+    const path = `${tenant}/${eventoSlug}/${tipo}-${Date.now()}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from("event-assets")
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (error) {
+      throw new Error(`Erro ao subir ${tipo}: ${error.message}`);
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("event-assets").getPublicUrl(path);
+
+    return publicUrl;
+  }
+
   async function criarEvento() {
-    if (!nome.trim()) {
-      alert("Digite o nome do evento");
+    if (!form.nome.trim()) {
+      alert("Digite o nome do evento.");
       return;
     }
 
@@ -81,21 +172,40 @@ export default function EventosPage() {
 
     setLoading(true);
 
-    const { error } = await supabase.from("eventos").insert({
-      nome: nome.trim(),
-      status: "ativo",
-      tenant_id: tenant,
-    });
+    try {
+      const eventoSlug = slugify(form.nome) || "evento";
+      const [backgroundUrl, logoUrl, musicUrl] = await Promise.all([
+        uploadArquivo(tenant, eventoSlug, backgroundFile, "fundo"),
+        uploadArquivo(tenant, eventoSlug, logoFile, "logo"),
+        uploadArquivo(tenant, eventoSlug, musicFile, "musica"),
+      ]);
 
-    setLoading(false);
+      const { error } = await supabase.from("eventos").insert({
+        nome: form.nome.trim(),
+        data_evento: form.data_evento || null,
+        horario: form.horario.trim() || null,
+        local: form.local.trim() || null,
+        endereco: form.endereco.trim() || null,
+        mapa_url: form.mapa_url.trim() || null,
+        status: form.status,
+        tenant_id: tenant,
+        background_image: backgroundUrl,
+        logo_image: logoUrl,
+        music_file: musicUrl,
+      });
 
-    if (error) {
-      alert("Erro ao criar evento: " + error.message);
-      return;
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      limparFormulario();
+      await carregarEventos(tenant);
+      alert("Evento criado.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao criar evento.");
+    } finally {
+      setLoading(false);
     }
-
-    setNome("");
-    carregarEventos(tenant);
   }
 
   useEffect(() => {
@@ -104,63 +214,243 @@ export default function EventosPage() {
 
   return (
     <main style={{ color: "#fff" }}>
-      <h1 style={{ fontSize: 48 }}>Eventos</h1>
+      <h1 style={{ fontSize: 48, margin: 0 }}>Eventos</h1>
 
-      <p style={{ color: "#94a3b8", marginTop: -10 }}>
-        🔵 APP — eventos vinculados à empresa do usuário.
+      <p style={{ color: "#94a3b8", marginTop: 8 }}>
+        Cadastre as informações que serão usadas no convite digital, RSVP e cartão de entrada.
       </p>
 
-      <div style={{ marginTop: 24, marginBottom: 30 }}>
-        <input
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          placeholder="Nome do evento"
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            marginRight: 10,
-            background: "#020617",
-            color: "#fff",
-            border: "1px solid #334155",
-            minWidth: 280,
-          }}
-        />
+      <section style={sectionStyle}>
+        <h2 style={{ marginTop: 0 }}>Criar evento</h2>
 
-        <button
-          onClick={criarEvento}
-          disabled={loading}
-          style={{
-            padding: "14px 20px",
-            borderRadius: 12,
-            background: "#22c55e",
-            border: "none",
-            color: "#fff",
-            fontWeight: "bold",
-            cursor: "pointer",
-          }}
-        >
+        <div style={formGridStyle}>
+          <label style={fieldStyle}>
+            <span>Nome do evento</span>
+            <input
+              value={form.nome}
+              onChange={(event) => updateForm("nome", event.target.value)}
+              placeholder="Ex: Valentina XV"
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Data</span>
+            <input
+              type="date"
+              value={form.data_evento}
+              onChange={(event) => updateForm("data_evento", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Horário</span>
+            <input
+              value={form.horario}
+              onChange={(event) => updateForm("horario", event.target.value)}
+              placeholder="Ex: 20h"
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Status</span>
+            <select
+              value={form.status}
+              onChange={(event) => updateForm("status", event.target.value)}
+              style={inputStyle}
+            >
+              <option value="ativo">Ativo</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="publicado">Publicado</option>
+              <option value="encerrado">Encerrado</option>
+            </select>
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Local</span>
+            <input
+              value={form.local}
+              onChange={(event) => updateForm("local", event.target.value)}
+              placeholder="Ex: Espaço Grand Hall"
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Endereço</span>
+            <input
+              value={form.endereco}
+              onChange={(event) => updateForm("endereco", event.target.value)}
+              placeholder="Rua, número, cidade"
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+            <span>Link do mapa</span>
+            <input
+              value={form.mapa_url}
+              onChange={(event) => updateForm("mapa_url", event.target.value)}
+              placeholder="https://maps.google.com/..."
+              style={inputStyle}
+            />
+          </label>
+        </div>
+
+        <div style={uploadGridStyle}>
+          <label style={uploadBoxStyle}>
+            <strong>Imagem de fundo</strong>
+            <span>JPG, PNG ou WEBP usado no convite.</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setBackgroundFile(event.target.files?.[0] || null)}
+            />
+          </label>
+
+          <label style={uploadBoxStyle}>
+            <strong>Logo do evento</strong>
+            <span>PNG/JPG para aplicar no layout.</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
+            />
+          </label>
+
+          <label style={uploadBoxStyle}>
+            <strong>Música</strong>
+            <span>MP3 opcional para convites com áudio.</span>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(event) => setMusicFile(event.target.files?.[0] || null)}
+            />
+          </label>
+        </div>
+
+        <button onClick={criarEvento} disabled={loading} style={buttonStyle}>
           {loading ? "Criando..." : "Criar evento"}
         </button>
-      </div>
+      </section>
 
-      <div style={{ display: "grid", gap: 16 }}>
-        {eventos.map((evento) => (
-          <div
-            key={evento.id}
-            style={{
-              background: "#020617",
-              padding: 22,
-              borderRadius: 18,
-              border: "1px solid #334155",
-            }}
-          >
-            <strong style={{ fontSize: 22 }}>{evento.nome}</strong>
-            <p style={{ color: "#94a3b8" }}>Status: {evento.status}</p>
-            <small style={{ color: "#64748b" }}>Tenant: {evento.tenant_id}</small>
-          </div>
-        ))}
-      </div>
+      <section style={sectionStyle}>
+        <h2 style={{ marginTop: 0 }}>Eventos criados</h2>
+
+        <div style={{ display: "grid", gap: 16 }}>
+          {eventos.length === 0 && (
+            <div style={emptyStyle}>Nenhum evento cadastrado para este cliente.</div>
+          )}
+
+          {eventos.map((evento) => (
+            <article key={evento.id} style={eventCardStyle}>
+              <div>
+                <strong style={{ fontSize: 22 }}>{evento.nome}</strong>
+                <p style={{ color: "#94a3b8", marginBottom: 0 }}>
+                  {evento.data_evento || "Sem data"} · {evento.horario || "Sem horário"} ·{" "}
+                  {evento.local || "Sem local"}
+                </p>
+                <small style={{ color: "#64748b" }}>{evento.endereco || "Endereço não informado"}</small>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <span style={statusStyle}>{evento.status || "sem status"}</span>
+                <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
+                  {evento.background_image ? "Fundo ok" : "Sem fundo"} ·{" "}
+                  {evento.logo_image ? "Logo ok" : "Sem logo"} ·{" "}
+                  {evento.music_file ? "Música ok" : "Sem música"}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
-   
+
+const sectionStyle: CSSProperties = {
+  marginTop: 28,
+  padding: 22,
+  borderRadius: 18,
+  border: "1px solid #334155",
+  background: "#020617",
+};
+
+const formGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 14,
+};
+
+const fieldStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  color: "#cbd5e1",
+  fontWeight: 700,
+};
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  padding: 13,
+  borderRadius: 10,
+  background: "#020617",
+  color: "#fff",
+  border: "1px solid #334155",
+};
+
+const uploadGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 14,
+  marginTop: 18,
+};
+
+const uploadBoxStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  padding: 16,
+  borderRadius: 14,
+  border: "1px dashed #334155",
+  color: "#94a3b8",
+};
+
+const buttonStyle: CSSProperties = {
+  marginTop: 20,
+  padding: "14px 20px",
+  borderRadius: 10,
+  background: "#22c55e",
+  border: "none",
+  color: "#fff",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const eventCardStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 18,
+  background: "#0f172a",
+  padding: 18,
+  borderRadius: 14,
+  border: "1px solid #334155",
+};
+
+const statusStyle: CSSProperties = {
+  display: "inline-block",
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "rgba(34,197,94,0.14)",
+  color: "#86efac",
+  fontWeight: 800,
+  fontSize: 12,
+};
+
+const emptyStyle: CSSProperties = {
+  padding: 18,
+  borderRadius: 12,
+  border: "1px dashed #334155",
+  color: "#94a3b8",
+};
