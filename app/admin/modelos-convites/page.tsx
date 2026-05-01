@@ -7,12 +7,10 @@ export default function ModelosConvitePage() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
   const [preview, setPreview] = useState("");
+  const [htmlTemplate, setHtmlTemplate] = useState("");
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // =========================
-  // GERAR SLUG AUTOMÁTICO
-  // =========================
   function gerarSlug(text: string) {
     return text
       .toLowerCase()
@@ -26,33 +24,38 @@ export default function ModelosConvitePage() {
     setSlug(gerarSlug(nome));
   }, [nome]);
 
-  // =========================
-  // CARREGAR TEMPLATES
-  // =========================
   async function carregarTemplates() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("invite_templates")
       .select("*")
       .order("created_at", { ascending: false });
 
+    if (error) {
+      console.error("Erro ao carregar modelos:", error);
+      return;
+    }
+
     setTemplates(data || []);
   }
 
-  // =========================
-  // CRIAR TEMPLATE
-  // =========================
   async function criarTemplate() {
-    if (!nome) {
-      alert("Digite o nome");
+    if (!nome.trim()) {
+      alert("Digite o nome do modelo");
+      return;
+    }
+
+    if (!htmlTemplate.trim()) {
+      alert("Cole o código HTML do modelo");
       return;
     }
 
     setLoading(true);
 
     const { error } = await supabase.from("invite_templates").insert({
-      name: nome,
-      slug: slug,
-      preview_image: preview || null,
+      name: nome.trim(),
+      slug,
+      preview_image: preview.trim() || null,
+      html_template: htmlTemplate,
       active: true,
     });
 
@@ -66,13 +69,27 @@ export default function ModelosConvitePage() {
     setNome("");
     setSlug("");
     setPreview("");
+    setHtmlTemplate("");
 
-    carregarTemplates();
+    await carregarTemplates();
 
     alert("Modelo criado!");
   }
 
-  // =========================
+  async function alternarStatus(id: string, active: boolean) {
+    const { error } = await supabase
+      .from("invite_templates")
+      .update({ active: !active })
+      .eq("id", id);
+
+    if (error) {
+      alert("Erro ao alterar status: " + error.message);
+      return;
+    }
+
+    carregarTemplates();
+  }
+
   useEffect(() => {
     carregarTemplates();
   }, []);
@@ -81,8 +98,7 @@ export default function ModelosConvitePage() {
     <main style={{ color: "#fff" }}>
       <h1 style={{ fontSize: 36 }}>Modelos de Convite</h1>
 
-      {/* FORM */}
-      <div style={{ marginTop: 20, maxWidth: 500 }}>
+      <div style={{ marginTop: 20, maxWidth: 760 }}>
         <input
           placeholder="Nome do modelo"
           value={nome}
@@ -104,22 +120,50 @@ export default function ModelosConvitePage() {
           style={input}
         />
 
-        <button onClick={criarTemplate} style={btn}>
+        <textarea
+          placeholder="Cole aqui o código HTML do modelo. Use variáveis como {{nome_convidado}}, {{background_image}}, {{logo_image}}, {{music_file}}, {{data_evento}}, {{horario}}, {{local}}, {{endereco}}"
+          value={htmlTemplate}
+          onChange={(e) => setHtmlTemplate(e.target.value)}
+          style={textarea}
+        />
+
+        <button onClick={criarTemplate} style={btn} disabled={loading}>
           {loading ? "Criando..." : "Criar modelo"}
         </button>
       </div>
 
-      {/* LISTA */}
       <div style={{ marginTop: 40 }}>
         <h2>Modelos criados</h2>
 
         <div style={{ display: "grid", gap: 20, marginTop: 20 }}>
           {templates.map((t) => (
             <div key={t.id} style={card}>
-              <strong>{t.name}</strong>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
+                <div>
+                  <strong>{t.name}</strong>
 
-              <div style={{ opacity: 0.6, marginTop: 5 }}>
-                /{t.slug}
+                  <div style={{ opacity: 0.6, marginTop: 5 }}>
+                    /{t.slug}
+                  </div>
+
+                  <div style={{ marginTop: 8, color: t.active ? "#22c55e" : "#ef4444" }}>
+                    {t.active ? "Ativo" : "Inativo"}
+                  </div>
+
+                  <div style={{ marginTop: 8, opacity: 0.7 }}>
+                    HTML: {t.html_template ? "cadastrado" : "não cadastrado"}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => alternarStatus(t.id, t.active)}
+                  style={{
+                    ...btnSmall,
+                    background: t.active ? "#ef4444" : "#22c55e",
+                  }}
+                >
+                  {t.active ? "Desativar" : "Ativar"}
+                </button>
               </div>
 
               {t.preview_image && (
@@ -127,9 +171,11 @@ export default function ModelosConvitePage() {
                   src={t.preview_image}
                   style={{
                     width: "100%",
-                    marginTop: 10,
+                    maxHeight: 280,
+                    objectFit: "cover",
+                    marginTop: 14,
                     borderRadius: 10,
-                    opacity: 0.8,
+                    opacity: 0.9,
                   }}
                 />
               )}
@@ -141,11 +187,7 @@ export default function ModelosConvitePage() {
   );
 }
 
-// =========================
-// ESTILOS
-// =========================
-
-const input = {
+const input: React.CSSProperties = {
   width: "100%",
   padding: 12,
   marginTop: 10,
@@ -155,7 +197,20 @@ const input = {
   color: "#fff",
 };
 
-const btn = {
+const textarea: React.CSSProperties = {
+  width: "100%",
+  minHeight: 260,
+  padding: 12,
+  marginTop: 10,
+  borderRadius: 10,
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "#fff",
+  fontFamily: "monospace",
+  resize: "vertical",
+};
+
+const btn: React.CSSProperties = {
   marginTop: 15,
   padding: "12px 16px",
   borderRadius: 10,
@@ -166,7 +221,17 @@ const btn = {
   cursor: "pointer",
 };
 
-const card = {
+const btnSmall: React.CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 10,
+  border: "none",
+  color: "#fff",
+  fontWeight: "bold",
+  cursor: "pointer",
+  height: 42,
+};
+
+const card: React.CSSProperties = {
   border: "1px solid #334155",
   borderRadius: 12,
   padding: 15,
