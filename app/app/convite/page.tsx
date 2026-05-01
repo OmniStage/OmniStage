@@ -12,6 +12,9 @@ type Evento = {
   tenant_id: string | null;
   invite_template_id: string | null;
   created_at: string | null;
+  horario?: string | null;
+  endereco?: string | null;
+  mapa_url?: string | null;
 };
 
 type Template = {
@@ -34,6 +37,38 @@ function getCategoriaNome(categoria: Template["categoria"]) {
   }
 
   return categoria?.nome || "Sem categoria";
+}
+
+function formatarData(data: string | null) {
+  if (!data) return "";
+
+  const date = new Date(`${data}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return data;
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function preencherTemplate(html: string, evento: Evento | null) {
+  if (!evento) return html;
+
+  const valores: Record<string, string> = {
+    evento_nome: evento.nome || "",
+    nome_evento: evento.nome || "",
+    data_evento: formatarData(evento.data_evento),
+    horario_evento: evento.horario || "",
+    local_evento: evento.local || "",
+    endereco_evento: evento.endereco || "",
+    mapa_url: evento.mapa_url || "",
+  };
+
+  return Object.entries(valores).reduce((content, [key, value]) => {
+    return content.replaceAll(`{{${key}}}`, value || "");
+  }, html);
 }
 
 export default function ConvitePage() {
@@ -94,7 +129,7 @@ export default function ConvitePage() {
 
     const { data: eventosData, error: eventosError } = await supabase
       .from("eventos")
-      .select("id,nome,data_evento,local,status,tenant_id,invite_template_id,created_at")
+      .select("id,nome,data_evento,local,status,tenant_id,invite_template_id,created_at,horario,endereco,mapa_url")
       .eq("tenant_id", membership.tenant_id)
       .order("created_at", { ascending: false });
 
@@ -268,6 +303,9 @@ export default function ConvitePage() {
                 const selected = templateSelecionado === template.id;
                 const templateNome = template.nome || template.name || "Modelo";
                 const preview = template.preview_image || template.background_image || "";
+                const previewHtml = template.html_template
+                  ? preencherTemplate(template.html_template, eventoAtual)
+                  : "";
 
                 return (
                   <button
@@ -289,7 +327,7 @@ export default function ConvitePage() {
                       <div style={templateThumbFrameWrapStyle}>
                         <iframe
                           title={`Preview ${templateNome}`}
-                          srcDoc={template.html_template}
+                          srcDoc={previewHtml}
                           style={templateThumbFrameStyle}
                         />
                       </div>
@@ -317,7 +355,7 @@ export default function ConvitePage() {
             {templateAtual?.html_template ? (
               <iframe
                 title={`Preview ${templateAtual.nome || templateAtual.name}`}
-                srcDoc={templateAtual.html_template}
+                srcDoc={preencherTemplate(templateAtual.html_template, eventoAtual)}
                 style={previewFrameStyle}
               />
             ) : templateAtual?.preview_image || templateAtual?.background_image ? (
@@ -388,23 +426,24 @@ const filterSelectStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 220px))",
-  gap: 16,
+  gridTemplateColumns: "repeat(auto-fill, minmax(170px, 190px))",
+  gap: 14,
 };
 
 const templateCardStyle: React.CSSProperties = {
   display: "grid",
   textAlign: "left",
-  borderRadius: 16,
-  padding: 12,
+  borderRadius: 14,
+  padding: 10,
   cursor: "pointer",
   background: "#0f172a",
   color: "#fff",
+  alignContent: "start",
 };
 
 const templateThumbStyle: React.CSSProperties = {
   width: "100%",
-  aspectRatio: "9 / 14",
+  height: 230,
   objectFit: "contain",
   borderRadius: 12,
   border: "1px solid #334155",
@@ -412,18 +451,19 @@ const templateThumbStyle: React.CSSProperties = {
 };
 
 const templateThumbFrameStyle: React.CSSProperties = {
-  width: "142.86%",
-  height: "142.86%",
+  width: 430,
+  height: 690,
   border: 0,
   background: "#020617",
   pointerEvents: "none",
-  transform: "scale(0.7)",
+  transform: "scale(0.34)",
   transformOrigin: "top left",
+  overflow: "hidden",
 };
 
 const templateThumbFrameWrapStyle: React.CSSProperties = {
   width: "100%",
-  aspectRatio: "9 / 14",
+  height: 230,
   borderRadius: 12,
   border: "1px solid #334155",
   background: "#020617",
@@ -432,7 +472,7 @@ const templateThumbFrameWrapStyle: React.CSSProperties = {
 
 const templateThumbEmptyStyle: React.CSSProperties = {
   width: "100%",
-  aspectRatio: "9 / 14",
+  height: 230,
   borderRadius: 12,
   border: "1px dashed #334155",
   display: "grid",
