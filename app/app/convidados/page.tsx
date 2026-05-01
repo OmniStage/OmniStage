@@ -13,6 +13,8 @@ type Convidado = {
   nome: string;
   telefone: string | null;
   status_rsvp: string | null;
+  status_checkin: string | null;
+  token: string | null;
   evento_id: string | null;
 };
 
@@ -74,7 +76,7 @@ export default function ConvidadosPage() {
   async function carregarConvidados(tenant: string, evento: string) {
     const { data, error } = await supabase
       .from("convidados")
-      .select("id, nome, telefone, status_rsvp, evento_id")
+      .select("id, nome, telefone, status_rsvp, status_checkin, token, evento_id")
       .eq("tenant_id", tenant)
       .eq("evento_id", evento)
       .order("nome");
@@ -102,6 +104,10 @@ export default function ConvidadosPage() {
     }
   }
 
+  function gerarToken() {
+    return "EVT-" + Math.floor(100000 + Math.random() * 900000);
+  }
+
   async function criarConvidado() {
     if (!nome.trim()) {
       alert("Digite o nome do convidado.");
@@ -115,12 +121,16 @@ export default function ConvidadosPage() {
 
     setLoading(true);
 
+    const token = gerarToken();
+
     const { error } = await supabase.from("convidados").insert({
       tenant_id: tenantId,
       evento_id: eventoId,
       nome: nome.trim(),
       telefone: telefone.trim() || null,
       status_rsvp: "pendente",
+      status_checkin: "nao_entrou",
+      token,
     });
 
     setLoading(false);
@@ -216,6 +226,10 @@ export default function ConvidadosPage() {
             <p style={{ color: "#94a3b8" }}>
               {convidado.telefone || "Sem telefone"} · RSVP: {convidado.status_rsvp}
             </p>
+            <p style={{ color: "#94a3b8" }}>
+              Check-in: {convidado.status_checkin || "nao_entrou"} · Token:{" "}
+              <strong style={{ color: "#facc15" }}>{convidado.token || "sem token"}</strong>
+            </p>
           </div>
         ))}
 
@@ -236,4 +250,5 @@ const inputStyle: React.CSSProperties = {
   color: "#fff",
   border: "1px solid #334155",
   minWidth: 240,
+};
 };
