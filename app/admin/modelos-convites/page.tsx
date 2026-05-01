@@ -112,6 +112,7 @@ export default function ModelosConvitePage() {
     setLoading(true);
 
     const { error } = await supabase.from("invite_templates").insert({
+      nome: nome.trim(),
       name: nome.trim(),
       slug,
       categoria_id: categoriaId || null,
@@ -131,7 +132,7 @@ export default function ModelosConvitePage() {
 
   function editarTemplate(t: any) {
     setEditandoId(t.id);
-    setNome(t.name || "");
+    setNome(t.nome || t.name || "");
     setSlug(t.slug || "");
     setCategoriaId(t.categoria_id || "");
     setPreview(t.preview_image || "");
@@ -149,6 +150,7 @@ export default function ModelosConvitePage() {
     const { error } = await supabase
       .from("invite_templates")
       .update({
+        nome: nome.trim(),
         name: nome.trim(),
         slug,
         categoria_id: categoriaId || null,
@@ -178,9 +180,12 @@ export default function ModelosConvitePage() {
   }
 
   async function duplicarTemplate(template: any) {
+    const novoNome = `${template.nome || template.name || "Modelo"} - Cópia`;
+
     const { error } = await supabase.from("invite_templates").insert({
-      name: `${template.name} - Cópia`,
-      slug: `${template.slug}-copia-${Date.now()}`,
+      nome: novoNome,
+      name: novoNome,
+      slug: `${template.slug || gerarSlug(novoNome)}-copia-${Date.now()}`,
       categoria_id: template.categoria_id || null,
       preview_image: template.preview_image || null,
       html_template: template.html_template || "",
@@ -206,7 +211,9 @@ export default function ModelosConvitePage() {
     }
 
     if (eventosUsando && eventosUsando.length > 0) {
-      alert("Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua.");
+      alert(
+        "Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua."
+      );
       return;
     }
 
@@ -254,7 +261,9 @@ export default function ModelosConvitePage() {
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+        <div
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}
+        >
           {categorias.length === 0 && (
             <span style={{ color: "#94a3b8" }}>
               Nenhuma categoria cadastrada.
@@ -349,7 +358,7 @@ export default function ModelosConvitePage() {
                 }}
               >
                 <div>
-                  <strong>{t.name}</strong>
+                  <strong>{t.nome || t.name}</strong>
 
                   <div style={{ opacity: 0.6, marginTop: 5 }}>
                     /{t.slug}
@@ -417,6 +426,7 @@ export default function ModelosConvitePage() {
               {t.preview_image && (
                 <img
                   src={t.preview_image}
+                  alt={t.nome || t.name || "Preview do modelo"}
                   style={{
                     width: "100%",
                     maxHeight: 280,
