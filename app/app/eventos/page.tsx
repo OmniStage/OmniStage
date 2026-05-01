@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Evento = {
@@ -48,6 +48,25 @@ export default function EventosPage() {
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [formAberto, setFormAberto] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+
+  const eventosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+
+    return eventos.filter((evento) => {
+      const statusOk = filtroStatus === "todos" || evento.status === filtroStatus;
+      const buscaOk =
+        !termo ||
+        [evento.nome, evento.local, evento.endereco, evento.status]
+          .filter(Boolean)
+          .some((valor) => String(valor).toLowerCase().includes(termo));
+
+      return statusOk && buscaOk;
+    });
+  }, [eventos, busca, filtroStatus]);
 
   function updateForm(field: keyof EventForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -58,6 +77,17 @@ export default function EventosPage() {
     setBackgroundFile(null);
     setLogoFile(null);
     setMusicFile(null);
+    setEditandoId(null);
+  }
+
+  function abrirCriacao() {
+    limparFormulario();
+    setFormAberto(true);
+  }
+
+  function cancelarFormulario() {
+    limparFormulario();
+    setFormAberto(false);
   }
 
   async function carregarTenant() {
@@ -156,7 +186,7 @@ export default function EventosPage() {
     return publicUrl;
   }
 
-  async function criarEvento() {
+  async function salvarEvento() {
     if (!form.nome.trim()) {
       alert("Digite o nome do evento.");
       return;
@@ -173,6 +203,7 @@ export default function EventosPage() {
     setLoading(true);
 
     try {
+      const estavaEditando = Boolean(editandoId);
       const eventoSlug = slugify(form.nome) || "evento";
       const [backgroundUrl, logoUrl, musicUrl] = await Promise.all([
         uploadArquivo(tenant, eventoSlug, backgroundFile, "fundo"),
@@ -180,7 +211,7 @@ export default function EventosPage() {
         uploadArquivo(tenant, eventoSlug, musicFile, "musica"),
       ]);
 
-      const { error } = await supabase.from("eventos").insert({
+      const payload = {
         nome: form.nome.trim(),
         data_evento: form.data_evento || null,
         horario: form.horario.trim() || null,
@@ -188,24 +219,80 @@ export default function EventosPage() {
         endereco: form.endereco.trim() || null,
         mapa_url: form.mapa_url.trim() || null,
         status: form.status,
-        tenant_id: tenant,
-        background_image: backgroundUrl,
-        logo_image: logoUrl,
-        music_file: musicUrl,
-      });
+        ...(backgroundUrl ? { background_image: backgroundUrl } : {}),
+        ...(logoUrl ? { logo_image: logoUrl } : {}),
+        ...(musicUrl ? { music_file: musicUrl } : {}),
+      };
+
+      const { error } = editandoId
+        ? await supabase
+            .from("eventos")
+            .update(payload)
+            .eq("id", editandoId)
+            .eq("tenant_id", tenant)
+        : await supabase.from("eventos").insert({
+            ...payload,
+            tenant_id: tenant,
+            background_image: backgroundUrl,
+            logo_image: logoUrl,
+            music_file: musicUrl,
+          });
 
       if (error) {
         throw new Error(error.message);
       }
 
       limparFormulario();
+      setFormAberto(false);
       await carregarEventos(tenant);
-      alert("Evento criado.");
+      alert(estavaEditando ? "Evento atualizado." : "Evento criado.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao criar evento.");
+      alert(error instanceof Error ? error.message : "Erro ao salvar evento.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function editarEvento(evento: Evento) {
+    setEditandoId(evento.id);
+    setForm({
+      nome: evento.nome || "",
+      data_evento: evento.data_evento || "",
+      horario: evento.horario || "",
+      local: evento.local || "",
+      endereco: evento.endereco || "",
+      mapa_url: evento.mapa_url || "",
+      status: evento.status || "ativo",
+    });
+    setBackgroundFile(null);
+    setLogoFile(null);
+    setMusicFile(null);
+    setFormAberto(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function excluirEvento(evento: Evento) {
+    if (!tenantId) return;
+
+    const confirmar = confirm(
+      `Tem certeza que deseja excluir o evento "${evento.nome}"? Essa ação pode remover dados ligados a este evento.`
+    );
+
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("eventos")
+      .delete()
+      .eq("id", evento.id)
+      .eq("tenant_id", tenantId);
+
+    if (error) {
+      alert("Erro ao excluir evento: " + error.message);
+      return;
+    }
+
+    setEventos((current) => current.filter((item) => item.id !== evento.id));
+    alert("Evento excluído.");
   }
 
   useEffect(() => {
@@ -220,131 +307,179 @@ export default function EventosPage() {
         Cadastre as informações que serão usadas no convite digital, RSVP e cartão de entrada.
       </p>
 
-      <section style={sectionStyle}>
-        <h2 style={{ marginTop: 0 }}>Criar evento</h2>
-
-        <div style={formGridStyle}>
-          <label style={fieldStyle}>
-            <span>Nome do evento</span>
-            <input
-              value={form.nome}
-              onChange={(event) => updateForm("nome", event.target.value)}
-              placeholder="Ex: Valentina XV"
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span>Data</span>
-            <input
-              type="date"
-              value={form.data_evento}
-              onChange={(event) => updateForm("data_evento", event.target.value)}
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span>Horário</span>
-            <input
-              value={form.horario}
-              onChange={(event) => updateForm("horario", event.target.value)}
-              placeholder="Ex: 20h"
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span>Status</span>
-            <select
-              value={form.status}
-              onChange={(event) => updateForm("status", event.target.value)}
-              style={inputStyle}
-            >
-              <option value="ativo">Ativo</option>
-              <option value="rascunho">Rascunho</option>
-              <option value="publicado">Publicado</option>
-              <option value="encerrado">Encerrado</option>
-            </select>
-          </label>
-
-          <label style={fieldStyle}>
-            <span>Local</span>
-            <input
-              value={form.local}
-              onChange={(event) => updateForm("local", event.target.value)}
-              placeholder="Ex: Espaço Grand Hall"
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={fieldStyle}>
-            <span>Endereço</span>
-            <input
-              value={form.endereco}
-              onChange={(event) => updateForm("endereco", event.target.value)}
-              placeholder="Rua, número, cidade"
-              style={inputStyle}
-            />
-          </label>
-
-          <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-            <span>Link do mapa</span>
-            <input
-              value={form.mapa_url}
-              onChange={(event) => updateForm("mapa_url", event.target.value)}
-              placeholder="https://maps.google.com/..."
-              style={inputStyle}
-            />
-          </label>
-        </div>
-
-        <div style={uploadGridStyle}>
-          <label style={uploadBoxStyle}>
-            <strong>Imagem de fundo</strong>
-            <span>JPG, PNG ou WEBP usado no convite.</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => setBackgroundFile(event.target.files?.[0] || null)}
-            />
-          </label>
-
-          <label style={uploadBoxStyle}>
-            <strong>Logo do evento</strong>
-            <span>PNG/JPG para aplicar no layout.</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
-            />
-          </label>
-
-          <label style={uploadBoxStyle}>
-            <strong>Música</strong>
-            <span>MP3 opcional para convites com áudio.</span>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(event) => setMusicFile(event.target.files?.[0] || null)}
-            />
-          </label>
-        </div>
-
-        <button onClick={criarEvento} disabled={loading} style={buttonStyle}>
-          {loading ? "Criando..." : "Criar evento"}
+      <div style={topActionsStyle}>
+        <button onClick={abrirCriacao} style={buttonStyle}>
+          + Criar evento
         </button>
-      </section>
+      </div>
+
+      {formAberto && (
+        <section style={sectionStyle}>
+          <div style={sectionHeaderStyle}>
+            <h2 style={{ margin: 0 }}>{editandoId ? "Editar evento" : "Criar evento"}</h2>
+            <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
+              Fechar
+            </button>
+          </div>
+
+          <div style={formGridStyle}>
+            <label style={fieldStyle}>
+              <span>Nome do evento</span>
+              <input
+                value={form.nome}
+                onChange={(event) => updateForm("nome", event.target.value)}
+                placeholder="Ex: Valentina XV"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Data</span>
+              <input
+                type="date"
+                value={form.data_evento}
+                onChange={(event) => updateForm("data_evento", event.target.value)}
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Horário</span>
+              <input
+                value={form.horario}
+                onChange={(event) => updateForm("horario", event.target.value)}
+                placeholder="Ex: 20h"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Status</span>
+              <select
+                value={form.status}
+                onChange={(event) => updateForm("status", event.target.value)}
+                style={inputStyle}
+              >
+                <option value="ativo">Ativo</option>
+                <option value="rascunho">Rascunho</option>
+                <option value="publicado">Publicado</option>
+                <option value="encerrado">Encerrado</option>
+              </select>
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Local</span>
+              <input
+                value={form.local}
+                onChange={(event) => updateForm("local", event.target.value)}
+                placeholder="Ex: Espaço Grand Hall"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Endereço</span>
+              <input
+                value={form.endereco}
+                onChange={(event) => updateForm("endereco", event.target.value)}
+                placeholder="Rua, número, cidade"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+              <span>Link do mapa</span>
+              <input
+                value={form.mapa_url}
+                onChange={(event) => updateForm("mapa_url", event.target.value)}
+                placeholder="https://maps.google.com/..."
+                style={inputStyle}
+              />
+            </label>
+          </div>
+
+          <div style={uploadGridStyle}>
+            <label style={uploadBoxStyle}>
+              <strong>Imagem de fundo</strong>
+              <span>{editandoId ? "Envie apenas se quiser substituir." : "JPG, PNG ou WEBP usado no convite."}</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => setBackgroundFile(event.target.files?.[0] || null)}
+              />
+            </label>
+
+            <label style={uploadBoxStyle}>
+              <strong>Logo do evento</strong>
+              <span>{editandoId ? "Envie apenas se quiser substituir." : "PNG/JPG para aplicar no layout."}</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
+              />
+            </label>
+
+            <label style={uploadBoxStyle}>
+              <strong>Música</strong>
+              <span>{editandoId ? "Envie apenas se quiser substituir." : "MP3 opcional para convites com áudio."}</span>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(event) => setMusicFile(event.target.files?.[0] || null)}
+              />
+            </label>
+          </div>
+
+          <div style={formActionsStyle}>
+            <button onClick={salvarEvento} disabled={loading} style={buttonStyle}>
+              {loading ? "Salvando..." : editandoId ? "Salvar alterações" : "Criar evento"}
+            </button>
+            <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
+              Cancelar
+            </button>
+          </div>
+        </section>
+      )}
 
       <section style={sectionStyle}>
-        <h2 style={{ marginTop: 0 }}>Eventos criados</h2>
+        <div style={sectionHeaderStyle}>
+          <h2 style={{ margin: 0 }}>Eventos criados</h2>
+          <span style={{ color: "#94a3b8", fontWeight: 700 }}>
+            {eventosFiltrados.length} de {eventos.length}
+          </span>
+        </div>
+
+        <div style={filtersStyle}>
+          <input
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Buscar por nome, local, endereço..."
+            style={inputStyle}
+          />
+
+          <select
+            value={filtroStatus}
+            onChange={(event) => setFiltroStatus(event.target.value)}
+            style={inputStyle}
+          >
+            <option value="todos">Todos os status</option>
+            <option value="ativo">Ativo</option>
+            <option value="rascunho">Rascunho</option>
+            <option value="publicado">Publicado</option>
+            <option value="encerrado">Encerrado</option>
+          </select>
+        </div>
 
         <div style={{ display: "grid", gap: 16 }}>
           {eventos.length === 0 && (
             <div style={emptyStyle}>Nenhum evento cadastrado para este cliente.</div>
           )}
 
-          {eventos.map((evento) => (
+          {eventos.length > 0 && eventosFiltrados.length === 0 && (
+            <div style={emptyStyle}>Nenhum evento encontrado com estes filtros.</div>
+          )}
+
+          {eventosFiltrados.map((evento) => (
             <article key={evento.id} style={eventCardStyle}>
               <div>
                 <strong style={{ fontSize: 22 }}>{evento.nome}</strong>
@@ -355,12 +490,23 @@ export default function EventosPage() {
                 <small style={{ color: "#64748b" }}>{evento.endereco || "Endereço não informado"}</small>
               </div>
 
-              <div style={{ textAlign: "right" }}>
+              <div style={eventActionsColumnStyle}>
                 <span style={statusStyle}>{evento.status || "sem status"}</span>
                 <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
                   {evento.background_image ? "Fundo ok" : "Sem fundo"} ·{" "}
                   {evento.logo_image ? "Logo ok" : "Sem logo"} ·{" "}
                   {evento.music_file ? "Música ok" : "Sem música"}
+                </div>
+                <div style={rowActionsStyle}>
+                  <button onClick={() => editarEvento(evento)} style={smallButtonStyle}>
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => excluirEvento(evento)}
+                    style={{ ...smallButtonStyle, background: "#7f1d1d" }}
+                  >
+                    Excluir
+                  </button>
                 </div>
               </div>
             </article>
@@ -377,6 +523,20 @@ const sectionStyle: CSSProperties = {
   borderRadius: 18,
   border: "1px solid #334155",
   background: "#020617",
+};
+
+const topActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-start",
+  marginTop: 24,
+};
+
+const sectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 18,
 };
 
 const formGridStyle: CSSProperties = {
@@ -417,8 +577,14 @@ const uploadBoxStyle: CSSProperties = {
   color: "#94a3b8",
 };
 
-const buttonStyle: CSSProperties = {
+const formActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
   marginTop: 20,
+};
+
+const buttonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 10,
   background: "#22c55e",
@@ -426,6 +592,23 @@ const buttonStyle: CSSProperties = {
   color: "#fff",
   fontWeight: "bold",
   cursor: "pointer",
+};
+
+const secondaryButtonStyle: CSSProperties = {
+  padding: "12px 16px",
+  borderRadius: 10,
+  background: "#1e293b",
+  border: "1px solid #334155",
+  color: "#fff",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const filtersStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 220px",
+  gap: 12,
+  marginBottom: 18,
 };
 
 const eventCardStyle: CSSProperties = {
@@ -436,6 +619,28 @@ const eventCardStyle: CSSProperties = {
   padding: 18,
   borderRadius: 14,
   border: "1px solid #334155",
+};
+
+const eventActionsColumnStyle: CSSProperties = {
+  minWidth: 260,
+  textAlign: "right",
+};
+
+const rowActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 8,
+  marginTop: 14,
+};
+
+const smallButtonStyle: CSSProperties = {
+  padding: "9px 12px",
+  borderRadius: 9,
+  background: "#2563eb",
+  border: "none",
+  color: "#fff",
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
 const statusStyle: CSSProperties = {
