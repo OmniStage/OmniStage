@@ -181,6 +181,7 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
           var titleImage = document.querySelector(".title-image");
           var logoImage = document.querySelector("[data-logo-evento]");
           var firstEventImage = titleImage || logoImage;
+          var nomeEvento = String(eventData.nome || "").trim();
 
           if (!firstEventImage) {
             var imagens = Array.from(document.querySelectorAll("img"));
@@ -198,12 +199,44 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
             firstEventImage.style.height = "auto";
             firstEventImage.style.objectFit = "contain";
           } else {
-            var tituloEvento =
-              document.querySelector(".event-title") ||
-              document.querySelector(".title") ||
-              document.querySelector(".main-title") ||
-              document.querySelector(".hero-title") ||
-              document.querySelector("h1");
+            var tituloEvento = null;
+
+            if (nomeEvento) {
+              var tituloPossivel = Array.from(
+                document.querySelectorAll(
+                  "h1,h2,h3,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
+                )
+              ).filter(function (el) {
+                var texto = (el.textContent || "").trim().toLowerCase();
+                var nome = nomeEvento.toLowerCase();
+                return texto === nome || texto === nome.toUpperCase().toLowerCase() || texto.includes(nome);
+              });
+
+              tituloEvento =
+                tituloPossivel.find(function (el) {
+                  return el.children.length <= 2;
+                }) ||
+                tituloPossivel[0] ||
+                null;
+            }
+
+            if (!tituloEvento && nomeEvento) {
+              var todosElementos = Array.from(document.body.querySelectorAll("*"));
+              tituloEvento =
+                todosElementos.find(function (el) {
+                  var texto = (el.textContent || "").trim().toLowerCase();
+                  return texto === nomeEvento.toLowerCase() && el.children.length === 0;
+                }) || null;
+            }
+
+            if (!tituloEvento) {
+              tituloEvento =
+                document.querySelector(".event-title") ||
+                document.querySelector(".main-title") ||
+                document.querySelector(".hero-title") ||
+                document.querySelector("h1") ||
+                document.querySelector(".title");
+            }
 
             var logoCriada = document.createElement("img");
             logoCriada.setAttribute("src", eventData.logo);
@@ -215,9 +248,13 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
             logoCriada.style.objectFit = "contain";
             logoCriada.style.margin = "18px auto 12px";
 
-            if (tituloEvento && tituloEvento.parentNode) {
-              tituloEvento.parentNode.insertBefore(logoCriada, tituloEvento);
-              tituloEvento.style.display = "none";
+            if (tituloEvento) {
+              tituloEvento.innerHTML = "";
+              tituloEvento.appendChild(logoCriada);
+              tituloEvento.style.display = "block";
+              tituloEvento.style.textAlign = "center";
+              tituloEvento.style.lineHeight = "1";
+              tituloEvento.style.margin = "24px auto 18px";
             } else {
               var cardParaLogo = document.querySelector(".card") || document.body;
               cardParaLogo.insertBefore(logoCriada, cardParaLogo.firstChild);
@@ -536,10 +573,17 @@ export default function ConvitePage() {
             </select>
 
             {eventoAtual && (
-              <p style={{ color: "#94a3b8", marginTop: 10 }}>
-                {eventoAtual.data_evento || "Sem data"} · {eventoAtual.local || "Sem local"} ·{" "}
-                {eventoAtual.status || "sem status"}
-              </p>
+              <div style={{ color: "#94a3b8", marginTop: 10, display: "grid", gap: 6 }}>
+                <p style={{ margin: 0 }}>
+                  {eventoAtual.data_evento || "Sem data"} · {eventoAtual.local || "Sem local"} ·{" "}
+                  {eventoAtual.status || "sem status"}
+                </p>
+                <p style={{ margin: 0, color: eventoAtual.logo_image ? "#86efac" : "#fbbf24" }}>
+                  {eventoAtual.logo_image
+                    ? "Logomarca carregada para este evento."
+                    : "Este evento ainda está sem logomarca cadastrada."}
+                </p>
+              </div>
             )}
           </section>
 
