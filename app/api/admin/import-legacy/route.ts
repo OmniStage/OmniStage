@@ -67,22 +67,41 @@ export async function POST(req: Request) {
         .map((guest) => guest.legacy_id)
         .filter((id): id is string => Boolean(id));
 
-      const { data: existingByPhone } = await supabase
+      const { data: existingByPhone, error: existingPhoneError } = await supabase
         .from("convidados")
         .select("telefone")
         .eq("tenant_id", tenantId)
         .eq("evento_id", eventoId)
         .in("telefone", phones.length ? phones : ["__empty__"]);
 
-      const { data: existingByLegacy } = await supabase
+      if (existingPhoneError) {
+        return NextResponse.json(
+          { error: existingPhoneError.message },
+          { status: 500 }
+        );
+      }
+
+      const { data: existingByLegacy, error: existingLegacyError } = await supabase
         .from("convidados")
         .select("legacy_id")
         .eq("tenant_id", tenantId)
         .eq("evento_id", eventoId)
         .in("legacy_id", legacyIds.length ? legacyIds : ["__empty__"]);
 
-      const existingPhones = new Set((existingByPhone || []).map((item) => item.telefone));
-      const existingLegacyIds = new Set((existingByLegacy || []).map((item) => item.legacy_id));
+      if (existingLegacyError) {
+        return NextResponse.json(
+          { error: existingLegacyError.message },
+          { status: 500 }
+        );
+      }
+
+      const existingPhones = new Set(
+        (existingByPhone || []).map((item) => item.telefone)
+      );
+
+      const existingLegacyIds = new Set(
+        (existingByLegacy || []).map((item) => item.legacy_id)
+      );
 
       const previewRows = parsedGuests.map((guest) => ({
         batch_id: batch.id,
@@ -101,6 +120,8 @@ export async function POST(req: Request) {
         raw_data: guest,
       }));
 
+      const duplicatedRows = previewRows.filter((row) => row.is_duplicate).length;
+
       const { data: preview, error: previewError } = await supabase
         .from("guest_import_preview")
         .insert(previewRows)
@@ -111,6 +132,13 @@ export async function POST(req: Request) {
       }
 
       await supabase
+        .from("guest_import_batches")
+        .update({
+          duplicated_rows: duplicatedRows,
+        })
+        .eq("id", batch.id);
+
+      await supabase
         .from("eventos")
         .update({
           is_legado: true,
@@ -119,10 +147,21 @@ export async function POST(req: Request) {
         .eq("id", eventoId)
         .eq("tenant_id", tenantId);
 
+      await supabase.from("import_logs").insert({
+        tenant_id: tenantId,
+        evento_id: eventoId,
+        batch_id: batch.id,
+        tipo: "legacy_guests",
+        acao: "preview_import",
+        origem: "planilha_legada",
+        total: previewRows.length,
+      });
+
       return NextResponse.json({
         ok: true,
         batchId: batch.id,
         total: preview?.length || 0,
+        duplicated: duplicatedRows,
         preview,
       });
     }
@@ -147,6 +186,7 @@ export async function POST(req: Request) {
       const rowsToInsert = (previewRows || []).map((item) => ({
         tenant_id: tenantId,
         evento_id: eventoId,
+        import_batch_id: batchId,
         legacy_id: item.legacy_id,
         origem_importacao: item.origem_importacao || "planilha_legada",
         nome: item.nome,
@@ -180,13 +220,16 @@ export async function POST(req: Request) {
         .update({
           status: "imported",
           imported_rows: rowsToInsert.length,
+          confirmed_at: new Date().toISOString(),
         })
         .eq("id", batchId);
 
       await supabase.from("import_logs").insert({
         tenant_id: tenantId,
         evento_id: eventoId,
+        batch_id: batchId,
         tipo: "legacy_guests",
+        acao: "confirm_import",
         origem: "planilha_legada",
         total: rowsToInsert.length,
       });
