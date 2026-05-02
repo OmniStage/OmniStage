@@ -36,6 +36,18 @@ type ConvidadoForm = {
   status_envio: string;
 };
 
+type ImportPreviewRow = {
+  id: string;
+  nome?: string;
+  name?: string;
+  telefone?: string | null;
+  phone?: string | null;
+  grupo?: string | null;
+  quantidade?: number;
+  observacoes?: string | null;
+  is_duplicate?: boolean;
+};
+
 const initialForm: ConvidadoForm = {
   nome: "",
   telefone: "",
@@ -59,6 +71,12 @@ export default function ConvidadosPage() {
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
+
+  const [importAberto, setImportAberto] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importLoading, setImportLoading] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
+  const [importBatchId, setImportBatchId] = useState<string | null>(null);
 
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -121,9 +139,9 @@ export default function ConvidadosPage() {
   }
 
   function gerarLinkConvite(convidado: Convidado) {
-  const token = encodeURIComponent(convidado.token || "");
-  return `/c/${token}`;
-}
+    const token = encodeURIComponent(convidado.token || "");
+    return `/c/${token}`;
+  }
 
   function gerarLinkWhatsApp(convidado: Convidado) {
     const telefone = normalizarTelefone(convidado.telefone);
@@ -242,6 +260,8 @@ Apresente o cartão na entrada do evento.`;
     setEventoId(id);
     limparFormulario();
     setFormAberto(false);
+    setImportPreview([]);
+    setImportBatchId(null);
 
     if (tenantId && id) {
       await carregarConvidados(tenantId, id);
@@ -302,6 +322,49 @@ Apresente o cartão na entrada do evento.`;
       alert(error instanceof Error ? error.message : "Erro ao salvar convidado.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function gerarPreviewImportacao() {
+    if (!tenantId || !eventoId) {
+      alert("Selecione um evento antes de importar convidados.");
+      return;
+    }
+
+    if (!importText.trim()) {
+      alert("Cole uma lista de convidados antes de continuar.");
+      return;
+    }
+
+    setImportLoading(true);
+
+    try {
+      const response = await fetch("/api/guests/import-preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tenantId,
+          eventoId,
+          sourceType: "smart_paste",
+          text: importText,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao gerar prévia.");
+      }
+
+      setImportBatchId(result.batchId);
+      setImportPreview(result.preview || []);
+      alert(`${result.total || 0} convidados interpretados para revisão.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao importar lista.");
+    } finally {
+      setImportLoading(false);
     }
   }
 
@@ -377,7 +440,109 @@ Apresente o cartão na entrada do evento.`;
         <button onClick={abrirCriacao} style={buttonStyle}>
           + Criar convidado
         </button>
+
+        <button
+          onClick={() => setImportAberto((current) => !current)}
+          style={secondaryButtonStyle}
+        >
+          Importar lista inteligente
+        </button>
       </div>
+
+      {importAberto && (
+        <section style={sectionStyle}>
+          <div style={sectionHeaderStyle}>
+            <h2 style={{ margin: 0 }}>Importar lista inteligente</h2>
+            <button
+              onClick={() => {
+                setImportAberto(false);
+                setImportText("");
+                setImportPreview([]);
+                setImportBatchId(null);
+              }}
+              style={secondaryButtonStyle}
+            >
+              Fechar
+            </button>
+          </div>
+
+          <p style={{ color: "#94a3b8", marginTop: 0 }}>
+            Cole uma lista com nomes, telefones, grupos ou quantidades. Ex:
+            Maria +1, Família Silva (4), João - 21999999999.
+          </p>
+
+          <textarea
+            value={importText}
+            onChange={(event) => setImportText(event.target.value)}
+            placeholder={`Maria Silva\nJoão Santos - 11999990000\nFamília Costa (4)\nAna +1`}
+            style={{
+              ...inputStyle,
+              minHeight: 180,
+              resize: "vertical",
+              marginTop: 12,
+            }}
+          />
+
+          <div style={formActionsStyle}>
+            <button
+              onClick={gerarPreviewImportacao}
+              disabled={importLoading}
+              style={buttonStyle}
+            >
+              {importLoading ? "Interpretando..." : "Gerar prévia"}
+            </button>
+          </div>
+
+          {importPreview.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <h3 style={{ marginBottom: 12 }}>Prévia da importação</h3>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {importPreview.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: 14,
+                      borderRadius: 12,
+                      border: item.is_duplicate
+                        ? "1px solid rgba(239,68,68,0.6)"
+                        : "1px solid #334155",
+                      background: item.is_duplicate
+                        ? "rgba(239,68,68,0.08)"
+                        : "#0f172a",
+                    }}
+                  >
+                    <strong>{item.nome || item.name}</strong>
+
+                    <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                      Telefone: {item.telefone || item.phone || "Sem telefone"} · Grupo:{" "}
+                      {item.grupo || "Sem grupo"} · Quantidade: {item.quantidade || 1}
+                    </p>
+
+                    {item.observacoes && (
+                      <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13 }}>
+                        {item.observacoes}
+                      </p>
+                    )}
+
+                    {item.is_duplicate && (
+                      <small style={{ color: "#fca5a5", fontWeight: 800 }}>
+                        Possível duplicado
+                      </small>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {importBatchId && (
+                <p style={{ color: "#64748b", marginTop: 12, fontSize: 13 }}>
+                  Lote de importação: {importBatchId}
+                </p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {formAberto && (
         <section style={sectionStyle}>
@@ -700,6 +865,8 @@ const sectionStyle: CSSProperties = {
 
 const topActionsStyle: CSSProperties = {
   display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
   justifyContent: "flex-start",
   marginTop: 24,
 };
