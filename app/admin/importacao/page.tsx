@@ -18,6 +18,20 @@ type PreviewRow = {
   is_duplicate: boolean;
 };
 
+type ImportHistoryItem = {
+  id: string;
+  source_type: string | null;
+  file_name: string | null;
+  total_rows: number | null;
+  imported_rows: number | null;
+  duplicated_rows: number | null;
+  reverted_rows: number | null;
+  status: string | null;
+  created_at: string | null;
+  confirmed_at: string | null;
+  reverted_at: string | null;
+};
+
 export default function AdminImportacaoPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -25,7 +39,27 @@ export default function AdminImportacaoPage() {
   const [texto, setTexto] = useState("");
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
+  const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  async function carregarHistorico(tenant: string, evento: string) {
+    const response = await fetch("/api/admin/import-history", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tenantId: tenant,
+        eventoId: evento,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      setHistory(result.history || []);
+    }
+  }
 
   async function carregarDados() {
     const {
@@ -66,7 +100,14 @@ export default function AdminImportacaoPage() {
 
     if (eventosData && eventosData.length > 0) {
       setEventoId(eventosData[0].id);
+      await carregarHistorico(member.tenant_id, eventosData[0].id);
     }
+  }
+
+  function cancelarPrevia() {
+    setTexto("");
+    setPreview([]);
+    setBatchId(null);
   }
 
   async function gerarPreview() {
@@ -104,6 +145,8 @@ export default function AdminImportacaoPage() {
 
       setBatchId(result.batchId);
       setPreview(result.preview || []);
+      await carregarHistorico(tenantId, eventoId);
+
       alert(`${result.total} registros interpretados.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao gerar prévia.");
@@ -151,8 +194,50 @@ export default function AdminImportacaoPage() {
       setTexto("");
       setPreview([]);
       setBatchId(null);
+
+      await carregarHistorico(tenantId, eventoId);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao confirmar importação.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function reverterImportacao(batchIdParaReverter: string) {
+    if (!tenantId || !eventoId) return;
+
+    const confirmar = confirm(
+      "Deseja reverter esta importação? Os convidados deste lote serão removidos."
+    );
+
+    if (!confirmar) return;
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/revert-import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tenantId,
+          eventoId,
+          batchId: batchIdParaReverter,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao reverter importação.");
+      }
+
+      alert(`${result.removidos} convidados removidos.`);
+
+      await carregarHistorico(tenantId, eventoId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao reverter importação.");
     } finally {
       setLoading(false);
     }
@@ -178,10 +263,15 @@ export default function AdminImportacaoPage() {
           <span>Evento</span>
           <select
             value={eventoId}
-            onChange={(event) => {
-              setEventoId(event.target.value);
+            onChange={async (event) => {
+              const novoEventoId = event.target.value;
+              setEventoId(novoEventoId);
               setPreview([]);
               setBatchId(null);
+
+              if (tenantId && novoEventoId) {
+                await carregarHistorico(tenantId, novoEventoId);
+              }
             }}
             style={inputStyle}
           >
@@ -216,13 +306,23 @@ export default function AdminImportacaoPage() {
           </button>
 
           {preview.length > 0 && (
-            <button
-              onClick={confirmarImportacao}
-              disabled={loading}
-              style={goldButtonStyle}
-            >
-              Confirmar importação
-            </button>
+            <>
+              <button
+                onClick={confirmarImportacao}
+                disabled={loading}
+                style={goldButtonStyle}
+              >
+                Confirmar importação
+              </button>
+
+              <button
+                onClick={cancelarPrevia}
+                disabled={loading}
+                style={secondaryButtonStyle}
+              >
+                Cancelar prévia
+              </button>
+            </>
           )}
         </div>
       </section>
@@ -281,6 +381,58 @@ export default function AdminImportacaoPage() {
           )}
         </section>
       )}
+
+      <section style={sectionStyle}>
+        <div style={headerStyle}>
+          <h2 style={{ margin: 0 }}>Histórico de importações</h2>
+          <span style={{ color: "#94a3b8", fontWeight: 800 }}>
+            {history.length} lotes
+          </span>
+        </div>
+
+        {history.length === 0 && (
+          <div style={{ color: "#94a3b8" }}>
+            Nenhuma importação registrada para este evento.
+          </div>
+        )}
+
+        <div style={{ display: "grid", gap: 12 }}>
+          {history.map((item) => (
+            <article key={item.id} style={cardStyle}>
+              <div>
+                <strong>
+                  Lote {item.id.slice(0, 8)} · {item.status || "preview"}
+                </strong>
+
+                <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                  Total: {item.total_rows || 0} · Importados:{" "}
+                  {item.imported_rows || 0} · Duplicados:{" "}
+                  {item.duplicated_rows || 0} · Revertidos:{" "}
+                  {item.reverted_rows || 0}
+                </p>
+
+                <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13 }}>
+                  Criado em: {item.created_at || "-"}
+                </p>
+              </div>
+
+              {item.status === "imported" && (
+                <button
+                  onClick={() => reverterImportacao(item.id)}
+                  disabled={loading}
+                  style={{
+                    ...secondaryButtonStyle,
+                    borderColor: "rgba(239,68,68,0.55)",
+                    color: "#fca5a5",
+                  }}
+                >
+                  Reverter
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
@@ -326,6 +478,16 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const secondaryButtonStyle: CSSProperties = {
+  padding: "14px 20px",
+  borderRadius: 10,
+  background: "#1e293b",
+  border: "1px solid #334155",
+  color: "#fff",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const goldButtonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 10,
@@ -351,6 +513,8 @@ const cardStyle: CSSProperties = {
   alignItems: "center",
   padding: 16,
   borderRadius: 14,
+  border: "1px solid #334155",
+  background: "#0f172a",
 };
 
 const badgeStyle: CSSProperties = {
