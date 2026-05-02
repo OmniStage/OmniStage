@@ -67,21 +67,74 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
 
   const valores: Record<string, string> = {
     evento_nome: evento.nome || "",
+    EVENTO_NOME: evento.nome || "",
+    nome_evento: evento.nome || "",
+    NOME_EVENTO: evento.nome || "",
+    nome: evento.nome || "",
+    NOME: evento.nome || "",
     data_evento: dataFormatada,
+    DATA_EVENTO: dataFormatada,
+    data: dataFormatada,
+    DATA: dataFormatada,
     horario_evento: horarioFormatado,
+    HORARIO_EVENTO: horarioFormatado,
+    horario: horarioFormatado,
+    HORARIO: horarioFormatado,
+    data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
+    DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
     local_evento: local,
+    LOCAL_EVENTO: local,
+    local,
+    LOCAL: local,
+    endereco_evento: evento.endereco || "",
+    ENDERECO_EVENTO: evento.endereco || "",
     mapa_url: evento.mapa_url || "",
+    MAPA_URL: evento.mapa_url || "",
     background_image: evento.background_image || "",
+    BACKGROUND_IMAGE: evento.background_image || "",
     logo_image: evento.logo_image || "",
+    LOGO_IMAGE: evento.logo_image || "",
+    logo_evento: evento.logo_image || "",
+    LOGO_EVENTO: evento.logo_image || "",
     music_file: evento.music_file || "",
+    MUSIC_FILE: evento.music_file || "",
+    musica_evento: evento.music_file || "",
+    MUSICA_EVENTO: evento.music_file || "",
     data_iso_evento: eventoDataIso,
+    DATA_ISO_EVENTO: eventoDataIso,
   };
 
   const preenchido = Object.entries(valores).reduce((content, [key, value]) => {
     return content.replaceAll(`{{${key}}}`, value || "");
   }, html);
 
-  return aplicarCompatibilidadeTemplate(preenchido, evento);
+  const htmlBase = preenchido
+    .replaceAll("VALENTINA XV", evento.nome || "Evento")
+    .replaceAll("Valentina XV", evento.nome || "Evento")
+    .replaceAll("Guerrah Hall", local || "Local do evento")
+    .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
+    .replaceAll("20h", horarioFormatado || "Horário")
+    .replaceAll("21h", horarioFormatado || "Horário")
+    .replace(
+      /const EVENT_LOCATION = ["'].*?["'];/g,
+      `const EVENT_LOCATION = ${JSON.stringify(local || "")};`
+    )
+    .replace(
+      /const EVENT_TITLE = ["'].*?["'];/g,
+      `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`
+    )
+    .replace(
+      /const EVENT_DATE = new Date\(["'].*?["']\);/g,
+      `const EVENT_DATE = new Date(${JSON.stringify(eventoDataIso)});`
+    )
+    .replace(
+      /const EVENT_END = new Date\(["'].*?["']\);/g,
+      `const EVENT_END = new Date(${JSON.stringify(
+        dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
+      )});`
+    );
+
+  return aplicarCompatibilidadeTemplate(htmlBase, evento);
 }
 
 function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
@@ -92,97 +145,154 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
   const eventTimestamp = dataEvento?.getTime() || 0;
 
   const script = `
-<script>
-window.__OMNISTAGE_EVENT__ = ${JSON.stringify({
-  nome: evento.nome || "",
-  data: dataFormatada,
-  horario: horarioFormatado,
-  local,
-  mapa: evento.mapa_url || "",
-  logo: evento.logo_image || "",
-  fundo: evento.background_image || "",
-  musica: evento.music_file || "",
-  timestamp: eventTimestamp,
-})};
+    <script>
+      window.__OMNISTAGE_EVENT__ = ${JSON.stringify({
+        nome: evento.nome || "",
+        data: dataFormatada,
+        horario: horarioFormatado,
+        local,
+        mapa: evento.mapa_url || "",
+        logo: evento.logo_image || "",
+        fundo: evento.background_image || "",
+        musica: evento.music_file || "",
+        timestamp: eventTimestamp,
+      })};
 
-window.addEventListener("DOMContentLoaded", function () {
-  var eventData = window.__OMNISTAGE_EVENT__ || {};
+      window.addEventListener("DOMContentLoaded", function () {
+        var eventData = window.__OMNISTAGE_EVENT__ || {};
 
-  function buscarCard() {
-    return document.querySelector(".card") || document.body;
-  }
+        function buscarCardPrincipal() {
+          return (
+            document.querySelector(".card") ||
+            document.querySelector(".invite-card") ||
+            document.querySelector(".convite-card") ||
+            document.querySelector("[data-convite-card]") ||
+            document.body
+          );
+        }
 
-  function aplicarFundo() {
-    var card = buscarCard();
+        function aplicarFundo() {
+          var card = buscarCardPrincipal();
 
-    document.body.style.background = "#020617";
-    document.documentElement.style.background = "#020617";
+          document.documentElement.style.background = "#020617";
+          document.body.style.background = "#020617";
 
-    document.querySelectorAll(".card-bg-motion").forEach(el => el.remove());
+          document.querySelectorAll(".card-bg-motion, .background-motion, .bg-motion").forEach(function (el) {
+            el.remove();
+          });
 
-    if (!eventData.fundo) return;
+          if (!eventData.fundo || !card) return;
 
-    card.style.backgroundImage =
-      "linear-gradient(180deg, rgba(12,28,60,0.65), rgba(6,14,36,0.95)), url('" +
-      eventData.fundo +
-      "')";
+          card.style.backgroundImage =
+            "linear-gradient(180deg, rgba(12,28,60,0.65), rgba(6,14,36,0.95)), url('" +
+            eventData.fundo +
+            "')";
 
-    card.style.backgroundSize = "cover";
-    card.style.backgroundPosition = "center";
-    card.style.backgroundRepeat = "no-repeat";
-  }
+          card.style.backgroundSize = "cover";
+          card.style.backgroundPosition = "center";
+          card.style.backgroundRepeat = "no-repeat";
+          card.style.overflow = "hidden";
+        }
 
-  function aplicarLogo() {
-    if (!eventData.logo) return;
+        function removerTitulosDuplicados() {
+          var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
+          if (!nomeEvento) return;
 
-    var card = buscarCard();
+          var elementos = Array.from(document.querySelectorAll("h1,h2,h3,p,span,div"));
 
-    // remove logos antigas
-    document.querySelectorAll("[data-logo-evento]").forEach(el => el.remove());
+          elementos.forEach(function (el) {
+            if (el.querySelector("[data-logo-evento]")) return;
+            if (el.getAttribute("data-slot") === "logo") return;
 
-    var slot = document.querySelector('[data-slot="logo"]');
+            var texto = (el.textContent || "")
+              .trim()
+              .replace(/\\s+/g, " ")
+              .toLowerCase();
 
-    var logo = document.createElement("img");
-    logo.src = eventData.logo;
-    logo.setAttribute("data-logo-evento", "true");
+            if (texto === nomeEvento || texto === nomeEvento.toUpperCase().toLowerCase()) {
+              el.remove();
+            }
+          });
+        }
 
-    logo.style.display = "block";
-    logo.style.width = "70%";
-    logo.style.maxWidth = "420px";
-    logo.style.margin = "20px auto";
+        function aplicarLogo() {
+          if (!eventData.logo) return;
 
-    if (slot) {
-      slot.innerHTML = "";
-      slot.appendChild(logo);
-      return;
-    }
+          var card = buscarCardPrincipal();
 
-    // fallback
-    card.insertBefore(logo, card.firstChild);
-  }
+          document.querySelectorAll("[data-logo-evento]").forEach(function (el) {
+            el.remove();
+          });
 
-  function aplicarLinks() {
-    var maps = document.getElementById("mapsLink");
-    if (maps && eventData.mapa) maps.href = eventData.mapa;
-  }
+          var slotLogo = document.querySelector('[data-slot="logo"]');
 
-  function aplicarMusica() {
-    var source = document.querySelector("#bgMusic source");
-    var audio = document.getElementById("bgMusic");
+          var logo = document.createElement("img");
+          logo.src = eventData.logo;
+          logo.alt = eventData.nome || "Logo do evento";
+          logo.setAttribute("data-logo-evento", "true");
 
-    if (source && eventData.musica) {
-      source.src = eventData.musica;
-      if (audio && audio.load) audio.load();
-    }
-  }
+          logo.style.display = "block";
+          logo.style.width = "70%";
+          logo.style.maxWidth = "420px";
+          logo.style.height = "auto";
+          logo.style.maxHeight = "170px";
+          logo.style.objectFit = "contain";
+          logo.style.margin = "20px auto";
 
-  aplicarFundo();
-  aplicarLogo();
-  aplicarLinks();
-  aplicarMusica();
-});
-</script>
-`;
+          if (slotLogo) {
+            slotLogo.innerHTML = "";
+            slotLogo.appendChild(logo);
+            return;
+          }
+
+          removerTitulosDuplicados();
+
+          if (card) {
+            card.insertBefore(logo, card.firstChild);
+          }
+        }
+
+        function aplicarLinks() {
+          var mapsLink = document.getElementById("mapsLink");
+          var calendarLink = document.getElementById("calendarLink");
+
+          if (mapsLink && eventData.mapa) {
+            mapsLink.href = eventData.mapa;
+          }
+
+          if (calendarLink && eventData.nome && eventData.timestamp) {
+            var start = new Date(eventData.timestamp);
+            var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
+
+            function toGoogleDate(date) {
+              return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
+            }
+
+            calendarLink.href =
+              "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+              "&text=" + encodeURIComponent(eventData.nome) +
+              "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
+              "&location=" + encodeURIComponent(eventData.local || "");
+          }
+        }
+
+        function aplicarMusica() {
+          var musicSource = document.querySelector("#bgMusic source");
+          var musicAudio = document.getElementById("bgMusic");
+
+          if (musicSource && eventData.musica) {
+            musicSource.setAttribute("src", eventData.musica);
+            if (musicAudio && musicAudio.load) musicAudio.load();
+          }
+        }
+
+        aplicarFundo();
+        aplicarLogo();
+        aplicarLinks();
+        aplicarMusica();
+      });
+    </script>
+  `;
 
   if (html.includes("</body>")) {
     return html.replace("</body>", `${script}</body>`);
@@ -191,28 +301,86 @@ window.addEventListener("DOMContentLoaded", function () {
   return `${html}${script}`;
 }
 
-export function injetarConvidadosNoConvite(html: string, nomes: string[]) {
-  const nomesHtml = nomes.map(nome => `
-    <label class="name-option selected">
-      <input type="checkbox" checked />
-      <span>${nome}</span>
-    </label>
-  `).join("");
+export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[]) {
+  const nomesHtml = nomesDoConvite
+    .map(
+      (nome) => `
+        <label class="name-option selected">
+          <input type="checkbox" checked name="guest-confirmation" />
+          <span>${escapeHtml(nome)}</span>
+        </label>
+      `
+    )
+    .join("");
 
   const script = `
-<script>
-window.addEventListener("DOMContentLoaded", function () {
-  var picker = document.getElementById("namePicker");
-  if (picker) {
-    picker.innerHTML = ${JSON.stringify(nomesHtml)};
-  }
-});
-</script>
-`;
+    <script>
+      window.__OMNISTAGE_GUESTS__ = ${JSON.stringify(nomesDoConvite)};
+
+      window.addEventListener("DOMContentLoaded", function () {
+        var nomes = window.__OMNISTAGE_GUESTS__ || [];
+
+        var guestName = document.getElementById("guestName");
+        if (guestName) {
+          guestName.textContent = "";
+          guestName.style.display = "none";
+        }
+
+        var picker = document.getElementById("namePicker");
+        if (picker) {
+          picker.innerHTML = ${JSON.stringify(nomesHtml)};
+          picker.style.display = "block";
+          picker.classList.remove("hidden");
+        }
+
+        var hint = document.getElementById("hintText");
+        if (hint) {
+          hint.textContent = nomes.length > 1
+            ? "Selecione os nomes para confirmar presença"
+            : "Confirme sua presença";
+          hint.style.display = "block";
+          hint.classList.remove("hidden");
+        }
+
+        var status = document.getElementById("statusMessage");
+        if (status) {
+          status.textContent = "";
+          status.style.display = "";
+        }
+
+        var confirmBtn = document.getElementById("confirmBtn");
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.style.pointerEvents = "auto";
+          confirmBtn.style.display = "";
+        }
+
+        var options = document.querySelectorAll(".name-option");
+        options.forEach(function(option) {
+          option.style.display = "flex";
+          option.classList.remove("hidden");
+        });
+
+        var inputs = document.querySelectorAll('input[name="guest-confirmation"]');
+        inputs.forEach(function(input) {
+          input.style.display = "";
+        });
+      });
+    </script>
+  `;
 
   if (html.includes("</body>")) {
     return html.replace("</body>", `${script}</body>`);
   }
 
   return `${html}${script}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
