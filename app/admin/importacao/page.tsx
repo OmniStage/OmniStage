@@ -36,6 +36,7 @@ export default function AdminImportacaoPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
+  const [sheetUrl, setSheetUrl] = useState("");
   const [texto, setTexto] = useState("");
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -110,6 +111,64 @@ export default function AdminImportacaoPage() {
     setBatchId(null);
   }
 
+  function normalizarGoogleSheetsUrl(url: string) {
+    if (url.includes("/pubhtml")) {
+      return url.replace("/pubhtml", "/pub?output=csv");
+    }
+
+    if (url.includes("output=csv")) {
+      return url;
+    }
+
+    return url;
+  }
+
+  async function carregarGoogleSheets() {
+    if (!sheetUrl.trim()) {
+      alert("Cole o link CSV do Google Sheets.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/import-from-sheet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: normalizarGoogleSheetsUrl(sheetUrl.trim()),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao carregar planilha.");
+      }
+
+      const textoFormatado = (result.data || [])
+        .map(
+          (item: any) =>
+            `${item.legacy_id || ""}    ${item.grupo || ""}    ${item.nome || ""}    ${
+              item.telefone || ""
+            }`
+        )
+        .join("\n");
+
+      setTexto(textoFormatado);
+      setPreview([]);
+      setBatchId(null);
+
+      alert(`${result.total || 0} linhas carregadas da planilha.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao carregar planilha.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function gerarPreview() {
     if (!tenantId || !eventoId) {
       alert("Selecione um evento.");
@@ -117,7 +176,7 @@ export default function AdminImportacaoPage() {
     }
 
     if (!texto.trim()) {
-      alert("Cole os convidados da planilha antiga.");
+      alert("Cole os convidados da planilha antiga ou carregue uma planilha.");
       return;
     }
 
@@ -283,6 +342,28 @@ export default function AdminImportacaoPage() {
             ))}
           </select>
         </label>
+
+        <div style={{ marginTop: 18 }}>
+          <label style={fieldStyle}>
+            <span>Link Google Sheets CSV</span>
+            <input
+              value={sheetUrl}
+              onChange={(event) => setSheetUrl(event.target.value)}
+              placeholder="Cole o link publicado do Google Sheets"
+              style={inputStyle}
+            />
+          </label>
+
+          <div style={actionsStyle}>
+            <button
+              onClick={carregarGoogleSheets}
+              disabled={loading}
+              style={secondaryButtonStyle}
+            >
+              {loading ? "Carregando..." : "Carregar planilha"}
+            </button>
+          </div>
+        </div>
 
         <div style={{ marginTop: 18 }}>
           <label style={fieldStyle}>
