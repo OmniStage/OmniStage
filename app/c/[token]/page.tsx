@@ -16,11 +16,14 @@ type Evento = {
   id: string;
   nome: string;
   data_evento: string | null;
-  horario: string | null;
   local: string | null;
-  endereco: string | null;
-  mapa_url: string | null;
+  status?: string | null;
+  tenant_id?: string | null;
   invite_template_id: string | null;
+  created_at?: string | null;
+  horario?: string | null;
+  endereco?: string | null;
+  mapa_url?: string | null;
   background_image?: string | null;
   logo_image?: string | null;
   music_file?: string | null;
@@ -65,11 +68,14 @@ export default function ConvitePublicoPage() {
         id,
         nome,
         data_evento,
-        horario,
         local,
+        status,
+        tenant_id,
+        invite_template_id,
+        created_at,
+        horario,
         endereco,
         mapa_url,
-        invite_template_id,
         background_image,
         logo_image,
         music_file
@@ -110,10 +116,10 @@ export default function ConvitePublicoPage() {
       }
     }
 
-    const htmlComEvento = preencherTemplate(template.html_template, evento);
-    const htmlComConvidado = injetarConvidado(htmlComEvento, convidado, nomesDoConvite);
+    const htmlDoEvento = preencherTemplate(template.html_template, evento);
+    const htmlComConvidados = injetarConvidados(htmlDoEvento, nomesDoConvite);
 
-    setHtmlFinal(htmlComConvidado);
+    setHtmlFinal(htmlComConvidados);
     setLoading(false);
   }
 
@@ -154,6 +160,7 @@ function preencherTemplate(html: string, evento: Evento) {
   const horarioFormatado = formatarHorario(evento.horario);
   const local = evento.local || evento.endereco || "";
   const eventoDataIso = dataEvento?.toISOString() || "";
+  const eventoDataScript = dataEvento?.toISOString() || "";
 
   const valores: Record<string, string> = {
     evento_nome: evento.nome || "",
@@ -198,38 +205,285 @@ function preencherTemplate(html: string, evento: Evento) {
     return content.replaceAll(`{{${key}}}`, value || "");
   }, html);
 
-  return preenchido
-    .replaceAll("VALENTINA XV", (evento.nome || "Evento").toUpperCase())
-    .replaceAll("Valentina XV", evento.nome || "Evento")
-    .replaceAll("Guerrah Hall", local || "Local do evento")
-    .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
-    .replaceAll("20h", horarioFormatado || "Horário")
-    .replaceAll("21h", horarioFormatado || "Horário")
-    .replace(/const EVENT_LOCATION = ["'].*?["'];/g, `const EVENT_LOCATION = ${JSON.stringify(local || "")};`)
-    .replace(/const EVENT_TITLE = ["'].*?["'];/g, `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`)
-    .replace(
-      /const EVENT_DATE = new Date\(["'].*?["']\);/g,
-      `const EVENT_DATE = new Date(${JSON.stringify(eventoDataIso)});`
-    )
-    .replace(
-      /const EVENT_END = new Date\(["'].*?["']\);/g,
-      `const EVENT_END = new Date(${JSON.stringify(
-        dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
-      )});`
-    );
+  return injetarModoEvento(
+    preenchido
+      .replaceAll("VALENTINA XV", (evento.nome || "Evento").toUpperCase())
+      .replaceAll("Valentina XV", evento.nome || "Evento")
+      .replaceAll("Guerrah Hall", local || "Local do evento")
+      .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
+      .replaceAll("20h", horarioFormatado || "Horário")
+      .replaceAll("21h", horarioFormatado || "Horário")
+      .replace(/const EVENT_LOCATION = ["'].*?["'];/g, `const EVENT_LOCATION = ${JSON.stringify(local || "")};`)
+      .replace(/const EVENT_TITLE = ["'].*?["'];/g, `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`)
+      .replace(
+        /const EVENT_DATE = new Date\(["'].*?["']\);/g,
+        `const EVENT_DATE = new Date(${JSON.stringify(eventoDataScript || eventoDataIso)});`
+      )
+      .replace(
+        /const EVENT_END = new Date\(["'].*?["']\);/g,
+        `const EVENT_END = new Date(${JSON.stringify(
+          dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
+        )});`
+      ),
+    evento
+  );
 }
 
-function injetarConvidado(html: string, convidado: Convidado, nomesDoConvite: string[]) {
-  const nomesSeguros = nomesDoConvite.map((nome) => escapeHtml(nome));
+function injetarModoEvento(html: string, evento: Evento) {
+  const dataEvento = criarDataEvento(evento);
+  const dataFormatada = formatarData(evento.data_evento);
+  const horarioFormatado = formatarHorario(evento.horario);
+  const local = evento.local || evento.endereco || "";
+  const eventTimestamp = dataEvento?.getTime() || 0;
 
- const tituloConvite = "";
+  const script = `
+    <style>
+      html { overflow: hidden !important; }
+      body { overflow: hidden !important; }
+      #guestName { display: none !important; }
+      #namePicker, .name-picker, #hintText, .hint, #statusMessage, .status { display: none !important; }
+      input[name="guest-confirmation"], .name-option { display: none !important; }
+    </style>
 
-  const nomesHtml = nomesSeguros
+    <script>
+      window.__OMNISTAGE_PREVIEW__ = false;
+      window.__OMNISTAGE_EVENT__ = ${JSON.stringify({
+        nome: evento.nome || "",
+        data: dataFormatada,
+        horario: horarioFormatado,
+        local,
+        mapa: evento.mapa_url || "",
+        logo: evento.logo_image || "",
+        fundo: evento.background_image || "",
+        musica: evento.music_file || "",
+        timestamp: eventTimestamp,
+      })};
+
+      window.addEventListener("DOMContentLoaded", function () {
+        var eventData = window.__OMNISTAGE_EVENT__ || {};
+        var guestName = document.getElementById("guestName");
+        var picker = document.getElementById("namePicker");
+        var hint = document.getElementById("hintText");
+        var status = document.getElementById("statusMessage");
+        var mapsLink = document.getElementById("mapsLink");
+        var calendarLink = document.getElementById("calendarLink");
+        var musicSource = document.querySelector("#bgMusic source");
+        var musicAudio = document.getElementById("bgMusic");
+
+        if (guestName) {
+          guestName.textContent = "";
+          guestName.style.display = "none";
+        }
+
+        if (picker) picker.innerHTML = "";
+        if (hint) hint.textContent = "";
+        if (status) status.textContent = "";
+
+        if (mapsLink && eventData.mapa) mapsLink.href = eventData.mapa;
+
+        if (musicSource && eventData.musica) {
+          musicSource.setAttribute("src", eventData.musica);
+          if (musicAudio && musicAudio.load) musicAudio.load();
+        }
+
+        if (calendarLink && eventData.nome && eventData.timestamp) {
+          var start = new Date(eventData.timestamp);
+          var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
+
+          function toGoogleDate(date) {
+            return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
+          }
+
+          calendarLink.href =
+            "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+            "&text=" + encodeURIComponent(eventData.nome) +
+            "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
+            "&location=" + encodeURIComponent(eventData.local || "");
+        }
+
+        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        var node;
+
+        while ((node = walker.nextNode())) {
+          var text = node.nodeValue || "";
+          text = text
+            .replace(/VALENTINA XV/g, (eventData.nome || "").toUpperCase())
+            .replace(/Valentina XV/g, eventData.nome || "")
+            .replace(/Guerrah Hall/g, eventData.local || "")
+            .replace(/16 de maio de 2026/g, eventData.data || "")
+            .replace(/21h/g, eventData.horario || "")
+            .replace(/20h/g, eventData.horario || "");
+          node.nodeValue = text;
+        }
+
+        var meta = document.querySelector(".meta");
+        if (meta) {
+          var linhas = meta.querySelectorAll("div");
+          if (linhas[0]) linhas[0].textContent = [eventData.data, eventData.horario].filter(Boolean).join(" • ").toUpperCase();
+          if (linhas[1]) linhas[1].textContent = (eventData.local || "").toUpperCase();
+
+          linhas.forEach(function (linha) {
+            linha.style.fontFamily = "Georgia, 'Times New Roman', serif";
+            linha.style.fontWeight = "700";
+            linha.style.letterSpacing = "0.16em";
+            linha.style.textTransform = "uppercase";
+            linha.style.lineHeight = "1.45";
+            linha.style.fontSize = "clamp(18px, 3.6vw, 27px)";
+          });
+        }
+
+        if (eventData.logo) {
+          var titleImage = document.querySelector(".title-image");
+          var logoImage = document.querySelector("[data-logo-evento]");
+          var firstEventImage = titleImage || logoImage;
+          var nomeEvento = String(eventData.nome || "").trim();
+
+          function encontrarConviteDigital() {
+            var candidatos = Array.from(document.body.querySelectorAll("*"));
+            return candidatos.find(function (el) {
+              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
+              return texto === "convite digital" && el.children.length <= 1;
+            }) || null;
+          }
+
+          function encontrarTituloDoEvento() {
+            if (nomeEvento) {
+              var tituloPossivel = Array.from(
+                document.querySelectorAll(
+                  "h1,h2,h3,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
+                )
+              ).filter(function (el) {
+                var texto = (el.textContent || "").trim().toLowerCase();
+                var nome = nomeEvento.toLowerCase();
+                return texto === nome || texto.includes(nome);
+              });
+
+              var tituloEncontrado =
+                tituloPossivel.find(function (el) {
+                  return el.children.length <= 2;
+                }) ||
+                tituloPossivel[0] ||
+                null;
+
+              if (tituloEncontrado) return tituloEncontrado;
+            }
+
+            return (
+              document.querySelector(".event-title") ||
+              document.querySelector(".main-title") ||
+              document.querySelector(".hero-title") ||
+              document.querySelector("h1") ||
+              document.querySelector(".title")
+            );
+          }
+
+          if (!firstEventImage) {
+            var imagens = Array.from(document.querySelectorAll("img"));
+            firstEventImage = imagens.find(function (img) {
+              var alt = (img.getAttribute("alt") || "").toLowerCase();
+              var className = (img.getAttribute("class") || "").toLowerCase();
+              return alt.includes("valentina") || alt.includes("logo") || className.includes("title") || className.includes("logo");
+            }) || null;
+          }
+
+          function prepararLogo(img) {
+            img.setAttribute("src", eventData.logo);
+            img.setAttribute("alt", eventData.nome || "Logo do evento");
+            img.setAttribute("data-logo-evento", "true");
+            img.style.display = "block";
+            img.style.width = "min(78%, 520px)";
+            img.style.maxWidth = "78%";
+            img.style.maxHeight = "170px";
+            img.style.height = "auto";
+            img.style.objectFit = "contain";
+            img.style.margin = "24px auto 18px";
+          }
+
+          function posicionarLogo(img) {
+            var conviteDigital = encontrarConviteDigital();
+            var tituloEvento = encontrarTituloDoEvento();
+
+            prepararLogo(img);
+
+            if (conviteDigital && conviteDigital.parentNode) {
+              conviteDigital.parentNode.insertBefore(img, conviteDigital.nextSibling);
+            } else if (tituloEvento && tituloEvento.parentNode) {
+              tituloEvento.parentNode.insertBefore(img, tituloEvento);
+            } else {
+              var cardParaLogo = document.querySelector(".card") || document.body;
+              cardParaLogo.insertBefore(img, cardParaLogo.firstChild);
+            }
+
+            if (tituloEvento && !tituloEvento.contains(img)) {
+              tituloEvento.style.display = "none";
+            }
+          }
+
+          if (firstEventImage) {
+            posicionarLogo(firstEventImage);
+          } else {
+            var logoCriada = document.createElement("img");
+            posicionarLogo(logoCriada);
+          }
+        }
+
+        if (eventData.fundo) {
+          var card = document.querySelector(".card");
+          var motion = document.querySelector(".card-bg-motion");
+          var bgValue = "linear-gradient(180deg, rgba(12, 28, 60, 0.68) 0%, rgba(10, 24, 54, 0.84) 45%, rgba(6, 14, 36, 0.96) 100%), url('" + eventData.fundo + "')";
+
+          if (card) {
+            card.style.backgroundImage = bgValue;
+            card.style.backgroundPosition = "center center";
+            card.style.backgroundSize = "cover";
+          }
+
+          if (motion) {
+            motion.style.backgroundImage = "url('" + eventData.fundo + "')";
+            motion.style.backgroundPosition = "center center";
+            motion.style.backgroundSize = "cover";
+          }
+        }
+
+        var daysEl = document.getElementById("days");
+        var hoursEl = document.getElementById("hours");
+        var minutesEl = document.getElementById("minutes");
+        var secondsEl = document.getElementById("seconds");
+
+        if (daysEl && hoursEl && minutesEl && secondsEl) {
+          var target = Number(eventData.timestamp || 0);
+          var distance = target ? target - Date.now() : 0;
+
+          if (!target || distance <= 0) {
+            daysEl.textContent = "00";
+            hoursEl.textContent = "00";
+            minutesEl.textContent = "00";
+            secondsEl.textContent = "00";
+          } else {
+            daysEl.textContent = String(Math.floor(distance / 86400000)).padStart(2, "0");
+            hoursEl.textContent = String(Math.floor((distance / 3600000) % 24)).padStart(2, "0");
+            minutesEl.textContent = String(Math.floor((distance / 60000) % 60)).padStart(2, "0");
+            secondsEl.textContent = String(Math.floor((distance / 1000) % 60)).padStart(2, "0");
+          }
+        }
+      });
+    </script>
+  `;
+
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${script}</head>`);
+  }
+
+  return `${script}${html}`;
+}
+
+function injetarConvidados(html: string, nomesDoConvite: string[]) {
+  const nomesHtml = nomesDoConvite
     .map(
       (nome) => `
         <label class="name-option selected">
           <input type="checkbox" checked name="guest-confirmation" />
-          <span>${nome}</span>
+          <span>${escapeHtml(nome)}</span>
         </label>
       `
     )
@@ -237,22 +491,16 @@ function injetarConvidado(html: string, convidado: Convidado, nomesDoConvite: st
 
   const script = `
     <script>
-      window.__OMNISTAGE_GUEST__ = ${JSON.stringify({
-        nome: convidado.nome,
-        nomes: nomesDoConvite,
-        token: convidado.token,
-        grupo: convidado.grupo || "",
-        
-      })};
+      window.__OMNISTAGE_GUESTS__ = ${JSON.stringify(nomesDoConvite)};
 
       window.addEventListener("DOMContentLoaded", function () {
-        var guest = window.__OMNISTAGE_GUEST__;
+        var nomes = window.__OMNISTAGE_GUESTS__ || [];
 
-      var guestName = document.getElementById("guestName");
-      if (guestName) {
-      guestName.textContent = "";
-      guestName.style.display = "none";
-      }
+        var guestName = document.getElementById("guestName");
+        if (guestName) {
+          guestName.textContent = "";
+          guestName.style.display = "none";
+        }
 
         var picker = document.getElementById("namePicker");
         if (picker) {
@@ -262,7 +510,7 @@ function injetarConvidado(html: string, convidado: Convidado, nomesDoConvite: st
 
         var hint = document.getElementById("hintText");
         if (hint) {
-          hint.textContent = guest.nomes.length > 1
+          hint.textContent = nomes.length > 1
             ? "Selecione os nomes para confirmar presença"
             : "Confirme sua presença";
           hint.style.display = "block";
@@ -280,6 +528,16 @@ function injetarConvidado(html: string, convidado: Convidado, nomesDoConvite: st
           confirmBtn.style.pointerEvents = "auto";
           confirmBtn.style.display = "";
         }
+
+        var options = document.querySelectorAll(".name-option");
+        options.forEach(function(option) {
+          option.style.display = "";
+        });
+
+        var inputs = document.querySelectorAll('input[name="guest-confirmation"]');
+        inputs.forEach(function(input) {
+          input.style.display = "";
+        });
       });
     </script>
   `;
