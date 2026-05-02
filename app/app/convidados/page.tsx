@@ -122,7 +122,7 @@ export default function ConvidadosPage() {
 
   function gerarLinkConvite(convidado: Convidado) {
   const token = encodeURIComponent(convidado.token || "");
-  return `/app/convite?evento=${eventoId}&token=${token}`;
+  return `/c/${token}`;
 }
 
   function gerarLinkWhatsApp(convidado: Convidado) {
