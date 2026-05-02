@@ -12,10 +12,13 @@ type Convidado = {
   id: string;
   nome: string;
   telefone: string | null;
+  email: string | null;
+  grupo: string | null;
+  tipo_convite: string | null;
+  observacoes: string | null;
   status_rsvp: string | null;
-  status_checkin: string | null;
+  status_envio: string | null;
   token: string | null;
-  evento_id: string | null;
 };
 
 export default function ConvidadosPage() {
@@ -23,85 +26,24 @@ export default function ConvidadosPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
-  const [nome, setNome] = useState("");
-  const [telefone, setTelefone] = useState("");
+
+  const [showForm, setShowForm] = useState(false);
+
+  const [form, setForm] = useState({
+    nome: "",
+    telefone: "",
+    email: "",
+    grupo: "",
+    tipo: "individual",
+    observacoes: "",
+    status_rsvp: "pendente",
+    status_envio: "pendente",
+  });
+
   const [loading, setLoading] = useState(false);
 
-  async function carregarTenant() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert("Usuário não autenticado");
-      return null;
-    }
-
-    const { data, error } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !data?.tenant_id) {
-      alert("Usuário sem empresa vinculada.");
-      return null;
-    }
-
-    setTenantId(data.tenant_id);
-    return data.tenant_id as string;
-  }
-
-  async function carregarEventos(tenant: string) {
-    const { data, error } = await supabase
-      .from("eventos")
-      .select("id, nome")
-      .eq("tenant_id", tenant)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      alert("Erro ao carregar eventos: " + error.message);
-      return;
-    }
-
-    setEventos((data || []) as Evento[]);
-
-    if (data && data.length > 0 && !eventoId) {
-      setEventoId(data[0].id);
-      carregarConvidados(tenant, data[0].id);
-    }
-  }
-
-  async function carregarConvidados(tenant: string, evento: string) {
-    const { data, error } = await supabase
-      .from("convidados")
-      .select("id, nome, telefone, status_rsvp, status_checkin, token, evento_id")
-      .eq("tenant_id", tenant)
-      .eq("evento_id", evento)
-      .order("nome");
-
-    if (error) {
-      alert("Erro ao carregar convidados: " + error.message);
-      return;
-    }
-
-    setConvidados((data || []) as Convidado[]);
-  }
-
-  async function iniciarTela() {
-    const tenant = await carregarTenant();
-    if (tenant) {
-      await carregarEventos(tenant);
-    }
-  }
-
-  async function trocarEvento(id: string) {
-    setEventoId(id);
-
-    if (tenantId && id) {
-      await carregarConvidados(tenantId, id);
-    }
+  function handleChange(field: string, value: any) {
+    setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   function gerarToken() {
@@ -109,8 +51,8 @@ export default function ConvidadosPage() {
   }
 
   async function criarConvidado() {
-    if (!nome.trim()) {
-      alert("Digite o nome do convidado.");
+    if (!form.nome.trim()) {
+      alert("Digite o nome.");
       return;
     }
 
@@ -126,128 +68,202 @@ export default function ConvidadosPage() {
     const { error } = await supabase.from("convidados").insert({
       tenant_id: tenantId,
       evento_id: eventoId,
-      nome: nome.trim(),
-      telefone: telefone.trim() || null,
-      status_rsvp: "pendente",
-      status_checkin: "nao_entrou",
+      nome: form.nome,
+      telefone: form.telefone,
+      email: form.email,
+      grupo: form.grupo,
+      tipo_convite: form.tipo,
+      observacoes: form.observacoes,
+      status_rsvp: form.status_rsvp,
+      status_envio: form.status_envio,
       token,
     });
 
     setLoading(false);
 
     if (error) {
-      alert("Erro ao criar convidado: " + error.message);
+      alert(error.message);
       return;
     }
 
-    setNome("");
-    setTelefone("");
+    setShowForm(false);
+    setForm({
+      nome: "",
+      telefone: "",
+      email: "",
+      grupo: "",
+      tipo: "individual",
+      observacoes: "",
+      status_rsvp: "pendente",
+      status_envio: "pendente",
+    });
+
     carregarConvidados(tenantId, eventoId);
   }
 
+  async function carregarTenant() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (data) setTenantId(data.tenant_id);
+  }
+
+  async function carregarEventos(tenant: string) {
+    const { data } = await supabase
+      .from("eventos")
+      .select("id,nome")
+      .eq("tenant_id", tenant);
+
+    setEventos(data || []);
+
+    if (data?.length) {
+      setEventoId(data[0].id);
+      carregarConvidados(tenant, data[0].id);
+    }
+  }
+
+  async function carregarConvidados(tenant: string, evento: string) {
+    const { data } = await supabase
+      .from("convidados")
+      .select("*")
+      .eq("tenant_id", tenant)
+      .eq("evento_id", evento)
+      .order("created_at", { ascending: false });
+
+    setConvidados(data || []);
+  }
+
   useEffect(() => {
-    iniciarTela();
-  }, []);
+    async function init() {
+      const tenant = await carregarTenant();
+      if (tenantId) {
+        carregarEventos(tenantId);
+      }
+    }
+    init();
+  }, [tenantId]);
 
   return (
     <main style={{ color: "#fff" }}>
       <h1 style={{ fontSize: 48 }}>Convidados</h1>
 
-      <p style={{ color: "#94a3b8", marginTop: -10 }}>
-        🔵 APP — convidados vinculados ao evento selecionado.
-      </p>
+      <button
+        onClick={() => setShowForm(true)}
+        style={btnCriar}
+      >
+        + Criar convidado
+      </button>
 
-      <section style={{ marginTop: 24, marginBottom: 28 }}>
-        <select
-          value={eventoId}
-          onChange={(e) => trocarEvento(e.target.value)}
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            background: "#020617",
-            color: "#fff",
-            border: "1px solid #334155",
-            minWidth: 320,
-          }}
-        >
-          <option value="">Selecione um evento</option>
-          {eventos.map((evento) => (
-            <option key={evento.id} value={evento.id}>
-              {evento.nome}
-            </option>
-          ))}
-        </select>
-      </section>
+      {showForm && (
+        <div style={modal}>
+          <h2>Criar convidado</h2>
 
-      <section style={{ display: "flex", gap: 10, marginBottom: 30, flexWrap: "wrap" }}>
-        <input
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          placeholder="Nome do convidado"
-          style={inputStyle}
-        />
+          <div style={grid}>
+            <input placeholder="Nome" value={form.nome} onChange={(e)=>handleChange("nome", e.target.value)} />
+            <input placeholder="Telefone" value={form.telefone} onChange={(e)=>handleChange("telefone", e.target.value)} />
+            <input placeholder="E-mail" value={form.email} onChange={(e)=>handleChange("email", e.target.value)} />
+            <input placeholder="Grupo/Família" value={form.grupo} onChange={(e)=>handleChange("grupo", e.target.value)} />
 
-        <input
-          value={telefone}
-          onChange={(e) => setTelefone(e.target.value)}
-          placeholder="Telefone"
-          style={inputStyle}
-        />
+            <select value={form.tipo} onChange={(e)=>handleChange("tipo", e.target.value)}>
+              <option value="individual">Individual</option>
+              <option value="grupo">Grupo</option>
+            </select>
 
-        <button
-          onClick={criarConvidado}
-          disabled={loading}
-          style={{
-            padding: "14px 20px",
-            borderRadius: 12,
-            background: "#22c55e",
-            border: "none",
-            color: "#fff",
-            fontWeight: "bold",
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Criando..." : "Adicionar convidado"}
-        </button>
-      </section>
+            <select value={form.status_rsvp} onChange={(e)=>handleChange("status_rsvp", e.target.value)}>
+              <option value="pendente">Pendente</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="nao">Não vai</option>
+            </select>
 
-      <section style={{ display: "grid", gap: 16 }}>
-        {convidados.map((convidado) => (
-          <div
-            key={convidado.id}
-            style={{
-              background: "#020617",
-              padding: 22,
-              borderRadius: 18,
-              border: "1px solid #334155",
-            }}
-          >
-            <strong style={{ fontSize: 22 }}>{convidado.nome}</strong>
-            <p style={{ color: "#94a3b8" }}>
-              {convidado.telefone || "Sem telefone"} · RSVP: {convidado.status_rsvp}
-            </p>
-            <p style={{ color: "#94a3b8" }}>
-              Check-in: {convidado.status_checkin || "nao_entrou"} · Token:{" "}
-              <strong style={{ color: "#facc15" }}>{convidado.token || "sem token"}</strong>
-            </p>
+            <select value={form.status_envio} onChange={(e)=>handleChange("status_envio", e.target.value)}>
+              <option value="pendente">Pendente</option>
+              <option value="enviado">Enviado</option>
+            </select>
+
+            <textarea
+              placeholder="Observações"
+              value={form.observacoes}
+              onChange={(e)=>handleChange("observacoes", e.target.value)}
+              style={{ gridColumn: "span 2" }}
+            />
+          </div>
+
+          <div style={{ marginTop: 20 }}>
+            <button onClick={criarConvidado} style={btnSalvar}>
+              {loading ? "Salvando..." : "Salvar"}
+            </button>
+
+            <button onClick={()=>setShowForm(false)} style={btnCancel}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section style={{ marginTop: 30, display: "grid", gap: 16 }}>
+        {convidados.map((c) => (
+          <div key={c.id} style={card}>
+            <strong>{c.nome}</strong>
+            <p>{c.telefone || "Sem telefone"} · {c.email || "Sem email"}</p>
+            <p>Grupo: {c.grupo || "-"}</p>
+            <p>RSVP: {c.status_rsvp} · Envio: {c.status_envio}</p>
           </div>
         ))}
-
-        {convidados.length === 0 && (
-          <p style={{ color: "#64748b" }}>
-            Nenhum convidado cadastrado para este evento.
-          </p>
-        )}
       </section>
     </main>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 12,
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+};
+
+const modal = {
+  marginTop: 20,
+  padding: 20,
   background: "#020617",
-  color: "#fff",
   border: "1px solid #334155",
-  minWidth: 240,
+  borderRadius: 12,
+};
+
+const card = {
+  padding: 20,
+  borderRadius: 12,
+  border: "1px solid #334155",
+  background: "#020617",
+};
+
+const btnCriar = {
+  marginTop: 20,
+  padding: "12px 18px",
+  background: "#22c55e",
+  border: "none",
+  borderRadius: 10,
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const btnSalvar = {
+  padding: "10px 16px",
+  background: "#22c55e",
+  border: "none",
+  borderRadius: 8,
+  color: "#fff",
+  marginRight: 10,
+};
+
+const btnCancel = {
+  padding: "10px 16px",
+  background: "#334155",
+  border: "none",
+  borderRadius: 8,
+  color: "#fff",
 };
