@@ -17,7 +17,10 @@ type Evento = {
   nome: string;
   data_evento: string | null;
   local: string | null;
+  status?: string | null;
+  tenant_id?: string | null;
   invite_template_id: string | null;
+  created_at?: string | null;
   horario?: string | null;
   endereco?: string | null;
   mapa_url?: string | null;
@@ -66,7 +69,10 @@ export default function ConvitePublicoPage() {
         nome,
         data_evento,
         local,
+        status,
+        tenant_id,
         invite_template_id,
+        created_at,
         horario,
         endereco,
         mapa_url,
@@ -163,44 +169,34 @@ function preencherTemplate(html: string, evento: Evento) {
     NOME_EVENTO: evento.nome || "",
     nome: evento.nome || "",
     NOME: evento.nome || "",
-
     data_evento: dataFormatada,
     DATA_EVENTO: dataFormatada,
     data: dataFormatada,
     DATA: dataFormatada,
-
     horario_evento: horarioFormatado,
     HORARIO_EVENTO: horarioFormatado,
     horario: horarioFormatado,
     HORARIO: horarioFormatado,
-
     data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
     DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
-
     local_evento: local,
     LOCAL_EVENTO: local,
     local: local,
     LOCAL: local,
-
     endereco_evento: evento.endereco || "",
     ENDERECO_EVENTO: evento.endereco || "",
-
     mapa_url: evento.mapa_url || "",
     MAPA_URL: evento.mapa_url || "",
-
     background_image: evento.background_image || "",
     BACKGROUND_IMAGE: evento.background_image || "",
-
     logo_image: evento.logo_image || "",
     LOGO_IMAGE: evento.logo_image || "",
     logo_evento: evento.logo_image || "",
     LOGO_EVENTO: evento.logo_image || "",
-
     music_file: evento.music_file || "",
     MUSIC_FILE: evento.music_file || "",
     musica_evento: evento.music_file || "",
     MUSICA_EVENTO: evento.music_file || "",
-
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
@@ -217,14 +213,380 @@ function preencherTemplate(html: string, evento: Evento) {
       .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
       .replaceAll("20h", horarioFormatado || "Horário")
       .replaceAll("21h", horarioFormatado || "Horário")
-      .replace(
-        /const EVENT_LOCATION = ["'].*?["'];/g,
-        `const EVENT_LOCATION = ${JSON.stringify(local || "")};`
-      )
-      .replace(
-        /const EVENT_TITLE = ["'].*?["'];/g,
-        `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`
-      )
+      .replace(/const EVENT_LOCATION = ["'].*?["'];/g, `const EVENT_LOCATION = ${JSON.stringify(local || "")};`)
+      .replace(/const EVENT_TITLE = ["'].*?["'];/g, `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`)
       .replace(
         /const EVENT_DATE = new Date\(["'].*?["']\);/g,
-        `const EVENT_DATE = new Date(${JSON.stringify
+        `const EVENT_DATE = new Date(${JSON.stringify(eventoDataScript || eventoDataIso)});`
+      )
+      .replace(
+        /const EVENT_END = new Date\(["'].*?["']\);/g,
+        `const EVENT_END = new Date(${JSON.stringify(
+          dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
+        )});`
+      ),
+    evento
+  );
+}
+
+function injetarModoEvento(html: string, evento: Evento) {
+  const dataEvento = criarDataEvento(evento);
+  const dataFormatada = formatarData(evento.data_evento);
+  const horarioFormatado = formatarHorario(evento.horario);
+  const local = evento.local || evento.endereco || "";
+  const eventTimestamp = dataEvento?.getTime() || 0;
+
+  const script = `
+    <style>
+      html { overflow: hidden !important; }
+      body { overflow: hidden !important; }
+      #guestName { display: none !important; }
+    </style>
+
+    <script>
+      window.__OMNISTAGE_PREVIEW__ = false;
+      window.__OMNISTAGE_EVENT__ = ${JSON.stringify({
+        nome: evento.nome || "",
+        data: dataFormatada,
+        horario: horarioFormatado,
+        local,
+        mapa: evento.mapa_url || "",
+        logo: evento.logo_image || "",
+        fundo: evento.background_image || "",
+        musica: evento.music_file || "",
+        timestamp: eventTimestamp,
+      })};
+
+      window.addEventListener("DOMContentLoaded", function () {
+        var eventData = window.__OMNISTAGE_EVENT__ || {};
+        var guestName = document.getElementById("guestName");
+        var mapsLink = document.getElementById("mapsLink");
+        var calendarLink = document.getElementById("calendarLink");
+        var musicSource = document.querySelector("#bgMusic source");
+        var musicAudio = document.getElementById("bgMusic");
+
+        if (guestName) {
+          guestName.textContent = "";
+          guestName.style.display = "none";
+        }
+
+        if (mapsLink && eventData.mapa) mapsLink.href = eventData.mapa;
+
+        if (musicSource && eventData.musica) {
+          musicSource.setAttribute("src", eventData.musica);
+          if (musicAudio && musicAudio.load) musicAudio.load();
+        }
+
+        if (calendarLink && eventData.nome && eventData.timestamp) {
+          var start = new Date(eventData.timestamp);
+          var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
+
+          function toGoogleDate(date) {
+            return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
+          }
+
+          calendarLink.href =
+            "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+            "&text=" + encodeURIComponent(eventData.nome) +
+            "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
+            "&location=" + encodeURIComponent(eventData.local || "");
+        }
+
+        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        var node;
+
+        while ((node = walker.nextNode())) {
+          var text = node.nodeValue || "";
+          text = text
+            .replace(/VALENTINA XV/g, (eventData.nome || "").toUpperCase())
+            .replace(/Valentina XV/g, eventData.nome || "")
+            .replace(/Guerrah Hall/g, eventData.local || "")
+            .replace(/16 de maio de 2026/g, eventData.data || "")
+            .replace(/21h/g, eventData.horario || "")
+            .replace(/20h/g, eventData.horario || "");
+          node.nodeValue = text;
+        }
+
+        if (eventData.logo) {
+          var titleImage = document.querySelector(".title-image");
+          var logoImage = document.querySelector("[data-logo-evento]");
+          var firstEventImage = titleImage || logoImage;
+          var nomeEvento = String(eventData.nome || "").trim();
+
+          function encontrarConviteDigital() {
+            var candidatos = Array.from(document.body.querySelectorAll("*"));
+            return candidatos.find(function (el) {
+              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
+              return texto === "convite digital" && el.children.length <= 1;
+            }) || null;
+          }
+
+          function encontrarTituloDoEvento() {
+            if (nomeEvento) {
+              var tituloPossivel = Array.from(
+                document.querySelectorAll(
+                  "h1,h2,h3,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
+                )
+              ).filter(function (el) {
+                var texto = (el.textContent || "").trim().toLowerCase();
+                var nome = nomeEvento.toLowerCase();
+                return texto === nome || texto.includes(nome);
+              });
+
+              var tituloEncontrado =
+                tituloPossivel.find(function (el) {
+                  return el.children.length <= 2;
+                }) ||
+                tituloPossivel[0] ||
+                null;
+
+              if (tituloEncontrado) return tituloEncontrado;
+            }
+
+            return (
+              document.querySelector(".event-title") ||
+              document.querySelector(".main-title") ||
+              document.querySelector(".hero-title") ||
+              document.querySelector("h1") ||
+              document.querySelector(".title")
+            );
+          }
+
+          if (!firstEventImage) {
+            var imagens = Array.from(document.querySelectorAll("img"));
+            firstEventImage = imagens.find(function (img) {
+              var alt = (img.getAttribute("alt") || "").toLowerCase();
+              var className = (img.getAttribute("class") || "").toLowerCase();
+              return alt.includes("valentina") || alt.includes("logo") || className.includes("title") || className.includes("logo");
+            }) || null;
+          }
+
+          function prepararLogo(img) {
+            img.setAttribute("src", eventData.logo);
+            img.setAttribute("alt", eventData.nome || "Logo do evento");
+            img.setAttribute("data-logo-evento", "true");
+            img.style.display = "block";
+            img.style.width = "min(78%, 520px)";
+            img.style.maxWidth = "78%";
+            img.style.maxHeight = "170px";
+            img.style.height = "auto";
+            img.style.objectFit = "contain";
+            img.style.margin = "24px auto 18px";
+          }
+
+          function posicionarLogo(img) {
+            var conviteDigital = encontrarConviteDigital();
+            var tituloEvento = encontrarTituloDoEvento();
+
+            prepararLogo(img);
+
+            if (conviteDigital && conviteDigital.parentNode) {
+              conviteDigital.parentNode.insertBefore(img, conviteDigital.nextSibling);
+            } else if (tituloEvento && tituloEvento.parentNode) {
+              tituloEvento.parentNode.insertBefore(img, tituloEvento);
+            } else {
+              var cardParaLogo = document.querySelector(".card") || document.body;
+              cardParaLogo.insertBefore(img, cardParaLogo.firstChild);
+            }
+
+            if (tituloEvento && !tituloEvento.contains(img)) {
+              tituloEvento.style.display = "none";
+            }
+          }
+
+          if (firstEventImage) {
+            posicionarLogo(firstEventImage);
+          } else {
+            var logoCriada = document.createElement("img");
+            posicionarLogo(logoCriada);
+          }
+        }
+
+        if (eventData.fundo) {
+          var card = document.querySelector(".card");
+          var motion = document.querySelector(".card-bg-motion");
+          var bgValue = "linear-gradient(180deg, rgba(12, 28, 60, 0.68) 0%, rgba(10, 24, 54, 0.84) 45%, rgba(6, 14, 36, 0.96) 100%), url('" + eventData.fundo + "')";
+
+          if (card) {
+            card.style.backgroundImage = bgValue;
+            card.style.backgroundPosition = "center center";
+            card.style.backgroundSize = "cover";
+          }
+
+          if (motion) {
+            motion.style.backgroundImage = "url('" + eventData.fundo + "')";
+            motion.style.backgroundPosition = "center center";
+            motion.style.backgroundSize = "cover";
+          }
+        }
+
+        var daysEl = document.getElementById("days");
+        var hoursEl = document.getElementById("hours");
+        var minutesEl = document.getElementById("minutes");
+        var secondsEl = document.getElementById("seconds");
+
+        if (daysEl && hoursEl && minutesEl && secondsEl) {
+          var target = Number(eventData.timestamp || 0);
+          var distance = target ? target - Date.now() : 0;
+
+          if (!target || distance <= 0) {
+            daysEl.textContent = "00";
+            hoursEl.textContent = "00";
+            minutesEl.textContent = "00";
+            secondsEl.textContent = "00";
+          } else {
+            daysEl.textContent = String(Math.floor(distance / 86400000)).padStart(2, "0");
+            hoursEl.textContent = String(Math.floor((distance / 3600000) % 24)).padStart(2, "0");
+            minutesEl.textContent = String(Math.floor((distance / 60000) % 60)).padStart(2, "0");
+            secondsEl.textContent = String(Math.floor((distance / 1000) % 60)).padStart(2, "0");
+          }
+        }
+      });
+    </script>
+  `;
+
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${script}</head>`);
+  }
+
+  return `${script}${html}`;
+}
+
+function injetarConvidados(html: string, nomesDoConvite: string[]) {
+  const nomesHtml = nomesDoConvite
+    .map(
+      (nome) => `
+        <label class="name-option selected">
+          <input type="checkbox" checked name="guest-confirmation" />
+          <span>${escapeHtml(nome)}</span>
+        </label>
+      `
+    )
+    .join("");
+
+  const script = `
+    <script>
+      window.__OMNISTAGE_GUESTS__ = ${JSON.stringify(nomesDoConvite)};
+
+      window.addEventListener("DOMContentLoaded", function () {
+        var nomes = window.__OMNISTAGE_GUESTS__ || [];
+
+        var guestName = document.getElementById("guestName");
+        if (guestName) {
+          guestName.textContent = "";
+          guestName.style.display = "none";
+        }
+
+        var picker = document.getElementById("namePicker");
+        if (picker) {
+          picker.innerHTML = ${JSON.stringify(nomesHtml)};
+          picker.style.display = "block";
+          picker.classList.remove("hidden");
+        }
+
+        var hint = document.getElementById("hintText");
+        if (hint) {
+          hint.textContent = nomes.length > 1
+            ? "Selecione os nomes para confirmar presença"
+            : "Confirme sua presença";
+          hint.style.display = "block";
+          hint.classList.remove("hidden");
+        }
+
+        var status = document.getElementById("statusMessage");
+        if (status) {
+          status.textContent = "";
+          status.style.display = "";
+        }
+
+        var confirmBtn = document.getElementById("confirmBtn");
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.style.pointerEvents = "auto";
+          confirmBtn.style.display = "";
+        }
+
+        var options = document.querySelectorAll(".name-option");
+        options.forEach(function(option) {
+          option.style.display = "flex";
+          option.classList.remove("hidden");
+        });
+
+        var inputs = document.querySelectorAll('input[name="guest-confirmation"]');
+        inputs.forEach(function(input) {
+          input.style.display = "";
+        });
+      });
+    </script>
+  `;
+
+  if (html.includes("</body>")) {
+    return html.replace("</body>", `${script}</body>`);
+  }
+
+  return `${html}${script}`;
+}
+
+function formatarData(data: string | null) {
+  if (!data) return "";
+
+  const date = new Date(`${data}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return data;
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function criarDataEvento(evento: Evento | null) {
+  if (!evento?.data_evento) return null;
+
+  const horario = normalizarHorario(evento.horario);
+  const date = new Date(`${evento.data_evento}T${horario}:00-03:00`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizarHorario(horario: string | null | undefined) {
+  if (!horario) return "20:00";
+
+  const match = horario.match(/(\d{1,2})(?::|h)?(\d{2})?/i);
+
+  if (!match) return "20:00";
+
+  const horas = match[1].padStart(2, "0");
+  const minutos = (match[2] || "00").padStart(2, "0");
+
+  return `${horas}:${minutos}`;
+}
+
+function formatarHorario(horario: string | null | undefined) {
+  if (!horario) return "";
+
+  const horarioNormalizado = normalizarHorario(horario);
+  const [horas, minutos] = horarioNormalizado.split(":");
+
+  return minutos === "00" ? `${Number(horas)}h` : `${Number(horas)}h${minutos}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function htmlErro(message: string) {
+  return `
+    <main style="min-height:100vh;background:#020617;color:white;display:grid;place-items:center;font-family:Arial,sans-serif;text-align:center;padding:24px;">
+      <div>
+        <h1>${message}</h1>
+      </div>
+    </main>
+  `;
+}
