@@ -38,10 +38,7 @@ export async function POST(req: Request) {
     }
 
     if (!text.trim()) {
-      return NextResponse.json(
-        { error: "Lista vazia" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Lista vazia" }, { status: 400 });
     }
 
     const parsedGuests = parseGuestList(text);
@@ -87,8 +84,6 @@ export async function POST(req: Request) {
       tenant_id: tenantId,
       nome: guest.name,
       telefone: guest.phone,
-      name: guest.name,
-      phone: guest.phone,
       grupo: guest.grupo,
       quantidade: guest.quantidade,
       observacoes: guest.observacoes,
