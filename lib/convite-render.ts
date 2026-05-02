@@ -5,6 +5,7 @@ export type EventoConvite = {
   local: string | null;
   status?: string | null;
   tenant_id?: string | null;
+ 
   invite_template_id?: string | null;
   created_at?: string | null;
   horario?: string | null;
@@ -218,38 +219,48 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
         }
 
         function aplicarLogo() {
-          if (!eventData.logo) return;
+  if (!eventData.logo) return;
 
-          var card = buscarCardPrincipal();
+  var card = buscarCardPrincipal();
 
-          document.querySelectorAll("[data-logo-evento]").forEach(function (el) {
-            el.remove();
-          });
+  // Remove todas as logos inseridas anteriormente pelo sistema
+  document.querySelectorAll("[data-logo-evento]").forEach(function (el) {
+    el.remove();
+  });
 
-          var titulo = encontrarTituloEvento();
+  // Remove imagens antigas que provavelmente são logo/título do template
+  var imagensAntigas = Array.from(
+    document.querySelectorAll("img.logo, img.event-logo, img.title-image, img[class*='logo'], img[class*='Logo']")
+  );
 
-          var logo = document.createElement("img");
-          logo.src = eventData.logo;
-          logo.alt = eventData.nome || "Logo do evento";
-          logo.setAttribute("data-logo-evento", "true");
+  imagensAntigas.forEach(function (img) {
+    img.remove();
+  });
 
-          logo.style.display = "block";
-          logo.style.width = "70%";
-          logo.style.maxWidth = "420px";
-          logo.style.height = "auto";
-          logo.style.maxHeight = "170px";
-          logo.style.objectFit = "contain";
-          logo.style.margin = "20px auto";
+  var titulo = encontrarTituloEvento();
 
-          if (titulo && titulo.parentNode) {
-            titulo.parentNode.insertBefore(logo, titulo);
-            titulo.remove();
-            return;
-          }
+  var logo = document.createElement("img");
+  logo.src = eventData.logo;
+  logo.alt = eventData.nome || "Logo do evento";
+  logo.setAttribute("data-logo-evento", "true");
 
-          if (card) {
-            card.insertBefore(logo, card.firstChild);
-          }
+  logo.style.display = "block";
+  logo.style.width = "70%";
+  logo.style.maxWidth = "420px";
+  logo.style.height = "auto";
+  logo.style.maxHeight = "170px";
+  logo.style.objectFit = "contain";
+  logo.style.margin = "20px auto";
+
+  if (titulo && titulo.parentNode) {
+    titulo.parentNode.insertBefore(logo, titulo);
+    titulo.remove();
+    return;
+  }
+
+  if (card) {
+    card.insertBefore(logo, card.firstChild);
+  }
         }
 
         function aplicarLinks() {
