@@ -222,10 +222,7 @@ function preencherTemplate(html: string, evento: Evento) {
 function injetarConvidado(html: string, convidado: Convidado, nomesDoConvite: string[]) {
   const nomesSeguros = nomesDoConvite.map((nome) => escapeHtml(nome));
 
-  const tituloConvite =
-    nomesDoConvite.length > 1
-      ? convidado.grupo || `Convite para ${nomesDoConvite.length} convidados`
-      : convidado.nome;
+ const tituloConvite = "";
 
   const nomesHtml = nomesSeguros
     .map(
@@ -245,17 +242,17 @@ function injetarConvidado(html: string, convidado: Convidado, nomesDoConvite: st
         nomes: nomesDoConvite,
         token: convidado.token,
         grupo: convidado.grupo || "",
-        titulo: tituloConvite,
+        
       })};
 
       window.addEventListener("DOMContentLoaded", function () {
         var guest = window.__OMNISTAGE_GUEST__;
 
-        var guestName = document.getElementById("guestName");
-        if (guestName) {
-          guestName.textContent = guest.titulo;
-          guestName.style.display = "block";
-        }
+      var guestName = document.getElementById("guestName");
+      if (guestName) {
+      guestName.textContent = "";
+      guestName.style.display = "none";
+      }
 
         var picker = document.getElementById("namePicker");
         if (picker) {
