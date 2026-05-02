@@ -2,22 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { preencherTemplate, type EventoConvite } from "@/lib/convite-render";
 
-type Evento = {
-  id: string;
-  nome: string;
-  data_evento: string | null;
-  local: string | null;
+type Evento = EventoConvite & {
   status: string | null;
   tenant_id: string | null;
   invite_template_id: string | null;
   created_at: string | null;
-  horario?: string | null;
-  endereco?: string | null;
-  mapa_url?: string | null;
-  background_image?: string | null;
-  logo_image?: string | null;
-  music_file?: string | null;
 };
 
 type Template = {
@@ -40,376 +31,6 @@ function getCategoriaNome(categoria: Template["categoria"]) {
   }
 
   return categoria?.nome || "Sem categoria";
-}
-
-function formatarData(data: string | null) {
-  if (!data) return "";
-
-  const date = new Date(`${data}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) return data;
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-function criarDataEvento(evento: Evento | null) {
-  if (!evento?.data_evento) return null;
-
-  const horario = normalizarHorario(evento.horario);
-  const date = new Date(`${evento.data_evento}T${horario}:00-03:00`);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function normalizarHorario(horario: string | null | undefined) {
-  if (!horario) return "20:00";
-
-  const match = horario.match(/(\d{1,2})(?::|h)?(\d{2})?/i);
-
-  if (!match) return "20:00";
-
-  const horas = match[1].padStart(2, "0");
-  const minutos = (match[2] || "00").padStart(2, "0");
-
-  return `${horas}:${minutos}`;
-}
-
-function formatarHorario(horario: string | null | undefined) {
-  if (!horario) return "";
-  const horarioNormalizado = normalizarHorario(horario);
-  const [horas, minutos] = horarioNormalizado.split(":");
-
-  return minutos === "00" ? `${Number(horas)}h` : `${Number(horas)}h${minutos}`;
-}
-
-function injetarModoPreview(html: string, evento?: Evento | null) {
-  const dataEvento = criarDataEvento(evento || null);
-  const dataFormatada = evento ? formatarData(evento.data_evento) : "";
-  const horarioFormatado = evento ? formatarHorario(evento.horario) : "";
-  const local = evento ? evento.local || evento.endereco || "" : "";
-  const nome = evento?.nome || "";
-  const eventTimestamp = dataEvento?.getTime() || 0;
-
-  const previewCss = `
-    <style>
-      html { overflow: hidden !important; }
-      body { overflow: hidden !important; }
-      #guestName { display: none !important; }
-      #namePicker, .name-picker, #hintText, .hint, #statusMessage, .status { display: none !important; }
-      input[name="guest-confirmation"], .name-option { display: none !important; }
-      #confirmBtn { pointer-events: none !important; }
-    </style>
-    <script>
-      window.__OMNISTAGE_PREVIEW__ = true;
-      window.__OMNISTAGE_EVENT__ = ${JSON.stringify({
-        nome,
-        data: dataFormatada,
-        horario: horarioFormatado,
-        local,
-        mapa: evento?.mapa_url || "",
-        logo: evento?.logo_image || "",
-        fundo: evento?.background_image || "",
-        musica: evento?.music_file || "",
-        timestamp: eventTimestamp,
-      })};
-      window.addEventListener("DOMContentLoaded", function () {
-        var eventData = window.__OMNISTAGE_EVENT__ || {};
-        var guestName = document.getElementById("guestName");
-        var picker = document.getElementById("namePicker");
-        var hint = document.getElementById("hintText");
-        var status = document.getElementById("statusMessage");
-        var confirmBtn = document.getElementById("confirmBtn");
-        var mapsLink = document.getElementById("mapsLink");
-        var calendarLink = document.getElementById("calendarLink");
-        var musicSource = document.querySelector("#bgMusic source");
-        var musicAudio = document.getElementById("bgMusic");
-
-        if (guestName) guestName.textContent = "";
-        if (picker) picker.innerHTML = "";
-        if (hint) hint.textContent = "";
-        if (status) status.textContent = "";
-        if (confirmBtn) {
-          confirmBtn.disabled = true;
-          confirmBtn.removeAttribute("onclick");
-        }
-        if (mapsLink && eventData.mapa) mapsLink.href = eventData.mapa;
-        if (musicSource && eventData.musica) {
-          musicSource.setAttribute("src", eventData.musica);
-          if (musicAudio && musicAudio.load) musicAudio.load();
-        }
-        if (calendarLink && eventData.nome && eventData.timestamp) {
-          var start = new Date(eventData.timestamp);
-          var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
-          function toGoogleDate(date) {
-            return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
-          }
-          calendarLink.href =
-            "https://calendar.google.com/calendar/render?action=TEMPLATE" +
-            "&text=" + encodeURIComponent(eventData.nome) +
-            "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
-            "&location=" + encodeURIComponent(eventData.local || "");
-        }
-
-        if (eventData.nome || eventData.data || eventData.local) {
-          var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-          var node;
-          while ((node = walker.nextNode())) {
-            var text = node.nodeValue || "";
-            text = text
-              .replace(/VALENTINA XV/g, (eventData.nome || "").toUpperCase())
-              .replace(/Valentina XV/g, eventData.nome || "")
-              .replace(/Guerrah Hall/g, eventData.local || "")
-              .replace(/16 de maio de 2026/g, eventData.data || "")
-              .replace(/21h/g, eventData.horario || "")
-              .replace(/20h/g, eventData.horario || "");
-            node.nodeValue = text;
-          }
-
-          var meta = document.querySelector(".meta");
-          if (meta) {
-            var linhas = meta.querySelectorAll("div");
-            if (linhas[0]) linhas[0].textContent = [eventData.data, eventData.horario].filter(Boolean).join(" • ").toUpperCase();
-            if (linhas[1]) linhas[1].textContent = (eventData.local || "").toUpperCase();
-            linhas.forEach(function (linha) {
-              linha.style.fontFamily = "Georgia, 'Times New Roman', serif";
-              linha.style.fontWeight = "700";
-              linha.style.letterSpacing = "0.16em";
-              linha.style.textTransform = "uppercase";
-              linha.style.lineHeight = "1.45";
-              linha.style.fontSize = "clamp(18px, 3.6vw, 27px)";
-            });
-          }
-        }
-
-        if (eventData.logo) {
-          var titleImage = document.querySelector(".title-image");
-          var logoImage = document.querySelector("[data-logo-evento]");
-          var firstEventImage = titleImage || logoImage;
-          var nomeEvento = String(eventData.nome || "").trim();
-
-          function encontrarConviteDigital() {
-            var candidatos = Array.from(document.body.querySelectorAll("*"));
-            return candidatos.find(function (el) {
-              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
-              return texto === "convite digital" && el.children.length <= 1;
-            }) || null;
-          }
-
-          function encontrarTituloDoEvento() {
-            if (nomeEvento) {
-              var tituloPossivel = Array.from(
-                document.querySelectorAll(
-                  "h1,h2,h3,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
-                )
-              ).filter(function (el) {
-                var texto = (el.textContent || "").trim().toLowerCase();
-                var nome = nomeEvento.toLowerCase();
-                return texto === nome || texto.includes(nome);
-              });
-
-              var tituloEncontrado =
-                tituloPossivel.find(function (el) {
-                  return el.children.length <= 2;
-                }) ||
-                tituloPossivel[0] ||
-                null;
-
-              if (tituloEncontrado) return tituloEncontrado;
-
-              var todosElementos = Array.from(document.body.querySelectorAll("*"));
-              tituloEncontrado =
-                todosElementos.find(function (el) {
-                  var texto = (el.textContent || "").trim().toLowerCase();
-                  return texto === nomeEvento.toLowerCase() && el.children.length === 0;
-                }) || null;
-
-              if (tituloEncontrado) return tituloEncontrado;
-            }
-
-            return (
-              document.querySelector(".event-title") ||
-              document.querySelector(".main-title") ||
-              document.querySelector(".hero-title") ||
-              document.querySelector("h1") ||
-              document.querySelector(".title")
-            );
-          }
-
-          if (!firstEventImage) {
-            var imagens = Array.from(document.querySelectorAll("img"));
-            firstEventImage = imagens.find(function (img) {
-              var alt = (img.getAttribute("alt") || "").toLowerCase();
-              var className = (img.getAttribute("class") || "").toLowerCase();
-              return alt.includes("valentina") || alt.includes("logo") || className.includes("title") || className.includes("logo");
-            }) || null;
-          }
-
-          function prepararLogo(img) {
-            img.setAttribute("src", eventData.logo);
-            img.setAttribute("alt", eventData.nome || "Logo do evento");
-            img.setAttribute("data-logo-evento", "true");
-            img.style.display = "block";
-            img.style.width = "min(78%, 520px)";
-            img.style.maxWidth = "78%";
-            img.style.maxHeight = "170px";
-            img.style.height = "auto";
-            img.style.objectFit = "contain";
-            img.style.margin = "24px auto 18px";
-          }
-
-          function posicionarLogo(img) {
-            var conviteDigital = encontrarConviteDigital();
-            var tituloEvento = encontrarTituloDoEvento();
-
-            prepararLogo(img);
-
-            if (conviteDigital && conviteDigital.parentNode) {
-              conviteDigital.parentNode.insertBefore(img, conviteDigital.nextSibling);
-            } else if (tituloEvento && tituloEvento.parentNode) {
-              tituloEvento.parentNode.insertBefore(img, tituloEvento);
-            } else {
-              var cardParaLogo = document.querySelector(".card") || document.body;
-              cardParaLogo.insertBefore(img, cardParaLogo.firstChild);
-            }
-
-            if (tituloEvento && !tituloEvento.contains(img)) {
-              tituloEvento.style.display = "none";
-            }
-          }
-
-          if (firstEventImage) {
-            posicionarLogo(firstEventImage);
-          } else {
-            var logoCriada = document.createElement("img");
-            posicionarLogo(logoCriada);
-          }
-        }
-
-        if (eventData.fundo) {
-          var card = document.querySelector(".card");
-          var motion = document.querySelector(".card-bg-motion");
-          var bgValue = "linear-gradient(180deg, rgba(12, 28, 60, 0.68) 0%, rgba(10, 24, 54, 0.84) 45%, rgba(6, 14, 36, 0.96) 100%), url('" + eventData.fundo + "')";
-
-          if (card) {
-            card.style.backgroundImage = bgValue;
-            card.style.backgroundPosition = "center center";
-            card.style.backgroundSize = "cover";
-          }
-
-          if (motion) {
-            motion.style.backgroundImage = "url('" + eventData.fundo + "')";
-            motion.style.backgroundPosition = "center center";
-            motion.style.backgroundSize = "cover";
-          }
-        }
-
-        var daysEl = document.getElementById("days");
-        var hoursEl = document.getElementById("hours");
-        var minutesEl = document.getElementById("minutes");
-        var secondsEl = document.getElementById("seconds");
-        if (daysEl && hoursEl && minutesEl && secondsEl) {
-          var target = Number(eventData.timestamp || 0);
-          var distance = target ? target - Date.now() : 0;
-          if (!target || distance <= 0) {
-            daysEl.textContent = "00";
-            hoursEl.textContent = "00";
-            minutesEl.textContent = "00";
-            secondsEl.textContent = "00";
-          } else {
-            daysEl.textContent = String(Math.floor(distance / 86400000)).padStart(2, "0");
-            hoursEl.textContent = String(Math.floor((distance / 3600000) % 24)).padStart(2, "0");
-            minutesEl.textContent = String(Math.floor((distance / 60000) % 60)).padStart(2, "0");
-            secondsEl.textContent = String(Math.floor((distance / 1000) % 60)).padStart(2, "0");
-          }
-        }
-      });
-    </script>
-  `;
-
-  if (html.includes("</head>")) {
-    return html.replace("</head>", `${previewCss}</head>`);
-  }
-
-  return `${previewCss}${html}`;
-}
-
-function preencherTemplate(html: string, evento: Evento | null) {
-  if (!evento) return injetarModoPreview(html);
-
-  const dataEvento = criarDataEvento(evento);
-  const dataFormatada = formatarData(evento.data_evento);
-  const horarioFormatado = formatarHorario(evento.horario);
-  const local = evento.local || evento.endereco || "";
-  const eventoDataIso = dataEvento?.toISOString() || "";
-  const eventoDataScript = dataEvento?.toISOString() || "";
-
-  const valores: Record<string, string> = {
-    evento_nome: evento.nome || "",
-    EVENTO_NOME: evento.nome || "",
-    nome_evento: evento.nome || "",
-    NOME_EVENTO: evento.nome || "",
-    nome: evento.nome || "",
-    NOME: evento.nome || "",
-    data_evento: dataFormatada,
-    DATA_EVENTO: dataFormatada,
-    data: dataFormatada,
-    DATA: dataFormatada,
-    horario_evento: horarioFormatado,
-    HORARIO_EVENTO: horarioFormatado,
-    horario: horarioFormatado,
-    HORARIO: horarioFormatado,
-    data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
-    DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
-    local_evento: local,
-    LOCAL_EVENTO: local,
-    local: local,
-    LOCAL: local,
-    endereco_evento: evento.endereco || "",
-    ENDERECO_EVENTO: evento.endereco || "",
-    mapa_url: evento.mapa_url || "",
-    MAPA_URL: evento.mapa_url || "",
-    background_image: evento.background_image || "",
-    BACKGROUND_IMAGE: evento.background_image || "",
-    logo_image: evento.logo_image || "",
-    LOGO_IMAGE: evento.logo_image || "",
-    logo_evento: evento.logo_image || "",
-    LOGO_EVENTO: evento.logo_image || "",
-    music_file: evento.music_file || "",
-    MUSIC_FILE: evento.music_file || "",
-    musica_evento: evento.music_file || "",
-    MUSICA_EVENTO: evento.music_file || "",
-    data_iso_evento: eventoDataIso,
-    DATA_ISO_EVENTO: eventoDataIso,
-  };
-
-  const preenchido = Object.entries(valores).reduce((content, [key, value]) => {
-    return content.replaceAll(`{{${key}}}`, value || "");
-  }, html);
-
-  return injetarModoPreview(
-    preenchido
-      .replaceAll("VALENTINA XV", (evento.nome || "Evento").toUpperCase())
-      .replaceAll("Valentina XV", evento.nome || "Evento")
-      .replaceAll("Guerrah Hall", local || "Local do evento")
-      .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
-      .replaceAll("20h", horarioFormatado || "Horário")
-      .replaceAll("21h", horarioFormatado || "Horário")
-      .replace(/const EVENT_LOCATION = ["'].*?["'];/g, `const EVENT_LOCATION = ${JSON.stringify(local || "")};`)
-      .replace(/const EVENT_TITLE = ["'].*?["'];/g, `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`)
-      .replace(
-        /const EVENT_DATE = new Date\(["'].*?["']\);/g,
-        `const EVENT_DATE = new Date(${JSON.stringify(eventoDataScript || eventoDataIso)});`
-      )
-      .replace(
-        /const EVENT_END = new Date\(["'].*?["']\);/g,
-        `const EVENT_END = new Date(${JSON.stringify(dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : "")});`
-      ),
-    evento
-  );
 }
 
 export default function ConvitePage() {
@@ -437,7 +58,6 @@ export default function ConvitePage() {
 
   const templatesFiltrados = useMemo(() => {
     if (temaSelecionado === "todos") return templates;
-
     return templates.filter((template) => getCategoriaNome(template.categoria) === temaSelecionado);
   }, [templates, temaSelecionado]);
 
@@ -470,7 +90,22 @@ export default function ConvitePage() {
 
     const { data: eventosData, error: eventosError } = await supabase
       .from("eventos")
-      .select("id,nome,data_evento,local,status,tenant_id,invite_template_id,created_at,horario,endereco,mapa_url,background_image,logo_image,music_file")
+      .select(`
+        id,
+        nome,
+        data_evento,
+        local,
+        status,
+        tenant_id,
+        invite_template_id,
+        created_at,
+        horario,
+        endereco,
+        mapa_url,
+        background_image,
+        logo_image,
+        music_file
+      `)
       .eq("tenant_id", membership.tenant_id)
       .order("created_at", { ascending: false });
 
@@ -517,12 +152,15 @@ export default function ConvitePage() {
       return;
     }
 
-    setTemplates((templatesData || []).map((template) => ({
-      ...template,
-      categoria: Array.isArray(template.categoria)
-        ? template.categoria[0] || null
-        : template.categoria || null,
-    })) as Template[]);
+    setTemplates(
+      (templatesData || []).map((template) => ({
+        ...template,
+        categoria: Array.isArray(template.categoria)
+          ? template.categoria[0] || null
+          : template.categoria || null,
+      })) as Template[]
+    );
+
     setLoading(false);
   }
 
@@ -666,11 +304,7 @@ export default function ConvitePage() {
                     onClick={() => setTemplateSelecionado(template.id)}
                   >
                     {preview ? (
-                      <img
-                        src={preview}
-                        alt={templateNome}
-                        style={templateThumbStyle}
-                      />
+                      <img src={preview} alt={templateNome} style={templateThumbStyle} />
                     ) : template.html_template ? (
                       <div style={templateThumbFrameWrapStyle}>
                         <iframe
@@ -696,9 +330,7 @@ export default function ConvitePage() {
           <section style={sectionStyle}>
             <h2 style={{ marginTop: 0 }}>Preview selecionado</h2>
 
-            {!templateAtual && (
-              <div style={emptyStyle}>Selecione um modelo para visualizar.</div>
-            )}
+            {!templateAtual && <div style={emptyStyle}>Selecione um modelo para visualizar.</div>}
 
             {templateAtual?.html_template ? (
               <iframe
