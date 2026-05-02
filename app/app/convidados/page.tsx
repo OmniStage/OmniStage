@@ -121,9 +121,9 @@ export default function ConvidadosPage() {
   }
 
   function gerarLinkConvite(convidado: Convidado) {
-    const token = encodeURIComponent(convidado.token || "");
-    return `/app/convite-digital?evento=${eventoId}&token=${token}`;
-  }
+  const token = encodeURIComponent(convidado.token || "");
+  return `/app/convite?evento=${eventoId}&token=${token}`;
+}
 
   function gerarLinkWhatsApp(convidado: Convidado) {
     const telefone = normalizarTelefone(convidado.telefone);
