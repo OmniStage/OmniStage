@@ -20,7 +20,7 @@ function titleCase(value: string): string {
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+    .replace(/\b\p{L}/gu, (char) => char.toUpperCase());
 }
 
 export function parseGuestList(text: string): ParsedGuest[] {
@@ -28,47 +28,67 @@ export function parseGuestList(text: string): ParsedGuest[] {
     .split(/\n|;/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
-      let raw = line;
+    .map((rawLine) => {
+      let line = rawLine.trim();
       let quantidade = 1;
       let phone: string | null = null;
       let grupo: string | null = null;
-      let observacoes: string | null = null;
+      let name = "";
 
-      const phoneMatch = line.match(/(\+?\d[\d\s().-]{7,}\d)/);
+      // Remove ID inicial: 3 FAMILIA_ANDREZZA ANDREZZA FERRAZ
+      line = line.replace(/^\d+\s+/, "").trim();
+
+      // Pega telefone no final da linha
+      const phoneMatch = line.match(/(\+?\d[\d\s().-]{7,}\d)$/);
+
       if (phoneMatch) {
         phone = cleanPhone(phoneMatch[0]);
         line = line.replace(phoneMatch[0], "").trim();
       }
 
+      // Quantidade entre parênteses: Família Silva (4)
       const quantidadeParenteses = line.match(/\((\d+)\)/);
+
       if (quantidadeParenteses) {
         quantidade = Number(quantidadeParenteses[1]);
         line = line.replace(quantidadeParenteses[0], "").trim();
       }
 
+      // +1, +2, etc.
       const plusMatch = line.match(/\+(\d+)/);
+
       if (plusMatch) {
         quantidade = 1 + Number(plusMatch[1]);
         line = line.replace(plusMatch[0], "").trim();
       }
 
-      if (/família|familia|grupo/i.test(line)) {
-        grupo = titleCase(line);
+      // Padrão da sua tabela:
+      // FAMILIA_ANDREZZA   ANDREZZA FERRAZ
+      // INDIVIDUAL_ALESSANDRA BARROS   ALESSANDRA BARROS
+      const partes = line
+        .split(/\t+|\s{2,}/)
+        .map((parte) => parte.trim())
+        .filter(Boolean);
+
+      if (partes.length >= 2) {
+        grupo = partes[0].toUpperCase();
+        name = partes.slice(1).join(" ");
+      } else {
+        name = line;
       }
 
-      line = line
+      name = name
         .replace(/[-–—]+$/g, "")
         .replace(/\s+/g, " ")
         .trim();
 
       return {
-        name: titleCase(line),
+        name: titleCase(name),
         phone,
         grupo,
         quantidade,
-        observacoes,
-        raw,
+        observacoes: null,
+        raw: rawLine,
       };
     })
     .filter((guest) => guest.name.length > 1);
