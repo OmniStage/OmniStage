@@ -183,6 +183,46 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
           var firstEventImage = titleImage || logoImage;
           var nomeEvento = String(eventData.nome || "").trim();
 
+          function encontrarTituloDoEvento() {
+            if (nomeEvento) {
+              var tituloPossivel = Array.from(
+                document.querySelectorAll(
+                  "h1,h2,h3,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
+                )
+              ).filter(function (el) {
+                var texto = (el.textContent || "").trim().toLowerCase();
+                var nome = nomeEvento.toLowerCase();
+                return texto === nome || texto.includes(nome);
+              });
+
+              var tituloEncontrado =
+                tituloPossivel.find(function (el) {
+                  return el.children.length <= 2;
+                }) ||
+                tituloPossivel[0] ||
+                null;
+
+              if (tituloEncontrado) return tituloEncontrado;
+
+              var todosElementos = Array.from(document.body.querySelectorAll("*"));
+              tituloEncontrado =
+                todosElementos.find(function (el) {
+                  var texto = (el.textContent || "").trim().toLowerCase();
+                  return texto === nomeEvento.toLowerCase() && el.children.length === 0;
+                }) || null;
+
+              if (tituloEncontrado) return tituloEncontrado;
+            }
+
+            return (
+              document.querySelector(".event-title") ||
+              document.querySelector(".main-title") ||
+              document.querySelector(".hero-title") ||
+              document.querySelector("h1") ||
+              document.querySelector(".title")
+            );
+          }
+
           if (!firstEventImage) {
             var imagens = Array.from(document.querySelectorAll("img"));
             firstEventImage = imagens.find(function (img) {
@@ -198,45 +238,13 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
             firstEventImage.style.maxWidth = "78%";
             firstEventImage.style.height = "auto";
             firstEventImage.style.objectFit = "contain";
+
+            var tituloDuplicado = encontrarTituloDoEvento();
+            if (tituloDuplicado && !tituloDuplicado.contains(firstEventImage)) {
+              tituloDuplicado.style.display = "none";
+            }
           } else {
-            var tituloEvento = null;
-
-            if (nomeEvento) {
-              var tituloPossivel = Array.from(
-                document.querySelectorAll(
-                  "h1,h2,h3,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
-                )
-              ).filter(function (el) {
-                var texto = (el.textContent || "").trim().toLowerCase();
-                var nome = nomeEvento.toLowerCase();
-                return texto === nome || texto === nome.toUpperCase().toLowerCase() || texto.includes(nome);
-              });
-
-              tituloEvento =
-                tituloPossivel.find(function (el) {
-                  return el.children.length <= 2;
-                }) ||
-                tituloPossivel[0] ||
-                null;
-            }
-
-            if (!tituloEvento && nomeEvento) {
-              var todosElementos = Array.from(document.body.querySelectorAll("*"));
-              tituloEvento =
-                todosElementos.find(function (el) {
-                  var texto = (el.textContent || "").trim().toLowerCase();
-                  return texto === nomeEvento.toLowerCase() && el.children.length === 0;
-                }) || null;
-            }
-
-            if (!tituloEvento) {
-              tituloEvento =
-                document.querySelector(".event-title") ||
-                document.querySelector(".main-title") ||
-                document.querySelector(".hero-title") ||
-                document.querySelector("h1") ||
-                document.querySelector(".title");
-            }
+            var tituloEvento = encontrarTituloDoEvento();
 
             var logoCriada = document.createElement("img");
             logoCriada.setAttribute("src", eventData.logo);
