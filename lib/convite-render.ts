@@ -19,7 +19,6 @@ export function formatarData(data: string | null) {
   if (!data) return "";
 
   const date = new Date(`${data}T00:00:00`);
-
   if (Number.isNaN(date.getTime())) return data;
 
   return new Intl.DateTimeFormat("pt-BR", {
@@ -33,7 +32,6 @@ export function normalizarHorario(horario: string | null | undefined) {
   if (!horario) return "20:00";
 
   const match = horario.match(/(\d{1,2})(?::|h)?(\d{2})?/i);
-
   if (!match) return "20:00";
 
   const horas = match[1].padStart(2, "0");
@@ -45,9 +43,7 @@ export function normalizarHorario(horario: string | null | undefined) {
 export function formatarHorario(horario: string | null | undefined) {
   if (!horario) return "";
 
-  const horarioNormalizado = normalizarHorario(horario);
-  const [horas, minutos] = horarioNormalizado.split(":");
-
+  const [horas, minutos] = normalizarHorario(horario).split(":");
   return minutos === "00" ? `${Number(horas)}h` : `${Number(horas)}h${minutos}`;
 }
 
@@ -68,7 +64,6 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
   const horarioFormatado = formatarHorario(evento.horario);
   const local = evento.local || evento.endereco || "";
   const eventoDataIso = dataEvento?.toISOString() || "";
-  const eventoDataScript = dataEvento?.toISOString() || "";
 
   const valores: Record<string, string> = {
     evento_nome: evento.nome || "",
@@ -77,44 +72,34 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     NOME_EVENTO: evento.nome || "",
     nome: evento.nome || "",
     NOME: evento.nome || "",
-
     data_evento: dataFormatada,
     DATA_EVENTO: dataFormatada,
     data: dataFormatada,
     DATA: dataFormatada,
-
     horario_evento: horarioFormatado,
     HORARIO_EVENTO: horarioFormatado,
     horario: horarioFormatado,
     HORARIO: horarioFormatado,
-
     data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
     DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
-
     local_evento: local,
     LOCAL_EVENTO: local,
-    local: local,
+    local,
     LOCAL: local,
-
     endereco_evento: evento.endereco || "",
     ENDERECO_EVENTO: evento.endereco || "",
-
     mapa_url: evento.mapa_url || "",
     MAPA_URL: evento.mapa_url || "",
-
     background_image: evento.background_image || "",
     BACKGROUND_IMAGE: evento.background_image || "",
-
     logo_image: evento.logo_image || "",
     LOGO_IMAGE: evento.logo_image || "",
     logo_evento: evento.logo_image || "",
     LOGO_EVENTO: evento.logo_image || "",
-
     music_file: evento.music_file || "",
     MUSIC_FILE: evento.music_file || "",
     musica_evento: evento.music_file || "",
     MUSICA_EVENTO: evento.music_file || "",
-
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
@@ -123,34 +108,33 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     return content.replaceAll(`{{${key}}}`, value || "");
   }, html);
 
-  return aplicarCompatibilidadeTemplate(
-    preenchido
-      .replaceAll("VALENTINA XV", (evento.nome || "Evento").toUpperCase())
-      .replaceAll("Valentina XV", evento.nome || "Evento")
-      .replaceAll("Guerrah Hall", local || "Local do evento")
-      .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
-      .replaceAll("20h", horarioFormatado || "Horário")
-      .replaceAll("21h", horarioFormatado || "Horário")
-      .replace(
-        /const EVENT_LOCATION = ["'].*?["'];/g,
-        `const EVENT_LOCATION = ${JSON.stringify(local || "")};`
-      )
-      .replace(
-        /const EVENT_TITLE = ["'].*?["'];/g,
-        `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`
-      )
-      .replace(
-        /const EVENT_DATE = new Date\(["'].*?["']\);/g,
-        `const EVENT_DATE = new Date(${JSON.stringify(eventoDataScript || eventoDataIso)});`
-      )
-      .replace(
-        /const EVENT_END = new Date\(["'].*?["']\);/g,
-        `const EVENT_END = new Date(${JSON.stringify(
-          dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
-        )});`
-      ),
-    evento
-  );
+  const htmlBase = preenchido
+    .replaceAll("VALENTINA XV", (evento.nome || "Evento").toUpperCase())
+    .replaceAll("Valentina XV", evento.nome || "Evento")
+    .replaceAll("Guerrah Hall", local || "Local do evento")
+    .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
+    .replaceAll("20h", horarioFormatado || "Horário")
+    .replaceAll("21h", horarioFormatado || "Horário")
+    .replace(
+      /const EVENT_LOCATION = ["'].*?["'];/g,
+      `const EVENT_LOCATION = ${JSON.stringify(local || "")};`
+    )
+    .replace(
+      /const EVENT_TITLE = ["'].*?["'];/g,
+      `const EVENT_TITLE = ${JSON.stringify(evento.nome || "")};`
+    )
+    .replace(
+      /const EVENT_DATE = new Date\(["'].*?["']\);/g,
+      `const EVENT_DATE = new Date(${JSON.stringify(eventoDataIso)});`
+    )
+    .replace(
+      /const EVENT_END = new Date\(["'].*?["']\);/g,
+      `const EVENT_END = new Date(${JSON.stringify(
+        dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
+      )});`
+    );
+
+  return aplicarCompatibilidadeTemplate(htmlBase, evento);
 }
 
 function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
@@ -202,6 +186,97 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
             "&text=" + encodeURIComponent(eventData.nome) +
             "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
             "&location=" + encodeURIComponent(eventData.local || "");
+        }
+
+        if (eventData.logo) {
+          var nomeEvento = String(eventData.nome || "").trim();
+
+          function encontrarTextoExato(textoBuscado) {
+            if (!textoBuscado) return null;
+
+            var elementos = Array.from(document.body.querySelectorAll("*"));
+
+            return elementos.find(function (el) {
+              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ");
+              var filhos = el.children.length;
+              return texto.toLowerCase() === textoBuscado.toLowerCase() && filhos <= 2;
+            }) || null;
+          }
+
+          function encontrarTituloDoEvento() {
+            var tituloPorTexto = encontrarTextoExato(nomeEvento);
+            if (tituloPorTexto) return tituloPorTexto;
+
+            var tituloMaiusculo = encontrarTextoExato(nomeEvento.toUpperCase());
+            if (tituloMaiusculo) return tituloMaiusculo;
+
+            var candidatos = Array.from(
+              document.querySelectorAll(
+                "h1,h2,h3,.title,.event-title,.main-title,.hero-title,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
+              )
+            );
+
+            return candidatos.find(function (el) {
+              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
+              var nome = nomeEvento.toLowerCase();
+              return nome && (texto === nome || texto.includes(nome));
+            }) || null;
+          }
+
+          function encontrarConviteDigital() {
+            var candidatos = Array.from(document.body.querySelectorAll("*"));
+            return candidatos.find(function (el) {
+              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
+              return texto === "convite digital" && el.children.length <= 1;
+            }) || null;
+          }
+
+          function prepararLogo(img) {
+            img.setAttribute("src", eventData.logo);
+            img.setAttribute("alt", eventData.nome || "Logo do evento");
+            img.setAttribute("data-logo-evento", "true");
+            img.style.display = "block";
+            img.style.width = "min(78%, 520px)";
+            img.style.maxWidth = "78%";
+            img.style.maxHeight = "170px";
+            img.style.height = "auto";
+            img.style.objectFit = "contain";
+            img.style.margin = "24px auto 18px";
+          }
+
+          function posicionarLogo(img) {
+            var tituloEvento = encontrarTituloDoEvento();
+            var conviteDigital = encontrarConviteDigital();
+
+            prepararLogo(img);
+
+            if (tituloEvento && tituloEvento.parentNode) {
+              tituloEvento.parentNode.insertBefore(img, tituloEvento);
+              tituloEvento.style.display = "none";
+              tituloEvento.setAttribute("data-substituido-por-logo", "true");
+              return;
+            }
+
+            if (conviteDigital && conviteDigital.parentNode) {
+              conviteDigital.parentNode.insertBefore(img, conviteDigital.nextSibling);
+              return;
+            }
+
+            var cardParaLogo = document.querySelector(".card") || document.body;
+            cardParaLogo.insertBefore(img, cardParaLogo.firstChild);
+          }
+
+          var imgExistente =
+            document.querySelector("[data-logo-evento]") ||
+            document.querySelector(".title-image") ||
+            null;
+
+          if (imgExistente) {
+            posicionarLogo(imgExistente);
+          } else {
+            var logoCriada = document.createElement("img");
+            posicionarLogo(logoCriada);
+          }
         }
       });
     </script>
