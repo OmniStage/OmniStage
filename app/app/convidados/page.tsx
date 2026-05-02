@@ -108,6 +108,41 @@ export default function ConvidadosPage() {
     return "EVT-" + Math.floor(100000 + Math.random() * 900000);
   }
 
+  function normalizarTelefone(telefone: string | null) {
+    if (!telefone) return "";
+    return telefone.replace(/\D/g, "");
+  }
+
+  function gerarLinkCartao(convidado: Convidado) {
+    const nome = encodeURIComponent(convidado.nome || "");
+    const token = encodeURIComponent(convidado.token || "");
+
+    return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
+  }
+
+  function gerarLinkWhatsApp(convidado: Convidado) {
+    const telefone = normalizarTelefone(convidado.telefone);
+
+    if (!telefone) return "";
+
+    const linkCartao = gerarLinkCartao(convidado);
+
+    const mensagem = `Olá ${convidado.nome} ✨
+
+Segue o seu cartão de entrada:
+
+${linkCartao}
+
+Apresente este cartão na entrada do evento.`;
+
+    return `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+  }
+
+  async function copiarNome(nome: string) {
+    await navigator.clipboard.writeText(nome);
+    alert("Nome copiado.");
+  }
+
   async function carregarTenant() {
     const {
       data: { user },
@@ -492,62 +527,88 @@ export default function ConvidadosPage() {
             <div style={emptyStyle}>Nenhum convidado encontrado com estes filtros.</div>
           )}
 
-          {convidadosFiltrados.map((convidado) => (
-            <article key={convidado.id} style={eventCardStyle}>
-              <div>
-                <strong style={{ fontSize: 22 }}>{convidado.nome}</strong>
+          {convidadosFiltrados.map((convidado) => {
+            const linkWhatsApp = gerarLinkWhatsApp(convidado);
+            const linkCartao = gerarLinkCartao(convidado);
 
-                <p style={{ color: "#94a3b8", marginBottom: 0 }}>
-                  {convidado.telefone || "Sem telefone"} · {convidado.email || "Sem e-mail"}
-                </p>
+            return (
+              <article key={convidado.id} style={eventCardStyle}>
+                <div>
+                  <strong style={{ fontSize: 22 }}>{convidado.nome}</strong>
 
-                <small style={{ color: "#64748b" }}>
-                  Grupo: {convidado.grupo || "-"} · Tipo: {convidado.tipo_convite || "individual"}
-                </small>
-
-                <div style={{ marginTop: 8, color: "#64748b", fontSize: 13 }}>
-                  Token:{" "}
-                  <strong style={{ color: "#facc15" }}>
-                    {convidado.token || "sem token"}
-                  </strong>
-                </div>
-
-                {convidado.observacoes && (
-                  <p style={{ color: "#94a3b8", marginTop: 10, marginBottom: 0 }}>
-                    {convidado.observacoes}
+                  <p style={{ color: "#94a3b8", marginBottom: 0 }}>
+                    {convidado.grupo || "Sem grupo"} · {convidado.telefone || "Sem telefone"}
                   </p>
-                )}
-              </div>
 
-              <div style={eventActionsColumnStyle}>
-                <span style={getRsvpStyle(convidado.status_rsvp)}>
-                  RSVP: {labelRsvp(convidado.status_rsvp)}
-                </span>
+                  <small style={{ color: "#64748b" }}>
+                    E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
+                    {convidado.tipo_convite || "individual"}
+                  </small>
 
-                <div style={{ marginTop: 10 }}>
-                  <span style={getEnvioStyle(convidado.status_envio)}>
-                    Envio: {labelEnvio(convidado.status_envio)}
+                  <div style={{ marginTop: 8, color: "#64748b", fontSize: 13 }}>
+                    Token:{" "}
+                    <strong style={{ color: "#facc15" }}>
+                      {convidado.token || "sem token"}
+                    </strong>
+                  </div>
+
+                  {convidado.observacoes && (
+                    <p style={{ color: "#94a3b8", marginTop: 10, marginBottom: 0 }}>
+                      {convidado.observacoes}
+                    </p>
+                  )}
+
+                  <div style={quickActionsStyle}>
+                    <button onClick={() => copiarNome(convidado.nome)} style={goldButtonStyle}>
+                      Copiar nome
+                    </button>
+
+                    {linkWhatsApp ? (
+                      <a href={linkWhatsApp} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                        WhatsApp
+                      </a>
+                    ) : (
+                      <button disabled style={{ ...goldButtonStyle, opacity: 0.45, cursor: "not-allowed" }}>
+                        WhatsApp
+                      </button>
+                    )}
+
+                    <a href={linkCartao} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                      Ver cartão
+                    </a>
+                  </div>
+                </div>
+
+                <div style={eventActionsColumnStyle}>
+                  <span style={getRsvpStyle(convidado.status_rsvp)}>
+                    RSVP: {labelRsvp(convidado.status_rsvp)}
                   </span>
-                </div>
 
-                <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
-                  Check-in: {convidado.status_checkin || "nao_entrou"}
-                </div>
+                  <div style={{ marginTop: 10 }}>
+                    <span style={getEnvioStyle(convidado.status_envio)}>
+                      Envio: {labelEnvio(convidado.status_envio)}
+                    </span>
+                  </div>
 
-                <div style={rowActionsStyle}>
-                  <button onClick={() => editarConvidado(convidado)} style={smallButtonStyle}>
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => excluirConvidado(convidado)}
-                    style={{ ...smallButtonStyle, background: "#7f1d1d" }}
-                  >
-                    Excluir
-                  </button>
+                  <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
+                    Check-in: {convidado.status_checkin || "nao_entrou"}
+                  </div>
+
+                  <div style={rowActionsStyle}>
+                    <button onClick={() => editarConvidado(convidado)} style={smallButtonStyle}>
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => excluirConvidado(convidado)}
+                      style={{ ...smallButtonStyle, background: "#7f1d1d" }}
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       </section>
     </main>
@@ -712,6 +773,14 @@ const rowActionsStyle: CSSProperties = {
   justifyContent: "flex-end",
   gap: 8,
   marginTop: 14,
+  flexWrap: "wrap",
+};
+
+const quickActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 18,
 };
 
 const smallButtonStyle: CSSProperties = {
@@ -722,6 +791,18 @@ const smallButtonStyle: CSSProperties = {
   color: "#fff",
   fontWeight: 800,
   cursor: "pointer",
+};
+
+const goldButtonStyle: CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 999,
+  border: "1px solid rgba(250,204,21,0.42)",
+  background: "rgba(250,204,21,0.08)",
+  color: "#fde68a",
+  fontWeight: 800,
+  cursor: "pointer",
+  textDecoration: "none",
+  fontSize: 14,
 };
 
 const statusStyle: CSSProperties = {
