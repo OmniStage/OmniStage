@@ -76,14 +76,37 @@ export default function ConvitePublicoPage({ params }: { params: { token: string
       return;
     }
 
-    const html = montarHtmlConvite(template.html_template, evento, convidado);
+    let nomesDoConvite = [convidado.nome];
+
+    if (convidado.grupo) {
+      const { data: grupoData } = await supabase
+        .from("convidados")
+        .select("nome")
+        .eq("evento_id", convidado.evento_id)
+        .eq("grupo", convidado.grupo)
+        .order("nome");
+
+      if (grupoData && grupoData.length > 0) {
+        nomesDoConvite = grupoData.map((item) => item.nome);
+      }
+    }
+
+    const html = montarHtmlConvite(template.html_template, evento, convidado, nomesDoConvite);
     setHtmlFinal(html);
     setLoading(false);
   }
 
   if (loading) {
     return (
-      <main style={{ minHeight: "100vh", background: "#020617", color: "#fff", display: "grid", placeItems: "center" }}>
+      <main
+        style={{
+          minHeight: "100vh",
+          background: "#020617",
+          color: "#fff",
+          display: "grid",
+          placeItems: "center",
+        }}
+      >
         Carregando convite...
       </main>
     );
@@ -103,16 +126,35 @@ export default function ConvitePublicoPage({ params }: { params: { token: string
   );
 }
 
-function montarHtmlConvite(html: string, evento: Evento, convidado: Convidado) {
+function montarHtmlConvite(
+  html: string,
+  evento: Evento,
+  convidado: Convidado,
+  nomesDoConvite: string[]
+) {
   const nomeConvidado = convidado.nome || "";
   const dataFormatada = formatarData(evento.data_evento);
   const horario = evento.horario || "";
   const local = evento.local || evento.endereco || "";
 
+  const nomesHtml = nomesDoConvite
+    .map(
+      (nome) => `
+        <label class="name-option selected" style="display:flex;align-items:center;gap:10px;justify-content:center;margin:8px auto;color:#fff;font-family:Georgia,'Times New Roman',serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">
+          <input type="checkbox" checked style="accent-color:#d4af37;" />
+          <span>${escapeHtml(nome)}</span>
+        </label>
+      `
+    )
+    .join("");
+
+  const nomesTexto = nomesDoConvite.join(", ");
+
   const script = `
     <script>
       window.__OMNISTAGE_GUEST__ = ${JSON.stringify({
         nome: nomeConvidado,
+        nomes: nomesDoConvite,
         token: convidado.token,
         grupo: convidado.grupo || "",
         evento: evento.nome,
@@ -127,7 +169,7 @@ function montarHtmlConvite(html: string, evento: Evento, convidado: Convidado) {
 
         var guestName = document.getElementById("guestName");
         if (guestName) {
-          guestName.textContent = guest.nome;
+          guestName.textContent = guest.nomes.length > 1 ? guest.grupo || "CONVITE FAMÍLIA" : guest.nome;
           guestName.style.display = "block";
           guestName.style.textAlign = "center";
           guestName.style.fontFamily = "Georgia, 'Times New Roman', serif";
@@ -139,10 +181,15 @@ function montarHtmlConvite(html: string, evento: Evento, convidado: Convidado) {
 
         var picker = document.getElementById("namePicker");
         if (picker) {
-          picker.innerHTML =
-            "<div style='text-align:center;font-family:Georgia,serif;font-weight:700;letter-spacing:.12em;color:#fff;text-transform:uppercase;margin-top:20px;font-size:20px;'>" +
-            guest.nome +
-            "</div>";
+          picker.innerHTML = ${JSON.stringify(nomesHtml)};
+          picker.style.display = "block";
+        }
+
+        var hint = document.getElementById("hintText");
+        if (hint) {
+          hint.textContent = guest.nomes.length > 1
+            ? "Selecione os nomes para confirmar presença"
+            : "Confirme sua presença";
         }
 
         var mapsLink = document.getElementById("mapsLink");
@@ -156,6 +203,10 @@ function montarHtmlConvite(html: string, evento: Evento, convidado: Convidado) {
   let finalHtml = html
     .replaceAll("{{NOME_CONVIDADO}}", nomeConvidado)
     .replaceAll("{{nome_convidado}}", nomeConvidado)
+    .replaceAll("{{NOMES_CONVIDADOS}}", nomesTexto)
+    .replaceAll("{{nomes_convidados}}", nomesTexto)
+    .replaceAll("{{GRUPO_CONVIDADO}}", convidado.grupo || "")
+    .replaceAll("{{grupo_convidado}}", convidado.grupo || "")
     .replaceAll("{{EVENTO_NOME}}", evento.nome || "")
     .replaceAll("{{evento_nome}}", evento.nome || "")
     .replaceAll("{{DATA_EVENTO}}", dataFormatada)
@@ -186,4 +237,13 @@ function formatarData(data: string | null) {
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
