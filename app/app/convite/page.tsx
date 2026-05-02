@@ -172,8 +172,16 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
           var meta = document.querySelector(".meta");
           if (meta) {
             var linhas = meta.querySelectorAll("div");
-            if (linhas[0]) linhas[0].textContent = [eventData.data, eventData.horario].filter(Boolean).join(" • ");
-            if (linhas[1]) linhas[1].textContent = eventData.local || "";
+            if (linhas[0]) linhas[0].textContent = [eventData.data, eventData.horario].filter(Boolean).join(" • ").toUpperCase();
+            if (linhas[1]) linhas[1].textContent = (eventData.local || "").toUpperCase();
+            linhas.forEach(function (linha) {
+              linha.style.fontFamily = "Georgia, 'Times New Roman', serif";
+              linha.style.fontWeight = "700";
+              linha.style.letterSpacing = "0.16em";
+              linha.style.textTransform = "uppercase";
+              linha.style.lineHeight = "1.45";
+              linha.style.fontSize = "clamp(18px, 3.6vw, 27px)";
+            });
           }
         }
 
@@ -182,6 +190,14 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
           var logoImage = document.querySelector("[data-logo-evento]");
           var firstEventImage = titleImage || logoImage;
           var nomeEvento = String(eventData.nome || "").trim();
+
+          function encontrarConviteDigital() {
+            var candidatos = Array.from(document.body.querySelectorAll("*"));
+            return candidatos.find(function (el) {
+              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
+              return texto === "convite digital" && el.children.length <= 1;
+            }) || null;
+          }
 
           function encontrarTituloDoEvento() {
             if (nomeEvento) {
@@ -232,41 +248,44 @@ function injetarModoPreview(html: string, evento?: Evento | null) {
             }) || null;
           }
 
-          if (firstEventImage) {
-            firstEventImage.setAttribute("src", eventData.logo);
-            firstEventImage.setAttribute("alt", eventData.nome || "Logo do evento");
-            firstEventImage.style.maxWidth = "78%";
-            firstEventImage.style.height = "auto";
-            firstEventImage.style.objectFit = "contain";
+          function prepararLogo(img) {
+            img.setAttribute("src", eventData.logo);
+            img.setAttribute("alt", eventData.nome || "Logo do evento");
+            img.setAttribute("data-logo-evento", "true");
+            img.style.display = "block";
+            img.style.width = "min(78%, 520px)";
+            img.style.maxWidth = "78%";
+            img.style.maxHeight = "170px";
+            img.style.height = "auto";
+            img.style.objectFit = "contain";
+            img.style.margin = "24px auto 18px";
+          }
 
-            var tituloDuplicado = encontrarTituloDoEvento();
-            if (tituloDuplicado && !tituloDuplicado.contains(firstEventImage)) {
-              tituloDuplicado.style.display = "none";
-            }
-          } else {
+          function posicionarLogo(img) {
+            var conviteDigital = encontrarConviteDigital();
             var tituloEvento = encontrarTituloDoEvento();
 
-            var logoCriada = document.createElement("img");
-            logoCriada.setAttribute("src", eventData.logo);
-            logoCriada.setAttribute("alt", eventData.nome || "Logo do evento");
-            logoCriada.setAttribute("data-logo-evento", "true");
-            logoCriada.style.display = "block";
-            logoCriada.style.width = "min(78%, 520px)";
-            logoCriada.style.maxHeight = "170px";
-            logoCriada.style.objectFit = "contain";
-            logoCriada.style.margin = "18px auto 12px";
+            prepararLogo(img);
 
-            if (tituloEvento) {
-              tituloEvento.innerHTML = "";
-              tituloEvento.appendChild(logoCriada);
-              tituloEvento.style.display = "block";
-              tituloEvento.style.textAlign = "center";
-              tituloEvento.style.lineHeight = "1";
-              tituloEvento.style.margin = "24px auto 18px";
+            if (conviteDigital && conviteDigital.parentNode) {
+              conviteDigital.parentNode.insertBefore(img, conviteDigital.nextSibling);
+            } else if (tituloEvento && tituloEvento.parentNode) {
+              tituloEvento.parentNode.insertBefore(img, tituloEvento);
             } else {
               var cardParaLogo = document.querySelector(".card") || document.body;
-              cardParaLogo.insertBefore(logoCriada, cardParaLogo.firstChild);
+              cardParaLogo.insertBefore(img, cardParaLogo.firstChild);
             }
+
+            if (tituloEvento && !tituloEvento.contains(img)) {
+              tituloEvento.style.display = "none";
+            }
+          }
+
+          if (firstEventImage) {
+            posicionarLogo(firstEventImage);
+          } else {
+            var logoCriada = document.createElement("img");
+            posicionarLogo(logoCriada);
           }
         }
 
