@@ -11,13 +11,21 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const eventId = body.eventId;
+    const eventoId = body.eventoId || body.eventId;
+    const tenantId = body.tenantId;
     const sourceType = body.sourceType || "smart_paste";
     const text = body.text || "";
 
-    if (!eventId) {
+    if (!eventoId) {
       return NextResponse.json(
-        { error: "eventId é obrigatório" },
+        { error: "eventoId é obrigatório" },
+        { status: 400 }
+      );
+    }
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: "tenantId é obrigatório" },
         { status: 400 }
       );
     }
@@ -34,7 +42,8 @@ export async function POST(req: Request) {
     const { data: batch, error: batchError } = await supabase
       .from("guest_import_batches")
       .insert({
-        event_id: eventId,
+        event_id: eventoId,
+        tenant_id: tenantId,
         source_type: sourceType,
         total_rows: parsedGuests.length,
         status: "preview",
@@ -48,21 +57,29 @@ export async function POST(req: Request) {
 
     const phones = parsedGuests
       .map((guest) => guest.phone)
-      .filter(Boolean);
+      .filter((phone): phone is string => Boolean(phone));
 
-    const { data: existingGuests } = await supabase
-      .from("guests")
-      .select("phone")
-      .eq("event_id", eventId)
-      .in("phone", phones.length ? phones : ["__empty__"]);
+    const { data: existingGuests, error: existingError } = await supabase
+      .from("convidados")
+      .select("telefone")
+      .eq("tenant_id", tenantId)
+      .eq("evento_id", eventoId)
+      .in("telefone", phones.length ? phones : ["__empty__"]);
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
 
     const existingPhones = new Set(
-      (existingGuests || []).map((guest) => guest.phone)
+      (existingGuests || []).map((guest) => guest.telefone)
     );
 
     const previewRows = parsedGuests.map((guest) => ({
       batch_id: batch.id,
-      event_id: eventId,
+      event_id: eventoId,
+      tenant_id: tenantId,
+      nome: guest.name,
+      telefone: guest.phone,
       name: guest.name,
       phone: guest.phone,
       grupo: guest.grupo,
