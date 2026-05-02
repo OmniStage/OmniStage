@@ -295,27 +295,27 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
   `;
 
   if (html.includes("</body>")) {
-    return html.replace("</body>", \`\${script}</body>\`);
+    return html.replace("</body>", `${script}</body>`);
   }
 
-  return \`\${html}\${script}\`;
+  return `${html}${script}`;
 }
 
 export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[]) {
   const nomesHtml = nomesDoConvite
     .map(
-      (nome) => \`
+      (nome) => `
         <label class="name-option selected">
           <input type="checkbox" checked name="guest-confirmation" />
-          <span>\${escapeHtml(nome)}</span>
+          <span>${escapeHtml(nome)}</span>
         </label>
-      \`
+      `
     )
     .join("");
 
-  const script = \`
+  const script = `
     <script>
-      window.__OMNISTAGE_GUESTS__ = \${JSON.stringify(nomesDoConvite)};
+      window.__OMNISTAGE_GUESTS__ = ${JSON.stringify(nomesDoConvite)};
 
       window.addEventListener("DOMContentLoaded", function () {
         var nomes = window.__OMNISTAGE_GUESTS__ || [];
@@ -328,7 +328,7 @@ export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[
 
         var picker = document.getElementById("namePicker");
         if (picker) {
-          picker.innerHTML = \${JSON.stringify(nomesHtml)};
+          picker.innerHTML = ${JSON.stringify(nomesHtml)};
           picker.style.display = "block";
           picker.classList.remove("hidden");
         }
@@ -367,13 +367,13 @@ export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[
         });
       });
     </script>
-  \`;
+  `;
 
   if (html.includes("</body>")) {
-    return html.replace("</body>", \`\${script}</body>\`);
+    return html.replace("</body>", `${script}</body>`);
   }
 
-  return \`\${html}\${script}\`;
+  return `${html}${script}`;
 }
 
 function escapeHtml(value: string) {
