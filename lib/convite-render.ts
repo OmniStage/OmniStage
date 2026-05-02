@@ -72,34 +72,44 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     NOME_EVENTO: evento.nome || "",
     nome: evento.nome || "",
     NOME: evento.nome || "",
+
     data_evento: dataFormatada,
     DATA_EVENTO: dataFormatada,
     data: dataFormatada,
     DATA: dataFormatada,
+
     horario_evento: horarioFormatado,
     HORARIO_EVENTO: horarioFormatado,
     horario: horarioFormatado,
     HORARIO: horarioFormatado,
+
     data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
     DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
+
     local_evento: local,
     LOCAL_EVENTO: local,
     local,
     LOCAL: local,
+
     endereco_evento: evento.endereco || "",
     ENDERECO_EVENTO: evento.endereco || "",
+
     mapa_url: evento.mapa_url || "",
     MAPA_URL: evento.mapa_url || "",
+
     background_image: evento.background_image || "",
     BACKGROUND_IMAGE: evento.background_image || "",
+
     logo_image: evento.logo_image || "",
     LOGO_IMAGE: evento.logo_image || "",
     logo_evento: evento.logo_image || "",
     LOGO_EVENTO: evento.logo_image || "",
+
     music_file: evento.music_file || "",
     MUSIC_FILE: evento.music_file || "",
     musica_evento: evento.music_file || "",
     MUSICA_EVENTO: evento.music_file || "",
+
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
@@ -161,149 +171,151 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
       window.addEventListener("DOMContentLoaded", function () {
         var eventData = window.__OMNISTAGE_EVENT__ || {};
 
-        var mapsLink = document.getElementById("mapsLink");
-        var calendarLink = document.getElementById("calendarLink");
-        var musicSource = document.querySelector("#bgMusic source");
-        var musicAudio = document.getElementById("bgMusic");
-
-        if (mapsLink && eventData.mapa) mapsLink.href = eventData.mapa;
-
-        if (musicSource && eventData.musica) {
-          musicSource.setAttribute("src", eventData.musica);
-          if (musicAudio && musicAudio.load) musicAudio.load();
+        function buscarCardPrincipal() {
+          return (
+            document.querySelector(".card") ||
+            document.querySelector(".invite-card") ||
+            document.querySelector(".convite-card") ||
+            document.querySelector("[data-convite-card]") ||
+            document.body
+          );
         }
 
-        if (calendarLink && eventData.nome && eventData.timestamp) {
-          var start = new Date(eventData.timestamp);
-          var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
+        function aplicarFundo() {
+          var card = buscarCardPrincipal();
 
-          function toGoogleDate(date) {
-            return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
-          }
+          document.documentElement.style.background = "#020617";
+          document.body.style.background = "#020617";
 
-          calendarLink.href =
-            "https://calendar.google.com/calendar/render?action=TEMPLATE" +
-            "&text=" + encodeURIComponent(eventData.nome) +
-            "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
-            "&location=" + encodeURIComponent(eventData.local || "");
+          document.querySelectorAll(".card-bg-motion, .background-motion, .bg-motion").forEach(function (el) {
+            el.remove();
+          });
+
+          if (!eventData.fundo || !card) return;
+
+          card.style.backgroundImage =
+            "linear-gradient(180deg, rgba(12,28,60,0.65), rgba(6,14,36,0.95)), url('" +
+            eventData.fundo +
+            "')";
+
+          card.style.backgroundSize = "cover";
+          card.style.backgroundPosition = "center";
+          card.style.backgroundRepeat = "no-repeat";
+          card.style.overflow = "hidden";
         }
 
-        if (eventData.logo) {
-          var nomeEvento = String(eventData.nome || "").trim();
+        function encontrarTituloEvento() {
+          var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
+          if (!nomeEvento) return null;
 
-          function encontrarTextoExato(textoBuscado) {
-            if (!textoBuscado) return null;
+          var seletores = "h1,h2,h3,.title,.event-title,.main-title,.hero-title,[data-event-title]";
+          var candidatos = Array.from(document.querySelectorAll(seletores));
 
-            var elementos = Array.from(document.body.querySelectorAll("*"));
+          return candidatos.find(function (el) {
+            var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
+            return texto === nomeEvento || texto.includes(nomeEvento);
+          }) || null;
+        }
 
-            return elementos.find(function (el) {
-              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ");
-              var filhos = el.children.length;
-              return texto.toLowerCase() === textoBuscado.toLowerCase() && filhos <= 2;
-            }) || null;
+        function aplicarLogo() {
+          if (!eventData.logo) return;
+
+          var card = buscarCardPrincipal();
+
+          document.querySelectorAll("[data-logo-evento]").forEach(function (el) {
+            el.remove();
+          });
+
+          var titulo = encontrarTituloEvento();
+
+          var logo = document.createElement("img");
+          logo.src = eventData.logo;
+          logo.alt = eventData.nome || "Logo do evento";
+          logo.setAttribute("data-logo-evento", "true");
+
+          logo.style.display = "block";
+          logo.style.width = "70%";
+          logo.style.maxWidth = "420px";
+          logo.style.height = "auto";
+          logo.style.maxHeight = "170px";
+          logo.style.objectFit = "contain";
+          logo.style.margin = "20px auto";
+
+          if (titulo && titulo.parentNode) {
+            titulo.parentNode.insertBefore(logo, titulo);
+            titulo.remove();
+            return;
           }
 
-          function encontrarTituloDoEvento() {
-            var tituloPorTexto = encontrarTextoExato(nomeEvento);
-            if (tituloPorTexto) return tituloPorTexto;
+          if (card) {
+            card.insertBefore(logo, card.firstChild);
+          }
+        }
 
-            var tituloMaiusculo = encontrarTextoExato(nomeEvento.toUpperCase());
-            if (tituloMaiusculo) return tituloMaiusculo;
+        function aplicarLinks() {
+          var mapsLink = document.getElementById("mapsLink");
+          var calendarLink = document.getElementById("calendarLink");
 
-            var candidatos = Array.from(
-              document.querySelectorAll(
-                "h1,h2,h3,.title,.event-title,.main-title,.hero-title,[class*='title'],[class*='titulo'],[class*='nome'],[class*='name'],[class*='event']"
-              )
-            );
-
-            return candidatos.find(function (el) {
-              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
-              var nome = nomeEvento.toLowerCase();
-              return nome && (texto === nome || texto.includes(nome));
-            }) || null;
+          if (mapsLink && eventData.mapa) {
+            mapsLink.href = eventData.mapa;
           }
 
-          function encontrarConviteDigital() {
-            var candidatos = Array.from(document.body.querySelectorAll("*"));
-            return candidatos.find(function (el) {
-              var texto = (el.textContent || "").trim().replace(/\\s+/g, " ").toLowerCase();
-              return texto === "convite digital" && el.children.length <= 1;
-            }) || null;
-          }
+          if (calendarLink && eventData.nome && eventData.timestamp) {
+            var start = new Date(eventData.timestamp);
+            var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
 
-          function prepararLogo(img) {
-            img.setAttribute("src", eventData.logo);
-            img.setAttribute("alt", eventData.nome || "Logo do evento");
-            img.setAttribute("data-logo-evento", "true");
-            img.style.display = "block";
-            img.style.width = "min(78%, 520px)";
-            img.style.maxWidth = "78%";
-            img.style.maxHeight = "170px";
-            img.style.height = "auto";
-            img.style.objectFit = "contain";
-            img.style.margin = "24px auto 18px";
-          }
-
-          function posicionarLogo(img) {
-            var tituloEvento = encontrarTituloDoEvento();
-            var conviteDigital = encontrarConviteDigital();
-
-            prepararLogo(img);
-
-            if (tituloEvento && tituloEvento.parentNode) {
-              tituloEvento.parentNode.insertBefore(img, tituloEvento);
-              tituloEvento.style.display = "none";
-              tituloEvento.setAttribute("data-substituido-por-logo", "true");
-              return;
+            function toGoogleDate(date) {
+              return date.toISOString().replace(/[-:]/g, "").replace(/\\.\\d{3}Z$/, "Z");
             }
 
-            if (conviteDigital && conviteDigital.parentNode) {
-              conviteDigital.parentNode.insertBefore(img, conviteDigital.nextSibling);
-              return;
-            }
-
-            var cardParaLogo = document.querySelector(".card") || document.body;
-            cardParaLogo.insertBefore(img, cardParaLogo.firstChild);
-          }
-
-          var imgExistente =
-            document.querySelector("[data-logo-evento]") ||
-            document.querySelector(".title-image") ||
-            null;
-
-          if (imgExistente) {
-            posicionarLogo(imgExistente);
-          } else {
-            var logoCriada = document.createElement("img");
-            posicionarLogo(logoCriada);
+            calendarLink.href =
+              "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+              "&text=" + encodeURIComponent(eventData.nome) +
+              "&dates=" + toGoogleDate(start) + "/" + toGoogleDate(end) +
+              "&location=" + encodeURIComponent(eventData.local || "");
           }
         }
+
+        function aplicarMusica() {
+          var musicSource = document.querySelector("#bgMusic source");
+          var musicAudio = document.getElementById("bgMusic");
+
+          if (musicSource && eventData.musica) {
+            musicSource.setAttribute("src", eventData.musica);
+            if (musicAudio && musicAudio.load) musicAudio.load();
+          }
+        }
+
+        aplicarFundo();
+        aplicarLogo();
+        aplicarLinks();
+        aplicarMusica();
       });
     </script>
   `;
 
   if (html.includes("</body>")) {
-    return html.replace("</body>", `${script}</body>`);
+    return html.replace("</body>", \`\${script}</body>\`);
   }
 
-  return `${html}${script}`;
+  return \`\${html}\${script}\`;
 }
 
 export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[]) {
   const nomesHtml = nomesDoConvite
     .map(
-      (nome) => `
+      (nome) => \`
         <label class="name-option selected">
           <input type="checkbox" checked name="guest-confirmation" />
-          <span>${escapeHtml(nome)}</span>
+          <span>\${escapeHtml(nome)}</span>
         </label>
-      `
+      \`
     )
     .join("");
 
-  const script = `
+  const script = \`
     <script>
-      window.__OMNISTAGE_GUESTS__ = ${JSON.stringify(nomesDoConvite)};
+      window.__OMNISTAGE_GUESTS__ = \${JSON.stringify(nomesDoConvite)};
 
       window.addEventListener("DOMContentLoaded", function () {
         var nomes = window.__OMNISTAGE_GUESTS__ || [];
@@ -316,7 +328,7 @@ export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[
 
         var picker = document.getElementById("namePicker");
         if (picker) {
-          picker.innerHTML = ${JSON.stringify(nomesHtml)};
+          picker.innerHTML = \${JSON.stringify(nomesHtml)};
           picker.style.display = "block";
           picker.classList.remove("hidden");
         }
@@ -355,13 +367,13 @@ export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[
         });
       });
     </script>
-  `;
+  \`;
 
   if (html.includes("</body>")) {
-    return html.replace("</body>", `${script}</body>`);
+    return html.replace("</body>", \`\${script}</body>\`);
   }
 
-  return `${html}${script}`;
+  return \`\${html}\${script}\`;
 }
 
 function escapeHtml(value: string) {
