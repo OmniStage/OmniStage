@@ -7,6 +7,12 @@ import { supabase } from "@/lib/supabase";
 type Evento = {
   id: string;
   nome: string;
+  invite_template_id: string | null;
+};
+
+type Template = {
+  id: string;
+  html_template: string | null;
 };
 
 type Convidado = {
@@ -50,6 +56,7 @@ const initialForm: ConvidadoForm = {
 export default function ConvidadosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [eventoId, setEventoId] = useState("");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [form, setForm] = useState<ConvidadoForm>(initialForm);
@@ -113,6 +120,17 @@ export default function ConvidadosPage() {
     return telefone.replace(/\D/g, "");
   }
 
+  function eventoAtual() {
+    return eventos.find((evento) => evento.id === eventoId) || null;
+  }
+
+  function templateAtual() {
+    const evento = eventoAtual();
+    if (!evento?.invite_template_id) return null;
+
+    return templates.find((template) => template.id === evento.invite_template_id) || null;
+  }
+
   function gerarLinkCartao(convidado: Convidado) {
     const nome = encodeURIComponent(convidado.nome || "");
     const token = encodeURIComponent(convidado.token || "");
@@ -120,22 +138,108 @@ export default function ConvidadosPage() {
     return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
   }
 
+  function gerarLinkConvite(convidado: Convidado) {
+    const nome = encodeURIComponent(convidado.nome || "");
+    const token = encodeURIComponent(convidado.token || "");
+
+    return `https://omnistageproducoes.com.br/valentinaxv/?nome=${nome}&token=${token}`;
+  }
+
   function gerarLinkWhatsApp(convidado: Convidado) {
     const telefone = normalizarTelefone(convidado.telefone);
 
     if (!telefone) return "";
 
+    const linkConvite = gerarLinkConvite(convidado);
     const linkCartao = gerarLinkCartao(convidado);
 
     const mensagem = `Olá ${convidado.nome} ✨
 
-Segue o seu cartão de entrada:
+Você está convidado(a) para o evento.
 
+Convite digital:
+${linkConvite}
+
+Cartão de entrada:
 ${linkCartao}
 
-Apresente este cartão na entrada do evento.`;
+Apresente o cartão na entrada do evento.`;
 
     return `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+  }
+
+  function montarPreviewConvite(convidado: Convidado) {
+    const template = templateAtual();
+
+    if (!template?.html_template) return "";
+
+    const nome = convidado.nome || "";
+    const nomeSeguro = nome.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
+
+    const scriptPreview = `
+      <style>
+        html, body {
+          overflow: hidden !important;
+          pointer-events: none !important;
+        }
+
+        #guestName {
+          display: block !important;
+          margin-top: 26px !important;
+          text-align: center !important;
+          font-family: Georgia, 'Times New Roman', serif !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.12em !important;
+          text-transform: uppercase !important;
+          color: #ffffff !important;
+          font-size: 18px !important;
+        }
+
+        #namePicker, .name-picker, #hintText, .hint, #statusMessage, .status {
+          display: none !important;
+        }
+
+        #confirmBtn {
+          display: none !important;
+        }
+      </style>
+
+      <script>
+        window.__OMNISTAGE_PREVIEW__ = true;
+
+        window.addEventListener("DOMContentLoaded", function () {
+          var nome = \`${nomeSeguro}\`;
+
+          var guestName = document.getElementById("guestName");
+          if (guestName) {
+            guestName.textContent = nome;
+          }
+
+          var picker = document.getElementById("namePicker");
+          if (picker) {
+            picker.innerHTML =
+              "<div style='text-align:center;font-family:Georgia,serif;font-weight:700;letter-spacing:.12em;color:#fff;text-transform:uppercase;margin-top:20px;font-size:18px;'>" +
+              nome +
+              "</div>";
+            picker.style.display = "block";
+          }
+
+          var allText = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          var node;
+          while ((node = allText.nextNode())) {
+            if ((node.nodeValue || "").includes("SELECIONE OS NOMES PARA CONFIRMAR")) {
+              node.nodeValue = "CONVITE DE";
+            }
+          }
+        });
+      </script>
+    `;
+
+    if (template.html_template.includes("</head>")) {
+      return template.html_template.replace("</head>", `${scriptPreview}</head>`);
+    }
+
+    return `${scriptPreview}${template.html_template}`;
   }
 
   async function copiarNome(nome: string) {
@@ -169,10 +273,34 @@ Apresente este cartão na entrada do evento.`;
     return data.tenant_id as string;
   }
 
+  async function carregarTemplates(eventosData: Evento[]) {
+    const templateIds = eventosData
+      .map((evento) => evento.invite_template_id)
+      .filter(Boolean) as string[];
+
+    if (templateIds.length === 0) {
+      setTemplates([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("invite_templates")
+      .select("id, html_template")
+      .in("id", templateIds);
+
+    if (error) {
+      console.error("Erro ao carregar templates:", error);
+      setTemplates([]);
+      return;
+    }
+
+    setTemplates((data || []) as Template[]);
+  }
+
   async function carregarEventos(tenant: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome")
+      .select("id, nome, invite_template_id")
       .eq("tenant_id", tenant)
       .order("created_at", { ascending: false });
 
@@ -183,6 +311,7 @@ Apresente este cartão na entrada do evento.`;
 
     const eventosData = (data || []) as Evento[];
     setEventos(eventosData);
+    await carregarTemplates(eventosData);
 
     if (eventosData.length > 0 && !eventoId) {
       setEventoId(eventosData[0].id);
@@ -530,10 +659,12 @@ Apresente este cartão na entrada do evento.`;
           {convidadosFiltrados.map((convidado) => {
             const linkWhatsApp = gerarLinkWhatsApp(convidado);
             const linkCartao = gerarLinkCartao(convidado);
+            const linkConvite = gerarLinkConvite(convidado);
+            const previewConvite = montarPreviewConvite(convidado);
 
             return (
               <article key={convidado.id} style={eventCardStyle}>
-                <div>
+                <div style={guestMainStyle}>
                   <strong style={{ fontSize: 22 }}>{convidado.nome}</strong>
 
                   <p style={{ color: "#94a3b8", marginBottom: 0 }}>
@@ -573,11 +704,26 @@ Apresente este cartão na entrada do evento.`;
                       </button>
                     )}
 
+                    <a href={linkConvite} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                      Ver convite
+                    </a>
+
                     <a href={linkCartao} target="_blank" rel="noreferrer" style={goldButtonStyle}>
                       Ver cartão
                     </a>
                   </div>
                 </div>
+
+                {previewConvite && (
+                  <div style={invitePreviewBoxStyle}>
+                    <iframe
+                      title={`Convite ${convidado.nome}`}
+                      srcDoc={previewConvite}
+                      style={invitePreviewFrameStyle}
+                    />
+                    <div style={invitePreviewNameStyle}>{convidado.nome}</div>
+                  </div>
+                )}
 
                 <div style={eventActionsColumnStyle}>
                   <span style={getRsvpStyle(convidado.status_rsvp)}>
@@ -756,6 +902,7 @@ const filtersStyle: CSSProperties = {
 const eventCardStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
+  alignItems: "stretch",
   gap: 18,
   background: "#0f172a",
   padding: 18,
@@ -763,8 +910,13 @@ const eventCardStyle: CSSProperties = {
   border: "1px solid #334155",
 };
 
+const guestMainStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 280,
+};
+
 const eventActionsColumnStyle: CSSProperties = {
-  minWidth: 260,
+  minWidth: 230,
   textAlign: "right",
 };
 
@@ -803,6 +955,42 @@ const goldButtonStyle: CSSProperties = {
   cursor: "pointer",
   textDecoration: "none",
   fontSize: 14,
+};
+
+const invitePreviewBoxStyle: CSSProperties = {
+  position: "relative",
+  width: 150,
+  height: 220,
+  borderRadius: 14,
+  overflow: "hidden",
+  border: "1px solid rgba(250,204,21,0.22)",
+  background: "#020617",
+  flexShrink: 0,
+};
+
+const invitePreviewFrameStyle: CSSProperties = {
+  width: 430,
+  height: 760,
+  border: 0,
+  transform: "scale(0.29)",
+  transformOrigin: "top left",
+  pointerEvents: "none",
+  background: "#020617",
+};
+
+const invitePreviewNameStyle: CSSProperties = {
+  position: "absolute",
+  left: 8,
+  right: 8,
+  bottom: 12,
+  textAlign: "center",
+  color: "#fff",
+  fontFamily: "Georgia, 'Times New Roman', serif",
+  fontWeight: 800,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  fontSize: 11,
+  textShadow: "0 2px 8px rgba(0,0,0,0.85)",
 };
 
 const statusStyle: CSSProperties = {
