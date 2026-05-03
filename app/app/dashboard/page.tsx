@@ -410,9 +410,7 @@ export default function DashboardPage() {
                 <article key={grupo} style={groupCardStyle}>
                   <button onClick={() => toggleGrupo(grupo)} style={groupHeaderStyle}>
                     <div>
-                      <p style={groupTitleStyle}>
-                        Integrantes: {nomesIntegrantes(lista)}
-                      </p>
+                      <p style={groupTitleStyle}>{nomesIntegrantes(lista)}</p>
                       <p style={groupContactStyle}>
                         {lista.length} integrante{lista.length === 1 ? "" : "s"}
                         {principal?.telefone ? ` • contato: ${principal.telefone}` : " • sem telefone principal"}
@@ -601,7 +599,7 @@ function nomesIntegrantes(lista: Convidado[]) {
   return lista
     .map((convidado) => convidado.nome?.trim())
     .filter(Boolean)
-    .join(" • ");
+    .join(" · ");
 }
 
 function contarConfirmados(lista: Convidado[]) {
@@ -951,9 +949,10 @@ const groupHeaderStyle: React.CSSProperties = {
 
 const groupTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
-  fontWeight: 900,
-  color: "#6d28d9",
+  fontSize: 22,
+  fontWeight: 700,
+  color: "#374151",
+  letterSpacing: "-0.02em",
 };
 
 const groupSubtitleStyle: React.CSSProperties = {
