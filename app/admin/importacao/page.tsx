@@ -17,7 +17,9 @@ type PreviewRow = {
   grupo: string | null;
   status_rsvp: string | null;
   status_envio: string | null;
-  observacoes: string | null;
+  data_hora_rsvp: string | null;
+  data_hora_envio: string | null;
+  observacoes?: string | null;
   is_duplicate: boolean;
 };
 
@@ -42,8 +44,8 @@ type SheetMapping = {
   telefone: string;
   status_rsvp: string;
   status_envio: string;
-  data_resposta: string;
-  data_hora: string;
+  data_hora_rsvp: string;
+  data_hora_envio: string;
 };
 
 const initialMapping: SheetMapping = {
@@ -53,8 +55,8 @@ const initialMapping: SheetMapping = {
   telefone: "",
   status_rsvp: "",
   status_envio: "",
-  data_resposta: "",
-  data_hora: "",
+  data_hora_rsvp: "",
+  data_hora_envio: "",
 };
 
 export default function AdminImportacaoPage() {
@@ -183,9 +185,9 @@ export default function AdminImportacaoPage() {
         const nome = getColumnValue(row, mapping.nome);
         const telefone = getColumnValue(row, mapping.telefone);
         const statusRsvp = getColumnValue(row, mapping.status_rsvp);
+        const dataHoraRsvp = getColumnValue(row, mapping.data_hora_rsvp);
         const statusEnvio = getColumnValue(row, mapping.status_envio);
-        const dataResposta = getColumnValue(row, mapping.data_resposta);
-        const dataHora = getColumnValue(row, mapping.data_hora);
+        const dataHoraEnvio = getColumnValue(row, mapping.data_hora_envio);
 
         return [
           legacyId,
@@ -193,9 +195,9 @@ export default function AdminImportacaoPage() {
           nome,
           telefone,
           statusRsvp,
-          dataResposta,
+          dataHoraRsvp,
           statusEnvio,
-          dataHora,
+          dataHoraEnvio,
         ].join("    ");
       })
       .filter((line) => line.trim())
@@ -238,8 +240,8 @@ export default function AdminImportacaoPage() {
       telefone: findHeader(["telefone", "whatsapp", "celular"]),
       status_rsvp: findHeader(["status_rsvp", "rsvp", "confirma"]),
       status_envio: findHeader(["status", "envio", "enviado"]),
-      data_resposta: findHeader(["data_resposta", "resposta"]),
-      data_hora: findHeader(["dia", "horário", "horario", "hora"]),
+      data_hora_rsvp: findHeader(["data_resposta", "resposta"]),
+      data_hora_envio: findHeader(["dia", "horário", "horario", "hora"]),
     });
   }
 
@@ -551,8 +553,9 @@ export default function AdminImportacaoPage() {
               <MappingSelect label="telefone" value={mapping.telefone} headers={sheetHeaders} onChange={(value) => updateMapping("telefone", value)} />
               <MappingSelect label="status_rsvp" value={mapping.status_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("status_rsvp", value)} />
               <MappingSelect label="status_envio" value={mapping.status_envio} headers={sheetHeaders} onChange={(value) => updateMapping("status_envio", value)} />
-              <MappingSelect label="data_hora_rsvp" value={mapping.data_resposta} headers={sheetHeaders} onChange={(value) => updateMapping("data_resposta", value)} />
-              <MappingSelect label="data_hora_envio" value={mapping.data_hora} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora", value)} />
+              <MappingSelect label="data_hora_rsvp" value={mapping.data_hora_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora_rsvp", value)} />
+              <MappingSelect label="data_hora_envio" value={mapping.data_hora_envio} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora_envio", value)} />
+            </div>
 
             <div style={actionsStyle}>
               <button onClick={aplicarMapeamento} disabled={loading} style={goldButtonStyle}>
@@ -685,11 +688,10 @@ export default function AdminImportacaoPage() {
                         {item.status_envio || "pendente"}
                       </p>
 
-                      {item.observacoes && (
-                        <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13, whiteSpace: "pre-line" }}>
-                          {item.observacoes}
-                        </p>
-                      )}
+                      <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13 }}>
+                        Data/Hora RSVP: {item.data_hora_rsvp || "-"} · Data/Hora Envio:{" "}
+                        {item.data_hora_envio || "-"}
+                      </p>
                     </div>
                   </div>
 
@@ -791,7 +793,7 @@ function MappingSelect({
 }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <span style={{ color: "#94a3b8", fontSize: 13 }}>Campo do sistema</span>
+      <span style={{ color: "#94a3b8", fontSize: 13 }}>Coluna da planilha</span>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <select
