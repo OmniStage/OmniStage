@@ -39,18 +39,55 @@ function normalize(value: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+/* =========================
+   NORMALIZA STATUS RSVP
+========================= */
+function normalizeStatusRsvp(value: string | null): string {
+  const v = normalize(value || "");
+
+  if (!v) return "pendente";
+
+  if (v.includes("confirm")) return "confirmado";
+  if (v.includes("nao") || v.includes("não")) return "nao";
+  if (v.includes("pend")) return "pendente";
+
+  return "pendente";
+}
+
+/* =========================
+   NORMALIZA STATUS ENVIO
+========================= */
+function normalizeStatusEnvio(value: string | null): string {
+  const v = normalize(value || "");
+
+  if (!v) return "pendente";
+
+  if (v.includes("enviado")) return "enviado";
+  if (v.includes("erro")) return "erro";
+  if (v.includes("pend")) return "pendente";
+
+  return "pendente";
+}
+
+/* =========================
+   PARSER PRINCIPAL
+========================= */
 export function parseLegacyGuestList(text: string): ParsedLegacyGuest[] {
   return text
     .split(/\n|;/)
     .map((line) => line.trim())
     .filter(Boolean)
+
+    // ignora header
     .filter((line) => !/^id\s+grupo\s+nome/i.test(line))
+
     .map((rawLine) => {
       const parts = rawLine
         .split(/\t+|\s{2,}/)
         .map((part) => part.trim())
         .filter(Boolean);
 
+      // segurança para evitar quebra
       const legacy_id = parts[0] || null;
       const grupo = parts[1] || null;
       const name = parts[2] || "";
@@ -74,5 +111,7 @@ export function parseLegacyGuestList(text: string): ParsedLegacyGuest[] {
         raw: rawLine,
       };
     })
+
+    // garante que não entra lixo
     .filter((guest) => guest.name.length > 1);
 }
