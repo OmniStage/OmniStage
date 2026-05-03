@@ -27,16 +27,28 @@ function parseCsvLine(line: string) {
   return result.map((value) => value.replace(/^"|"$/g, "").trim());
 }
 
-function findHeaderIndex(rows: string[][]) {
-  return rows.findIndex((cols) => {
-    const normalized = cols.map((col) => col.toLocaleLowerCase("pt-BR"));
+function normalizeHeader(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
 
-    return (
-      normalized.some((col) => col.includes("id")) &&
-      normalized.some((col) => col.includes("grupo")) &&
-      normalized.some((col) => col.includes("nome"))
-    );
-  });
+function isRealHeaderRow(cols: string[]) {
+  const normalized = cols.map(normalizeHeader);
+
+  const hasId = normalized.includes("id");
+  const hasGrupo = normalized.includes("grupo");
+  const hasNome = normalized.includes("nome");
+  const hasTelefone = normalized.includes("telefone");
+
+  return hasId && hasGrupo && hasNome && hasTelefone;
+}
+
+function findHeaderIndex(rows: string[][]) {
+  return rows.findIndex((cols) => isRealHeaderRow(cols));
 }
 
 export async function POST(req: Request) {
@@ -71,22 +83,31 @@ export async function POST(req: Request) {
 
     const headerIndex = findHeaderIndex(rows);
 
-    const headers =
-      headerIndex >= 0
-        ? rows[headerIndex]
-        : rows[0].map((_, index) => `Coluna ${index + 1}`);
+    if (headerIndex < 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Não encontrei a linha de títulos da planilha. Ela precisa conter: ID, Grupo, Nome e Telefone.",
+        },
+        { status: 400 }
+      );
+    }
 
-    const dataRows = headerIndex >= 0 ? rows.slice(headerIndex + 1) : rows;
+    const headers = rows[headerIndex].map((header) => header.trim());
 
-    const cleanedRows = dataRows
+    const dataRows = rows
+      .slice(headerIndex + 1)
       .filter((cols) => cols.some((value) => value && value.trim()))
-      .filter((cols) => cols.length >= 2);
+      .filter((cols) => {
+        const normalized = cols.map(normalizeHeader);
+        return !isRealHeaderRow(cols) && !normalized.includes("id_grupo_nome");
+      });
 
     return NextResponse.json({
       ok: true,
-      total: cleanedRows.length,
+      total: dataRows.length,
       headers,
-      rows: cleanedRows,
+      rows: dataRows,
     });
   } catch (error: any) {
     return NextResponse.json(
