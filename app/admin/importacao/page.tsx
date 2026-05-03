@@ -76,7 +76,6 @@ export default function AdminImportacaoPage() {
 
   const mappedTextPreview = useMemo(() => {
     if (!hasSheetLoaded) return "";
-
     return montarTextoMapeado(false);
   }, [sheetRows, mapping, hasSheetLoaded]);
 
@@ -171,11 +170,8 @@ export default function AdminImportacaoPage() {
 
   function getColumnValue(row: string[], headerName: string) {
     if (!headerName) return "";
-
     const index = sheetHeaders.indexOf(headerName);
-
     if (index < 0) return "";
-
     return row[index] || "";
   }
 
@@ -501,6 +497,12 @@ export default function AdminImportacaoPage() {
           </select>
         </label>
 
+        <p style={{ color: "#64748b", marginTop: 18 }}>
+          {hasSheetLoaded
+            ? "Modo: Planilha com mapeamento manual"
+            : "Modo: Texto livre / colar lista / parser automático"}
+        </p>
+
         <div style={{ marginTop: 18 }}>
           <label style={fieldStyle}>
             <span>Link Google Sheets CSV</span>
@@ -543,61 +545,14 @@ export default function AdminImportacaoPage() {
             </div>
 
             <div style={mappingGridStyle}>
-              <MappingSelect
-                label="ID → legacy_id"
-                value={mapping.legacy_id}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("legacy_id", value)}
-              />
-
-              <MappingSelect
-                label="Grupo → grupo"
-                value={mapping.grupo}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("grupo", value)}
-              />
-
-              <MappingSelect
-                label="Nome → nome"
-                value={mapping.nome}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("nome", value)}
-              />
-
-              <MappingSelect
-                label="Telefone → telefone"
-                value={mapping.telefone}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("telefone", value)}
-              />
-
-              <MappingSelect
-                label="Status_RSVP → status_rsvp"
-                value={mapping.status_rsvp}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("status_rsvp", value)}
-              />
-
-              <MappingSelect
-                label="Status → status_envio"
-                value={mapping.status_envio}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("status_envio", value)}
-              />
-
-              <MappingSelect
-                label="Data_Resposta → observações"
-                value={mapping.data_resposta}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("data_resposta", value)}
-              />
-
-              <MappingSelect
-                label="Dia / Horário → observações"
-                value={mapping.data_hora}
-                headers={sheetHeaders}
-                onChange={(value) => updateMapping("data_hora", value)}
-              />
+              <MappingSelect label="legacy_id" value={mapping.legacy_id} headers={sheetHeaders} onChange={(value) => updateMapping("legacy_id", value)} />
+              <MappingSelect label="grupo" value={mapping.grupo} headers={sheetHeaders} onChange={(value) => updateMapping("grupo", value)} />
+              <MappingSelect label="nome" value={mapping.nome} headers={sheetHeaders} onChange={(value) => updateMapping("nome", value)} />
+              <MappingSelect label="telefone" value={mapping.telefone} headers={sheetHeaders} onChange={(value) => updateMapping("telefone", value)} />
+              <MappingSelect label="status_rsvp" value={mapping.status_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("status_rsvp", value)} />
+              <MappingSelect label="status_envio" value={mapping.status_envio} headers={sheetHeaders} onChange={(value) => updateMapping("status_envio", value)} />
+              <MappingSelect label="observacoes: Data_Resposta" value={mapping.data_resposta} headers={sheetHeaders} onChange={(value) => updateMapping("data_resposta", value)} />
+              <MappingSelect label="observacoes: Dia / Horário" value={mapping.data_hora} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora", value)} />
             </div>
 
             <div style={actionsStyle}>
@@ -732,14 +687,7 @@ export default function AdminImportacaoPage() {
                       </p>
 
                       {item.observacoes && (
-                        <p
-                          style={{
-                            color: "#64748b",
-                            margin: "6px 0 0",
-                            fontSize: 13,
-                            whiteSpace: "pre-line",
-                          }}
-                        >
+                        <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13, whiteSpace: "pre-line" }}>
                           {item.observacoes}
                         </p>
                       )}
@@ -843,17 +791,28 @@ function MappingSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label style={fieldStyle}>
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle}>
-        <option value="">Ignorar</option>
-        {headers.map((header, index) => (
-          <option key={`${header}-${index}`} value={header}>
-            {header || `Coluna ${index + 1}`}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div style={{ display: "grid", gap: 6 }}>
+      <span style={{ color: "#94a3b8", fontSize: 13 }}>Campo do sistema</span>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          style={inputStyle}
+        >
+          <option value="">Selecionar coluna da planilha</option>
+          {headers.map((header, index) => (
+            <option key={`${header}-${index}`} value={header}>
+              {header || `Coluna ${index + 1}`}
+            </option>
+          ))}
+        </select>
+
+        <span style={{ color: "#64748b", fontWeight: 900 }}>→</span>
+
+        <strong style={{ color: "#fff", minWidth: 160 }}>{label}</strong>
+      </div>
+    </div>
   );
 }
 
