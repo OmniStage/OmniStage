@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Stats = {
@@ -11,6 +11,27 @@ type Stats = {
   restantes: number;
 };
 
+type Convidado = {
+  id: string;
+  nome: string | null;
+  telefone: string | null;
+  email?: string | null;
+  grupo: string | null;
+  status_rsvp: string | null;
+  status_checkin: string | null;
+  status_envio?: string | null;
+  token?: string | null;
+  created_at?: string | null;
+};
+
+type FiltroConvidados =
+  | "todos"
+  | "confirmados"
+  | "pendentes"
+  | "entraram"
+  | "faltam"
+  | "nao";
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>({
     total: 0,
@@ -20,6 +41,9 @@ export default function DashboardPage() {
     restantes: 0,
   });
 
+  const [convidados, setConvidados] = useState<Convidado[]>([]);
+  const [filtro, setFiltro] = useState<FiltroConvidados>("todos");
+  const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function carregarDashboard() {
@@ -27,7 +51,10 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from("convidados")
-      .select("status_rsvp, status_checkin");
+      .select("*")
+      .order("grupo", { ascending: true, nullsFirst: false })
+      .order("telefone", { ascending: false, nullsFirst: false })
+      .order("nome", { ascending: true });
 
     if (error) {
       alert("Erro ao carregar dashboard: " + error.message);
@@ -35,14 +62,15 @@ export default function DashboardPage() {
       return;
     }
 
-    const convidados = data || [];
+    const convidadosData = (data || []) as Convidado[];
 
-    const total = convidados.length;
-    const confirmados = convidados.filter((c) => c.status_rsvp === "confirmado").length;
-    const pendentes = convidados.filter((c) => c.status_rsvp === "pendente").length;
-    const entradas = convidados.filter((c) => c.status_checkin === "entrou").length;
+    const total = convidadosData.length;
+    const confirmados = convidadosData.filter((c) => c.status_rsvp === "confirmado").length;
+    const pendentes = convidadosData.filter((c) => c.status_rsvp === "pendente").length;
+    const entradas = convidadosData.filter((c) => c.status_checkin === "entrou").length;
     const restantes = Math.max(confirmados - entradas, 0);
 
+    setConvidados(convidadosData);
     setStats({
       total,
       confirmados,
@@ -63,6 +91,37 @@ export default function DashboardPage() {
 
   const percentualEntradas =
     stats.confirmados > 0 ? Math.round((stats.entradas / stats.confirmados) * 100) : 0;
+
+  const convidadosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+
+    return convidados.filter((convidado) => {
+      const buscaOk =
+        !termo ||
+        [
+          convidado.nome,
+          convidado.grupo,
+          convidado.telefone,
+          convidado.email,
+          convidado.token,
+        ]
+          .filter(Boolean)
+          .some((valor) => String(valor).toLowerCase().includes(termo));
+
+      if (!buscaOk) return false;
+
+      if (filtro === "todos") return true;
+      if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
+      if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
+      if (filtro === "entraram") return convidado.status_checkin === "entrou";
+      if (filtro === "faltam") {
+        return convidado.status_rsvp === "confirmado" && convidado.status_checkin !== "entrou";
+      }
+      if (filtro === "nao") return convidado.status_rsvp === "nao";
+
+      return true;
+    });
+  }, [convidados, filtro, busca]);
 
   const cards = [
     {
@@ -93,6 +152,15 @@ export default function DashboardPage() {
       color: "#2563eb",
       bg: "#dbeafe",
     },
+  ];
+
+  const tabs: { key: FiltroConvidados; label: string }[] = [
+    { key: "todos", label: "Todos" },
+    { key: "confirmados", label: "Confirmados" },
+    { key: "pendentes", label: "Pendentes" },
+    { key: "entraram", label: "Entraram" },
+    { key: "faltam", label: "Faltam entrar" },
+    { key: "nao", label: "Não vão" },
   ];
 
   return (
@@ -126,9 +194,7 @@ export default function DashboardPage() {
 
             <p style={metricLabelStyle}>{card.label}</p>
 
-            <strong style={metricValueStyle}>
-              {loading ? "..." : card.value}
-            </strong>
+            <strong style={metricValueStyle}>{loading ? "..." : card.value}</strong>
 
             <p style={metricDetailStyle}>{card.detail}</p>
           </article>
@@ -199,12 +265,106 @@ export default function DashboardPage() {
           <span style={statusPillStyle}>Ao vivo</span>
         </div>
 
-        <div style={emptyStateStyle}>
-          Nenhuma entrada registrada ainda.
+        <div style={emptyStateStyle}>Nenhuma entrada registrada ainda.</div>
+      </section>
+
+      <section style={largePanelStyle}>
+        <div style={panelHeaderStyle}>
+          <div>
+            <h2 style={panelTitleStyle}>Convidados</h2>
+            <p style={panelTextStyle}>Filtre a lista por RSVP, check-in ou busca.</p>
+          </div>
+
+          <span style={itemsPillStyle}>{convidadosFiltrados.length} itens</span>
+        </div>
+
+        <div style={tabsStyle}>
+          {tabs.map((tab) => {
+            const active = filtro === tab.key;
+
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setFiltro(tab.key)}
+                style={{
+                  ...tabButtonStyle,
+                  background: active ? "#6d28d9" : "var(--card)",
+                  color: active ? "#fff" : "var(--text)",
+                  border: active ? "1px solid #6d28d9" : "1px solid var(--line)",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={searchRowStyle}>
+          <input
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Buscar por nome, grupo, telefone, e-mail ou token"
+            style={searchInputStyle}
+          />
+        </div>
+
+        <div style={guestListStyle}>
+          {convidadosFiltrados.length === 0 && (
+            <div style={emptyStateStyle}>Nenhum convidado encontrado com estes filtros.</div>
+          )}
+
+          {convidadosFiltrados.map((convidado) => (
+            <article key={convidado.id} style={guestRowStyle}>
+              <div style={{ minWidth: 0 }}>
+                <strong style={guestNameStyle}>{convidado.nome || "Sem nome"}</strong>
+                <p style={guestMetaStyle}>
+                  {convidado.grupo || "Sem grupo"} • {convidado.telefone || "Sem telefone"}
+                </p>
+              </div>
+
+              <div style={guestBadgesStyle}>
+                <span style={getRsvpBadgeStyle(convidado.status_rsvp)}>
+                  {labelRsvp(convidado.status_rsvp)}
+                </span>
+                <span style={getCheckinBadgeStyle(convidado.status_checkin)}>
+                  {convidado.status_checkin === "entrou" ? "Entrou" : "Não entrou"}
+                </span>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
     </div>
   );
+}
+
+function labelRsvp(status: string | null) {
+  if (status === "confirmado") return "Confirmado";
+  if (status === "nao") return "Não vai";
+  return "Pendente";
+}
+
+function getRsvpBadgeStyle(status: string | null): React.CSSProperties {
+  if (status === "confirmado") return badgeStyle("#dcfce7", "#16a34a");
+  if (status === "nao") return badgeStyle("#fee2e2", "#dc2626");
+  return badgeStyle("#fef3c7", "#f59e0b");
+}
+
+function getCheckinBadgeStyle(status: string | null): React.CSSProperties {
+  if (status === "entrou") return badgeStyle("#dbeafe", "#2563eb");
+  return badgeStyle("#f1f5f9", "#64748b");
+}
+
+function badgeStyle(background: string, color: string): React.CSSProperties {
+  return {
+    padding: "7px 11px",
+    borderRadius: 999,
+    background,
+    color,
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  };
 }
 
 const pageStyle: React.CSSProperties = {
@@ -378,10 +538,89 @@ const statusPillStyle: React.CSSProperties = {
   fontWeight: 900,
 };
 
+const itemsPillStyle: React.CSSProperties = {
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "#ede9fe",
+  color: "#6d28d9",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
 const emptyStateStyle: React.CSSProperties = {
   marginTop: 24,
   border: "1px dashed var(--line)",
   borderRadius: 16,
   padding: 22,
   color: "var(--muted)",
+};
+
+const tabsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 18,
+};
+
+const tabButtonStyle: React.CSSProperties = {
+  padding: "9px 14px",
+  borderRadius: 999,
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const searchRowStyle: React.CSSProperties = {
+  marginTop: 16,
+};
+
+const searchInputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "13px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
+  outline: "none",
+  fontWeight: 700,
+};
+
+const guestListStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  marginTop: 16,
+};
+
+const guestRowStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 14,
+};
+
+const guestNameStyle: React.CSSProperties = {
+  display: "block",
+  color: "var(--text)",
+  fontSize: 15,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const guestMetaStyle: React.CSSProperties = {
+  margin: "4px 0 0",
+  color: "var(--muted)",
+  fontSize: 13,
+};
+
+const guestBadgesStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
 };
