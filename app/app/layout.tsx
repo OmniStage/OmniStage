@@ -23,21 +23,36 @@ export default function AppLayout({
   ];
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "#f8fafc",
+        color: "#0f172a",
+      }}
+    >
       {/* MENU LATERAL */}
       <aside
         style={{
           width: 260,
-          background: "#020617",
-          borderRight: "1px solid rgba(148,163,184,0.1)",
+          background: "#ffffff",
+          borderRight: "1px solid #e2e8f0",
           padding: 20,
+          boxShadow: "1px 0 3px rgba(15,23,42,0.04)",
         }}
       >
-        <h2 style={{ color: "#fff", marginBottom: 30 }}>
-          🔵 OmniStage App
+        <h2
+          style={{
+            color: "#0f172a",
+            marginBottom: 30,
+            fontSize: 22,
+            fontWeight: 800,
+          }}
+        >
+          <span style={{ color: "#6d28d9" }}>●</span> OmniStage App
         </h2>
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {menu.map((item) => {
             const active = pathname === item.href;
 
@@ -49,11 +64,12 @@ export default function AppLayout({
                   padding: "12px 16px",
                   borderRadius: 12,
                   textDecoration: "none",
-                  color: active ? "#fff" : "#94a3b8",
-                  background: active
-                    ? "linear-gradient(135deg, #22c55e, #065f46)"
-                    : "transparent",
-                  fontWeight: 600,
+                  color: active ? "#6d28d9" : "#64748b",
+                  background: active ? "#ede9fe" : "transparent",
+                  border: active
+                    ? "1px solid rgba(109,40,217,0.18)"
+                    : "1px solid transparent",
+                  fontWeight: 700,
                 }}
               >
                 {item.name}
@@ -68,8 +84,7 @@ export default function AppLayout({
         style={{
           flex: 1,
           padding: 40,
-          background:
-            "radial-gradient(circle at top left, rgba(34,197,94,0.2), transparent 28%), linear-gradient(135deg, #030712, #0f172a)",
+          background: "#f8fafc",
         }}
       >
         {children}
