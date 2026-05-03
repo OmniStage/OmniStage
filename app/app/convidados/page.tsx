@@ -36,6 +36,8 @@ type ConvidadoForm = {
   status_envio: string;
 };
 
+type ThemeMode = "auto" | "light" | "dark";
+
 type ImportPreviewRow = {
   id: string;
   nome?: string;
@@ -71,6 +73,8 @@ export default function ConvidadosPage() {
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
+  const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
+  const [systemDark, setSystemDark] = useState(false);
 
   const [importAberto, setImportAberto] = useState(false);
   const [importText, setImportText] = useState("");
@@ -461,17 +465,48 @@ Apresente o cartão na entrada do evento.`;
   }
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const updateTheme = () => {
+      setSystemDark(media.matches);
+    };
+
+    updateTheme();
+    media.addEventListener("change", updateTheme);
+
+    return () => media.removeEventListener("change", updateTheme);
+  }, []);
+
+  useEffect(() => {
     iniciarTela();
   }, []);
 
-  return (
-    <main style={pageStyle}>
-      <h1 style={{ fontSize: 48, margin: 0 }}>Convidados</h1>
+  const isDark = themeMode === "dark" || (themeMode === "auto" && systemDark);
+  const themeVars = getThemeVars(isDark);
 
-      <p style={{ color: "#64748b", marginTop: 8 }}>
-        Cadastre os convidados que receberão o convite digital, RSVP e cartão de
-        entrada.
-      </p>
+  return (
+    <main style={getPageStyle(themeVars)}>
+      <h1 style={{ fontSize: 48, margin: 0, color: "var(--text)" }}>Convidados</h1>
+
+      <div style={pageHeaderStyle}>
+        <p style={{ color: "var(--muted)", marginTop: 8 }}>
+          Cadastre os convidados que receberão o convite digital, RSVP e cartão de
+          entrada.
+        </p>
+
+        <label style={themeSwitcherStyle}>
+          <span>Tema</span>
+          <select
+            value={themeMode}
+            onChange={(event) => setThemeMode(event.target.value as ThemeMode)}
+            style={themeSelectStyle}
+          >
+            <option value="auto">Automático</option>
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+          </select>
+        </label>
+      </div>
 
       <section style={{ marginTop: 24, marginBottom: 8 }}>
         <label style={fieldStyle}>
@@ -521,7 +556,7 @@ Apresente o cartão na entrada do evento.`;
             </button>
           </div>
 
-          <p style={{ color: "#64748b", marginTop: 0 }}>
+          <p style={{ color: "var(--muted)", marginTop: 0 }}>
             Cole uma lista com nomes, telefones, grupos ou quantidades. Ex:
             Maria +1, Família Silva (4), João - 21999999999.
           </p>
@@ -561,15 +596,15 @@ Apresente o cartão na entrada do evento.`;
                       borderRadius: 12,
                       border: item.is_duplicate
                         ? "1px solid rgba(239,68,68,0.6)"
-                        : "1px solid #334155",
+                        : "1px solid var(--border)",
                       background: item.is_duplicate
                         ? "rgba(239,68,68,0.08)"
-                        : "#0f172a",
+                        : "var(--soft-bg)",
                     }}
                   >
                     <strong>{item.nome || item.name}</strong>
 
-                    <p style={{ color: "#64748b", margin: "6px 0 0" }}>
+                    <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
                       Telefone: {item.telefone || item.phone || "Sem telefone"}{" "}
                       · Grupo: {item.grupo || "Sem grupo"} · Quantidade:{" "}
                       {item.quantidade || 1}
@@ -578,7 +613,7 @@ Apresente o cartão na entrada do evento.`;
                     {item.observacoes && (
                       <p
                         style={{
-                          color: "#64748b",
+                          color: "var(--muted)",
                           margin: "6px 0 0",
                           fontSize: 13,
                         }}
@@ -597,7 +632,7 @@ Apresente o cartão na entrada do evento.`;
               </div>
 
               {importBatchId && (
-                <p style={{ color: "#64748b", marginTop: 12, fontSize: 13 }}>
+                <p style={{ color: "var(--muted)", marginTop: 12, fontSize: 13 }}>
                   Lote de importação: {importBatchId}
                 </p>
               )}
@@ -737,7 +772,7 @@ Apresente o cartão na entrada do evento.`;
       <section style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={{ margin: 0 }}>Convidados cadastrados</h2>
-          <span style={{ color: "#64748b", fontWeight: 700 }}>
+          <span style={{ color: "var(--muted)", fontWeight: 700 }}>
             {convidadosFiltrados.length} de {convidados.length}
           </span>
         </div>
@@ -824,11 +859,11 @@ Apresente o cartão na entrada do evento.`;
                             {convidado.nome}
                           </strong>
 
-                          <p style={{ color: "#64748b", margin: "6px 0 0" }}>
+                          <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
                             {convidado.telefone || "Sem telefone"}
                           </p>
 
-                          <small style={{ color: "#64748b" }}>
+                          <small style={{ color: "var(--muted)" }}>
                             E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
                             {convidado.tipo_convite || "individual"}
                           </small>
@@ -836,7 +871,7 @@ Apresente o cartão na entrada do evento.`;
                           <div
                             style={{
                               marginTop: 8,
-                              color: "#64748b",
+                              color: "var(--muted)",
                               fontSize: 13,
                             }}
                           >
@@ -849,7 +884,7 @@ Apresente o cartão na entrada do evento.`;
                           {convidado.observacoes && (
                             <p
                               style={{
-                                color: "#64748b",
+                                color: "var(--muted)",
                                 marginTop: 10,
                                 marginBottom: 0,
                               }}
@@ -922,7 +957,7 @@ Apresente o cartão na entrada do evento.`;
                           <div
                             style={{
                               marginTop: 10,
-                              color: "#64748b",
+                              color: "var(--muted)",
                               fontSize: 13,
                             }}
                           >
@@ -992,7 +1027,7 @@ function getRsvpStyle(status: string | null): CSSProperties {
   return {
     ...statusStyle,
     background: "#fef3c7",
-    color: "#5b21b6",
+    color: "var(--accent)",
   };
 }
 
@@ -1015,21 +1050,91 @@ function getEnvioStyle(status: string | null): CSSProperties {
 
   return {
     ...statusStyle,
-    background: "#f1f5f9",
-    color: "#334155",
+    background: "var(--soft-bg)",
+    color: "var(--text-secondary)",
   };
 }
 
-const pageStyle: CSSProperties = {
-  color: "#0f172a",
+function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
+  return isDark
+    ? {
+        "--page-bg": "linear-gradient(135deg, #020617 0%, #0f172a 100%)",
+        "--card-bg": "#0f172a",
+        "--section-bg": "#020617",
+        "--soft-bg": "#111827",
+        "--text": "#ffffff",
+        "--text-secondary": "#cbd5e1",
+        "--muted": "#94a3b8",
+        "--border": "#334155",
+        "--border-strong": "#475569",
+        "--accent": "#a78bfa",
+        "--accent-strong": "#c4b5fd",
+        "--accent-border": "rgba(167,139,250,0.35)",
+        "--group-soft": "rgba(124,58,237,0.12)",
+        "--primary-bg": "linear-gradient(135deg, #7c3aed, #5b21b6)",
+        "--primary-shadow": "0 12px 32px rgba(124,58,237,0.28)",
+      }
+    : {
+        "--page-bg": "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 45%, #ecfdf5 100%)",
+        "--card-bg": "#ffffff",
+        "--section-bg": "rgba(255,255,255,0.92)",
+        "--soft-bg": "#f0fdf4",
+        "--text": "#064e3b",
+        "--text-secondary": "#065f46",
+        "--muted": "#047857",
+        "--border": "#bbf7d0",
+        "--border-strong": "#86efac",
+        "--accent": "#6d28d9",
+        "--accent-strong": "#4c1d95",
+        "--accent-border": "rgba(124,58,237,0.24)",
+        "--group-soft": "#f5f3ff",
+        "--primary-bg": "linear-gradient(135deg, #7c3aed, #5b21b6)",
+        "--primary-shadow": "0 12px 32px rgba(124,58,237,0.24)",
+      };
+}
+
+function getPageStyle(themeVars: CSSProperties & Record<string, string>): CSSProperties {
+  return {
+    ...themeVars,
+    minHeight: "100vh",
+    padding: 24,
+    background: "var(--page-bg)",
+    color: "var(--text)",
+    transition: "background 180ms ease, color 180ms ease",
+  };
+}
+
+const pageHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 18,
+  flexWrap: "wrap",
+};
+
+const themeSwitcherStyle: CSSProperties = {
+  display: "grid",
+  gap: 6,
+  color: "var(--muted)",
+  fontWeight: 800,
+  minWidth: 180,
+};
+
+const themeSelectStyle: CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: 999,
+  background: "var(--card-bg)",
+  color: "var(--text)",
+  border: "1px solid var(--border-strong)",
+  fontWeight: 800,
 };
 
 const sectionStyle: CSSProperties = {
   marginTop: 28,
   padding: 22,
   borderRadius: 28,
-  border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  border: "1px solid var(--border)",
+  background: "var(--section-bg)",
   boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
 };
 
@@ -1058,7 +1163,7 @@ const formGridStyle: CSSProperties = {
 const fieldStyle: CSSProperties = {
   display: "grid",
   gap: 8,
-  color: "#334155",
+  color: "var(--text-secondary)",
   fontWeight: 700,
 };
 
@@ -1066,9 +1171,9 @@ const inputStyle: CSSProperties = {
   width: "100%",
   padding: 15,
   borderRadius: 16,
-  background: "#ffffff",
-  color: "#0f172a",
-  border: "1px solid #d1d5db",
+  background: "var(--card-bg)",
+  color: "var(--text)",
+  border: "1px solid var(--border-strong)",
 };
 
 const formActionsStyle: CSSProperties = {
@@ -1081,19 +1186,20 @@ const formActionsStyle: CSSProperties = {
 const buttonStyle: CSSProperties = {
   padding: "15px 22px",
   borderRadius: 999,
-  background: "linear-gradient(135deg, #7c3aed, #5b21b6)",
+  background: "var(--primary-bg)",
   border: "none",
   color: "#ffffff",
   fontWeight: "bold",
   cursor: "pointer",
+  boxShadow: "var(--primary-shadow)",
 };
 
 const secondaryButtonStyle: CSSProperties = {
   padding: "13px 18px",
   borderRadius: 999,
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
-  color: "#0f172a",
+  background: "var(--card-bg)",
+  border: "1px solid var(--border-strong)",
+  color: "var(--text)",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -1108,10 +1214,10 @@ const filtersStyle: CSSProperties = {
 const groupCardLargeStyle: CSSProperties = {
   display: "grid",
   gap: 18,
-  background: "#ffffff",
+  background: "var(--card-bg)",
   padding: 26,
   borderRadius: 28,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border)",
   boxShadow: "0 14px 42px rgba(15,23,42,0.08)",
 };
 
@@ -1121,7 +1227,7 @@ const groupCardHeaderStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: 14,
   paddingBottom: 16,
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--border)",
 };
 
 const groupHeaderStyle: CSSProperties = {
@@ -1131,13 +1237,13 @@ const groupHeaderStyle: CSSProperties = {
   gap: 14,
   padding: "13px 16px",
   borderRadius: 14,
-  border: "1px solid #ddd6fe",
-  background: "linear-gradient(135deg, #faf5ff, #ffffff)",
+  border: "1px solid var(--accent-border)",
+  background: "linear-gradient(135deg, var(--group-soft), var(--card-bg))",
 };
 
 const groupEyebrowStyle: CSSProperties = {
   display: "block",
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: "0.12em",
@@ -1147,7 +1253,7 @@ const groupEyebrowStyle: CSSProperties = {
 
 const groupTitleStyle: CSSProperties = {
   display: "block",
-  color: "#5b21b6",
+  color: "var(--accent)",
   fontSize: 18,
   letterSpacing: "0.02em",
 };
@@ -1155,9 +1261,9 @@ const groupTitleStyle: CSSProperties = {
 const groupCountStyle: CSSProperties = {
   padding: "7px 11px",
   borderRadius: 999,
-  background: "#f5f3ff",
-  border: "1px solid #ddd6fe",
-  color: "#4c1d95",
+  background: "var(--group-soft)",
+  border: "1px solid var(--accent-border)",
+  color: "var(--accent-strong)",
   fontSize: 12,
   fontWeight: 900,
   whiteSpace: "nowrap",
@@ -1165,7 +1271,7 @@ const groupCountStyle: CSSProperties = {
 
 const groupMembersSummaryStyle: CSSProperties = {
   margin: 0,
-  color: "#334155",
+  color: "var(--text-secondary)",
   fontSize: 17,
   lineHeight: 1.55,
 };
@@ -1182,8 +1288,8 @@ const groupMemberRowStyle: CSSProperties = {
   gap: 18,
   padding: 18,
   borderRadius: 16,
-  border: "1px solid #e5e7eb",
-  background: "#f8fafc",
+  border: "1px solid var(--border)",
+  background: "var(--soft-bg)",
 };
 
 const groupMemberInfoStyle: CSSProperties = {
@@ -1196,10 +1302,10 @@ const eventCardStyle: CSSProperties = {
   justifyContent: "space-between",
   alignItems: "stretch",
   gap: 18,
-  background: "#ffffff",
+  background: "var(--card-bg)",
   padding: 18,
   borderRadius: 14,
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-strong)",
 };
 
 const guestMainStyle: CSSProperties = {
@@ -1240,9 +1346,9 @@ const smallButtonStyle: CSSProperties = {
 const goldButtonStyle: CSSProperties = {
   padding: "10px 16px",
   borderRadius: 999,
-  border: "1px solid #7c3aed",
-  background: "#ffffff",
-  color: "#5b21b6",
+  border: "1px solid var(--accent)",
+  background: "var(--card-bg)",
+  color: "var(--accent)",
   fontWeight: 800,
   cursor: "pointer",
   textDecoration: "none",
@@ -1260,7 +1366,7 @@ const statusStyle: CSSProperties = {
 const emptyStyle: CSSProperties = {
   padding: 18,
   borderRadius: 12,
-  border: "1px dashed #d1d5db",
-  color: "#64748b",
+  border: "1px dashed var(--border-strong)",
+  color: "var(--muted)",
 };
    
