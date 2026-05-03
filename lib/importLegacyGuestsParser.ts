@@ -3,9 +3,13 @@ export type ParsedLegacyGuest = {
   grupo: string | null;
   name: string;
   phone: string | null;
-  status_rsvp: string;
-  status_envio: string;
-  observacoes: string | null;
+
+  status_rsvp: string | null;
+  status_envio: string | null;
+
+  data_hora_rsvp: string | null;
+  data_hora_envio: string | null;
+
   raw: string;
 };
 
@@ -19,31 +23,14 @@ function titleCase(value: string): string {
     .trim()
     .replace(/\s+/g, " ")
     .toLocaleLowerCase("pt-BR")
-    .split(" ")
-    .map((word) =>
-      word ? word.charAt(0).toLocaleUpperCase("pt-BR") + word.slice(1) : ""
-    )
-    .join(" ");
+    .replace(/\b\p{L}/gu, (char) => char.toUpperCase());
 }
 
-function normalizeStatusRsvp(value: string | null): string {
-  const status = (value || "").trim().toLocaleLowerCase("pt-BR");
-
-  if (status.includes("confirm")) return "confirmado";
-  if (status.includes("não") || status.includes("nao")) return "nao";
-  if (status.includes("pend")) return "pendente";
-
-  return "pendente";
-}
-
-function normalizeStatusEnvio(value: string | null): string {
-  const status = (value || "").trim().toLocaleLowerCase("pt-BR");
-
-  if (status.includes("enviado")) return "enviado";
-  if (status.includes("erro")) return "erro";
-  if (status.includes("pend")) return "pendente";
-
-  return "pendente";
+function normalize(value: string) {
+  return value
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 export function parseLegacyGuestList(text: string): ParsedLegacyGuest[] {
@@ -51,43 +38,47 @@ export function parseLegacyGuestList(text: string): ParsedLegacyGuest[] {
     .split(/\n|;/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !/^id\s+grupo\s+nome/i.test(line))
     .map((rawLine) => {
-      const cols = rawLine
-        .split(/\t+|\s{2,}/)
-        .map((col) => col.trim())
-        .filter(Boolean);
+      let line = rawLine;
 
-      const legacyId = cols[0] || null;
-      const grupo = cols[1] ? cols[1].toUpperCase() : null;
-      const name = cols[2] || "";
-      const phone = cols[3] ? cleanPhone(cols[3]) : null;
+      const parts = line.split(/\s{2,}|\t+/).filter(Boolean);
 
-      const statusRsvp = normalizeStatusRsvp(cols[4] || null);
-      const dataResposta = cols[5] || null;
-      const statusEnvio = normalizeStatusEnvio(cols[6] || null);
-      const dataHora = cols[7] || null;
+      let legacy_id = parts[0] || null;
+      let grupo = parts[1] || null;
+      let name = parts[2] || "";
+      let phone = parts[3] ? cleanPhone(parts[3]) : null;
 
-      const observacoesParts: string[] = [];
+      let status_rsvp: string | null = null;
+      let status_envio: string | null = null;
+      let data_hora_rsvp: string | null = null;
+      let data_hora_envio: string | null = null;
 
-      if (dataResposta) {
-        observacoesParts.push(`Data_Resposta: ${dataResposta}`);
-      }
+      const lower = normalize(rawLine);
 
-      if (dataHora) {
-        observacoesParts.push(`Dia / Horário: ${dataHora}`);
+      if (lower.includes("confirmado")) status_rsvp = "confirmado";
+      if (lower.includes("pendente")) status_rsvp = "pendente";
+
+      if (lower.includes("enviado")) status_envio = "enviado";
+
+      // datas (simples - pega padrões dd/mm/yyyy)
+      const dateMatches = rawLine.match(/\d{2}\/\d{2}\/\d{4}(\s\d{2}:\d{2})?/g);
+
+      if (dateMatches) {
+        if (dateMatches[0]) data_hora_rsvp = dateMatches[0];
+        if (dateMatches[1]) data_hora_envio = dateMatches[1];
       }
 
       return {
-        legacy_id: legacyId,
+        legacy_id,
         grupo,
         name: titleCase(name),
         phone,
-        status_rsvp: statusRsvp,
-        status_envio: statusEnvio,
-        observacoes: observacoesParts.length ? observacoesParts.join("\n") : null,
+        status_rsvp,
+        status_envio,
+        data_hora_rsvp,
+        data_hora_envio,
         raw: rawLine,
       };
     })
-    .filter((guest) => guest.name.length > 1);
+    .filter((g) => g.name.length > 1);
 }
