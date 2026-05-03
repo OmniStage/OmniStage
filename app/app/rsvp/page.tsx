@@ -149,6 +149,12 @@ export default function RsvpPage() {
       : convidadosFiltrados.length;
 
   async function atualizarStatusRsvp(convidado: Convidado, novoStatus: StatusRsvp) {
+    const statusAtual = normalizarStatusRsvp(convidado.status_rsvp);
+
+    if (statusAtual === "confirmado" && novoStatus === "confirmado") {
+      return;
+    }
+
     setSalvandoId(convidado.id);
 
     const payload = {
@@ -174,6 +180,58 @@ export default function RsvpPage() {
               ...item,
               status_rsvp: novoStatus,
               data_resposta: payload.data_resposta,
+            }
+          : item
+      )
+    );
+
+    setSalvandoId(null);
+  }
+
+  async function registrarEntradaSemRsvp(convidado: Convidado) {
+    const statusAtual = normalizarStatusRsvp(convidado.status_rsvp);
+
+    if (statusAtual === "confirmado") {
+      return;
+    }
+
+    setSalvandoId(convidado.id);
+
+    const agora = new Date().toISOString();
+    const observacaoAtual = convidado.observacoes?.trim();
+    const observacaoNova = "Entrou no evento sem RSVP prévio. Confirmação feita manualmente na entrada.";
+
+    const payload = {
+      status_rsvp: "confirmado",
+      status_checkin: "entrou",
+      data_resposta: agora,
+      data_hora_checkin: agora,
+      observacoes: observacaoAtual
+        ? `${observacaoAtual}\n${observacaoNova}`
+        : observacaoNova,
+    };
+
+    const { error } = await supabase
+      .from("convidados")
+      .update(payload)
+      .eq("id", convidado.id);
+
+    if (error) {
+      alert("Erro ao registrar entrada sem RSVP: " + error.message);
+      setSalvandoId(null);
+      return;
+    }
+
+    setConvidados((current) =>
+      current.map((item) =>
+        item.id === convidado.id
+          ? {
+              ...item,
+              status_rsvp: "confirmado",
+              status_checkin: "entrou",
+              data_resposta: agora,
+              data_hora_checkin: agora,
+              observacoes: payload.observacoes,
             }
           : item
       )
@@ -347,6 +405,7 @@ export default function RsvpPage() {
                           convidado={convidado}
                           salvando={salvandoId === convidado.id}
                           onChangeStatus={atualizarStatusRsvp}
+                          onEntradaSemRsvp={registrarEntradaSemRsvp}
                         />
                       ))}
                     </div>
@@ -363,6 +422,7 @@ export default function RsvpPage() {
                 convidado={convidado}
                 salvando={salvandoId === convidado.id}
                 onChangeStatus={atualizarStatusRsvp}
+                onEntradaSemRsvp={registrarEntradaSemRsvp}
               />
             ))}
           </div>
@@ -380,12 +440,15 @@ function RsvpGuestCard({
   convidado,
   salvando,
   onChangeStatus,
+  onEntradaSemRsvp,
 }: {
   convidado: Convidado;
   salvando: boolean;
   onChangeStatus: (convidado: Convidado, status: StatusRsvp) => void;
+  onEntradaSemRsvp: (convidado: Convidado) => void;
 }) {
   const status = normalizarStatusRsvp(convidado.status_rsvp);
+  const jaConfirmado = status === "confirmado";
   const linkConvite = gerarLinkConvite(convidado);
   const linkCartao = gerarLinkCartao(convidado);
 
@@ -414,14 +477,31 @@ function RsvpGuestCard({
       </div>
 
       <div style={actionsStyle}>
-        <button
-          className="rsvp-action"
-          onClick={() => onChangeStatus(convidado, "confirmado")}
-          disabled={salvando || status === "confirmado"}
-          style={status === "confirmado" ? activeConfirmButtonStyle : confirmButtonStyle}
-        >
-          Confirmar
-        </button>
+        {jaConfirmado ? (
+          <span style={lockedConfirmedStyle}>
+            RSVP já confirmado
+          </span>
+        ) : (
+          <>
+            <button
+              className="rsvp-action"
+              onClick={() => onChangeStatus(convidado, "confirmado")}
+              disabled={salvando}
+              style={confirmButtonStyle}
+            >
+              Confirmar RSVP
+            </button>
+
+            <button
+              className="rsvp-action"
+              onClick={() => onEntradaSemRsvp(convidado)}
+              disabled={salvando}
+              style={entryWithoutRsvpButtonStyle}
+            >
+              Entrou sem RSVP
+            </button>
+          </>
+        )}
 
         <button
           className="rsvp-action"
@@ -928,6 +1008,22 @@ const confirmButtonStyle: React.CSSProperties = {
   background: "#dcfce7",
   color: "#166534",
   borderColor: "rgba(22,163,74,0.25)",
+};
+
+const entryWithoutRsvpButtonStyle: React.CSSProperties = {
+  ...baseActionButtonStyle,
+  background: "#ede9fe",
+  color: "#6d28d9",
+  borderColor: "rgba(109,40,217,0.28)",
+};
+
+const lockedConfirmedStyle: React.CSSProperties = {
+  padding: "9px 12px",
+  borderRadius: 999,
+  background: "#dcfce7",
+  color: "#166534",
+  fontSize: 13,
+  fontWeight: 900,
 };
 
 const activeConfirmButtonStyle: React.CSSProperties = {
