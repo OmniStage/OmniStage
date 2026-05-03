@@ -238,6 +238,12 @@ export default function DashboardPage() {
 
   return (
     <div style={pageStyle}>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       <section style={heroStyle}>
         <div>
           <span style={eyebrowStyle}>OmniStage Dashboard</span>
@@ -409,11 +415,14 @@ export default function DashboardPage() {
               return (
                 <article key={grupo} style={groupCardStyle}>
                   <button onClick={() => toggleGrupo(grupo)} style={groupHeaderStyle}>
-                    <div>
-                      <p style={groupTitleStyle}>{nomesIntegrantes(lista)}</p>
+                    <div style={groupHeaderTextStyle}>
+                      <p style={groupTitleStyle}>
+                        <span style={groupLabelStyle}>Integrantes:</span>{" "}
+                        <span style={groupNamesStyle}>{nomesIntegrantes(lista)}</span>
+                      </p>
                       <p style={groupContactStyle}>
                         {lista.length} integrante{lista.length === 1 ? "" : "s"}
-                        {principal?.telefone ? ` • contato: ${principal.telefone}` : " • sem telefone principal"}
+                        {principal?.telefone ? ` · contato: ${principal.telefone}` : " · sem telefone principal"}
                       </p>
                     </div>
 
@@ -923,22 +932,25 @@ const ghostButtonStyle: React.CSSProperties = {
 const listStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 12,
+  gap: 14,
   marginTop: 16,
 };
 
 const groupCardStyle: React.CSSProperties = {
-  border: "1px solid var(--line)",
-  borderRadius: 18,
+  border: "1px solid rgba(226,232,240,0.92)",
+  borderRadius: 20,
   overflow: "hidden",
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.78)",
+  backdropFilter: "blur(12px)",
+  boxShadow: "0 10px 30px rgba(15,23,42,0.045)",
+  transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
 };
 
 const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
-  background: "transparent",
-  padding: 18,
+  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
+  padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -947,12 +959,26 @@ const groupHeaderStyle: React.CSSProperties = {
   textAlign: "left",
 };
 
+const groupHeaderTextStyle: React.CSSProperties = {
+  minWidth: 0,
+};
+
 const groupTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 22,
-  fontWeight: 700,
+  fontSize: 15,
+  fontWeight: 600,
+  lineHeight: 1.45,
+  letterSpacing: "-0.01em",
+};
+
+const groupLabelStyle: React.CSSProperties = {
   color: "#374151",
-  letterSpacing: "-0.02em",
+  fontWeight: 850,
+};
+
+const groupNamesStyle: React.CSSProperties = {
+  color: "#4b5563",
+  fontWeight: 520,
 };
 
 const groupSubtitleStyle: React.CSSProperties = {
@@ -963,9 +989,9 @@ const groupSubtitleStyle: React.CSSProperties = {
 
 const groupContactStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "var(--muted)",
-  fontSize: 13,
-  fontWeight: 800,
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 750,
 };
 
 const groupRightStyle: React.CSSProperties = {
@@ -977,7 +1003,7 @@ const groupRightStyle: React.CSSProperties = {
 const smallCountStyle: React.CSSProperties = {
   padding: "7px 10px",
   borderRadius: 999,
-  background: "#ede9fe",
+  background: "rgba(109,40,217,0.08)",
   color: "#6d28d9",
   fontSize: 12,
   fontWeight: 900,
@@ -986,29 +1012,33 @@ const smallCountStyle: React.CSSProperties = {
 
 const chevronStyle: React.CSSProperties = {
   color: "#6d28d9",
-  fontSize: 20,
+  fontSize: 16,
   fontWeight: 900,
+  opacity: 0.72,
 };
 
 const groupBodyStyle: React.CSSProperties = {
-  padding: "0 14px 14px",
+  padding: "10px 14px 14px",
   display: "flex",
   flexDirection: "column",
   gap: 10,
+  borderTop: "1px solid rgba(226,232,240,0.72)",
+  animation: "fadeIn 0.18s ease",
 };
 
 const guestCardStyle: React.CSSProperties = {
-  border: "1px solid var(--line)",
+  border: "1px solid rgba(226,232,240,0.9)",
   borderRadius: 16,
-  background: "rgba(148,163,184,0.06)",
+  background: "rgba(255,255,255,0.72)",
   overflow: "hidden",
+  boxShadow: "0 4px 18px rgba(15,23,42,0.035)",
 };
 
 const guestHeaderButtonStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
   background: "transparent",
-  padding: 15,
+  padding: "14px 16px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
