@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const [busca, setBusca] = useState("");
   const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacao>("grupo");
   const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
-  const [convidadoAbertoId, setConvidadoAbertoId] = useState<string | null>(null);
+  const [convidadosAbertos, setConvidadosAbertos] = useState<Record<string, boolean>>({});
 
   async function carregarDashboard() {
     setLoading(true);
@@ -92,40 +92,51 @@ export default function DashboardPage() {
     const termo = busca.trim().toLowerCase();
 
     return convidados.filter((c) => {
-      const matchBusca =
-        !termo ||
-        [c.nome, c.grupo, c.telefone, c.email, c.token]
-          .filter(Boolean)
-          .some((valor) => String(valor).toLowerCase().includes(termo));
+      const matchBusca = convidadoCombinaComBusca(c, termo);
 
       if (!matchBusca) return false;
 
-      if (filtro === "todos") return true;
-      if (filtro === "confirmados") return c.status_rsvp === "confirmado";
-      if (filtro === "pendentes") return c.status_rsvp === "pendente";
-      if (filtro === "entraram") return c.status_checkin === "entrou";
-      if (filtro === "faltam") return c.status_rsvp === "confirmado" && c.status_checkin !== "entrou";
-      if (filtro === "nao") return c.status_rsvp === "nao";
-
-      return true;
+      return convidadoCombinaComFiltro(c, filtro);
     });
   }, [convidados, filtro, busca]);
 
   const grupos = useMemo(() => {
-    const mapa = new Map<string, Convidado[]>();
+    const termo = busca.trim().toLowerCase();
+    const mapaCompleto = new Map<string, Convidado[]>();
 
-    convidadosFiltrados.forEach((c) => {
+    convidados.forEach((c) => {
       const grupo = normalizarGrupo(c.grupo);
-      const lista = mapa.get(grupo) || [];
+      const lista = mapaCompleto.get(grupo) || [];
       lista.push(c);
-      mapa.set(grupo, lista);
+      mapaCompleto.set(grupo, lista);
     });
 
-    return Array.from(mapa.entries()).map(([grupo, lista]) => ({
-      grupo,
-      lista: lista.sort(ordenarPorTelefoneDepoisNome),
-    }));
-  }, [convidadosFiltrados]);
+    return Array.from(mapaCompleto.entries())
+      .map(([grupo, listaCompleta]) => {
+        const grupoCombinaComBusca =
+          !termo ||
+          listaCompleta.some((convidado) => convidadoCombinaComBusca(convidado, termo));
+
+        if (!grupoCombinaComBusca) {
+          return null;
+        }
+
+        const lista = listaCompleta
+          .filter((convidado) => convidadoCombinaComFiltro(convidado, filtro))
+          .sort(ordenarPorTelefoneDepoisNome);
+
+        if (lista.length === 0) {
+          return null;
+        }
+
+        return { grupo, lista };
+      })
+      .filter(Boolean) as { grupo: string; lista: Convidado[] }[];
+  }, [convidados, filtro, busca]);
+
+  const totalItensExibidos = modoVisualizacao === "grupo"
+    ? grupos.reduce((total, grupo) => total + grupo.lista.length, 0)
+    : convidadosFiltrados.length;
 
   const cards = [
     {
@@ -181,7 +192,14 @@ export default function DashboardPage() {
 
   function fecharTodosGrupos() {
     setGruposAbertos({});
-    setConvidadoAbertoId(null);
+    setConvidadosAbertos({});
+  }
+
+  function toggleConvidado(id: string) {
+    setConvidadosAbertos((current) => ({
+      ...current,
+      [id]: !current[id],
+    }));
   }
 
   return (
@@ -337,7 +355,7 @@ export default function DashboardPage() {
             style={searchInputStyle}
           />
 
-          <div style={counterStyle}>{convidadosFiltrados.length} itens</div>
+          <div style={counterStyle}>{totalItensExibidos} itens</div>
         </div>
 
         {modoVisualizacao === "grupo" && (
@@ -376,12 +394,8 @@ export default function DashboardPage() {
                         <GuestCard
                           key={convidado.id}
                           convidado={convidado}
-                          aberto={convidadoAbertoId === convidado.id}
-                          onToggle={() =>
-                            setConvidadoAbertoId((current) =>
-                              current === convidado.id ? null : convidado.id
-                            )
-                          }
+                          aberto={!!convidadosAbertos[convidado.id]}
+                          onToggle={() => toggleConvidado(convidado.id)}
                         />
                       ))}
                     </div>
@@ -396,12 +410,8 @@ export default function DashboardPage() {
               <GuestCard
                 key={convidado.id}
                 convidado={convidado}
-                aberto={convidadoAbertoId === convidado.id}
-                onToggle={() =>
-                  setConvidadoAbertoId((current) =>
-                    current === convidado.id ? null : convidado.id
-                  )
-                }
+                aberto={!!convidadosAbertos[convidado.id]}
+                onToggle={() => toggleConvidado(convidado.id)}
               />
             ))}
           </div>
@@ -505,8 +515,36 @@ function InfoBox({ label, value }: { label: string; value: string }) {
   );
 }
 
+function convidadoCombinaComBusca(convidado: Convidado, termo: string) {
+  if (!termo) return true;
+
+  return [
+    convidado.nome,
+    convidado.grupo,
+    convidado.telefone,
+    convidado.email,
+    convidado.token,
+  ]
+    .filter(Boolean)
+    .some((valor) => String(valor).toLowerCase().includes(termo));
+}
+
+function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus) {
+  if (filtro === "todos") return true;
+  if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
+  if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
+  if (filtro === "entraram") return convidado.status_checkin === "entrou";
+  if (filtro === "faltam") {
+    return convidado.status_rsvp === "confirmado" && convidado.status_checkin !== "entrou";
+  }
+  if (filtro === "nao") return convidado.status_rsvp === "nao";
+
+  return true;
+}
+
 function normalizarGrupo(grupo: string | null | undefined) {
-  return grupo?.trim() || "Sem grupo";
+  const texto = (grupo || "").trim().replace(/\s+/g, "_");
+  return texto || "Sem grupo";
 }
 
 function normalizarTelefone(telefone: string | null | undefined) {
