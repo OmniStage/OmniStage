@@ -15,6 +15,9 @@ type PreviewRow = {
   nome: string;
   telefone: string | null;
   grupo: string | null;
+  status_rsvp: string | null;
+  status_envio: string | null;
+  observacoes: string | null;
   is_duplicate: boolean;
 };
 
@@ -46,13 +49,8 @@ export default function AdminImportacaoPage() {
   async function carregarHistorico(tenant: string, evento: string) {
     const response = await fetch("/api/admin/import-history", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        tenantId: tenant,
-        eventoId: evento,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: tenant, eventoId: evento }),
     });
 
     const result = await response.json();
@@ -116,10 +114,6 @@ export default function AdminImportacaoPage() {
       return url.replace("/pubhtml", "/pub?output=csv");
     }
 
-    if (url.includes("output=csv")) {
-      return url;
-    }
-
     return url;
   }
 
@@ -134,9 +128,7 @@ export default function AdminImportacaoPage() {
     try {
       const response = await fetch("/api/admin/import-from-sheet", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: normalizarGoogleSheetsUrl(sheetUrl.trim()),
         }),
@@ -151,9 +143,11 @@ export default function AdminImportacaoPage() {
       const textoFormatado = (result.data || [])
         .map(
           (item: any) =>
-            `${item.legacy_id || ""}    ${item.grupo || ""}    ${item.nome || ""}    ${
-              item.telefone || ""
-            }`
+            `${item.legacy_id || ""}    ${item.grupo || ""}    ${
+              item.nome || ""
+            }    ${item.telefone || ""}    ${item.status_rsvp || ""}    ${
+              item.data_resposta || ""
+            }    ${item.status_envio || ""}    ${item.data_hora || ""}`
         )
         .join("\n");
 
@@ -185,9 +179,7 @@ export default function AdminImportacaoPage() {
     try {
       const response = await fetch("/api/admin/import-legacy", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "preview",
           tenantId,
@@ -231,9 +223,7 @@ export default function AdminImportacaoPage() {
     try {
       const response = await fetch("/api/admin/import-legacy", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "confirm",
           tenantId,
@@ -276,9 +266,7 @@ export default function AdminImportacaoPage() {
     try {
       const response = await fetch("/api/admin/revert-import", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tenantId,
           eventoId,
@@ -293,7 +281,6 @@ export default function AdminImportacaoPage() {
       }
 
       alert(`${result.removidos} convidados removidos.`);
-
       await carregarHistorico(tenantId, eventoId);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao reverter importação.");
@@ -371,7 +358,7 @@ export default function AdminImportacaoPage() {
             <textarea
               value={texto}
               onChange={(event) => setTexto(event.target.value)}
-              placeholder={`3    FAMILIA_ANDREZZA    ANDREZZA FERRAZ    5522999787402\n4    FAMILIA_ANDREZZA    FLÁVIO MANCEBO\n5    INDIVIDUAL_ALESSANDRA BARROS    ALESSANDRA BARROS    5522999320550`}
+              placeholder={`3    FAMILIA_ANDREZZA    ANDREZZA FERRAZ    5522999787402    confirmado    02/05/2026    enviado    02/05/2026 18:40`}
               style={{
                 ...inputStyle,
                 minHeight: 220,
@@ -433,11 +420,23 @@ export default function AdminImportacaoPage() {
               >
                 <div>
                   <strong style={{ fontSize: 20 }}>{item.nome}</strong>
+
                   <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
                     Legacy ID: {item.legacy_id || "sem ID"} · Grupo:{" "}
                     {item.grupo || "sem grupo"} · Telefone:{" "}
                     {item.telefone || "sem telefone"}
                   </p>
+
+                  <p style={{ color: "#cbd5e1", margin: "6px 0 0" }}>
+                    RSVP: {item.status_rsvp || "pendente"} · Envio:{" "}
+                    {item.status_envio || "pendente"}
+                  </p>
+
+                  {item.observacoes && (
+                    <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13, whiteSpace: "pre-line" }}>
+                      {item.observacoes}
+                    </p>
+                  )}
                 </div>
 
                 <span
