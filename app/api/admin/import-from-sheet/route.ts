@@ -76,10 +76,7 @@ export async function POST(req: Request) {
         ? rows[headerIndex]
         : rows[0].map((_, index) => `Coluna ${index + 1}`);
 
-    const dataRows =
-      headerIndex >= 0
-        ? rows.slice(headerIndex + 1)
-        : rows;
+    const dataRows = headerIndex >= 0 ? rows.slice(headerIndex + 1) : rows;
 
     const cleanedRows = dataRows
       .filter((cols) => cols.some((value) => value && value.trim()))
