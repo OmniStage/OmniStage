@@ -27,12 +27,16 @@ function parseCsvLine(line: string) {
   return result.map((value) => value.replace(/^"|"$/g, "").trim());
 }
 
-function isHeader(cols: string[]) {
-  const first = (cols[0] || "").toLowerCase();
-  const second = (cols[1] || "").toLowerCase();
-  const third = (cols[2] || "").toLowerCase();
+function findHeaderIndex(rows: string[][]) {
+  return rows.findIndex((cols) => {
+    const normalized = cols.map((col) => col.toLocaleLowerCase("pt-BR"));
 
-  return first.includes("id") && second.includes("grupo") && third.includes("nome");
+    return (
+      normalized.some((col) => col.includes("id")) &&
+      normalized.some((col) => col.includes("grupo")) &&
+      normalized.some((col) => col.includes("nome"))
+    );
+  });
 }
 
 export async function POST(req: Request) {
@@ -51,31 +55,41 @@ export async function POST(req: Request) {
 
     const csv = await response.text();
 
-    const linhas = csv
+    const rows = csv
       .split(/\r?\n/)
       .map((linha) => linha.trim())
-      .filter(Boolean);
-
-    const parsed = linhas
+      .filter(Boolean)
       .map(parseCsvLine)
-      .filter((cols) => cols.length >= 3)
-      .filter((cols) => !isHeader(cols))
-      .map((cols) => ({
-        legacy_id: cols[0] || "",
-        grupo: cols[1] || "",
-        nome: cols[2] || "",
-        telefone: cols[3] || "",
-        status_rsvp: cols[4] || "",
-        data_resposta: cols[5] || "",
-        status_envio: cols[6] || "",
-        data_hora: cols[7] || "",
-      }))
-      .filter((item) => item.nome);
+      .filter((cols) => cols.length > 0);
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: "Planilha vazia ou sem dados válidos." },
+        { status: 400 }
+      );
+    }
+
+    const headerIndex = findHeaderIndex(rows);
+
+    const headers =
+      headerIndex >= 0
+        ? rows[headerIndex]
+        : rows[0].map((_, index) => `Coluna ${index + 1}`);
+
+    const dataRows =
+      headerIndex >= 0
+        ? rows.slice(headerIndex + 1)
+        : rows;
+
+    const cleanedRows = dataRows
+      .filter((cols) => cols.some((value) => value && value.trim()))
+      .filter((cols) => cols.length >= 2);
 
     return NextResponse.json({
       ok: true,
-      total: parsed.length,
-      data: parsed,
+      total: cleanedRows.length,
+      headers,
+      rows: cleanedRows,
     });
   } catch (error: any) {
     return NextResponse.json(
