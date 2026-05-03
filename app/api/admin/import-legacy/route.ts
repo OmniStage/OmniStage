@@ -113,7 +113,9 @@ export async function POST(req: Request) {
         telefone: guest.phone,
         grupo: guest.grupo,
         quantidade: 1,
-        observacoes: null,
+        status_rsvp: guest.status_rsvp,
+        status_envio: guest.status_envio,
+        observacoes: guest.observacoes,
         is_duplicate:
           Boolean(guest.phone && existingPhones.has(guest.phone)) ||
           Boolean(guest.legacy_id && existingLegacyIds.has(guest.legacy_id)),
@@ -194,8 +196,8 @@ export async function POST(req: Request) {
         grupo: item.grupo,
         tipo_convite: item.grupo ? "grupo" : "individual",
         observacoes: item.observacoes,
-        status_rsvp: "pendente",
-        status_envio: "pendente",
+        status_rsvp: item.status_rsvp || "pendente",
+        status_envio: item.status_envio || "pendente",
         status_checkin: "nao_entrou",
         token: gerarToken(),
       }));
