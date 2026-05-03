@@ -876,7 +876,7 @@ Apresente o cartão na entrada do evento.`;
                             }}
                           >
                             Token:{" "}
-                            <strong style={{ color: "#7c3aed" }}>
+                            <strong style={{ color: "var(--accent)" }}>
                               {convidado.token || "sem token"}
                             </strong>
                           </div>
@@ -1075,21 +1075,21 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
         "--primary-shadow": "0 12px 32px rgba(124,58,237,0.28)",
       }
     : {
-        "--page-bg": "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 45%, #ecfdf5 100%)",
+        "--page-bg": "#f3f4f6",
         "--card-bg": "#ffffff",
-        "--section-bg": "rgba(255,255,255,0.92)",
-        "--soft-bg": "#f0fdf4",
-        "--text": "#064e3b",
-        "--text-secondary": "#065f46",
-        "--muted": "#047857",
-        "--border": "#bbf7d0",
-        "--border-strong": "#86efac",
-        "--accent": "#6d28d9",
-        "--accent-strong": "#4c1d95",
-        "--accent-border": "rgba(124,58,237,0.24)",
-        "--group-soft": "#f5f3ff",
-        "--primary-bg": "linear-gradient(135deg, #7c3aed, #5b21b6)",
-        "--primary-shadow": "0 12px 32px rgba(124,58,237,0.24)",
+        "--section-bg": "#ffffff",
+        "--soft-bg": "#f9fafb",
+        "--text": "#0f172a",
+        "--text-secondary": "#374151",
+        "--muted": "#6b7280",
+        "--border": "#e5e7eb",
+        "--border-strong": "#d1d5db",
+        "--accent": "#0ea5e9",
+        "--accent-strong": "#0284c7",
+        "--accent-border": "rgba(14,165,233,0.28)",
+        "--group-soft": "#eff6ff",
+        "--primary-bg": "#43a500",
+        "--primary-shadow": "0 8px 22px rgba(67,165,0,0.22)",
       };
 }
 
@@ -1336,7 +1336,7 @@ const quickActionsStyle: CSSProperties = {
 const smallButtonStyle: CSSProperties = {
   padding: "9px 12px",
   borderRadius: 999,
-  background: "#7c3aed",
+  background: "var(--accent)",
   border: "none",
   color: "#ffffff",
   fontWeight: 800,
@@ -1369,4 +1369,5 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
+
    
