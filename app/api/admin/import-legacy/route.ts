@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { parseLegacyGuestList } from "@/lib/importLegacyGuestsParser";
 
+type ImportGuest = {
+  legacy_id: string | null;
+  grupo: string | null;
+  name: string;
+  phone: string | null;
+  status_rsvp: string | null;
+  status_envio: string | null;
+  data_hora_rsvp: string | null;
+  data_hora_envio: string | null;
+  raw?: any;
+};
+
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,6 +29,56 @@ function gerarToken() {
   return "EVT-" + Math.floor(100000 + Math.random() * 900000);
 }
 
+function cleanPhone(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const digits = String(value).replace(/\D/g, "");
+  return digits.length >= 8 ? digits : null;
+}
+
+function normalizeStatusRsvp(value: string | null | undefined): string {
+  const status = String(value || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (status.includes("confirm")) return "confirmado";
+  if (status.includes("nao")) return "nao";
+  if (status.includes("pend")) return "pendente";
+
+  return "pendente";
+}
+
+function normalizeStatusEnvio(value: string | null | undefined): string {
+  const status = String(value || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (status.includes("enviado")) return "enviado";
+  if (status.includes("erro")) return "erro";
+  if (status.includes("pend")) return "pendente";
+
+  return "pendente";
+}
+
+function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
+  return mappedRows
+    .map((row) => ({
+      legacy_id: row.legacy_id ? String(row.legacy_id).trim() : null,
+      grupo: row.grupo ? String(row.grupo).trim() : null,
+      name: row.nome ? String(row.nome).trim() : "",
+      phone: cleanPhone(row.telefone),
+      status_rsvp: normalizeStatusRsvp(row.status_rsvp),
+      status_envio: normalizeStatusEnvio(row.status_envio),
+      data_hora_rsvp: row.data_hora_rsvp ? String(row.data_hora_rsvp).trim() : null,
+      data_hora_envio: row.data_hora_envio ? String(row.data_hora_envio).trim() : null,
+      raw: row,
+    }))
+    .filter((guest) => guest.name.length > 1);
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
@@ -26,6 +88,7 @@ export async function POST(req: Request) {
     const tenantId = body.tenantId;
     const eventoId = body.eventoId;
     const text = body.text || "";
+    const mappedRows = Array.isArray(body.mappedRows) ? body.mappedRows : [];
     const batchId = body.batchId;
     const selectedIds: string[] = Array.isArray(body.selectedIds)
       ? body.selectedIds
@@ -39,21 +102,46 @@ export async function POST(req: Request) {
     }
 
     if (action === "preview") {
-      if (!text.trim()) {
-        return NextResponse.json({ error: "Lista vazia." }, { status: 400 });
+      let parsedGuests: ImportGuest[] = [];
+
+      if (mappedRows.length > 0) {
+        parsedGuests = normalizeMappedRows(mappedRows);
+      } else {
+        if (!text.trim()) {
+          return NextResponse.json({ error: "Lista vazia." }, { status: 400 });
+        }
+
+        parsedGuests = parseLegacyGuestList(text).map((guest) => ({
+          legacy_id: guest.legacy_id,
+          grupo: guest.grupo,
+          name: guest.name,
+          phone: guest.phone,
+          status_rsvp: guest.status_rsvp,
+          status_envio: guest.status_envio,
+          data_hora_rsvp: guest.data_hora_rsvp,
+          data_hora_envio: guest.data_hora_envio,
+          raw: guest.raw,
+        }));
       }
 
-      const parsedGuests = parseLegacyGuestList(text);
+      if (parsedGuests.length === 0) {
+        return NextResponse.json(
+          { error: "Nenhum convidado válido encontrado para gerar prévia." },
+          { status: 400 }
+        );
+      }
 
       const { data: batch, error: batchError } = await supabase
         .from("guest_import_batches")
         .insert({
           tenant_id: tenantId,
           event_id: eventoId,
-          source_type: "spreadsheet",
+          source_type: mappedRows.length > 0 ? "google_sheet_mapped" : "text_parser",
           total_rows: parsedGuests.length,
           status: "preview",
-          file_name: "importacao_legado_admin",
+          file_name: mappedRows.length > 0
+            ? "importacao_planilha_mapeada_admin"
+            : "importacao_texto_admin",
         })
         .select()
         .single();
@@ -111,7 +199,9 @@ export async function POST(req: Request) {
         tenant_id: tenantId,
         event_id: eventoId,
         legacy_id: guest.legacy_id,
-        origem_importacao: "planilha_legada",
+        origem_importacao: mappedRows.length > 0
+          ? "planilha_mapeada"
+          : "texto_importado",
         nome: guest.name,
         telefone: guest.phone,
         grupo: guest.grupo,
@@ -123,7 +213,7 @@ export async function POST(req: Request) {
         is_duplicate:
           Boolean(guest.phone && existingPhones.has(guest.phone)) ||
           Boolean(guest.legacy_id && existingLegacyIds.has(guest.legacy_id)),
-        raw_data: guest,
+        raw_data: guest.raw || guest,
       }));
 
       const duplicatedRows = previewRows.filter((row) => row.is_duplicate).length;
@@ -148,7 +238,7 @@ export async function POST(req: Request) {
         .from("eventos")
         .update({
           is_legado: true,
-          origem_dados: "planilha_legada",
+          origem_dados: mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
         })
         .eq("id", eventoId)
         .eq("tenant_id", tenantId);
@@ -159,7 +249,7 @@ export async function POST(req: Request) {
         batch_id: batch.id,
         tipo: "legacy_guests",
         acao: "preview_import",
-        origem: "planilha_legada",
+        origem: mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
         total: previewRows.length,
       });
 
@@ -248,7 +338,7 @@ export async function POST(req: Request) {
         batch_id: batchId,
         tipo: "legacy_guests",
         acao: "confirm_import",
-        origem: "planilha_legada",
+        origem: rowsToInsert[0]?.origem_importacao || "planilha_legada",
         total: rowsToInsert.length,
       });
 
