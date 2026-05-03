@@ -500,26 +500,26 @@ function RsvpGuestCard({
             >
               Entrou sem RSVP
             </button>
+
+            <button
+              className="rsvp-action"
+              onClick={() => onChangeStatus(convidado, "pendente")}
+              disabled={salvando || status === "pendente"}
+              style={status === "pendente" ? activePendingButtonStyle : pendingButtonStyle}
+            >
+              Pendente
+            </button>
+
+            <button
+              className="rsvp-action"
+              onClick={() => onChangeStatus(convidado, "nao")}
+              disabled={salvando || status === "nao"}
+              style={status === "nao" ? activeAbsentButtonStyle : absentButtonStyle}
+            >
+              Ausência
+            </button>
           </>
         )}
-
-        <button
-          className="rsvp-action"
-          onClick={() => onChangeStatus(convidado, "pendente")}
-          disabled={salvando || status === "pendente"}
-          style={status === "pendente" ? activePendingButtonStyle : pendingButtonStyle}
-        >
-          Pendente
-        </button>
-
-        <button
-          className="rsvp-action"
-          onClick={() => onChangeStatus(convidado, "nao")}
-          disabled={salvando || status === "nao"}
-          style={status === "nao" ? activeAbsentButtonStyle : absentButtonStyle}
-        >
-          Ausência
-        </button>
 
         <a href={linkConvite} target="_blank" rel="noreferrer" style={linkButtonStyle}>
           Convite
@@ -1099,3 +1099,4 @@ const emptyStyle: React.CSSProperties = {
   border: "1px dashed var(--line)",
   color: "var(--muted)",
 };
+
