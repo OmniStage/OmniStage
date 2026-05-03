@@ -124,6 +124,14 @@ export default function ConvidadosPage() {
     });
   }, [convidados, busca, filtroRsvp, filtroEnvio]);
 
+  const totaisPorGrupo = useMemo(() => {
+    return convidadosFiltrados.reduce<Record<string, number>>((acc, convidado) => {
+      const grupo = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
+      acc[grupo] = (acc[grupo] || 0) + 1;
+      return acc;
+    }, {});
+  }, [convidadosFiltrados]);
+
   function updateForm(field: keyof ConvidadoForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
   }
@@ -223,7 +231,8 @@ Apresente o cartão na entrada do evento.`;
       .from("eventos")
       .select("id, nome")
       .eq("tenant_id", tenant)
-      .order("created_at", { ascending: false });
+      .order("grupo", { ascending: true, nullsFirst: false })
+      .order("nome", { ascending: true });
 
     if (error) {
       alert("Erro ao carregar eventos: " + error.message);
@@ -724,13 +733,34 @@ Apresente o cartão na entrada do evento.`;
             <div style={emptyStyle}>Nenhum convidado encontrado com estes filtros.</div>
           )}
 
-          {convidadosFiltrados.map((convidado) => {
+          {convidadosFiltrados.map((convidado, index) => {
             const linkWhatsApp = gerarLinkWhatsApp(convidado);
             const linkCartao = gerarLinkCartao(convidado);
             const linkConvite = gerarLinkConvite(convidado);
+            const grupoAtual = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
+            const grupoAnterior =
+              index > 0
+                ? (convidadosFiltrados[index - 1].grupo || "Sem grupo").trim() || "Sem grupo"
+                : null;
+            const deveMostrarSeparador = grupoAtual !== grupoAnterior;
 
             return (
-              <article key={convidado.id} style={eventCardStyle}>
+              <div key={convidado.id} style={{ display: "grid", gap: 12 }}>
+                {deveMostrarSeparador && (
+                  <div style={groupHeaderStyle}>
+                    <div>
+                      <span style={groupEyebrowStyle}>Grupo/Família</span>
+                      <strong style={groupTitleStyle}>{grupoAtual}</strong>
+                    </div>
+
+                    <span style={groupCountStyle}>
+                      {totaisPorGrupo[grupoAtual] || 0} convidado
+                      {(totaisPorGrupo[grupoAtual] || 0) === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                )}
+
+                <article style={eventCardStyle}>
                 <div style={guestMainStyle}>
                   <strong style={{ fontSize: 22 }}>{convidado.nome}</strong>
 
@@ -809,6 +839,7 @@ Apresente o cartão na entrada do evento.`;
                   </div>
                 </div>
               </article>
+              </div>
             );
           })}
         </div>
@@ -955,6 +986,45 @@ const filtersStyle: CSSProperties = {
   gridTemplateColumns: "minmax(0, 1fr) 190px 190px",
   gap: 12,
   marginBottom: 18,
+};
+
+const groupHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 14,
+  padding: "13px 16px",
+  borderRadius: 14,
+  border: "1px solid rgba(250,204,21,0.32)",
+  background: "linear-gradient(135deg, rgba(250,204,21,0.12), rgba(15,23,42,0.92))",
+};
+
+const groupEyebrowStyle: CSSProperties = {
+  display: "block",
+  color: "#94a3b8",
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  marginBottom: 4,
+};
+
+const groupTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#fde68a",
+  fontSize: 18,
+  letterSpacing: "0.02em",
+};
+
+const groupCountStyle: CSSProperties = {
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "rgba(2,6,23,0.72)",
+  border: "1px solid rgba(250,204,21,0.24)",
+  color: "#fef3c7",
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
 };
 
 const eventCardStyle: CSSProperties = {
