@@ -276,38 +276,39 @@ export default function DashboardPage() {
             transform 180ms cubic-bezier(.2,.8,.2,1),
             box-shadow 180ms cubic-bezier(.2,.8,.2,1),
             border-color 180ms ease,
-            background 180ms ease;
+            background 180ms ease !important;
           will-change: transform;
         }
 
         .omni-group-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
-          border-color: rgba(109, 40, 217, 0.18);
-          background: #f8fafc;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
+          border-color: rgba(109, 40, 217, 0.22) !important;
+          background: #f8fafc !important;
         }
 
         .omni-group-card:active {
-          transform: translateY(0) scale(0.996);
-          box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+          transform: translateY(0) scale(0.996) !important;
+          box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06) !important;
+          background: #f1f5f9 !important;
         }
 
         .omni-group-header {
           transition:
             background 180ms ease,
-            transform 180ms cubic-bezier(.2,.8,.2,1);
+            transform 180ms cubic-bezier(.2,.8,.2,1) !important;
         }
 
         .omni-group-card:hover .omni-group-header {
-          background: #f1f5f9;
+          background: #f1f5f9 !important;
         }
 
         .omni-group-card:active .omni-group-header {
-          background: #e2e8f0;
+          background: #e2e8f0 !important;
         }
 
         .omni-group-body {
-          animation: groupReveal 280ms cubic-bezier(.2,.8,.2,1) both;
+          animation: groupReveal 280ms cubic-bezier(.2,.8,.2,1) both !important;
           transform-origin: top;
           overflow: hidden;
         }
@@ -317,34 +318,34 @@ export default function DashboardPage() {
             transform 160ms cubic-bezier(.2,.8,.2,1),
             box-shadow 160ms ease,
             border-color 160ms ease,
-            background 160ms ease;
-          animation: guestReveal 220ms cubic-bezier(.2,.8,.2,1) both;
+            background 160ms ease !important;
+          animation: guestReveal 220ms cubic-bezier(.2,.8,.2,1) both !important;
           will-change: transform;
         }
 
         .omni-guest-card:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
-          border-color: rgba(148,163,184,0.25);
-          background: #f9fafb;
+          transform: translateY(-1px) !important;
+          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07) !important;
+          border-color: rgba(148,163,184,0.3) !important;
+          background: #f9fafb !important;
         }
 
         .omni-guest-card:active {
-          transform: scale(0.996);
-          background: #f1f5f9;
+          transform: scale(0.996) !important;
+          background: #f1f5f9 !important;
         }
 
         .omni-chevron {
           display: inline-flex;
           transition:
             transform 190ms cubic-bezier(.2,.8,.2,1),
-            opacity 180ms ease;
+            opacity 180ms ease !important;
         }
 
         .omni-group-card:hover .omni-chevron,
         .omni-guest-card:hover .omni-chevron {
-          opacity: 1;
-          transform: translateY(-1px);
+          opacity: 1 !important;
+          transform: translateY(-1px) !important;
         }
 
         button:focus-visible,
