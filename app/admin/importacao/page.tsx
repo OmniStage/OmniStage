@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Evento = {
@@ -35,17 +35,50 @@ type ImportHistoryItem = {
   reverted_at: string | null;
 };
 
+type SheetMapping = {
+  legacy_id: string;
+  grupo: string;
+  nome: string;
+  telefone: string;
+  status_rsvp: string;
+  status_envio: string;
+  data_resposta: string;
+  data_hora: string;
+};
+
+const initialMapping: SheetMapping = {
+  legacy_id: "",
+  grupo: "",
+  nome: "",
+  telefone: "",
+  status_rsvp: "",
+  status_envio: "",
+  data_resposta: "",
+  data_hora: "",
+};
+
 export default function AdminImportacaoPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetHeaders, setSheetHeaders] = useState<string[]>([]);
+  const [sheetRows, setSheetRows] = useState<string[][]>([]);
+  const [mapping, setMapping] = useState<SheetMapping>(initialMapping);
   const [texto, setTexto] = useState("");
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const hasSheetLoaded = sheetHeaders.length > 0 && sheetRows.length > 0;
+
+  const mappedTextPreview = useMemo(() => {
+    if (!hasSheetLoaded) return "";
+
+    return montarTextoMapeado(false);
+  }, [sheetRows, mapping, hasSheetLoaded]);
 
   async function carregarHistorico(tenant: string, evento: string) {
     const response = await fetch("/api/admin/import-history", {
@@ -111,12 +144,107 @@ export default function AdminImportacaoPage() {
     setBatchId(null);
   }
 
+  function limparPlanilhaCarregada() {
+    setSheetHeaders([]);
+    setSheetRows([]);
+    setMapping(initialMapping);
+    setTexto("");
+    setPreview([]);
+    setSelectedIds([]);
+    setBatchId(null);
+  }
+
   function normalizarGoogleSheetsUrl(url: string) {
     if (url.includes("/pubhtml")) {
       return url.replace("/pubhtml", "/pub?output=csv");
     }
 
     return url;
+  }
+
+  function updateMapping(field: keyof SheetMapping, value: string) {
+    setMapping((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function getColumnValue(row: string[], headerName: string) {
+    if (!headerName) return "";
+
+    const index = sheetHeaders.indexOf(headerName);
+
+    if (index < 0) return "";
+
+    return row[index] || "";
+  }
+
+  function montarTextoMapeado(updateState = true) {
+    const textoMapeado = sheetRows
+      .map((row) => {
+        const legacyId = getColumnValue(row, mapping.legacy_id);
+        const grupo = getColumnValue(row, mapping.grupo);
+        const nome = getColumnValue(row, mapping.nome);
+        const telefone = getColumnValue(row, mapping.telefone);
+        const statusRsvp = getColumnValue(row, mapping.status_rsvp);
+        const statusEnvio = getColumnValue(row, mapping.status_envio);
+        const dataResposta = getColumnValue(row, mapping.data_resposta);
+        const dataHora = getColumnValue(row, mapping.data_hora);
+
+        return [
+          legacyId,
+          grupo,
+          nome,
+          telefone,
+          statusRsvp,
+          dataResposta,
+          statusEnvio,
+          dataHora,
+        ].join("    ");
+      })
+      .filter((line) => line.trim())
+      .join("\n");
+
+    if (updateState) {
+      setTexto(textoMapeado);
+      setPreview([]);
+      setSelectedIds([]);
+      setBatchId(null);
+    }
+
+    return textoMapeado;
+  }
+
+  function aplicarMapeamento() {
+    if (!mapping.nome) {
+      alert("Mapeie pelo menos a coluna Nome.");
+      return;
+    }
+
+    montarTextoMapeado(true);
+    alert("Mapeamento aplicado. Agora clique em Gerar prévia.");
+  }
+
+  function sugerirMapeamento(headers: string[]) {
+    function findHeader(terms: string[]) {
+      return (
+        headers.find((header) => {
+          const normalized = header.toLocaleLowerCase("pt-BR");
+          return terms.some((term) => normalized.includes(term));
+        }) || ""
+      );
+    }
+
+    setMapping({
+      legacy_id: findHeader(["id"]),
+      grupo: findHeader(["grupo", "família", "familia"]),
+      nome: findHeader(["nome", "convidado"]),
+      telefone: findHeader(["telefone", "whatsapp", "celular"]),
+      status_rsvp: findHeader(["status_rsvp", "rsvp", "confirma"]),
+      status_envio: findHeader(["status", "envio", "enviado"]),
+      data_resposta: findHeader(["data_resposta", "resposta"]),
+      data_hora: findHeader(["dia", "horário", "horario", "hora"]),
+    });
   }
 
   function toggleSelect(id: string) {
@@ -130,11 +258,7 @@ export default function AdminImportacaoPage() {
   }
 
   function selecionarValidos() {
-    setSelectedIds(
-      preview
-        .filter((item) => !item.is_duplicate)
-        .map((item) => item.id)
-    );
+    setSelectedIds(preview.filter((item) => !item.is_duplicate).map((item) => item.id));
   }
 
   function limparSelecao() {
@@ -170,23 +294,18 @@ export default function AdminImportacaoPage() {
         throw new Error(result.error || "Erro ao carregar planilha.");
       }
 
-      const textoFormatado = (result.data || [])
-        .map(
-          (item: any) =>
-            `${item.legacy_id || ""}    ${item.grupo || ""}    ${
-              item.nome || ""
-            }    ${item.telefone || ""}    ${item.status_rsvp || ""}    ${
-              item.data_resposta || ""
-            }    ${item.status_envio || ""}    ${item.data_hora || ""}`
-        )
-        .join("\n");
+      const headers = result.headers || [];
+      const rows = result.rows || [];
 
-      setTexto(textoFormatado);
+      setSheetHeaders(headers);
+      setSheetRows(rows);
+      setTexto("");
       setPreview([]);
       setSelectedIds([]);
       setBatchId(null);
+      sugerirMapeamento(headers);
 
-      alert(`${result.total || 0} linhas carregadas da planilha.`);
+      alert(`${result.total || 0} linhas carregadas. Revise o mapeamento antes de gerar a prévia.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao carregar planilha.");
     } finally {
@@ -200,8 +319,15 @@ export default function AdminImportacaoPage() {
       return;
     }
 
-    if (!texto.trim()) {
+    const textoFinal = hasSheetLoaded ? montarTextoMapeado(false) : texto;
+
+    if (!textoFinal.trim()) {
       alert("Cole os convidados da planilha antiga ou carregue uma planilha.");
+      return;
+    }
+
+    if (hasSheetLoaded && !mapping.nome) {
+      alert("Mapeie a coluna Nome antes de gerar a prévia.");
       return;
     }
 
@@ -215,7 +341,7 @@ export default function AdminImportacaoPage() {
           action: "preview",
           tenantId,
           eventoId,
-          text: texto,
+          text: textoFinal,
         }),
       });
 
@@ -227,13 +353,10 @@ export default function AdminImportacaoPage() {
 
       const previewData = (result.preview || []) as PreviewRow[];
 
+      setTexto(textoFinal);
       setBatchId(result.batchId);
       setPreview(previewData);
-      setSelectedIds(
-        previewData
-          .filter((item) => !item.is_duplicate)
-          .map((item) => item.id)
-      );
+      setSelectedIds(previewData.filter((item) => !item.is_duplicate).map((item) => item.id));
 
       await carregarHistorico(tenantId, eventoId);
 
@@ -348,7 +471,7 @@ export default function AdminImportacaoPage() {
       <h1 style={{ fontSize: 44, margin: 0 }}>Admin · Importação Legada</h1>
 
       <p style={{ color: "#94a3b8", marginTop: 8 }}>
-        Use esta tela apenas para migrar eventos antigos com ID da planilha.
+        Use esta tela para importar eventos antigos ou planilhas externas com mapeamento manual.
       </p>
 
       <section style={sectionStyle}>
@@ -397,8 +520,101 @@ export default function AdminImportacaoPage() {
             >
               {loading ? "Carregando..." : "Carregar planilha"}
             </button>
+
+            {hasSheetLoaded && (
+              <button
+                onClick={limparPlanilhaCarregada}
+                disabled={loading}
+                style={secondaryButtonStyle}
+              >
+                Limpar planilha carregada
+              </button>
+            )}
           </div>
         </div>
+
+        {hasSheetLoaded && (
+          <section style={mappingBoxStyle}>
+            <div style={headerStyle}>
+              <h2 style={{ margin: 0 }}>Mapeamento de colunas</h2>
+              <span style={{ color: "#94a3b8", fontWeight: 800 }}>
+                {sheetRows.length} linhas · {sheetHeaders.length} colunas
+              </span>
+            </div>
+
+            <div style={mappingGridStyle}>
+              <MappingSelect
+                label="ID → legacy_id"
+                value={mapping.legacy_id}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("legacy_id", value)}
+              />
+
+              <MappingSelect
+                label="Grupo → grupo"
+                value={mapping.grupo}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("grupo", value)}
+              />
+
+              <MappingSelect
+                label="Nome → nome"
+                value={mapping.nome}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("nome", value)}
+              />
+
+              <MappingSelect
+                label="Telefone → telefone"
+                value={mapping.telefone}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("telefone", value)}
+              />
+
+              <MappingSelect
+                label="Status_RSVP → status_rsvp"
+                value={mapping.status_rsvp}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("status_rsvp", value)}
+              />
+
+              <MappingSelect
+                label="Status → status_envio"
+                value={mapping.status_envio}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("status_envio", value)}
+              />
+
+              <MappingSelect
+                label="Data_Resposta → observações"
+                value={mapping.data_resposta}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("data_resposta", value)}
+              />
+
+              <MappingSelect
+                label="Dia / Horário → observações"
+                value={mapping.data_hora}
+                headers={sheetHeaders}
+                onChange={(value) => updateMapping("data_hora", value)}
+              />
+            </div>
+
+            <div style={actionsStyle}>
+              <button onClick={aplicarMapeamento} disabled={loading} style={goldButtonStyle}>
+                Aplicar mapeamento
+              </button>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <strong style={{ color: "#cbd5e1" }}>Prévia do texto gerado</strong>
+              <pre style={preStyle}>
+                {mappedTextPreview.split("\n").slice(0, 5).join("\n") ||
+                  "Mapeie as colunas para visualizar o texto final."}
+              </pre>
+            </div>
+          </section>
+        )}
 
         <div style={{ marginTop: 18 }}>
           <label style={fieldStyle}>
@@ -615,12 +831,46 @@ export default function AdminImportacaoPage() {
   );
 }
 
+function MappingSelect({
+  label,
+  value,
+  headers,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  headers: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label style={fieldStyle}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle}>
+        <option value="">Ignorar</option>
+        {headers.map((header, index) => (
+          <option key={`${header}-${index}`} value={header}>
+            {header || `Coluna ${index + 1}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 const sectionStyle: CSSProperties = {
   marginTop: 28,
   padding: 22,
   borderRadius: 18,
   border: "1px solid #334155",
   background: "#020617",
+};
+
+const mappingBoxStyle: CSSProperties = {
+  marginTop: 22,
+  padding: 18,
+  borderRadius: 16,
+  border: "1px solid rgba(250,204,21,0.25)",
+  background: "rgba(250,204,21,0.04)",
 };
 
 const fieldStyle: CSSProperties = {
@@ -637,6 +887,12 @@ const inputStyle: CSSProperties = {
   background: "#020617",
   color: "#fff",
   border: "1px solid #334155",
+};
+
+const mappingGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 14,
 };
 
 const actionsStyle: CSSProperties = {
@@ -732,4 +988,16 @@ const badgeStyle: CSSProperties = {
   fontWeight: 900,
   fontSize: 12,
   whiteSpace: "nowrap",
+};
+
+const preStyle: CSSProperties = {
+  marginTop: 8,
+  padding: 12,
+  borderRadius: 12,
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "#94a3b8",
+  overflowX: "auto",
+  whiteSpace: "pre-wrap",
+  fontSize: 12,
 };
