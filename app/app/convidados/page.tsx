@@ -82,8 +82,10 @@ export default function ConvidadosPage() {
     const termo = busca.trim().toLowerCase();
 
     const filtrados = convidados.filter((convidado) => {
-      const rsvpOk = filtroRsvp === "todos" || convidado.status_rsvp === filtroRsvp;
-      const envioOk = filtroEnvio === "todos" || convidado.status_envio === filtroEnvio;
+      const rsvpOk =
+        filtroRsvp === "todos" || convidado.status_rsvp === filtroRsvp;
+      const envioOk =
+        filtroEnvio === "todos" || convidado.status_envio === filtroEnvio;
 
       const buscaOk =
         !termo ||
@@ -125,16 +127,19 @@ export default function ConvidadosPage() {
   }, [convidados, busca, filtroRsvp, filtroEnvio]);
 
   const gruposConvidados = useMemo(() => {
-    const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>((acc, convidado) => {
-      const grupo = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
+    const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>(
+      (acc, convidado) => {
+        const grupo = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
 
-      if (!acc[grupo]) {
-        acc[grupo] = [];
-      }
+        if (!acc[grupo]) {
+          acc[grupo] = [];
+        }
 
-      acc[grupo].push(convidado);
-      return acc;
-    }, {});
+        acc[grupo].push(convidado);
+        return acc;
+      },
+      {},
+    );
 
     return Object.entries(mapa).map(([grupo, integrantes]) => ({
       grupo,
@@ -260,7 +265,8 @@ Apresente o cartão na entrada do evento.`;
   async function carregarConvidados(tenant: string, evento: string) {
     const { data, error } = await supabase
       .from("convidados")
-      .select(`
+      .select(
+        `
         id,
         nome,
         telefone,
@@ -274,7 +280,8 @@ Apresente o cartão na entrada do evento.`;
         token,
         evento_id,
         created_at
-      `)
+      `,
+      )
       .eq("tenant_id", tenant)
       .eq("evento_id", evento)
       .order("grupo", { ascending: true, nullsFirst: false })
@@ -360,7 +367,9 @@ Apresente o cartão na entrada do evento.`;
       await carregarConvidados(tenantId, eventoId);
       alert(editandoId ? "Convidado atualizado." : "Convidado criado.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao salvar convidado.");
+      alert(
+        error instanceof Error ? error.message : "Erro ao salvar convidado.",
+      );
     } finally {
       setLoading(false);
     }
@@ -428,7 +437,9 @@ Apresente o cartão na entrada do evento.`;
   async function excluirConvidado(convidado: Convidado) {
     if (!tenantId || !eventoId) return;
 
-    const confirmar = confirm(`Tem certeza que deseja excluir "${convidado.nome}"?`);
+    const confirmar = confirm(
+      `Tem certeza que deseja excluir "${convidado.nome}"?`,
+    );
     if (!confirmar) return;
 
     const { error } = await supabase
@@ -443,7 +454,9 @@ Apresente o cartão na entrada do evento.`;
       return;
     }
 
-    setConvidados((current) => current.filter((item) => item.id !== convidado.id));
+    setConvidados((current) =>
+      current.filter((item) => item.id !== convidado.id),
+    );
     alert("Convidado excluído.");
   }
 
@@ -452,11 +465,12 @@ Apresente o cartão na entrada do evento.`;
   }, []);
 
   return (
-    <main style={{ color: "#fff" }}>
+    <main style={pageStyle}>
       <h1 style={{ fontSize: 48, margin: 0 }}>Convidados</h1>
 
-      <p style={{ color: "#94a3b8", marginTop: 8 }}>
-        Cadastre os convidados que receberão o convite digital, RSVP e cartão de entrada.
+      <p style={{ color: "#64748b", marginTop: 8 }}>
+        Cadastre os convidados que receberão o convite digital, RSVP e cartão de
+        entrada.
       </p>
 
       <section style={{ marginTop: 24, marginBottom: 8 }}>
@@ -507,7 +521,7 @@ Apresente o cartão na entrada do evento.`;
             </button>
           </div>
 
-          <p style={{ color: "#94a3b8", marginTop: 0 }}>
+          <p style={{ color: "#64748b", marginTop: 0 }}>
             Cole uma lista com nomes, telefones, grupos ou quantidades. Ex:
             Maria +1, Família Silva (4), João - 21999999999.
           </p>
@@ -555,19 +569,26 @@ Apresente o cartão na entrada do evento.`;
                   >
                     <strong>{item.nome || item.name}</strong>
 
-                    <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
-                      Telefone: {item.telefone || item.phone || "Sem telefone"} · Grupo:{" "}
-                      {item.grupo || "Sem grupo"} · Quantidade: {item.quantidade || 1}
+                    <p style={{ color: "#64748b", margin: "6px 0 0" }}>
+                      Telefone: {item.telefone || item.phone || "Sem telefone"}{" "}
+                      · Grupo: {item.grupo || "Sem grupo"} · Quantidade:{" "}
+                      {item.quantidade || 1}
                     </p>
 
                     {item.observacoes && (
-                      <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13 }}>
+                      <p
+                        style={{
+                          color: "#64748b",
+                          margin: "6px 0 0",
+                          fontSize: 13,
+                        }}
+                      >
                         {item.observacoes}
                       </p>
                     )}
 
                     {item.is_duplicate && (
-                      <small style={{ color: "#fca5a5", fontWeight: 800 }}>
+                      <small style={{ color: "#b91c1c", fontWeight: 800 }}>
                         Possível duplicado
                       </small>
                     )}
@@ -588,7 +609,9 @@ Apresente o cartão na entrada do evento.`;
       {formAberto && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
-            <h2 style={{ margin: 0 }}>{editandoId ? "Editar convidado" : "Criar convidado"}</h2>
+            <h2 style={{ margin: 0 }}>
+              {editandoId ? "Editar convidado" : "Criar convidado"}
+            </h2>
             <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
               Fechar
             </button>
@@ -639,7 +662,9 @@ Apresente o cartão na entrada do evento.`;
               <span>Tipo</span>
               <select
                 value={form.tipo_convite}
-                onChange={(event) => updateForm("tipo_convite", event.target.value)}
+                onChange={(event) =>
+                  updateForm("tipo_convite", event.target.value)
+                }
                 style={inputStyle}
               >
                 <option value="individual">Individual</option>
@@ -651,7 +676,9 @@ Apresente o cartão na entrada do evento.`;
               <span>Status RSVP</span>
               <select
                 value={form.status_rsvp}
-                onChange={(event) => updateForm("status_rsvp", event.target.value)}
+                onChange={(event) =>
+                  updateForm("status_rsvp", event.target.value)
+                }
                 style={inputStyle}
               >
                 <option value="pendente">Pendente</option>
@@ -664,7 +691,9 @@ Apresente o cartão na entrada do evento.`;
               <span>Status envio</span>
               <select
                 value={form.status_envio}
-                onChange={(event) => updateForm("status_envio", event.target.value)}
+                onChange={(event) =>
+                  updateForm("status_envio", event.target.value)
+                }
                 style={inputStyle}
               >
                 <option value="pendente">Pendente</option>
@@ -677,7 +706,9 @@ Apresente o cartão na entrada do evento.`;
               <span>Observações</span>
               <textarea
                 value={form.observacoes}
-                onChange={(event) => updateForm("observacoes", event.target.value)}
+                onChange={(event) =>
+                  updateForm("observacoes", event.target.value)
+                }
                 placeholder="Observações internas sobre o convidado"
                 style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
               />
@@ -685,8 +716,16 @@ Apresente o cartão na entrada do evento.`;
           </div>
 
           <div style={formActionsStyle}>
-            <button onClick={salvarConvidado} disabled={loading} style={buttonStyle}>
-              {loading ? "Salvando..." : editandoId ? "Salvar alterações" : "Criar convidado"}
+            <button
+              onClick={salvarConvidado}
+              disabled={loading}
+              style={buttonStyle}
+            >
+              {loading
+                ? "Salvando..."
+                : editandoId
+                  ? "Salvar alterações"
+                  : "Criar convidado"}
             </button>
             <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
               Cancelar
@@ -698,7 +737,7 @@ Apresente o cartão na entrada do evento.`;
       <section style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={{ margin: 0 }}>Convidados cadastrados</h2>
-          <span style={{ color: "#94a3b8", fontWeight: 700 }}>
+          <span style={{ color: "#64748b", fontWeight: 700 }}>
             {convidadosFiltrados.length} de {convidados.length}
           </span>
         </div>
@@ -736,11 +775,15 @@ Apresente o cartão na entrada do evento.`;
 
         <div style={{ display: "grid", gap: 16 }}>
           {convidados.length === 0 && (
-            <div style={emptyStyle}>Nenhum convidado cadastrado para este evento.</div>
+            <div style={emptyStyle}>
+              Nenhum convidado cadastrado para este evento.
+            </div>
           )}
 
           {convidados.length > 0 && convidadosFiltrados.length === 0 && (
-            <div style={emptyStyle}>Nenhum convidado encontrado com estes filtros.</div>
+            <div style={emptyStyle}>
+              Nenhum convidado encontrado com estes filtros.
+            </div>
           )}
 
           {gruposConvidados.map(({ grupo, integrantes }) => {
@@ -758,12 +801,14 @@ Apresente o cartão na entrada do evento.`;
                   </div>
 
                   <span style={groupCountStyle}>
-                    {integrantes.length} integrante{integrantes.length === 1 ? "" : "s"}
+                    {integrantes.length} integrante
+                    {integrantes.length === 1 ? "" : "s"}
                   </span>
                 </div>
 
                 <p style={groupMembersSummaryStyle}>
-                  <strong>Integrantes:</strong> {nomesIntegrantes || "Sem integrantes"}
+                  <strong>Integrantes:</strong>{" "}
+                  {nomesIntegrantes || "Sem integrantes"}
                 </p>
 
                 <div style={groupMemberListStyle}>
@@ -775,9 +820,11 @@ Apresente o cartão na entrada do evento.`;
                     return (
                       <div key={convidado.id} style={groupMemberRowStyle}>
                         <div style={groupMemberInfoStyle}>
-                          <strong style={{ fontSize: 20 }}>{convidado.nome}</strong>
+                          <strong style={{ fontSize: 20 }}>
+                            {convidado.nome}
+                          </strong>
 
-                          <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                          <p style={{ color: "#64748b", margin: "6px 0 0" }}>
                             {convidado.telefone || "Sem telefone"}
                           </p>
 
@@ -786,39 +833,76 @@ Apresente o cartão na entrada do evento.`;
                             {convidado.tipo_convite || "individual"}
                           </small>
 
-                          <div style={{ marginTop: 8, color: "#64748b", fontSize: 13 }}>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              color: "#64748b",
+                              fontSize: 13,
+                            }}
+                          >
                             Token:{" "}
-                            <strong style={{ color: "#facc15" }}>
+                            <strong style={{ color: "#7c3aed" }}>
                               {convidado.token || "sem token"}
                             </strong>
                           </div>
 
                           {convidado.observacoes && (
-                            <p style={{ color: "#94a3b8", marginTop: 10, marginBottom: 0 }}>
+                            <p
+                              style={{
+                                color: "#64748b",
+                                marginTop: 10,
+                                marginBottom: 0,
+                              }}
+                            >
                               {convidado.observacoes}
                             </p>
                           )}
 
                           <div style={quickActionsStyle}>
-                            <button onClick={() => copiarNome(convidado.nome)} style={goldButtonStyle}>
+                            <button
+                              onClick={() => copiarNome(convidado.nome)}
+                              style={goldButtonStyle}
+                            >
                               Copiar nome
                             </button>
 
                             {linkWhatsApp ? (
-                              <a href={linkWhatsApp} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                              <a
+                                href={linkWhatsApp}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={goldButtonStyle}
+                              >
                                 WhatsApp
                               </a>
                             ) : (
-                              <button disabled style={{ ...goldButtonStyle, opacity: 0.45, cursor: "not-allowed" }}>
+                              <button
+                                disabled
+                                style={{
+                                  ...goldButtonStyle,
+                                  opacity: 0.45,
+                                  cursor: "not-allowed",
+                                }}
+                              >
                                 WhatsApp
                               </button>
                             )}
 
-                            <a href={linkConvite} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                            <a
+                              href={linkConvite}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={goldButtonStyle}
+                            >
                               Ver convite
                             </a>
 
-                            <a href={linkCartao} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                            <a
+                              href={linkCartao}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={goldButtonStyle}
+                            >
                               Ver cartão
                             </a>
                           </div>
@@ -835,17 +919,29 @@ Apresente o cartão na entrada do evento.`;
                             </span>
                           </div>
 
-                          <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
+                          <div
+                            style={{
+                              marginTop: 10,
+                              color: "#64748b",
+                              fontSize: 13,
+                            }}
+                          >
                             Check-in: {convidado.status_checkin || "nao_entrou"}
                           </div>
 
                           <div style={rowActionsStyle}>
-                            <button onClick={() => editarConvidado(convidado)} style={smallButtonStyle}>
+                            <button
+                              onClick={() => editarConvidado(convidado)}
+                              style={smallButtonStyle}
+                            >
                               Editar
                             </button>
                             <button
                               onClick={() => excluirConvidado(convidado)}
-                              style={{ ...smallButtonStyle, background: "#7f1d1d" }}
+                              style={{
+                                ...smallButtonStyle,
+                                background: "#dc2626",
+                              }}
                             >
                               Excluir
                             </button>
@@ -880,23 +976,23 @@ function getRsvpStyle(status: string | null): CSSProperties {
   if (status === "confirmado") {
     return {
       ...statusStyle,
-      background: "rgba(34,197,94,0.14)",
-      color: "#86efac",
+      background: "#dcfce7",
+      color: "#15803d",
     };
   }
 
   if (status === "nao") {
     return {
       ...statusStyle,
-      background: "rgba(239,68,68,0.14)",
-      color: "#fca5a5",
+      background: "#fee2e2",
+      color: "#b91c1c",
     };
   }
 
   return {
     ...statusStyle,
-    background: "rgba(250,204,21,0.14)",
-    color: "#fde68a",
+    background: "#fef3c7",
+    color: "#5b21b6",
   };
 }
 
@@ -904,32 +1000,37 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "enviado") {
     return {
       ...statusStyle,
-      background: "rgba(59,130,246,0.14)",
-      color: "#93c5fd",
+      background: "#dbeafe",
+      color: "#1d4ed8",
     };
   }
 
   if (status === "erro") {
     return {
       ...statusStyle,
-      background: "rgba(239,68,68,0.14)",
-      color: "#fca5a5",
+      background: "#fee2e2",
+      color: "#b91c1c",
     };
   }
 
   return {
     ...statusStyle,
-    background: "rgba(148,163,184,0.14)",
-    color: "#cbd5e1",
+    background: "#f1f5f9",
+    color: "#334155",
   };
 }
+
+const pageStyle: CSSProperties = {
+  color: "#0f172a",
+};
 
 const sectionStyle: CSSProperties = {
   marginTop: 28,
   padding: 22,
-  borderRadius: 18,
-  border: "1px solid #334155",
-  background: "#020617",
+  borderRadius: 28,
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
+  boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
 };
 
 const topActionsStyle: CSSProperties = {
@@ -957,17 +1058,17 @@ const formGridStyle: CSSProperties = {
 const fieldStyle: CSSProperties = {
   display: "grid",
   gap: 8,
-  color: "#cbd5e1",
+  color: "#334155",
   fontWeight: 700,
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
-  padding: 13,
-  borderRadius: 10,
-  background: "#020617",
-  color: "#fff",
-  border: "1px solid #334155",
+  padding: 15,
+  borderRadius: 16,
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid #d1d5db",
 };
 
 const formActionsStyle: CSSProperties = {
@@ -978,21 +1079,21 @@ const formActionsStyle: CSSProperties = {
 };
 
 const buttonStyle: CSSProperties = {
-  padding: "14px 20px",
-  borderRadius: 10,
-  background: "#22c55e",
+  padding: "15px 22px",
+  borderRadius: 999,
+  background: "linear-gradient(135deg, #7c3aed, #5b21b6)",
   border: "none",
-  color: "#fff",
+  color: "#ffffff",
   fontWeight: "bold",
   cursor: "pointer",
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  padding: "12px 16px",
-  borderRadius: 10,
-  background: "#1e293b",
-  border: "1px solid #334155",
-  color: "#fff",
+  padding: "13px 18px",
+  borderRadius: 999,
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
+  color: "#0f172a",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -1007,10 +1108,11 @@ const filtersStyle: CSSProperties = {
 const groupCardLargeStyle: CSSProperties = {
   display: "grid",
   gap: 18,
-  background: "#0f172a",
-  padding: 24,
-  borderRadius: 22,
-  border: "1px solid #334155",
+  background: "#ffffff",
+  padding: 26,
+  borderRadius: 28,
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 14px 42px rgba(15,23,42,0.08)",
 };
 
 const groupCardHeaderStyle: CSSProperties = {
@@ -1019,7 +1121,7 @@ const groupCardHeaderStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: 14,
   paddingBottom: 16,
-  borderBottom: "1px solid rgba(148,163,184,0.18)",
+  borderBottom: "1px solid #e5e7eb",
 };
 
 const groupHeaderStyle: CSSProperties = {
@@ -1029,13 +1131,13 @@ const groupHeaderStyle: CSSProperties = {
   gap: 14,
   padding: "13px 16px",
   borderRadius: 14,
-  border: "1px solid rgba(250,204,21,0.32)",
-  background: "linear-gradient(135deg, rgba(250,204,21,0.12), rgba(15,23,42,0.92))",
+  border: "1px solid #ddd6fe",
+  background: "linear-gradient(135deg, #faf5ff, #ffffff)",
 };
 
 const groupEyebrowStyle: CSSProperties = {
   display: "block",
-  color: "#94a3b8",
+  color: "#64748b",
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: "0.12em",
@@ -1045,7 +1147,7 @@ const groupEyebrowStyle: CSSProperties = {
 
 const groupTitleStyle: CSSProperties = {
   display: "block",
-  color: "#fde68a",
+  color: "#5b21b6",
   fontSize: 18,
   letterSpacing: "0.02em",
 };
@@ -1053,9 +1155,9 @@ const groupTitleStyle: CSSProperties = {
 const groupCountStyle: CSSProperties = {
   padding: "7px 11px",
   borderRadius: 999,
-  background: "rgba(2,6,23,0.72)",
-  border: "1px solid rgba(250,204,21,0.24)",
-  color: "#fef3c7",
+  background: "#f5f3ff",
+  border: "1px solid #ddd6fe",
+  color: "#4c1d95",
   fontSize: 12,
   fontWeight: 900,
   whiteSpace: "nowrap",
@@ -1063,7 +1165,7 @@ const groupCountStyle: CSSProperties = {
 
 const groupMembersSummaryStyle: CSSProperties = {
   margin: 0,
-  color: "#cbd5e1",
+  color: "#334155",
   fontSize: 17,
   lineHeight: 1.55,
 };
@@ -1080,8 +1182,8 @@ const groupMemberRowStyle: CSSProperties = {
   gap: 18,
   padding: 18,
   borderRadius: 16,
-  border: "1px solid rgba(51,65,85,0.9)",
-  background: "rgba(2,6,23,0.42)",
+  border: "1px solid #e5e7eb",
+  background: "#f8fafc",
 };
 
 const groupMemberInfoStyle: CSSProperties = {
@@ -1094,10 +1196,10 @@ const eventCardStyle: CSSProperties = {
   justifyContent: "space-between",
   alignItems: "stretch",
   gap: 18,
-  background: "#0f172a",
+  background: "#ffffff",
   padding: 18,
   borderRadius: 14,
-  border: "1px solid #334155",
+  border: "1px solid #d1d5db",
 };
 
 const guestMainStyle: CSSProperties = {
@@ -1127,20 +1229,20 @@ const quickActionsStyle: CSSProperties = {
 
 const smallButtonStyle: CSSProperties = {
   padding: "9px 12px",
-  borderRadius: 9,
-  background: "#2563eb",
+  borderRadius: 999,
+  background: "#7c3aed",
   border: "none",
-  color: "#fff",
+  color: "#ffffff",
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const goldButtonStyle: CSSProperties = {
-  padding: "10px 14px",
+  padding: "10px 16px",
   borderRadius: 999,
-  border: "1px solid rgba(250,204,21,0.42)",
-  background: "rgba(250,204,21,0.08)",
-  color: "#fde68a",
+  border: "1px solid #7c3aed",
+  background: "#ffffff",
+  color: "#5b21b6",
   fontWeight: 800,
   cursor: "pointer",
   textDecoration: "none",
@@ -1158,6 +1260,7 @@ const statusStyle: CSSProperties = {
 const emptyStyle: CSSProperties = {
   padding: 18,
   borderRadius: 12,
-  border: "1px dashed #334155",
-  color: "#94a3b8",
+  border: "1px dashed #d1d5db",
+  color: "#64748b",
 };
+   
