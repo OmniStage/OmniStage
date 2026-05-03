@@ -551,9 +551,8 @@ export default function AdminImportacaoPage() {
               <MappingSelect label="telefone" value={mapping.telefone} headers={sheetHeaders} onChange={(value) => updateMapping("telefone", value)} />
               <MappingSelect label="status_rsvp" value={mapping.status_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("status_rsvp", value)} />
               <MappingSelect label="status_envio" value={mapping.status_envio} headers={sheetHeaders} onChange={(value) => updateMapping("status_envio", value)} />
-              <MappingSelect label="observacoes: Data_Resposta" value={mapping.data_resposta} headers={sheetHeaders} onChange={(value) => updateMapping("data_resposta", value)} />
-              <MappingSelect label="observacoes: Dia / Horário" value={mapping.data_hora} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora", value)} />
-            </div>
+              <MappingSelect label="data_hora_rsvp" value={mapping.data_resposta} headers={sheetHeaders} onChange={(value) => updateMapping("data_resposta", value)} />
+              <MappingSelect label="data_hora_envio" value={mapping.data_hora} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora", value)} />
 
             <div style={actionsStyle}>
               <button onClick={aplicarMapeamento} disabled={loading} style={goldButtonStyle}>
