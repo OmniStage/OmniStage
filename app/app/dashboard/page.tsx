@@ -240,8 +240,65 @@ export default function DashboardPage() {
     <div style={pageStyle}>
       <style>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+            max-height: 0;
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+            max-height: 1200px;
+          }
+        }
+
+        .omni-group-card {
+          transition:
+            transform 180ms ease,
+            box-shadow 180ms ease,
+            border-color 180ms ease,
+            background 180ms ease;
+        }
+
+        .omni-group-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+          border-color: rgba(109, 40, 217, 0.28);
+          background: rgba(255, 255, 255, 0.92);
+        }
+
+        .omni-group-card:hover .omni-group-header {
+          background: linear-gradient(180deg, rgba(250,245,255,0.85), rgba(255,255,255,0.92));
+        }
+
+        .omni-group-body {
+          animation: fadeIn 220ms ease both;
+          transform-origin: top;
+        }
+
+        .omni-guest-card {
+          transition:
+            transform 160ms ease,
+            box-shadow 160ms ease,
+            border-color 160ms ease,
+            background 160ms ease;
+        }
+
+        .omni-guest-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07);
+          border-color: rgba(109, 40, 217, 0.18);
+          background: rgba(255,255,255,0.95);
+        }
+
+        .omni-chevron {
+          transition: transform 180ms ease, opacity 180ms ease;
+        }
+
+        .omni-group-card:hover .omni-chevron,
+        .omni-guest-card:hover .omni-chevron {
+          opacity: 1;
+          transform: translateY(-1px);
         }
       `}</style>
       <section style={heroStyle}>
@@ -413,8 +470,8 @@ export default function DashboardPage() {
               const principal = lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
 
               return (
-                <article key={grupo} style={groupCardStyle}>
-                  <button onClick={() => toggleGrupo(grupo)} style={groupHeaderStyle}>
+                <article key={grupo} className="omni-group-card" style={groupCardStyle}>
+                  <button onClick={() => toggleGrupo(grupo)} className="omni-group-header" style={groupHeaderStyle}>
                     <div style={groupHeaderTextStyle}>
                       <p style={groupTitleStyle}>
                         <span style={groupLabelStyle}>Integrantes:</span>{" "}
@@ -428,12 +485,12 @@ export default function DashboardPage() {
 
                     <div style={groupRightStyle}>
                       <span style={smallCountStyle}>{contarConfirmados(lista)} confirmados</span>
-                      <span style={chevronStyle}>{aberto ? "⌃" : "⌄"}</span>
+                      <span className="omni-chevron" style={chevronStyle}>{aberto ? "⌃" : "⌄"}</span>
                     </div>
                   </button>
 
                   {aberto && (
-                    <div style={groupBodyStyle}>
+                    <div className="omni-group-body" style={groupBodyStyle}>
                       {lista.map((convidado) => (
                         <GuestCard
                           key={convidado.id}
@@ -491,7 +548,7 @@ function GuestCard({
   }
 
   return (
-    <article style={guestCardStyle}>
+    <article className="omni-guest-card" style={guestCardStyle}>
       <button onClick={onToggle} style={guestHeaderButtonStyle}>
         <div style={guestMainInfoStyle}>
           <strong style={guestNameStyle}>{nome}</strong>
@@ -503,7 +560,7 @@ function GuestCard({
           {convidado.status_rsvp === "confirmado" && <span style={badgeStyle("#16a34a")}>Confirmado</span>}
           {convidado.status_rsvp === "pendente" && <span style={badgeStyle("#f59e0b")}>Pendente</span>}
           {convidado.status_rsvp === "nao" && <span style={badgeStyle("#dc2626")}>Ausência confirmada</span>}
-          <span style={guestChevronStyle}>{aberto ? "⌃" : "⌄"}</span>
+          <span className="omni-chevron" style={guestChevronStyle}>{aberto ? "⌃" : "⌄"}</span>
         </div>
       </button>
 
@@ -1023,7 +1080,7 @@ const groupBodyStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: 10,
   borderTop: "1px solid rgba(226,232,240,0.72)",
-  animation: "fadeIn 0.18s ease",
+  overflow: "hidden",
 };
 
 const guestCardStyle: React.CSSProperties = {
