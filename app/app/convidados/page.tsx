@@ -1084,10 +1084,10 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
         "--muted": "#6b7280",
         "--border": "#e5e7eb",
         "--border-strong": "#d1d5db",
-        "--accent": "#0ea5e9",
-        "--accent-strong": "#0284c7",
-        "--accent-border": "rgba(14,165,233,0.28)",
-        "--group-soft": "#eff6ff",
+        "--accent": "#7c3aed",
+        "--accent-strong": "#5b21b6",
+        "--accent-border": "rgba(124,58,237,0.28)",
+        "--group-soft": "#f5f3ff",
         "--primary-bg": "#43a500",
         "--primary-shadow": "0 8px 22px rgba(67,165,0,0.22)",
       };
@@ -1369,5 +1369,4 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
-
    
