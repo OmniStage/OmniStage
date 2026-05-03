@@ -36,21 +36,36 @@ type Campanha = {
   cor: string;
   corSuave: string;
   filtrarPublico: (convidado: Convidado) => boolean;
-  gerarMensagem: (convidado: Convidado) => string;
+  templatePadrao: string;
 };
+
+const EVENTO_ID_PADRAO = "valentina-xv";
 
 export default function EnviosPage() {
   const [tipoEnvio, setTipoEnvio] = useState<TipoEnvio>("convite");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatusEnvio>("a_enviar");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
+  const [templates, setTemplates] = useState<Record<TipoEnvio, string>>({
+    convite: campanhas.convite.templatePadrao,
+    lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
+    cartao_evento: campanhas.cartao_evento.templatePadrao,
+  });
   const [loading, setLoading] = useState(true);
+  const [salvandoTemplate, setSalvandoTemplate] = useState(false);
   const [busca, setBusca] = useState("");
+  const [editorAberto, setEditorAberto] = useState(true);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const campanha = campanhas[tipoEnvio];
+  const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
+
+  async function carregarTudo() {
+    setLoading(true);
+    await Promise.all([carregarConvidados(), carregarTemplates()]);
+    setLoading(false);
+  }
 
   async function carregarConvidados() {
-    setLoading(true);
-
     const { data, error } = await supabase
       .from("convidados")
       .select(`
@@ -75,21 +90,48 @@ export default function EnviosPage() {
 
     if (error) {
       alert("Erro ao carregar convidados: " + error.message);
-      setLoading(false);
       return;
     }
 
     setConvidados((data || []) as Convidado[]);
-    setLoading(false);
+  }
+
+  async function carregarTemplates() {
+    const { data, error } = await supabase
+      .from("envio_templates")
+      .select("evento_id, tipo_envio, mensagem, ativo")
+      .eq("evento_id", EVENTO_ID_PADRAO)
+      .eq("ativo", true);
+
+    if (error) {
+      console.warn("Templates ainda não configurados:", error.message);
+      return;
+    }
+
+    const novosTemplates: Record<TipoEnvio, string> = {
+      convite: campanhas.convite.templatePadrao,
+      lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
+      cartao_evento: campanhas.cartao_evento.templatePadrao,
+    };
+
+    (data || []).forEach((template) => {
+      const tipo = template.tipo_envio as TipoEnvio;
+      if (tipo in novosTemplates) {
+        novosTemplates[tipo] = template.mensagem;
+      }
+    });
+
+    setTemplates(novosTemplates);
   }
 
   useEffect(() => {
-    carregarConvidados();
+    carregarTudo();
   }, []);
 
   useEffect(() => {
     setFiltroStatus("a_enviar");
     setBusca("");
+    setPreviewId(null);
   }, [tipoEnvio]);
 
   const publicoCampanha = useMemo(() => {
@@ -120,6 +162,18 @@ export default function EnviosPage() {
     });
   }, [publicoCampanha, busca, filtroStatus, campanha]);
 
+  const convidadoPreview = useMemo(() => {
+    if (previewId) {
+      return convidados.find((convidado) => convidado.id === previewId) || convidadosFiltrados[0] || publicoCampanha[0];
+    }
+
+    return convidadosFiltrados[0] || publicoCampanha[0];
+  }, [previewId, convidados, convidadosFiltrados, publicoCampanha]);
+
+  const previewMensagem = convidadoPreview
+    ? montarMensagem(mensagemAtual, convidadoPreview)
+    : mensagemAtual;
+
   const stats = useMemo(() => {
     const total = publicoCampanha.length;
     const enviados = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado").length;
@@ -131,10 +185,53 @@ export default function EnviosPage() {
     return { total, enviados, aEnviar, semTelefone };
   }, [publicoCampanha, campanha]);
 
+  async function salvarTemplate() {
+    setSalvandoTemplate(true);
+
+    const { error } = await supabase.from("envio_templates").upsert(
+      {
+        evento_id: EVENTO_ID_PADRAO,
+        tipo_envio: tipoEnvio,
+        titulo: campanha.titulo,
+        mensagem: mensagemAtual,
+        ativo: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "evento_id,tipo_envio" }
+    );
+
+    setSalvandoTemplate(false);
+
+    if (error) {
+      alert("Erro ao salvar mensagem: " + error.message);
+      return;
+    }
+
+    alert("Mensagem salva com sucesso.");
+  }
+
+  function restaurarTemplatePadrao() {
+    if (!window.confirm("Restaurar a mensagem padrão desta campanha?")) return;
+
+    setTemplates((current) => ({
+      ...current,
+      [tipoEnvio]: campanha.templatePadrao,
+    }));
+  }
+
+  function inserirVariavel(variavel: string) {
+    setTemplates((current) => ({
+      ...current,
+      [tipoEnvio]: `${current[tipoEnvio] || ""}${current[tipoEnvio]?.endsWith(" ") ? "" : " "}${variavel}`,
+    }));
+  }
+
   async function marcarComoEnviado(convidado: Convidado) {
+    const agora = new Date().toISOString();
+
     const payload = {
       [campanha.statusColumn]: "enviado",
-      [campanha.dataColumn]: new Date().toISOString(),
+      [campanha.dataColumn]: agora,
     };
 
     const { error } = await supabase.from("convidados").update(payload).eq("id", convidado.id);
@@ -150,7 +247,7 @@ export default function EnviosPage() {
           ? {
               ...item,
               [campanha.statusColumn]: "enviado",
-              [campanha.dataColumn]: new Date().toISOString(),
+              [campanha.dataColumn]: agora,
             }
           : item
       )
@@ -165,14 +262,14 @@ export default function EnviosPage() {
       return;
     }
 
-    const mensagem = campanha.gerarMensagem(convidado);
+    const mensagem = montarMensagem(mensagemAtual, convidado);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
     window.open(link, "_blank", "noopener,noreferrer");
   }
 
   async function copiarMensagem(convidado: Convidado) {
-    await navigator.clipboard.writeText(campanha.gerarMensagem(convidado));
+    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado));
     alert("Mensagem copiada.");
   }
 
@@ -194,14 +291,23 @@ export default function EnviosPage() {
           background: #f8fafc;
         }
 
-        .envio-action:active {
+        .envio-action:active,
+        .template-chip:active {
           transform: scale(0.97);
         }
 
         button:focus-visible,
-        a:focus-visible {
+        a:focus-visible,
+        textarea:focus-visible,
+        input:focus-visible {
           outline: 3px solid rgba(109,40,217,0.22);
           outline-offset: 3px;
+        }
+
+        @media (max-width: 900px) {
+          .envios-editor-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
 
@@ -210,11 +316,11 @@ export default function EnviosPage() {
           <span style={eyebrowStyle}>OmniStage Envios</span>
           <h1 style={titleStyle}>Central de envios</h1>
           <p style={subtitleStyle}>
-            Organize campanhas de WhatsApp por etapa do evento, sem misturar status.
+            Organize campanhas de WhatsApp por etapa do evento e personalize as mensagens por cliente.
           </p>
         </div>
 
-        <button onClick={carregarConvidados} style={primaryButtonStyle}>
+        <button onClick={carregarTudo} style={primaryButtonStyle}>
           {loading ? "Atualizando..." : "Atualizar lista"}
         </button>
       </section>
@@ -257,16 +363,112 @@ export default function EnviosPage() {
           <p style={panelTextStyle}>{campanha.descricao}</p>
         </div>
 
-        <span
-          style={{
-            ...campaignBadgeStyle,
-            background: campanha.corSuave,
-            color: campanha.cor,
-          }}
-        >
-          {stats.aEnviar} a enviar
-        </span>
+        <div style={campaignHeaderActionsStyle}>
+          <button onClick={() => setEditorAberto((current) => !current)} style={secondaryButtonStyle}>
+            {editorAberto ? "Ocultar editor" : "Editar mensagem"}
+          </button>
+
+          <span
+            style={{
+              ...campaignBadgeStyle,
+              background: campanha.corSuave,
+              color: campanha.cor,
+            }}
+          >
+            {stats.aEnviar} a enviar
+          </span>
+        </div>
       </section>
+
+      {editorAberto && (
+        <section style={templatePanelStyle}>
+          <div style={templateHeaderStyle}>
+            <div>
+              <h2 style={panelTitleStyle}>Editor profissional de mensagem</h2>
+              <p style={panelTextStyle}>
+                Configure a mensagem desta campanha. Use variáveis para personalizar automaticamente.
+              </p>
+            </div>
+
+            <div style={templateActionsStyle}>
+              <button onClick={restaurarTemplatePadrao} style={ghostButtonStyle}>
+                Restaurar padrão
+              </button>
+
+              <button onClick={salvarTemplate} style={primaryButtonStyle}>
+                {salvandoTemplate ? "Salvando..." : "Salvar mensagem"}
+              </button>
+            </div>
+          </div>
+
+          <div className="envios-editor-grid" style={editorGridStyle}>
+            <div style={editorColumnStyle}>
+              <label style={fieldLabelStyle}>Mensagem da campanha</label>
+
+              <textarea
+                value={mensagemAtual}
+                onChange={(event) =>
+                  setTemplates((current) => ({
+                    ...current,
+                    [tipoEnvio]: event.target.value,
+                  }))
+                }
+                style={textareaStyle}
+                rows={14}
+              />
+
+              <div style={variablesBoxStyle}>
+                <strong style={variablesTitleStyle}>Variáveis disponíveis</strong>
+                <div style={variablesListStyle}>
+                  {variaveis.map((item) => (
+                    <button
+                      key={item.key}
+                      className="template-chip"
+                      onClick={() => inserirVariavel(item.key)}
+                      style={chipStyle}
+                      title={item.description}
+                    >
+                      {item.key}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={previewColumnStyle}>
+              <div style={previewHeaderStyle}>
+                <div>
+                  <label style={fieldLabelStyle}>Prévia ao vivo</label>
+                  <p style={previewHelpStyle}>
+                    {convidadoPreview
+                      ? `Usando ${convidadoPreview.nome || "convidado sem nome"} como exemplo.`
+                      : "Nenhum convidado disponível para prévia."}
+                  </p>
+                </div>
+
+                {convidadosFiltrados.length > 0 && (
+                  <select
+                    value={convidadoPreview?.id || ""}
+                    onChange={(event) => setPreviewId(event.target.value)}
+                    style={previewSelectStyle}
+                  >
+                    {convidadosFiltrados.slice(0, 80).map((convidado) => (
+                      <option key={convidado.id} value={convidado.id}>
+                        {convidado.nome || "Sem nome"}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div style={phonePreviewStyle}>
+                <div style={phoneTopStyle}>WhatsApp</div>
+                <div style={messageBubbleStyle}>{previewMensagem}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section style={statsGridStyle}>
         <MetricCard label="Público da campanha" value={stats.total} detail="Convidados elegíveis" />
@@ -280,7 +482,7 @@ export default function EnviosPage() {
           <div>
             <h2 style={panelTitleStyle}>Fila de envio</h2>
             <p style={panelTextStyle}>
-              Abra o WhatsApp, envie a mensagem e depois marque como enviado.
+              Abra o WhatsApp, envie a mensagem configurada e depois marque como enviado.
             </p>
           </div>
 
@@ -331,7 +533,7 @@ export default function EnviosPage() {
                     {convidado.grupo || "Sem grupo"} · {convidado.telefone || "Sem telefone"}
                   </span>
 
-                  <p style={messagePreviewStyle}>{campanha.gerarMensagem(convidado)}</p>
+                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado)}</p>
 
                   {dataEnvio && (
                     <small style={sentDateStyle}>
@@ -404,22 +606,17 @@ const campanhas: Record<TipoEnvio, Campanha> = {
     cor: "#6d28d9",
     corSuave: "#ede9fe",
     filtrarPublico: (convidado) => !!normalizarTelefone(convidado.telefone),
-    gerarMensagem: (convidado) => {
-      const nome = convidado.nome || "";
-      const linkConvite = gerarLinkConvite(convidado);
-
-      return `Olá ${nome} ✨
+    templatePadrao: `Olá {{nome}} ✨
 
 Você está convidado(a) para o evento.
 
 Acesse seu convite digital:
-${linkConvite}
+{{link_convite}}
 
 Por lá você poderá confirmar sua presença.
 
 Com carinho,
-OmniStage`;
-    },
+OmniStage`,
   },
 
   lembrete_rsvp: {
@@ -434,22 +631,17 @@ OmniStage`;
     corSuave: "#fef3c7",
     filtrarPublico: (convidado) =>
       convidado.status_rsvp === "pendente" && !!normalizarTelefone(convidado.telefone),
-    gerarMensagem: (convidado) => {
-      const nome = convidado.nome || "";
-      const linkConvite = gerarLinkConvite(convidado);
-
-      return `Olá ${nome} ✨
+    templatePadrao: `Olá {{nome}} ✨
 
 Passando para lembrar que você ainda não confirmou presença no evento.
 
 Para confirmar, acesse seu convite digital:
-${linkConvite}
+{{link_convite}}
 
 Sua confirmação é muito importante para organizarmos tudo com carinho.
 
 Com carinho,
-OmniStage`;
-    },
+OmniStage`,
   },
 
   cartao_evento: {
@@ -464,24 +656,29 @@ OmniStage`;
     corSuave: "#dcfce7",
     filtrarPublico: (convidado) =>
       convidado.status_rsvp === "confirmado" && !!normalizarTelefone(convidado.telefone),
-    gerarMensagem: (convidado) => {
-      const nome = convidado.nome || "";
-      const linkCartao = gerarLinkCartao(convidado);
-
-      return `Olá ${nome} ✨
+    templatePadrao: `Olá {{nome}} ✨
 
 Ficamos muito felizes com sua confirmação.
 
 Segue seu cartão de entrada para o evento:
-${linkCartao}
+{{link_cartao}}
 
 Apresente este cartão na entrada.
 
 Com carinho,
-OmniStage`;
-    },
+OmniStage`,
   },
 };
+
+const variaveis = [
+  { key: "{{nome}}", description: "Nome do convidado" },
+  { key: "{{grupo}}", description: "Grupo ou família do convidado" },
+  { key: "{{telefone}}", description: "Telefone cadastrado" },
+  { key: "{{email}}", description: "E-mail cadastrado" },
+  { key: "{{token}}", description: "Token do convite/cartão" },
+  { key: "{{link_convite}}", description: "Link do convite digital" },
+  { key: "{{link_cartao}}", description: "Link do cartão de entrada" },
+];
 
 function MetricCard({
   label,
@@ -525,6 +722,17 @@ function gerarLinkCartao(convidado: Convidado) {
   return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
 }
 
+function montarMensagem(template: string, convidado: Convidado) {
+  return template
+    .replaceAll("{{nome}}", convidado.nome || "")
+    .replaceAll("{{grupo}}", convidado.grupo || "")
+    .replaceAll("{{telefone}}", convidado.telefone || "")
+    .replaceAll("{{email}}", convidado.email || "")
+    .replaceAll("{{token}}", convidado.token || "")
+    .replaceAll("{{link_convite}}", gerarLinkConvite(convidado))
+    .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
+}
+
 function formatarData(data: string) {
   return new Date(data).toLocaleString("pt-BR", {
     day: "2-digit",
@@ -535,310 +743,63 @@ function formatarData(data: string) {
   });
 }
 
-const pageStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 24,
-};
+/* ===== Styles ===== */
 
-const heroStyle: React.CSSProperties = {
-  background: "var(--card)",
-  border: "1px solid var(--line)",
-  borderRadius: 24,
-  padding: 28,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  boxShadow: "0 18px 50px rgba(15,23,42,0.06)",
-  flexWrap: "wrap",
-};
-
-const eyebrowStyle: React.CSSProperties = {
-  color: "#6d28d9",
-  fontWeight: 800,
-  fontSize: 13,
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-};
-
-const titleStyle: React.CSSProperties = {
-  margin: "8px 0 8px",
-  fontSize: 34,
-  fontWeight: 900,
-  color: "var(--text)",
-};
-
-const subtitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "var(--muted)",
-  fontSize: 16,
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: "#6d28d9",
-  color: "#fff",
-  padding: "13px 18px",
-  borderRadius: 14,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const campaignSelectorStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 12,
-};
-
-const campaignButtonStyle: React.CSSProperties = {
-  border: "1px solid var(--line)",
-  background: "var(--card)",
-  color: "var(--text)",
-  padding: 16,
-  borderRadius: 18,
-  cursor: "pointer",
-  textAlign: "left",
-  display: "flex",
-  flexDirection: "column",
-  gap: 5,
-  fontWeight: 900,
-  boxShadow: "0 10px 30px rgba(15,23,42,0.04)",
-};
-
-const campaignHeaderStyle: React.CSSProperties = {
-  border: "1px solid",
-  borderRadius: 22,
-  padding: 22,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 14,
-  flexWrap: "wrap",
-};
-
-const campaignBadgeStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 999,
-  fontSize: 13,
-  fontWeight: 900,
-};
-
-const statsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: 16,
-};
-
-const metricCardStyle: React.CSSProperties = {
-  background: "var(--card)",
-  border: "1px solid var(--line)",
-  borderRadius: 22,
-  padding: 22,
-  boxShadow: "0 14px 40px rgba(15,23,42,0.05)",
-};
-
-const metricLabelStyle: React.CSSProperties = {
-  margin: 0,
-  color: "var(--muted)",
-  fontSize: 14,
-  fontWeight: 800,
-};
-
-const metricValueStyle: React.CSSProperties = {
-  display: "block",
-  marginTop: 8,
-  fontSize: 36,
-  fontWeight: 900,
-  color: "var(--text)",
-};
-
-const metricDetailStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  color: "var(--muted)",
-  fontSize: 13,
-};
-
-const panelStyle: React.CSSProperties = {
-  background: "var(--card)",
-  border: "1px solid var(--line)",
-  borderRadius: 22,
-  padding: 24,
-  boxShadow: "0 14px 40px rgba(15,23,42,0.05)",
-};
-
-const panelHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 16,
-  flexWrap: "wrap",
-};
-
-const panelTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 20,
-  fontWeight: 900,
-  color: "var(--text)",
-};
-
-const panelTextStyle: React.CSSProperties = {
-  margin: "6px 0 0",
-  color: "var(--muted)",
-};
-
-const counterStyle: React.CSSProperties = {
-  padding: "9px 13px",
-  borderRadius: 999,
-  background: "rgba(109,40,217,0.08)",
-  color: "#6d28d9",
-  fontSize: 13,
-  fontWeight: 900,
-};
-
-const tabsStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  marginTop: 18,
-};
-
-const tabStyle: React.CSSProperties = {
-  padding: "9px 14px",
-  borderRadius: 999,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
-  color: "var(--text)",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const tabActiveStyle: React.CSSProperties = {
-  ...tabStyle,
-  background: "#6d28d9",
-  color: "#fff",
-  border: "1px solid #6d28d9",
-};
-
-const searchRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  marginTop: 16,
-};
-
-const searchInputStyle: React.CSSProperties = {
-  flex: 1,
-  minWidth: 260,
-  padding: 13,
-  borderRadius: 14,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
-  color: "var(--text)",
-  outline: "none",
-};
-
-const listStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  marginTop: 16,
-};
-
-const cardStyle: React.CSSProperties = {
-  border: "1px solid var(--line)",
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.78)",
-  padding: 16,
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-};
-
-const guestInfoStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 5,
-  flex: 1,
-  minWidth: 280,
-};
-
-const guestNameStyle: React.CSSProperties = {
-  color: "var(--text)",
-  fontSize: 17,
-  fontWeight: 900,
-};
-
-const guestMetaStyle: React.CSSProperties = {
-  color: "var(--muted)",
-  fontSize: 13,
-  fontWeight: 700,
-};
-
-const messagePreviewStyle: React.CSSProperties = {
-  margin: "10px 0 0",
-  color: "var(--muted)",
-  fontSize: 13,
-  lineHeight: 1.45,
-  whiteSpace: "pre-line",
-};
-
-const sentDateStyle: React.CSSProperties = {
-  marginTop: 8,
-  color: "var(--muted)",
-  fontWeight: 800,
-};
-
-const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  gap: 8,
-  flexWrap: "wrap",
-};
-
-const whatsappButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: "#16a34a",
-  color: "#fff",
-  padding: "10px 13px",
-  borderRadius: 999,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const secondaryButtonStyle: React.CSSProperties = {
-  border: "1px solid rgba(109,40,217,0.24)",
-  background: "#ede9fe",
-  color: "#6d28d9",
-  padding: "10px 13px",
-  borderRadius: 999,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const pendingBadgeStyle: React.CSSProperties = {
-  padding: "7px 10px",
-  borderRadius: 999,
-  background: "#fef3c7",
-  color: "#92400e",
-  fontSize: 12,
-  fontWeight: 900,
-};
-
-const sentBadgeStyle: React.CSSProperties = {
-  padding: "7px 10px",
-  borderRadius: 999,
-  background: "#dcfce7",
-  color: "#166534",
-  fontSize: 12,
-  fontWeight: 900,
-};
-
-const emptyStyle: React.CSSProperties = {
-  padding: 18,
-  borderRadius: 16,
-  border: "1px dashed var(--line)",
-  color: "var(--muted)",
-};
+const pageStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 24 };
+const heroStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 24, padding: 28, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, boxShadow: "0 18px 50px rgba(15,23,42,0.06)", flexWrap: "wrap" };
+const eyebrowStyle: React.CSSProperties = { color: "#6d28d9", fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.08em" };
+const titleStyle: React.CSSProperties = { margin: "8px 0 8px", fontSize: 34, fontWeight: 900, color: "var(--text)" };
+const subtitleStyle: React.CSSProperties = { margin: 0, color: "var(--muted)", fontSize: 16 };
+const primaryButtonStyle: React.CSSProperties = { border: "none", background: "#6d28d9", color: "#fff", padding: "13px 18px", borderRadius: 14, fontWeight: 900, cursor: "pointer" };
+const campaignSelectorStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 };
+const campaignButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", padding: 16, borderRadius: 18, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 5, fontWeight: 900, boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
+const campaignHeaderStyle: React.CSSProperties = { border: "1px solid", borderRadius: 22, padding: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" };
+const campaignHeaderActionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
+const campaignBadgeStyle: React.CSSProperties = { padding: "8px 12px", borderRadius: 999, fontSize: 13, fontWeight: 900 };
+const templatePanelStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 22, padding: 24, boxShadow: "0 14px 40px rgba(15,23,42,0.05)" };
+const templateHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 18 };
+const templateActionsStyle: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap" };
+const editorGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(280px, 1.05fr) minmax(280px, 0.95fr)", gap: 18 };
+const editorColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
+const previewColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
+const fieldLabelStyle: React.CSSProperties = { color: "var(--text)", fontSize: 13, fontWeight: 900 };
+const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 300, resize: "vertical", border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "#ffffff", color: "var(--text)", fontSize: 14, lineHeight: 1.5, outline: "none", fontFamily: "Arial, Helvetica, sans-serif" };
+const variablesBoxStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "#f8fafc" };
+const variablesTitleStyle: React.CSSProperties = { display: "block", marginBottom: 10, color: "var(--text)", fontSize: 13 };
+const variablesListStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
+const chipStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.18)", background: "#ede9fe", color: "#6d28d9", padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer" };
+const previewHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" };
+const previewHelpStyle: React.CSSProperties = { margin: "5px 0 0", color: "var(--muted)", fontSize: 12, fontWeight: 700 };
+const previewSelectStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "#fff", color: "var(--text)", borderRadius: 12, padding: "10px 12px", fontWeight: 800 };
+const phonePreviewStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 22, padding: 16, background: "linear-gradient(180deg, #f8fafc, #eef2f7)", minHeight: 350 };
+const phoneTopStyle: React.CSSProperties = { color: "#166534", fontWeight: 900, marginBottom: 14 };
+const messageBubbleStyle: React.CSSProperties = { background: "#dcfce7", color: "#14532d", borderRadius: "18px 18px 18px 6px", padding: 14, whiteSpace: "pre-line", lineHeight: 1.45, fontSize: 14, boxShadow: "0 10px 25px rgba(15,23,42,0.06)" };
+const statsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 };
+const metricCardStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 22, padding: 22, boxShadow: "0 14px 40px rgba(15,23,42,0.05)" };
+const metricLabelStyle: React.CSSProperties = { margin: 0, color: "var(--muted)", fontSize: 14, fontWeight: 800 };
+const metricValueStyle: React.CSSProperties = { display: "block", marginTop: 8, fontSize: 36, fontWeight: 900, color: "var(--text)" };
+const metricDetailStyle: React.CSSProperties = { margin: "8px 0 0", color: "var(--muted)", fontSize: 13 };
+const panelStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 22, padding: 24, boxShadow: "0 14px 40px rgba(15,23,42,0.05)" };
+const panelHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" };
+const panelTitleStyle: React.CSSProperties = { margin: 0, fontSize: 20, fontWeight: 900, color: "var(--text)" };
+const panelTextStyle: React.CSSProperties = { margin: "6px 0 0", color: "var(--muted)" };
+const counterStyle: React.CSSProperties = { padding: "9px 13px", borderRadius: 999, background: "rgba(109,40,217,0.08)", color: "#6d28d9", fontSize: 13, fontWeight: 900 };
+const tabsStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 18 };
+const tabStyle: React.CSSProperties = { padding: "9px 14px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontWeight: 800, cursor: "pointer" };
+const tabActiveStyle: React.CSSProperties = { ...tabStyle, background: "#6d28d9", color: "#fff", border: "1px solid #6d28d9" };
+const searchRowStyle: React.CSSProperties = { display: "flex", gap: 10, marginTop: 16 };
+const searchInputStyle: React.CSSProperties = { flex: 1, minWidth: 260, padding: 13, borderRadius: 14, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", outline: "none" };
+const listStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12, marginTop: 16 };
+const cardStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 18, background: "rgba(255,255,255,0.78)", padding: 16, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" };
+const guestInfoStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, flex: 1, minWidth: 280 };
+const guestNameStyle: React.CSSProperties = { color: "var(--text)", fontSize: 17, fontWeight: 900 };
+const guestMetaStyle: React.CSSProperties = { color: "var(--muted)", fontSize: 13, fontWeight: 700 };
+const messagePreviewStyle: React.CSSProperties = { margin: "10px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.45, whiteSpace: "pre-line" };
+const sentDateStyle: React.CSSProperties = { marginTop: 8, color: "var(--muted)", fontWeight: 800 };
+const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" };
+const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "#16a34a", color: "#fff", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
+const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 12, fontWeight: 900 };
+const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed var(--line)", color: "var(--muted)" };
