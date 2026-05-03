@@ -78,6 +78,7 @@ export default function AdminImportacaoPage() {
 
   const mappedTextPreview = useMemo(() => {
     if (!hasSheetLoaded) return "";
+
     return montarTextoMapeado(false);
   }, [sheetRows, mapping, hasSheetLoaded]);
 
@@ -172,8 +173,11 @@ export default function AdminImportacaoPage() {
 
   function getColumnValue(row: string[], headerName: string) {
     if (!headerName) return "";
+
     const index = sheetHeaders.indexOf(headerName);
+
     if (index < 0) return "";
+
     return row[index] || "";
   }
 
@@ -211,6 +215,21 @@ export default function AdminImportacaoPage() {
     }
 
     return textoMapeado;
+  }
+
+  function montarMappedRows() {
+    return sheetRows
+      .map((row) => ({
+        legacy_id: getColumnValue(row, mapping.legacy_id),
+        grupo: getColumnValue(row, mapping.grupo),
+        nome: getColumnValue(row, mapping.nome),
+        telefone: getColumnValue(row, mapping.telefone),
+        status_rsvp: getColumnValue(row, mapping.status_rsvp),
+        status_envio: getColumnValue(row, mapping.status_envio),
+        data_hora_rsvp: getColumnValue(row, mapping.data_hora_rsvp),
+        data_hora_envio: getColumnValue(row, mapping.data_hora_envio),
+      }))
+      .filter((row) => row.nome && row.nome.trim().length > 0);
   }
 
   function aplicarMapeamento() {
@@ -317,16 +336,34 @@ export default function AdminImportacaoPage() {
       return;
     }
 
-    const textoFinal = hasSheetLoaded ? montarTextoMapeado(false) : texto;
+    if (hasSheetLoaded && !mapping.nome) {
+      alert("Mapeie a coluna Nome antes de gerar a prévia.");
+      return;
+    }
 
-    if (!textoFinal.trim()) {
+    if (!hasSheetLoaded && !texto.trim()) {
       alert("Cole os convidados da planilha antiga ou carregue uma planilha.");
       return;
     }
 
-    if (hasSheetLoaded && !mapping.nome) {
-      alert("Mapeie a coluna Nome antes de gerar a prévia.");
-      return;
+    const payload: any = {
+      action: "preview",
+      tenantId,
+      eventoId,
+    };
+
+    if (hasSheetLoaded) {
+      const mappedRows = montarMappedRows();
+
+      if (mappedRows.length === 0) {
+        alert("Nenhuma linha válida encontrada no mapeamento.");
+        return;
+      }
+
+      payload.mappedRows = mappedRows;
+      setTexto(montarTextoMapeado(false));
+    } else {
+      payload.text = texto;
     }
 
     setLoading(true);
@@ -335,12 +372,7 @@ export default function AdminImportacaoPage() {
       const response = await fetch("/api/admin/import-legacy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "preview",
-          tenantId,
-          eventoId,
-          text: textoFinal,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -351,7 +383,6 @@ export default function AdminImportacaoPage() {
 
       const previewData = (result.preview || []) as PreviewRow[];
 
-      setTexto(textoFinal);
       setBatchId(result.batchId);
       setPreview(previewData);
       setSelectedIds(previewData.filter((item) => !item.is_duplicate).map((item) => item.id));
