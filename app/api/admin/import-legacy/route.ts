@@ -27,6 +27,9 @@ export async function POST(req: Request) {
     const eventoId = body.eventoId;
     const text = body.text || "";
     const batchId = body.batchId;
+    const selectedIds: string[] = Array.isArray(body.selectedIds)
+      ? body.selectedIds
+      : [];
 
     if (!tenantId || !eventoId) {
       return NextResponse.json(
@@ -170,7 +173,17 @@ export async function POST(req: Request) {
 
     if (action === "confirm") {
       if (!batchId) {
-        return NextResponse.json({ error: "batchId é obrigatório." }, { status: 400 });
+        return NextResponse.json(
+          { error: "batchId é obrigatório." },
+          { status: 400 }
+        );
+      }
+
+      if (selectedIds.length === 0) {
+        return NextResponse.json(
+          { error: "Selecione pelo menos um convidado para importar." },
+          { status: 400 }
+        );
       }
 
       const { data: previewRows, error: previewError } = await supabase
@@ -179,7 +192,8 @@ export async function POST(req: Request) {
         .eq("batch_id", batchId)
         .eq("tenant_id", tenantId)
         .eq("event_id", eventoId)
-        .eq("is_duplicate", false);
+        .eq("is_duplicate", false)
+        .in("id", selectedIds);
 
       if (previewError) {
         return NextResponse.json({ error: previewError.message }, { status: 500 });
