@@ -120,7 +120,6 @@ export async function POST(req: Request) {
         status_envio: guest.status_envio || "pendente",
         data_hora_rsvp: guest.data_hora_rsvp || null,
         data_hora_envio: guest.data_hora_envio || null,
-        observacoes: guest.observacoes || null,
         is_duplicate:
           Boolean(guest.phone && existingPhones.has(guest.phone)) ||
           Boolean(guest.legacy_id && existingLegacyIds.has(guest.legacy_id)),
@@ -211,7 +210,6 @@ export async function POST(req: Request) {
         telefone: item.telefone,
         grupo: item.grupo,
         tipo_convite: item.grupo ? "grupo" : "individual",
-        observacoes: item.observacoes,
         status_rsvp: item.status_rsvp || "pendente",
         status_envio: item.status_envio || "pendente",
         data_hora_rsvp: item.data_hora_rsvp || null,
