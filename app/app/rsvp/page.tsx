@@ -240,6 +240,56 @@ export default function RsvpPage() {
     setSalvandoId(null);
   }
 
+  async function cancelarRsvpConfirmado(convidado: Convidado) {
+    const confirmacao = window.prompt(
+      `Para cancelar a confirmação de ${convidado.nome || "convidado"}, digite CANCELAR`
+    );
+
+    if (confirmacao !== "CANCELAR") {
+      alert("Cancelamento não realizado.");
+      return;
+    }
+
+    setSalvandoId(convidado.id);
+
+    const observacaoAtual = convidado.observacoes?.trim();
+    const observacaoNova = "RSVP confirmado cancelado manualmente pelo operador.";
+
+    const payload = {
+      status_rsvp: "pendente",
+      data_resposta: new Date().toISOString(),
+      observacoes: observacaoAtual
+        ? `${observacaoAtual}\n${observacaoNova}`
+        : observacaoNova,
+    };
+
+    const { error } = await supabase
+      .from("convidados")
+      .update(payload)
+      .eq("id", convidado.id);
+
+    if (error) {
+      alert("Erro ao cancelar RSVP: " + error.message);
+      setSalvandoId(null);
+      return;
+    }
+
+    setConvidados((current) =>
+      current.map((item) =>
+        item.id === convidado.id
+          ? {
+              ...item,
+              status_rsvp: "pendente",
+              data_resposta: payload.data_resposta,
+              observacoes: payload.observacoes,
+            }
+          : item
+      )
+    );
+
+    setSalvandoId(null);
+  }
+
   function toggleGrupo(grupo: string) {
     setGruposAbertos((current) => ({ ...current, [grupo]: !current[grupo] }));
   }
@@ -406,6 +456,7 @@ export default function RsvpPage() {
                           salvando={salvandoId === convidado.id}
                           onChangeStatus={atualizarStatusRsvp}
                           onEntradaSemRsvp={registrarEntradaSemRsvp}
+                          onCancelarConfirmacao={cancelarRsvpConfirmado}
                         />
                       ))}
                     </div>
@@ -423,6 +474,7 @@ export default function RsvpPage() {
                 salvando={salvandoId === convidado.id}
                 onChangeStatus={atualizarStatusRsvp}
                 onEntradaSemRsvp={registrarEntradaSemRsvp}
+                onCancelarConfirmacao={cancelarRsvpConfirmado}
               />
             ))}
           </div>
@@ -441,11 +493,13 @@ function RsvpGuestCard({
   salvando,
   onChangeStatus,
   onEntradaSemRsvp,
+  onCancelarConfirmacao,
 }: {
   convidado: Convidado;
   salvando: boolean;
   onChangeStatus: (convidado: Convidado, status: StatusRsvp) => void;
   onEntradaSemRsvp: (convidado: Convidado) => void;
+  onCancelarConfirmacao: (convidado: Convidado) => void;
 }) {
   const status = normalizarStatusRsvp(convidado.status_rsvp);
   const jaConfirmado = status === "confirmado";
@@ -478,9 +532,20 @@ function RsvpGuestCard({
 
       <div style={actionsStyle}>
         {jaConfirmado ? (
-          <span style={lockedConfirmedStyle}>
-            RSVP já confirmado
-          </span>
+          <>
+            <span style={lockedConfirmedStyle}>
+              RSVP já confirmado
+            </span>
+
+            <button
+              className="rsvp-action"
+              onClick={() => onCancelarConfirmacao(convidado)}
+              disabled={salvando}
+              style={cancelConfirmButtonStyle}
+            >
+              Cancelar RSVP
+            </button>
+          </>
         ) : (
           <>
             <button
@@ -1058,6 +1123,13 @@ const activeAbsentButtonStyle: React.CSSProperties = {
   color: "#fff",
 };
 
+const cancelConfirmButtonStyle: React.CSSProperties = {
+  ...baseActionButtonStyle,
+  background: "#fff7ed",
+  color: "#9a3412",
+  borderColor: "rgba(234,88,12,0.28)",
+};
+
 const linkButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
   background: "#ede9fe",
@@ -1099,4 +1171,3 @@ const emptyStyle: React.CSSProperties = {
   border: "1px dashed var(--line)",
   color: "var(--muted)",
 };
-
