@@ -9,6 +9,7 @@ type Stats = {
   pendentes: number;
   entradas: number;
   restantes: number;
+  ausentes: number;
 };
 
 type Convidado = {
@@ -39,6 +40,7 @@ export default function DashboardPage() {
     pendentes: 0,
     entradas: 0,
     restantes: 0,
+    ausentes: 0,
   });
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
@@ -71,10 +73,11 @@ export default function DashboardPage() {
     const confirmados = lista.filter((c) => c.status_rsvp === "confirmado").length;
     const pendentes = lista.filter((c) => c.status_rsvp === "pendente").length;
     const entradas = lista.filter((c) => c.status_checkin === "entrou").length;
+    const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
     const restantes = Math.max(confirmados - entradas, 0);
 
     setConvidados(lista);
-    setStats({ total, confirmados, pendentes, entradas, restantes });
+    setStats({ total, confirmados, pendentes, entradas, restantes, ausentes });
     setLoading(false);
   }
 
@@ -87,6 +90,9 @@ export default function DashboardPage() {
 
   const percentualEntradas =
     stats.confirmados > 0 ? Math.round((stats.entradas / stats.confirmados) * 100) : 0;
+
+  const percentualAusentes =
+    stats.total > 0 ? Math.round((stats.ausentes / stats.total) * 100) : 0;
 
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -161,6 +167,13 @@ export default function DashboardPage() {
       bg: "#fef3c7",
     },
     {
+      label: "Ausência confirmada",
+      value: stats.ausentes,
+      detail: `${percentualAusentes}% da lista`,
+      color: "#dc2626",
+      bg: "#fee2e2",
+    },
+    {
       label: "Entradas",
       value: stats.entradas,
       detail: `${percentualEntradas}% dos confirmados`,
@@ -175,7 +188,7 @@ export default function DashboardPage() {
     { key: "pendentes", label: "Pendentes" },
     { key: "entraram", label: "Entraram" },
     { key: "faltam", label: "Faltam entrar" },
-    { key: "nao", label: "Não vão" },
+    { key: "nao", label: "Ausência confirmada" },
   ];
 
   function toggleGrupo(grupo: string) {
@@ -264,6 +277,7 @@ export default function DashboardPage() {
           <div style={miniStatsStyle}>
             <span>{stats.confirmados} confirmados</span>
             <span>{stats.pendentes} pendentes</span>
+            <span>{stats.ausentes} ausências</span>
           </div>
         </article>
 
@@ -458,7 +472,7 @@ function GuestCard({
           {convidado.status_checkin === "entrou" && <span style={badgeStyle("#2563eb")}>Entrou</span>}
           {convidado.status_rsvp === "confirmado" && <span style={badgeStyle("#16a34a")}>Confirmado</span>}
           {convidado.status_rsvp === "pendente" && <span style={badgeStyle("#f59e0b")}>Pendente</span>}
-          {convidado.status_rsvp === "nao" && <span style={badgeStyle("#dc2626")}>Não vai</span>}
+          {convidado.status_rsvp === "nao" && <span style={badgeStyle("#dc2626")}>Ausência confirmada</span>}
           <span style={guestChevronStyle}>{aberto ? "⌃" : "⌄"}</span>
         </div>
       </button>
@@ -566,7 +580,7 @@ function contarConfirmados(lista: Convidado[]) {
 
 function labelRsvp(status: string | null) {
   if (status === "confirmado") return "Confirmado";
-  if (status === "nao") return "Não vai";
+  if (status === "nao") return "Ausência confirmada";
   return "Pendente";
 }
 
@@ -654,7 +668,7 @@ const refreshButtonStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
   gap: 16,
 };
 
@@ -760,6 +774,8 @@ const progressBarStyle: React.CSSProperties = {
 const miniStatsStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
   marginTop: 14,
   color: "var(--muted)",
   fontSize: 14,
