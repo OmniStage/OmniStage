@@ -80,8 +80,9 @@ export default function AppLayout({
           margin-left: 300px;
           padding: 40px;
           background:
-            radial-gradient(circle at top left, rgba(109,40,217,0.055), transparent 28%),
-            var(--bg);
+            radial-gradient(circle at 10% 0%, rgba(109,40,217,0.025), transparent 34%),
+            radial-gradient(circle at 90% 0%, rgba(16,185,129,0.022), transparent 34%),
+            #f8fafc;
         }
 
         .omni-brand {
@@ -239,8 +240,8 @@ export default function AppLayout({
             padding: 16px;
             min-height: calc(100vh - 64px);
             background:
-              radial-gradient(circle at top left, rgba(109,40,217,0.045), transparent 26%),
-              var(--bg);
+              radial-gradient(circle at 10% 0%, rgba(109,40,217,0.018), transparent 32%),
+              #f8fafc;
           }
 
           .omni-main > * {
