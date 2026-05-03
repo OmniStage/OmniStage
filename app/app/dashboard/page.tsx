@@ -180,6 +180,27 @@ export default function DashboardPage() {
       color: "#2563eb",
       bg: "#dbeafe",
     },
+    {
+      label: "No-show atual",
+      value: stats.restantes,
+      detail: "Confirmados que ainda não entraram",
+      color: "#7c3aed",
+      bg: "#ede9fe",
+    },
+    {
+      label: "Presença real",
+      value: stats.entradas,
+      detail: "Check-ins realizados",
+      color: "#059669",
+      bg: "#d1fae5",
+    },
+    {
+      label: "Total para buffet",
+      value: stats.confirmados,
+      detail: "Base operacional: confirmados",
+      color: "#0f172a",
+      bg: "#e2e8f0",
+    },
   ];
 
   const tabs: { key: FiltroStatus; label: string }[] = [
@@ -389,8 +410,11 @@ export default function DashboardPage() {
                 <article key={grupo} style={groupCardStyle}>
                   <button onClick={() => toggleGrupo(grupo)} style={groupHeaderStyle}>
                     <div>
-                      <strong style={groupTitleStyle}>{grupo}</strong>
+                      <strong style={groupTitleStyle}>Grupo</strong>
                       <p style={groupSubtitleStyle}>
+                        Integrantes: {nomesIntegrantes(lista)}
+                      </p>
+                      <p style={groupContactStyle}>
                         {lista.length} integrante{lista.length === 1 ? "" : "s"}
                         {principal?.telefone ? ` • contato: ${principal.telefone}` : " • sem telefone principal"}
                       </p>
@@ -574,6 +598,13 @@ function ordenarPorTelefoneDepoisNome(a: Convidado, b: Convidado) {
   return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
 }
 
+function nomesIntegrantes(lista: Convidado[]) {
+  return lista
+    .map((convidado) => convidado.nome?.trim())
+    .filter(Boolean)
+    .join(" • ");
+}
+
 function contarConfirmados(lista: Convidado[]) {
   return lista.filter((c) => c.status_rsvp === "confirmado").length;
 }
@@ -668,7 +699,7 @@ const refreshButtonStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
   gap: 16,
 };
 
@@ -929,6 +960,13 @@ const groupSubtitleStyle: React.CSSProperties = {
   margin: "6px 0 0",
   color: "var(--muted)",
   fontWeight: 700,
+};
+
+const groupContactStyle: React.CSSProperties = {
+  margin: "6px 0 0",
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 800,
 };
 
 const groupRightStyle: React.CSSProperties = {
