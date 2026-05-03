@@ -42,6 +42,7 @@ export default function AdminImportacaoPage() {
   const [sheetUrl, setSheetUrl] = useState("");
   const [texto, setTexto] = useState("");
   const [preview, setPreview] = useState<PreviewRow[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -106,6 +107,7 @@ export default function AdminImportacaoPage() {
   function cancelarPrevia() {
     setTexto("");
     setPreview([]);
+    setSelectedIds([]);
     setBatchId(null);
   }
 
@@ -115,6 +117,34 @@ export default function AdminImportacaoPage() {
     }
 
     return url;
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function selecionarTodos() {
+    setSelectedIds(preview.map((item) => item.id));
+  }
+
+  function selecionarValidos() {
+    setSelectedIds(
+      preview
+        .filter((item) => !item.is_duplicate)
+        .map((item) => item.id)
+    );
+  }
+
+  function limparSelecao() {
+    setSelectedIds([]);
+  }
+
+  function removerDuplicados() {
+    setSelectedIds((prev) =>
+      prev.filter((id) => !preview.find((item) => item.id === id)?.is_duplicate)
+    );
   }
 
   async function carregarGoogleSheets() {
@@ -153,6 +183,7 @@ export default function AdminImportacaoPage() {
 
       setTexto(textoFormatado);
       setPreview([]);
+      setSelectedIds([]);
       setBatchId(null);
 
       alert(`${result.total || 0} linhas carregadas da planilha.`);
@@ -194,8 +225,16 @@ export default function AdminImportacaoPage() {
         throw new Error(result.error || "Erro ao gerar prévia.");
       }
 
+      const previewData = (result.preview || []) as PreviewRow[];
+
       setBatchId(result.batchId);
-      setPreview(result.preview || []);
+      setPreview(previewData);
+      setSelectedIds(
+        previewData
+          .filter((item) => !item.is_duplicate)
+          .map((item) => item.id)
+      );
+
       await carregarHistorico(tenantId, eventoId);
 
       alert(`${result.total} registros interpretados.`);
@@ -212,8 +251,13 @@ export default function AdminImportacaoPage() {
       return;
     }
 
+    if (selectedIds.length === 0) {
+      alert("Selecione pelo menos um convidado para importar.");
+      return;
+    }
+
     const confirmacao = confirm(
-      "Confirmar importação? Registros duplicados serão ignorados."
+      `Confirmar importação de ${selectedIds.length} convidado(s)? Registros duplicados serão ignorados automaticamente.`
     );
 
     if (!confirmacao) return;
@@ -229,6 +273,7 @@ export default function AdminImportacaoPage() {
           tenantId,
           eventoId,
           batchId,
+          selectedIds,
         }),
       });
 
@@ -242,6 +287,7 @@ export default function AdminImportacaoPage() {
 
       setTexto("");
       setPreview([]);
+      setSelectedIds([]);
       setBatchId(null);
 
       await carregarHistorico(tenantId, eventoId);
@@ -295,6 +341,7 @@ export default function AdminImportacaoPage() {
 
   const totalDuplicados = preview.filter((item) => item.is_duplicate).length;
   const totalValidos = preview.length - totalDuplicados;
+  const totalSelecionados = selectedIds.length;
 
   return (
     <main style={{ color: "#fff" }}>
@@ -313,6 +360,7 @@ export default function AdminImportacaoPage() {
               const novoEventoId = event.target.value;
               setEventoId(novoEventoId);
               setPreview([]);
+              setSelectedIds([]);
               setBatchId(null);
 
               if (tenantId && novoEventoId) {
@@ -377,10 +425,10 @@ export default function AdminImportacaoPage() {
             <>
               <button
                 onClick={confirmarImportacao}
-                disabled={loading}
+                disabled={loading || totalSelecionados === 0}
                 style={goldButtonStyle}
               >
-                Confirmar importação
+                Importar selecionados ({totalSelecionados})
               </button>
 
               <button
@@ -400,58 +448,108 @@ export default function AdminImportacaoPage() {
           <div style={headerStyle}>
             <h2 style={{ margin: 0 }}>Prévia</h2>
             <span style={{ color: "#94a3b8", fontWeight: 800 }}>
-              {totalValidos} válidos · {totalDuplicados} duplicados
+              {totalSelecionados} selecionados · {totalValidos} válidos ·{" "}
+              {totalDuplicados} duplicados
             </span>
           </div>
 
+          <div style={selectionActionsStyle}>
+            <button onClick={selecionarTodos} disabled={loading} style={smallButtonStyle}>
+              Selecionar todos
+            </button>
+
+            <button onClick={selecionarValidos} disabled={loading} style={smallButtonStyle}>
+              Selecionar válidos
+            </button>
+
+            <button onClick={removerDuplicados} disabled={loading} style={smallButtonStyle}>
+              Remover duplicados
+            </button>
+
+            <button onClick={limparSelecao} disabled={loading} style={smallButtonStyle}>
+              Limpar seleção
+            </button>
+          </div>
+
           <div style={{ display: "grid", gap: 12 }}>
-            {preview.map((item) => (
-              <article
-                key={item.id}
-                style={{
-                  ...cardStyle,
-                  border: item.is_duplicate
-                    ? "1px solid rgba(239,68,68,0.6)"
-                    : "1px solid #334155",
-                  background: item.is_duplicate
-                    ? "rgba(127,29,29,0.22)"
-                    : "#0f172a",
-                }}
-              >
-                <div>
-                  <strong style={{ fontSize: 20 }}>{item.nome}</strong>
+            {preview.map((item) => {
+              const checked = selectedIds.includes(item.id);
 
-                  <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
-                    Legacy ID: {item.legacy_id || "sem ID"} · Grupo:{" "}
-                    {item.grupo || "sem grupo"} · Telefone:{" "}
-                    {item.telefone || "sem telefone"}
-                  </p>
-
-                  <p style={{ color: "#cbd5e1", margin: "6px 0 0" }}>
-                    RSVP: {item.status_rsvp || "pendente"} · Envio:{" "}
-                    {item.status_envio || "pendente"}
-                  </p>
-
-                  {item.observacoes && (
-                    <p style={{ color: "#64748b", margin: "6px 0 0", fontSize: 13, whiteSpace: "pre-line" }}>
-                      {item.observacoes}
-                    </p>
-                  )}
-                </div>
-
-                <span
+              return (
+                <article
+                  key={item.id}
                   style={{
-                    ...badgeStyle,
+                    ...cardStyle,
+                    border: item.is_duplicate
+                      ? "1px solid rgba(239,68,68,0.6)"
+                      : checked
+                      ? "1px solid rgba(250,204,21,0.6)"
+                      : "1px solid #334155",
                     background: item.is_duplicate
-                      ? "rgba(239,68,68,0.16)"
-                      : "rgba(34,197,94,0.14)",
-                    color: item.is_duplicate ? "#fca5a5" : "#86efac",
+                      ? "rgba(127,29,29,0.22)"
+                      : checked
+                      ? "rgba(250,204,21,0.08)"
+                      : "#0f172a",
                   }}
                 >
-                  {item.is_duplicate ? "Duplicado" : "OK"}
-                </span>
-              </article>
-            ))}
+                  <div style={cardLeftStyle}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={item.is_duplicate}
+                      onChange={() => toggleSelect(item.id)}
+                      style={checkboxStyle}
+                    />
+
+                    <div>
+                      <strong style={{ fontSize: 20 }}>{item.nome}</strong>
+
+                      <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                        Legacy ID: {item.legacy_id || "sem ID"} · Grupo:{" "}
+                        {item.grupo || "sem grupo"} · Telefone:{" "}
+                        {item.telefone || "sem telefone"}
+                      </p>
+
+                      <p style={{ color: "#cbd5e1", margin: "6px 0 0" }}>
+                        RSVP: {item.status_rsvp || "pendente"} · Envio:{" "}
+                        {item.status_envio || "pendente"}
+                      </p>
+
+                      {item.observacoes && (
+                        <p
+                          style={{
+                            color: "#64748b",
+                            margin: "6px 0 0",
+                            fontSize: 13,
+                            whiteSpace: "pre-line",
+                          }}
+                        >
+                          {item.observacoes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      ...badgeStyle,
+                      background: item.is_duplicate
+                        ? "rgba(239,68,68,0.16)"
+                        : checked
+                        ? "rgba(250,204,21,0.16)"
+                        : "rgba(34,197,94,0.14)",
+                      color: item.is_duplicate
+                        ? "#fca5a5"
+                        : checked
+                        ? "#fde68a"
+                        : "#86efac",
+                    }}
+                  >
+                    {item.is_duplicate ? "Duplicado" : checked ? "Selecionado" : "OK"}
+                  </span>
+                </article>
+              );
+            })}
           </div>
 
           {batchId && (
@@ -548,6 +646,13 @@ const actionsStyle: CSSProperties = {
   marginTop: 20,
 };
 
+const selectionActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginBottom: 16,
+};
+
 const buttonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 10,
@@ -578,6 +683,16 @@ const goldButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const smallButtonStyle: CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 10,
+  background: "#1e293b",
+  border: "1px solid #334155",
+  color: "#fff",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
 const headerStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -597,9 +712,24 @@ const cardStyle: CSSProperties = {
   background: "#0f172a",
 };
 
+const cardLeftStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 14,
+  minWidth: 0,
+};
+
+const checkboxStyle: CSSProperties = {
+  width: 20,
+  height: 20,
+  marginTop: 4,
+  cursor: "pointer",
+};
+
 const badgeStyle: CSSProperties = {
   padding: "8px 12px",
   borderRadius: 999,
   fontWeight: 900,
   fontSize: 12,
+  whiteSpace: "nowrap",
 };
