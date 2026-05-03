@@ -410,8 +410,7 @@ export default function DashboardPage() {
                 <article key={grupo} style={groupCardStyle}>
                   <button onClick={() => toggleGrupo(grupo)} style={groupHeaderStyle}>
                     <div>
-                      <strong style={groupTitleStyle}>Grupo</strong>
-                      <p style={groupSubtitleStyle}>
+                      <p style={groupTitleStyle}>
                         Integrantes: {nomesIntegrantes(lista)}
                       </p>
                       <p style={groupContactStyle}>
@@ -951,6 +950,7 @@ const groupHeaderStyle: React.CSSProperties = {
 };
 
 const groupTitleStyle: React.CSSProperties = {
+  margin: 0,
   fontSize: 18,
   fontWeight: 900,
   color: "#6d28d9",
