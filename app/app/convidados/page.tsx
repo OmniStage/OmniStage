@@ -238,7 +238,8 @@ Apresente o cartão na entrada do evento.`;
       `)
       .eq("tenant_id", tenant)
       .eq("evento_id", evento)
-      .order("created_at", { ascending: false });
+      .order("grupo", { ascending: true, nullsFirst: false })
+      .order("nome", { ascending: true });
 
     if (error) {
       alert("Erro ao carregar convidados: " + error.message);
