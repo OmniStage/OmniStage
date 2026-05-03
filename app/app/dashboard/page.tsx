@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Stats = {
@@ -50,6 +50,10 @@ export default function DashboardPage() {
   const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacao>("grupo");
   const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
   const [convidadosAbertos, setConvidadosAbertos] = useState<Record<string, boolean>>({});
+  const [modoAoVivo, setModoAoVivo] = useState(true);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string>("--:--");
+  const [pulseLive, setPulseLive] = useState(false);
+  const statsAnteriorRef = useRef<Stats | null>(null);
 
   async function carregarDashboard() {
     setLoading(true);
@@ -76,14 +80,46 @@ export default function DashboardPage() {
     const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
     const restantes = Math.max(confirmados - entradas, 0);
 
+    const novasStats = { total, confirmados, pendentes, entradas, restantes, ausentes };
+    const statsAnterior = statsAnteriorRef.current;
+
+    if (
+      statsAnterior &&
+      (statsAnterior.entradas !== entradas ||
+        statsAnterior.confirmados !== confirmados ||
+        statsAnterior.pendentes !== pendentes ||
+        statsAnterior.ausentes !== ausentes)
+    ) {
+      setPulseLive(true);
+      window.setTimeout(() => setPulseLive(false), 900);
+    }
+
+    statsAnteriorRef.current = novasStats;
     setConvidados(lista);
-    setStats({ total, confirmados, pendentes, entradas, restantes, ausentes });
+    setStats(novasStats);
+    setUltimaAtualizacao(
+      new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    );
     setLoading(false);
   }
 
   useEffect(() => {
     carregarDashboard();
   }, []);
+
+  useEffect(() => {
+    if (!modoAoVivo) return;
+
+    const interval = window.setInterval(() => {
+      carregarDashboard();
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [modoAoVivo]);
 
   const percentualConfirmados =
     stats.total > 0 ? Math.round((stats.confirmados / stats.total) * 100) : 0;
@@ -348,6 +384,37 @@ export default function DashboardPage() {
           transform: translateY(-1px) !important;
         }
 
+        .omni-live-pulse article {
+          animation: livePulse 850ms ease both;
+        }
+
+        @keyframes livePulse {
+          0% {
+            transform: scale(1);
+            box-shadow: 0 14px 40px rgba(15,23,42,0.05);
+          }
+          35% {
+            transform: scale(1.015);
+            box-shadow: 0 20px 55px rgba(109,40,217,0.16);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 14px 40px rgba(15,23,42,0.05);
+          }
+        }
+
+        @keyframes liveDotPulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(22,163,74,0.45);
+          }
+          70% {
+            box-shadow: 0 0 0 8px rgba(22,163,74,0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(22,163,74,0);
+          }
+        }
+
         button:focus-visible,
         a:focus-visible {
           outline: 3px solid rgba(109, 40, 217, 0.22);
@@ -363,12 +430,27 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <button onClick={carregarDashboard} style={refreshButtonStyle}>
-          {loading ? "Atualizando..." : "Atualizar dados"}
-        </button>
+        <div style={liveActionsStyle}>
+          <div style={liveStatusStyle}>
+            <span style={modoAoVivo ? liveDotActiveStyle : liveDotPausedStyle} />
+            <span>{modoAoVivo ? "Ao vivo" : "Pausado"}</span>
+            <small style={liveTimeStyle}>Atualizado às {ultimaAtualizacao}</small>
+          </div>
+
+          <button
+            onClick={() => setModoAoVivo((current) => !current)}
+            style={modoAoVivo ? liveToggleActiveStyle : liveToggleStyle}
+          >
+            {modoAoVivo ? "Pausar ao vivo" : "Ativar ao vivo"}
+          </button>
+
+          <button onClick={carregarDashboard} style={refreshButtonStyle}>
+            {loading ? "Atualizando..." : "Atualizar agora"}
+          </button>
+        </div>
       </section>
 
-      <section style={gridStyle}>
+      <section className={pulseLive ? "omni-live-pulse" : ""} style={gridStyle}>
         {cards.map((card) => (
           <article key={card.label} style={metricCardStyle}>
             <div
@@ -455,7 +537,11 @@ export default function DashboardPage() {
           <span style={statusPillStyle}>Ao vivo</span>
         </div>
 
-        <div style={emptyStateStyle}>Nenhuma entrada registrada ainda.</div>
+        <div style={emptyStateStyle}>
+          {modoAoVivo
+            ? "Modo ao vivo ativo. O painel atualiza automaticamente a cada 10 segundos."
+            : "Modo ao vivo pausado. Use Atualizar agora para buscar os dados mais recentes."}
+        </div>
       </section>
 
       <section style={panelStyle}>
@@ -811,6 +897,64 @@ const refreshButtonStyle: React.CSSProperties = {
   borderRadius: 14,
   fontWeight: 800,
   cursor: "pointer",
+};
+
+const liveActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const liveStatusStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "10px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.78)",
+  border: "1px solid var(--line)",
+  color: "var(--text)",
+  fontSize: 13,
+  fontWeight: 900,
+};
+
+const liveDotActiveStyle: React.CSSProperties = {
+  width: 9,
+  height: 9,
+  borderRadius: 999,
+  background: "#16a34a",
+  animation: "liveDotPulse 1.4s infinite",
+};
+
+const liveDotPausedStyle: React.CSSProperties = {
+  width: 9,
+  height: 9,
+  borderRadius: 999,
+  background: "#94a3b8",
+};
+
+const liveTimeStyle: React.CSSProperties = {
+  color: "var(--muted)",
+  fontWeight: 800,
+};
+
+const liveToggleStyle: React.CSSProperties = {
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
+  padding: "13px 18px",
+  borderRadius: 14,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const liveToggleActiveStyle: React.CSSProperties = {
+  ...liveToggleStyle,
+  background: "#dcfce7",
+  color: "#166534",
+  border: "1px solid rgba(22,163,74,0.22)",
 };
 
 const gridStyle: React.CSSProperties = {
