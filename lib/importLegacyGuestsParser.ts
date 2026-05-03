@@ -23,7 +23,13 @@ function titleCase(value: string): string {
     .trim()
     .replace(/\s+/g, " ")
     .toLocaleLowerCase("pt-BR")
-    .replace(/\b\p{L}/gu, (char) => char.toUpperCase());
+    .split(" ")
+    .map((word) =>
+      word
+        ? word.charAt(0).toLocaleUpperCase("pt-BR") + word.slice(1)
+        : ""
+    )
+    .join(" ");
 }
 
 function normalize(value: string) {
