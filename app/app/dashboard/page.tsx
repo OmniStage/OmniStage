@@ -15,16 +15,16 @@ type Convidado = {
   id: string;
   nome: string | null;
   telefone: string | null;
-  email?: string | null;
+  email: string | null;
   grupo: string | null;
+  tipo_convite: string | null;
   status_rsvp: string | null;
   status_checkin: string | null;
-  status_envio?: string | null;
-  token?: string | null;
-  created_at?: string | null;
+  status_envio: string | null;
+  token: string | null;
 };
 
-type FiltroConvidados =
+type FiltroKey =
   | "todos"
   | "confirmados"
   | "pendentes"
@@ -42,16 +42,28 @@ export default function DashboardPage() {
   });
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
-  const [filtro, setFiltro] = useState<FiltroConvidados>("todos");
+  const [filtro, setFiltro] = useState<FiltroKey>("todos");
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
+  const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
 
   async function carregarDashboard() {
     setLoading(true);
 
     const { data, error } = await supabase
       .from("convidados")
-      .select("*")
+      .select(`
+        id,
+        nome,
+        telefone,
+        email,
+        grupo,
+        tipo_convite,
+        status_rsvp,
+        status_checkin,
+        status_envio,
+        token
+      `)
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
@@ -62,15 +74,15 @@ export default function DashboardPage() {
       return;
     }
 
-    const convidadosData = (data || []) as Convidado[];
+    const lista = (data || []) as Convidado[];
 
-    const total = convidadosData.length;
-    const confirmados = convidadosData.filter((c) => c.status_rsvp === "confirmado").length;
-    const pendentes = convidadosData.filter((c) => c.status_rsvp === "pendente").length;
-    const entradas = convidadosData.filter((c) => c.status_checkin === "entrou").length;
+    const total = lista.length;
+    const confirmados = lista.filter((c) => c.status_rsvp === "confirmado").length;
+    const pendentes = lista.filter((c) => c.status_rsvp === "pendente").length;
+    const entradas = lista.filter((c) => c.status_checkin === "entrou").length;
     const restantes = Math.max(confirmados - entradas, 0);
 
-    setConvidados(convidadosData);
+    setConvidados(lista);
     setStats({
       total,
       confirmados,
@@ -95,33 +107,87 @@ export default function DashboardPage() {
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
-    return convidados.filter((convidado) => {
-      const buscaOk =
+    return convidados.filter((c) => {
+      const matchBusca =
         !termo ||
         [
-          convidado.nome,
-          convidado.grupo,
-          convidado.telefone,
-          convidado.email,
-          convidado.token,
+          c.nome,
+          c.grupo,
+          c.telefone,
+          c.email,
+          c.token,
+          c.status_rsvp,
+          c.status_checkin,
         ]
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
-      if (!buscaOk) return false;
+      if (!matchBusca) return false;
 
       if (filtro === "todos") return true;
-      if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
-      if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
-      if (filtro === "entraram") return convidado.status_checkin === "entrou";
+      if (filtro === "confirmados") return c.status_rsvp === "confirmado";
+      if (filtro === "pendentes") return c.status_rsvp === "pendente";
+      if (filtro === "entraram") return c.status_checkin === "entrou";
       if (filtro === "faltam") {
-        return convidado.status_rsvp === "confirmado" && convidado.status_checkin !== "entrou";
+        return c.status_rsvp === "confirmado" && c.status_checkin !== "entrou";
       }
-      if (filtro === "nao") return convidado.status_rsvp === "nao";
+      if (filtro === "nao") return c.status_rsvp === "nao";
 
       return true;
     });
   }, [convidados, filtro, busca]);
+
+  const gruposFiltrados = useMemo(() => {
+    const mapa = new Map<string, Convidado[]>();
+
+    convidadosFiltrados.forEach((convidado) => {
+      const grupo = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
+
+      if (!mapa.has(grupo)) {
+        mapa.set(grupo, []);
+      }
+
+      mapa.get(grupo)!.push(convidado);
+    });
+
+    return Array.from(mapa.entries()).map(([grupo, membros]) => {
+      const confirmados = membros.filter((m) => m.status_rsvp === "confirmado").length;
+      const pendentes = membros.filter((m) => m.status_rsvp === "pendente").length;
+      const entradas = membros.filter((m) => m.status_checkin === "entrou").length;
+      const faltam = membros.filter(
+        (m) => m.status_rsvp === "confirmado" && m.status_checkin !== "entrou"
+      ).length;
+
+      return {
+        grupo,
+        membros,
+        total: membros.length,
+        confirmados,
+        pendentes,
+        entradas,
+        faltam,
+      };
+    });
+  }, [convidadosFiltrados]);
+
+  function alternarGrupo(grupo: string) {
+    setGruposAbertos((current) => ({
+      ...current,
+      [grupo]: !current[grupo],
+    }));
+  }
+
+  function abrirTodosGrupos() {
+    const todosAbertos: Record<string, boolean> = {};
+    gruposFiltrados.forEach((item) => {
+      todosAbertos[item.grupo] = true;
+    });
+    setGruposAbertos(todosAbertos);
+  }
+
+  function fecharTodosGrupos() {
+    setGruposAbertos({});
+  }
 
   const cards = [
     {
@@ -154,7 +220,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const tabs: { key: FiltroConvidados; label: string }[] = [
+  const tabs: { key: FiltroKey; label: string }[] = [
     { key: "todos", label: "Todos" },
     { key: "confirmados", label: "Confirmados" },
     { key: "pendentes", label: "Pendentes" },
@@ -194,7 +260,9 @@ export default function DashboardPage() {
 
             <p style={metricLabelStyle}>{card.label}</p>
 
-            <strong style={metricValueStyle}>{loading ? "..." : card.value}</strong>
+            <strong style={metricValueStyle}>
+              {loading ? "..." : card.value}
+            </strong>
 
             <p style={metricDetailStyle}>{card.detail}</p>
           </article>
@@ -268,14 +336,23 @@ export default function DashboardPage() {
         <div style={emptyStateStyle}>Nenhuma entrada registrada ainda.</div>
       </section>
 
-      <section style={largePanelStyle}>
+      <section style={panelStyle}>
         <div style={panelHeaderStyle}>
           <div>
-            <h2 style={panelTitleStyle}>Convidados</h2>
-            <p style={panelTextStyle}>Filtre a lista por RSVP, check-in ou busca.</p>
+            <h2 style={panelTitleStyle}>Convidados por grupo</h2>
+            <p style={panelTextStyle}>
+              Filtre, busque e expanda o grupo para ver todos os integrantes.
+            </p>
           </div>
 
-          <span style={itemsPillStyle}>{convidadosFiltrados.length} itens</span>
+          <div style={groupActionsStyle}>
+            <button onClick={abrirTodosGrupos} style={smallGhostButtonStyle}>
+              Expandir todos
+            </button>
+            <button onClick={fecharTodosGrupos} style={smallGhostButtonStyle}>
+              Recolher todos
+            </button>
+          </div>
         </div>
 
         <div style={tabsStyle}>
@@ -290,7 +367,9 @@ export default function DashboardPage() {
                   ...tabButtonStyle,
                   background: active ? "#6d28d9" : "var(--card)",
                   color: active ? "#fff" : "var(--text)",
-                  border: active ? "1px solid #6d28d9" : "1px solid var(--line)",
+                  border: active
+                    ? "1px solid #6d28d9"
+                    : "1px solid var(--line)",
                 }}
               >
                 {tab.label}
@@ -301,37 +380,96 @@ export default function DashboardPage() {
 
         <div style={searchRowStyle}>
           <input
+            placeholder="Buscar por nome, grupo, telefone, e-mail, token ou status..."
             value={busca}
             onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar por nome, grupo, telefone, e-mail ou token"
             style={searchInputStyle}
           />
+
+          <div style={counterStyle}>
+            {convidadosFiltrados.length} convidado
+            {convidadosFiltrados.length === 1 ? "" : "s"} · {gruposFiltrados.length} grupo
+            {gruposFiltrados.length === 1 ? "" : "s"}
+          </div>
         </div>
 
-        <div style={guestListStyle}>
-          {convidadosFiltrados.length === 0 && (
+        <div style={groupsListStyle}>
+          {gruposFiltrados.length === 0 && (
             <div style={emptyStateStyle}>Nenhum convidado encontrado com estes filtros.</div>
           )}
 
-          {convidadosFiltrados.map((convidado) => (
-            <article key={convidado.id} style={guestRowStyle}>
-              <div style={{ minWidth: 0 }}>
-                <strong style={guestNameStyle}>{convidado.nome || "Sem nome"}</strong>
-                <p style={guestMetaStyle}>
-                  {convidado.grupo || "Sem grupo"} • {convidado.telefone || "Sem telefone"}
-                </p>
-              </div>
+          {gruposFiltrados.map((item) => {
+            const aberto = !!gruposAbertos[item.grupo];
+            const telefonePrincipal = item.membros.find((m) => m.telefone)?.telefone;
 
-              <div style={guestBadgesStyle}>
-                <span style={getRsvpBadgeStyle(convidado.status_rsvp)}>
-                  {labelRsvp(convidado.status_rsvp)}
-                </span>
-                <span style={getCheckinBadgeStyle(convidado.status_checkin)}>
-                  {convidado.status_checkin === "entrou" ? "Entrou" : "Não entrou"}
-                </span>
-              </div>
-            </article>
-          ))}
+            return (
+              <article key={item.grupo} style={groupCardStyle}>
+                <button
+                  onClick={() => alternarGrupo(item.grupo)}
+                  style={groupHeaderButtonStyle}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={groupTitleRowStyle}>
+                      <h3 style={groupTitleStyle}>{item.grupo}</h3>
+                      <span style={groupCountPillStyle}>
+                        {item.total} integrante{item.total === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    <p style={groupSubtitleStyle}>
+                      {telefonePrincipal ? `Telefone principal: ${telefonePrincipal}` : "Sem telefone principal"}
+                    </p>
+                  </div>
+
+                  <div style={groupSummaryStyle}>
+                    <span style={miniPill("#16a34a", "#dcfce7")}>
+                      {item.confirmados} confirmados
+                    </span>
+                    <span style={miniPill("#f59e0b", "#fef3c7")}>
+                      {item.pendentes} pendentes
+                    </span>
+                    <span style={miniPill("#2563eb", "#dbeafe")}>
+                      {item.entradas} entraram
+                    </span>
+                    <span style={chevronStyle}>{aberto ? "⌃" : "⌄"}</span>
+                  </div>
+                </button>
+
+                {aberto && (
+                  <div style={membersGridStyle}>
+                    {item.membros.map((convidado) => (
+                      <div key={convidado.id} style={memberCardStyle}>
+                        <div>
+                          <strong style={memberNameStyle}>
+                            {convidado.nome || "Sem nome"}
+                          </strong>
+
+                          <p style={memberMetaStyle}>
+                            {convidado.telefone || "Sem telefone"}
+                            {convidado.email ? ` · ${convidado.email}` : ""}
+                          </p>
+
+                          {convidado.token && (
+                            <p style={memberTokenStyle}>Token: {convidado.token}</p>
+                          )}
+                        </div>
+
+                        <div style={memberBadgesStyle}>
+                          <span style={statusBadgeStyle(convidado.status_rsvp)}>
+                            {labelRsvp(convidado.status_rsvp)}
+                          </span>
+
+                          <span style={checkinBadgeStyle(convidado.status_checkin)}>
+                            {labelCheckin(convidado.status_checkin)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
@@ -344,20 +482,54 @@ function labelRsvp(status: string | null) {
   return "Pendente";
 }
 
-function getRsvpBadgeStyle(status: string | null): React.CSSProperties {
-  if (status === "confirmado") return badgeStyle("#dcfce7", "#16a34a");
-  if (status === "nao") return badgeStyle("#fee2e2", "#dc2626");
-  return badgeStyle("#fef3c7", "#f59e0b");
+function labelCheckin(status: string | null) {
+  if (status === "entrou") return "Entrou";
+  return "Não entrou";
 }
 
-function getCheckinBadgeStyle(status: string | null): React.CSSProperties {
-  if (status === "entrou") return badgeStyle("#dbeafe", "#2563eb");
-  return badgeStyle("#f1f5f9", "#64748b");
-}
+function statusBadgeStyle(status: string | null): React.CSSProperties {
+  if (status === "confirmado") {
+    return {
+      ...baseBadgeStyle,
+      background: "#dcfce7",
+      color: "#16a34a",
+    };
+  }
 
-function badgeStyle(background: string, color: string): React.CSSProperties {
+  if (status === "nao") {
+    return {
+      ...baseBadgeStyle,
+      background: "#fee2e2",
+      color: "#dc2626",
+    };
+  }
+
   return {
-    padding: "7px 11px",
+    ...baseBadgeStyle,
+    background: "#fef3c7",
+    color: "#f59e0b",
+  };
+}
+
+function checkinBadgeStyle(status: string | null): React.CSSProperties {
+  if (status === "entrou") {
+    return {
+      ...baseBadgeStyle,
+      background: "#dbeafe",
+      color: "#2563eb",
+    };
+  }
+
+  return {
+    ...baseBadgeStyle,
+    background: "#f1f5f9",
+    color: "#64748b",
+  };
+}
+
+function miniPill(color: string, background: string): React.CSSProperties {
+  return {
+    padding: "6px 10px",
     borderRadius: 999,
     background,
     color,
@@ -486,6 +658,7 @@ const panelHeaderStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: 16,
+  flexWrap: "wrap",
 };
 
 const panelTitleStyle: React.CSSProperties = {
@@ -538,15 +711,6 @@ const statusPillStyle: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const itemsPillStyle: React.CSSProperties = {
-  padding: "7px 11px",
-  borderRadius: 999,
-  background: "#ede9fe",
-  color: "#6d28d9",
-  fontSize: 12,
-  fontWeight: 900,
-};
-
 const emptyStateStyle: React.CSSProperties = {
   marginTop: 24,
   border: "1px dashed var(--line)",
@@ -555,11 +719,27 @@ const emptyStateStyle: React.CSSProperties = {
   color: "var(--muted)",
 };
 
+const groupActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const smallGhostButtonStyle: React.CSSProperties = {
+  padding: "9px 12px",
+  borderRadius: 999,
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
 const tabsStyle: React.CSSProperties = {
   display: "flex",
   gap: 8,
   flexWrap: "wrap",
-  marginTop: 18,
+  marginTop: 20,
 };
 
 const tabButtonStyle: React.CSSProperties = {
@@ -570,6 +750,9 @@ const tabButtonStyle: React.CSSProperties = {
 };
 
 const searchRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: 10,
   marginTop: 16,
 };
 
@@ -581,46 +764,138 @@ const searchInputStyle: React.CSSProperties = {
   background: "var(--card)",
   color: "var(--text)",
   outline: "none",
-  fontWeight: 700,
 };
 
-const guestListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  marginTop: 16,
+const counterStyle: React.CSSProperties = {
+  padding: "13px 16px",
+  borderRadius: 14,
+  background: "#ede9fe",
+  color: "#6d28d9",
+  border: "1px solid rgba(109,40,217,0.16)",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
 };
 
-const guestRowStyle: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 16,
+const groupsListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 14,
+  marginTop: 18,
+};
+
+const groupCardStyle: React.CSSProperties = {
   border: "1px solid var(--line)",
+  borderRadius: 20,
+  overflow: "hidden",
   background: "var(--card)",
+};
+
+const groupHeaderButtonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: 18,
+  border: "none",
+  background: "transparent",
+  color: "var(--text)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 14,
+  gap: 16,
+  cursor: "pointer",
+  textAlign: "left",
 };
 
-const guestNameStyle: React.CSSProperties = {
-  display: "block",
-  color: "var(--text)",
-  fontSize: 15,
+const groupTitleRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const groupTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#6d28d9",
+  fontSize: 20,
+  fontWeight: 950,
+  letterSpacing: "-0.02em",
+};
+
+const groupCountPillStyle: React.CSSProperties = {
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: "#ede9fe",
+  color: "#6d28d9",
+  fontSize: 12,
   fontWeight: 900,
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
 };
 
-const guestMetaStyle: React.CSSProperties = {
-  margin: "4px 0 0",
+const groupSubtitleStyle: React.CSSProperties = {
+  margin: "6px 0 0",
   color: "var(--muted)",
   fontSize: 13,
 };
 
-const guestBadgesStyle: React.CSSProperties = {
+const groupSummaryStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const chevronStyle: React.CSSProperties = {
+  color: "#6d28d9",
+  fontSize: 22,
+  fontWeight: 900,
+  padding: "0 4px",
+};
+
+const membersGridStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+  padding: "0 18px 18px",
+};
+
+const memberCardStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid var(--line)",
+  background: "rgba(248,250,252,0.7)",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  alignItems: "center",
+};
+
+const memberNameStyle: React.CSSProperties = {
+  display: "block",
+  color: "var(--text)",
+  fontSize: 15,
+  fontWeight: 900,
+};
+
+const memberMetaStyle: React.CSSProperties = {
+  margin: "5px 0 0",
+  color: "var(--muted)",
+  fontSize: 13,
+};
+
+const memberTokenStyle: React.CSSProperties = {
+  margin: "5px 0 0",
+  color: "#6d28d9",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const memberBadgesStyle: React.CSSProperties = {
   display: "flex",
   gap: 8,
   flexWrap: "wrap",
   justifyContent: "flex-end",
+};
+
+const baseBadgeStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
 };
