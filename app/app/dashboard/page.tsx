@@ -239,66 +239,118 @@ export default function DashboardPage() {
   return (
     <div style={pageStyle}>
       <style>{`
-        @keyframes fadeIn {
-          from {
+        @keyframes groupReveal {
+          0% {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.985);
+            max-height: 0;
+            filter: blur(2px);
+          }
+          70% {
+            opacity: 1;
+            transform: translateY(1px) scale(1.002);
+            max-height: 1200px;
+            filter: blur(0);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            max-height: 1200px;
+            filter: blur(0);
+          }
+        }
+
+        @keyframes guestReveal {
+          0% {
             opacity: 0;
             transform: translateY(-6px);
-            max-height: 0;
           }
-          to {
+          100% {
             opacity: 1;
             transform: translateY(0);
-            max-height: 1200px;
           }
         }
 
         .omni-group-card {
           transition:
-            transform 180ms ease,
-            box-shadow 180ms ease,
+            transform 180ms cubic-bezier(.2,.8,.2,1),
+            box-shadow 180ms cubic-bezier(.2,.8,.2,1),
             border-color 180ms ease,
             background 180ms ease;
+          will-change: transform;
         }
 
         .omni-group-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-          border-color: rgba(109, 40, 217, 0.28);
-          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+          border-color: rgba(109, 40, 217, 0.18);
+          background: #f8fafc;
+        }
+
+        .omni-group-card:active {
+          transform: translateY(0) scale(0.996);
+          box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+        }
+
+        .omni-group-header {
+          transition:
+            background 180ms ease,
+            transform 180ms cubic-bezier(.2,.8,.2,1);
         }
 
         .omni-group-card:hover .omni-group-header {
-          background: linear-gradient(180deg, rgba(250,245,255,0.85), rgba(255,255,255,0.92));
+          background: #f1f5f9;
+        }
+
+        .omni-group-card:active .omni-group-header {
+          background: #e2e8f0;
         }
 
         .omni-group-body {
-          animation: fadeIn 220ms ease both;
+          animation: groupReveal 280ms cubic-bezier(.2,.8,.2,1) both;
           transform-origin: top;
+          overflow: hidden;
         }
 
         .omni-guest-card {
           transition:
-            transform 160ms ease,
+            transform 160ms cubic-bezier(.2,.8,.2,1),
             box-shadow 160ms ease,
             border-color 160ms ease,
             background 160ms ease;
+          animation: guestReveal 220ms cubic-bezier(.2,.8,.2,1) both;
+          will-change: transform;
         }
 
         .omni-guest-card:hover {
           transform: translateY(-1px);
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07);
-          border-color: rgba(109, 40, 217, 0.18);
-          background: rgba(255,255,255,0.95);
+          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+          border-color: rgba(148,163,184,0.25);
+          background: #f9fafb;
+        }
+
+        .omni-guest-card:active {
+          transform: scale(0.996);
+          background: #f1f5f9;
         }
 
         .omni-chevron {
-          transition: transform 180ms ease, opacity 180ms ease;
+          display: inline-flex;
+          transition:
+            transform 190ms cubic-bezier(.2,.8,.2,1),
+            opacity 180ms ease;
         }
 
         .omni-group-card:hover .omni-chevron,
         .omni-guest-card:hover .omni-chevron {
           opacity: 1;
           transform: translateY(-1px);
+        }
+
+        button:focus-visible,
+        a:focus-visible {
+          outline: 3px solid rgba(109, 40, 217, 0.22);
+          outline-offset: 3px;
         }
       `}</style>
       <section style={heroStyle}>
