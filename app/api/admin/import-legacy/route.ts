@@ -31,6 +31,7 @@ function gerarToken() {
 
 function cleanPhone(value: string | null | undefined): string | null {
   if (!value) return null;
+
   const digits = String(value).replace(/\D/g, "");
   return digits.length >= 8 ? digits : null;
 }
@@ -72,8 +73,12 @@ function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
       phone: cleanPhone(row.telefone),
       status_rsvp: normalizeStatusRsvp(row.status_rsvp),
       status_envio: normalizeStatusEnvio(row.status_envio),
-      data_hora_rsvp: row.data_hora_rsvp ? String(row.data_hora_rsvp).trim() : null,
-      data_hora_envio: row.data_hora_envio ? String(row.data_hora_envio).trim() : null,
+      data_hora_rsvp: row.data_hora_rsvp
+        ? String(row.data_hora_rsvp).trim()
+        : null,
+      data_hora_envio: row.data_hora_envio
+        ? String(row.data_hora_envio).trim()
+        : null,
       raw: row,
     }))
     .filter((guest) => guest.name.length > 1);
@@ -136,12 +141,13 @@ export async function POST(req: Request) {
         .insert({
           tenant_id: tenantId,
           event_id: eventoId,
-          source_type: mappedRows.length > 0 ? "google_sheet_mapped" : "text_parser",
+          source_type: "spreadsheet",
           total_rows: parsedGuests.length,
           status: "preview",
-          file_name: mappedRows.length > 0
-            ? "importacao_planilha_mapeada_admin"
-            : "importacao_texto_admin",
+          file_name:
+            mappedRows.length > 0
+              ? "importacao_planilha_mapeada_admin"
+              : "importacao_texto_admin",
         })
         .select()
         .single();
@@ -172,12 +178,13 @@ export async function POST(req: Request) {
         );
       }
 
-      const { data: existingByLegacy, error: existingLegacyError } = await supabase
-        .from("convidados")
-        .select("legacy_id")
-        .eq("tenant_id", tenantId)
-        .eq("evento_id", eventoId)
-        .in("legacy_id", legacyIds.length ? legacyIds : ["__empty__"]);
+      const { data: existingByLegacy, error: existingLegacyError } =
+        await supabase
+          .from("convidados")
+          .select("legacy_id")
+          .eq("tenant_id", tenantId)
+          .eq("evento_id", eventoId)
+          .in("legacy_id", legacyIds.length ? legacyIds : ["__empty__"]);
 
       if (existingLegacyError) {
         return NextResponse.json(
@@ -199,9 +206,8 @@ export async function POST(req: Request) {
         tenant_id: tenantId,
         event_id: eventoId,
         legacy_id: guest.legacy_id,
-        origem_importacao: mappedRows.length > 0
-          ? "planilha_mapeada"
-          : "texto_importado",
+        origem_importacao:
+          mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
         nome: guest.name,
         telefone: guest.phone,
         grupo: guest.grupo,
@@ -238,7 +244,8 @@ export async function POST(req: Request) {
         .from("eventos")
         .update({
           is_legado: true,
-          origem_dados: mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
+          origem_dados:
+            mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
         })
         .eq("id", eventoId)
         .eq("tenant_id", tenantId);
