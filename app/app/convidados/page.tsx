@@ -81,7 +81,7 @@ export default function ConvidadosPage() {
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
-    return convidados.filter((convidado) => {
+    const filtrados = convidados.filter((convidado) => {
       const rsvpOk = filtroRsvp === "todos" || convidado.status_rsvp === filtroRsvp;
       const envioOk = filtroEnvio === "todos" || convidado.status_envio === filtroEnvio;
 
@@ -100,6 +100,27 @@ export default function ConvidadosPage() {
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
       return rsvpOk && envioOk && buscaOk;
+    });
+
+    return [...filtrados].sort((a, b) => {
+      const grupoA = (a.grupo || "Sem grupo").trim().toLowerCase();
+      const grupoB = (b.grupo || "Sem grupo").trim().toLowerCase();
+
+      if (grupoA !== grupoB) {
+        return grupoA.localeCompare(grupoB, "pt-BR");
+      }
+
+      const aTemTelefone = Boolean(normalizarTelefone(a.telefone));
+      const bTemTelefone = Boolean(normalizarTelefone(b.telefone));
+
+      if (aTemTelefone !== bTemTelefone) {
+        return aTemTelefone ? -1 : 1;
+      }
+
+      const nomeA = (a.nome || "").trim().toLowerCase();
+      const nomeB = (b.nome || "").trim().toLowerCase();
+
+      return nomeA.localeCompare(nomeB, "pt-BR");
     });
   }, [convidados, busca, filtroRsvp, filtroEnvio]);
 
