@@ -44,35 +44,23 @@ export function parseLegacyGuestList(text: string): ParsedLegacyGuest[] {
     .split(/\n|;/)
     .map((line) => line.trim())
     .filter(Boolean)
+    .filter((line) => !/^id\s+grupo\s+nome/i.test(line))
     .map((rawLine) => {
-      let line = rawLine;
+      const parts = rawLine
+        .split(/\t+|\s{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
 
-      const parts = line.split(/\s{2,}|\t+/).filter(Boolean);
+      const legacy_id = parts[0] || null;
+      const grupo = parts[1] || null;
+      const name = parts[2] || "";
+      const phone = parts[3] ? cleanPhone(parts[3]) : null;
 
-      let legacy_id = parts[0] || null;
-      let grupo = parts[1] || null;
-      let name = parts[2] || "";
-      let phone = parts[3] ? cleanPhone(parts[3]) : null;
+      const status_rsvp = normalizeStatusRsvp(parts[4] || null);
+      const data_hora_rsvp = parts[5] || null;
 
-      let status_rsvp: string | null = null;
-      let status_envio: string | null = null;
-      let data_hora_rsvp: string | null = null;
-      let data_hora_envio: string | null = null;
-
-      const lower = normalize(rawLine);
-
-      if (lower.includes("confirmado")) status_rsvp = "confirmado";
-      if (lower.includes("pendente")) status_rsvp = "pendente";
-
-      if (lower.includes("enviado")) status_envio = "enviado";
-
-      // datas (simples - pega padrões dd/mm/yyyy)
-      const dateMatches = rawLine.match(/\d{2}\/\d{2}\/\d{4}(\s\d{2}:\d{2})?/g);
-
-      if (dateMatches) {
-        if (dateMatches[0]) data_hora_rsvp = dateMatches[0];
-        if (dateMatches[1]) data_hora_envio = dateMatches[1];
-      }
+      const status_envio = normalizeStatusEnvio(parts[6] || null);
+      const data_hora_envio = parts[7] || null;
 
       return {
         legacy_id,
@@ -86,5 +74,5 @@ export function parseLegacyGuestList(text: string): ParsedLegacyGuest[] {
         raw: rawLine,
       };
     })
-    .filter((g) => g.name.length > 1);
+    .filter((guest) => guest.name.length > 1);
 }
