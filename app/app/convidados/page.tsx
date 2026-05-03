@@ -124,12 +124,22 @@ export default function ConvidadosPage() {
     });
   }, [convidados, busca, filtroRsvp, filtroEnvio]);
 
-  const totaisPorGrupo = useMemo(() => {
-    return convidadosFiltrados.reduce<Record<string, number>>((acc, convidado) => {
+  const gruposConvidados = useMemo(() => {
+    const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>((acc, convidado) => {
       const grupo = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
-      acc[grupo] = (acc[grupo] || 0) + 1;
+
+      if (!acc[grupo]) {
+        acc[grupo] = [];
+      }
+
+      acc[grupo].push(convidado);
       return acc;
     }, {});
+
+    return Object.entries(mapa).map(([grupo, integrantes]) => ({
+      grupo,
+      integrantes,
+    }));
   }, [convidadosFiltrados]);
 
   function updateForm(field: keyof ConvidadoForm, value: string) {
@@ -268,6 +278,7 @@ Apresente o cartão na entrada do evento.`;
       .eq("tenant_id", tenant)
       .eq("evento_id", evento)
       .order("grupo", { ascending: true, nullsFirst: false })
+      .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
 
     if (error) {
@@ -732,113 +743,119 @@ Apresente o cartão na entrada do evento.`;
             <div style={emptyStyle}>Nenhum convidado encontrado com estes filtros.</div>
           )}
 
-          {convidadosFiltrados.map((convidado, index) => {
-            const linkWhatsApp = gerarLinkWhatsApp(convidado);
-            const linkCartao = gerarLinkCartao(convidado);
-            const linkConvite = gerarLinkConvite(convidado);
-            const grupoAtual = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
-            const grupoAnterior =
-              index > 0
-                ? (convidadosFiltrados[index - 1].grupo || "Sem grupo").trim() || "Sem grupo"
-                : null;
-            const deveMostrarSeparador = grupoAtual !== grupoAnterior;
+          {gruposConvidados.map(({ grupo, integrantes }) => {
+            const nomesIntegrantes = integrantes
+              .map((convidado) => convidado.nome)
+              .filter(Boolean)
+              .join(" • ");
 
             return (
-              <div key={convidado.id} style={{ display: "grid", gap: 12 }}>
-                {deveMostrarSeparador && (
-                  <div style={groupHeaderStyle}>
-                    <div>
-                      <span style={groupEyebrowStyle}>Grupo/Família</span>
-                      <strong style={groupTitleStyle}>{grupoAtual}</strong>
-                    </div>
-
-                    <span style={groupCountStyle}>
-                      {totaisPorGrupo[grupoAtual] || 0} convidado
-                      {(totaisPorGrupo[grupoAtual] || 0) === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                )}
-
-                <article style={eventCardStyle}>
-                <div style={guestMainStyle}>
-                  <strong style={{ fontSize: 22 }}>{convidado.nome}</strong>
-
-                  <p style={{ color: "#94a3b8", marginBottom: 0 }}>
-                    {convidado.grupo || "Sem grupo"} · {convidado.telefone || "Sem telefone"}
-                  </p>
-
-                  <small style={{ color: "#64748b" }}>
-                    E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
-                    {convidado.tipo_convite || "individual"}
-                  </small>
-
-                  <div style={{ marginTop: 8, color: "#64748b", fontSize: 13 }}>
-                    Token:{" "}
-                    <strong style={{ color: "#facc15" }}>
-                      {convidado.token || "sem token"}
-                    </strong>
+              <article key={grupo} style={groupCardLargeStyle}>
+                <div style={groupCardHeaderStyle}>
+                  <div>
+                    <span style={groupEyebrowStyle}>Grupo encontrado</span>
+                    <strong style={groupTitleStyle}>{grupo}</strong>
                   </div>
 
-                  {convidado.observacoes && (
-                    <p style={{ color: "#94a3b8", marginTop: 10, marginBottom: 0 }}>
-                      {convidado.observacoes}
-                    </p>
-                  )}
-
-                  <div style={quickActionsStyle}>
-                    <button onClick={() => copiarNome(convidado.nome)} style={goldButtonStyle}>
-                      Copiar nome
-                    </button>
-
-                    {linkWhatsApp ? (
-                      <a href={linkWhatsApp} target="_blank" rel="noreferrer" style={goldButtonStyle}>
-                        WhatsApp
-                      </a>
-                    ) : (
-                      <button disabled style={{ ...goldButtonStyle, opacity: 0.45, cursor: "not-allowed" }}>
-                        WhatsApp
-                      </button>
-                    )}
-
-                    <a href={linkConvite} target="_blank" rel="noreferrer" style={goldButtonStyle}>
-                      Ver convite
-                    </a>
-
-                    <a href={linkCartao} target="_blank" rel="noreferrer" style={goldButtonStyle}>
-                      Ver cartão
-                    </a>
-                  </div>
+                  <span style={groupCountStyle}>
+                    {integrantes.length} integrante{integrantes.length === 1 ? "" : "s"}
+                  </span>
                 </div>
 
-                <div style={eventActionsColumnStyle}>
-                  <span style={getRsvpStyle(convidado.status_rsvp)}>
-                    RSVP: {labelRsvp(convidado.status_rsvp)}
-                  </span>
+                <p style={groupMembersSummaryStyle}>
+                  <strong>Integrantes:</strong> {nomesIntegrantes || "Sem integrantes"}
+                </p>
 
-                  <div style={{ marginTop: 10 }}>
-                    <span style={getEnvioStyle(convidado.status_envio)}>
-                      Envio: {labelEnvio(convidado.status_envio)}
-                    </span>
-                  </div>
+                <div style={groupMemberListStyle}>
+                  {integrantes.map((convidado) => {
+                    const linkWhatsApp = gerarLinkWhatsApp(convidado);
+                    const linkCartao = gerarLinkCartao(convidado);
+                    const linkConvite = gerarLinkConvite(convidado);
 
-                  <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
-                    Check-in: {convidado.status_checkin || "nao_entrou"}
-                  </div>
+                    return (
+                      <div key={convidado.id} style={groupMemberRowStyle}>
+                        <div style={groupMemberInfoStyle}>
+                          <strong style={{ fontSize: 20 }}>{convidado.nome}</strong>
 
-                  <div style={rowActionsStyle}>
-                    <button onClick={() => editarConvidado(convidado)} style={smallButtonStyle}>
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => excluirConvidado(convidado)}
-                      style={{ ...smallButtonStyle, background: "#7f1d1d" }}
-                    >
-                      Excluir
-                    </button>
-                  </div>
+                          <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                            {convidado.telefone || "Sem telefone"}
+                          </p>
+
+                          <small style={{ color: "#64748b" }}>
+                            E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
+                            {convidado.tipo_convite || "individual"}
+                          </small>
+
+                          <div style={{ marginTop: 8, color: "#64748b", fontSize: 13 }}>
+                            Token:{" "}
+                            <strong style={{ color: "#facc15" }}>
+                              {convidado.token || "sem token"}
+                            </strong>
+                          </div>
+
+                          {convidado.observacoes && (
+                            <p style={{ color: "#94a3b8", marginTop: 10, marginBottom: 0 }}>
+                              {convidado.observacoes}
+                            </p>
+                          )}
+
+                          <div style={quickActionsStyle}>
+                            <button onClick={() => copiarNome(convidado.nome)} style={goldButtonStyle}>
+                              Copiar nome
+                            </button>
+
+                            {linkWhatsApp ? (
+                              <a href={linkWhatsApp} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                                WhatsApp
+                              </a>
+                            ) : (
+                              <button disabled style={{ ...goldButtonStyle, opacity: 0.45, cursor: "not-allowed" }}>
+                                WhatsApp
+                              </button>
+                            )}
+
+                            <a href={linkConvite} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                              Ver convite
+                            </a>
+
+                            <a href={linkCartao} target="_blank" rel="noreferrer" style={goldButtonStyle}>
+                              Ver cartão
+                            </a>
+                          </div>
+                        </div>
+
+                        <div style={eventActionsColumnStyle}>
+                          <span style={getRsvpStyle(convidado.status_rsvp)}>
+                            RSVP: {labelRsvp(convidado.status_rsvp)}
+                          </span>
+
+                          <div style={{ marginTop: 10 }}>
+                            <span style={getEnvioStyle(convidado.status_envio)}>
+                              Envio: {labelEnvio(convidado.status_envio)}
+                            </span>
+                          </div>
+
+                          <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
+                            Check-in: {convidado.status_checkin || "nao_entrou"}
+                          </div>
+
+                          <div style={rowActionsStyle}>
+                            <button onClick={() => editarConvidado(convidado)} style={smallButtonStyle}>
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => excluirConvidado(convidado)}
+                              style={{ ...smallButtonStyle, background: "#7f1d1d" }}
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </article>
-              </div>
             );
           })}
         </div>
@@ -987,6 +1004,24 @@ const filtersStyle: CSSProperties = {
   marginBottom: 18,
 };
 
+const groupCardLargeStyle: CSSProperties = {
+  display: "grid",
+  gap: 18,
+  background: "#0f172a",
+  padding: 24,
+  borderRadius: 22,
+  border: "1px solid #334155",
+};
+
+const groupCardHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 14,
+  paddingBottom: 16,
+  borderBottom: "1px solid rgba(148,163,184,0.18)",
+};
+
 const groupHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -1024,6 +1059,34 @@ const groupCountStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 900,
   whiteSpace: "nowrap",
+};
+
+const groupMembersSummaryStyle: CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  fontSize: 17,
+  lineHeight: 1.55,
+};
+
+const groupMemberListStyle: CSSProperties = {
+  display: "grid",
+  gap: 14,
+};
+
+const groupMemberRowStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "stretch",
+  gap: 18,
+  padding: 18,
+  borderRadius: 16,
+  border: "1px solid rgba(51,65,85,0.9)",
+  background: "rgba(2,6,23,0.42)",
+};
+
+const groupMemberInfoStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 280,
 };
 
 const eventCardStyle: CSSProperties = {
