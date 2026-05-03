@@ -231,8 +231,7 @@ Apresente o cartão na entrada do evento.`;
       .from("eventos")
       .select("id, nome")
       .eq("tenant_id", tenant)
-      .order("grupo", { ascending: true, nullsFirst: false })
-      .order("nome", { ascending: true });
+      .order("created_at", { ascending: false });
 
     if (error) {
       alert("Erro ao carregar eventos: " + error.message);
