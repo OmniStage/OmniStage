@@ -76,3 +76,30 @@ export async function GET() {
     });
   }
 }
+
+async function enviarWhatsApp(item: any) {
+  const ZAPI_INSTANCE = process.env.ZAPI_INSTANCE_ID!;
+  const ZAPI_TOKEN = process.env.ZAPI_TOKEN!;
+
+  const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`;
+
+  const body = {
+    phone: item.telefone,
+    message: item.mensagem,
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error("Erro Z-API: " + error);
+  }
+
+  return true;
+}
