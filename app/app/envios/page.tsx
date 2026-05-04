@@ -220,7 +220,7 @@ export default function EnviosPage() {
   }, [previewId, convidados, convidadosFiltrados, publicoCampanha]);
 
   const previewMensagem = convidadoPreview
-    ? montarMensagem(mensagemAtual, convidadoPreview)
+    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual)
     : mensagemAtual;
 
   const stats = useMemo(() => {
@@ -321,14 +321,14 @@ export default function EnviosPage() {
       return;
     }
 
-    const mensagem = montarMensagem(mensagemAtual, convidado);
+    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
     window.open(link, "_blank", "noopener,noreferrer");
   }
 
   async function copiarMensagem(convidado: Convidado) {
-    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado));
+    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual));
     alert("Mensagem copiada.");
   }
 
@@ -603,7 +603,7 @@ export default function EnviosPage() {
                     {convidado.grupo || "Sem grupo"} · {convidado.telefone || "Sem telefone"}
                   </span>
 
-                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado)}</p>
+                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual)}</p>
 
                   {dataEnvio && (
                     <small style={sentDateStyle}>
@@ -678,7 +678,7 @@ const campanhas: Record<TipoEnvio, Campanha> = {
     filtrarPublico: (convidado) => !!normalizarTelefone(convidado.telefone),
     templatePadrao: `Olá {{nome}} ✨
 
-Você está convidado(a) para o evento.
+Você está convidado(a) para o evento {{evento}}.
 
 Acesse seu convite digital:
 {{link_convite}}
@@ -703,7 +703,7 @@ OmniStage`,
       convidado.status_rsvp === "pendente" && !!normalizarTelefone(convidado.telefone),
     templatePadrao: `Olá {{nome}} ✨
 
-Passando para lembrar que você ainda não confirmou presença no evento.
+Passando para lembrar que você ainda não confirmou presença no evento {{evento}}.
 
 Para confirmar, acesse seu convite digital:
 {{link_convite}}
@@ -730,7 +730,7 @@ OmniStage`,
 
 Ficamos muito felizes com sua confirmação.
 
-Segue seu cartão de entrada para o evento:
+Segue seu cartão de entrada para o evento {{evento}}:
 {{link_cartao}}
 
 Apresente este cartão na entrada.
@@ -743,6 +743,8 @@ OmniStage`,
 const variaveis = [
   { key: "{{nome}}", description: "Nome do convidado" },
   { key: "{{grupo}}", description: "Grupo ou família do convidado" },
+  { key: "{{evento}}", description: "Nome do evento" },
+  { key: "{{nome_evento}}", description: "Nome do evento" },
   { key: "{{telefone}}", description: "Telefone cadastrado" },
   { key: "{{email}}", description: "E-mail cadastrado" },
   { key: "{{token}}", description: "Token do convite/cartão" },
@@ -792,10 +794,14 @@ function gerarLinkCartao(convidado: Convidado) {
   return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
 }
 
-function montarMensagem(template: string, convidado: Convidado) {
+function montarMensagem(template: string, convidado: Convidado, evento?: Evento | null) {
+  const nomeEvento = evento?.nome || "";
+
   return template
     .replaceAll("{{nome}}", convidado.nome || "")
     .replaceAll("{{grupo}}", convidado.grupo || "")
+    .replaceAll("{{evento}}", nomeEvento)
+    .replaceAll("{{nome_evento}}", nomeEvento)
     .replaceAll("{{telefone}}", convidado.telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
     .replaceAll("{{token}}", convidado.token || "")
