@@ -101,28 +101,31 @@ export default function AdminClientesPage() {
 
   async function carregarTudo() {
     setLoading(true);
-   await carregarPlanos();
-await carregarUsuarios();
-await carregarTenants();
+
+    const planosCarregados = await carregarPlanos();
+
+    await carregarUsuarios();
+    await carregarTenants(planosCarregados);
+
     setLoading(false);
   }
 
-  async function carregarTenants() {
+  async function carregarTenants(planosLista: Plano[] = planos) {
     const { data, error } = await supabase
       .from("tenants")
       .select(`
-  id,
-  nome,
-  documento,
-  telefone,
-  email,
-  status,
-  created_at,
-  plano_id,
-  tipo,
-  responsavel_nome,
-  onboarding_completed
-`)
+        id,
+        nome,
+        documento,
+        telefone,
+        email,
+        status,
+        created_at,
+        plano_id,
+        tipo,
+        responsavel_nome,
+        onboarding_completed
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -130,14 +133,15 @@ await carregarTenants();
       return;
     }
 
-   const lista = (data || []).map((tenant) => {
-  const plano = planos.find((p) => p.id === tenant.plano_id);
+    const lista = ((data || []) as TenantRaw[]).map((tenant) => {
+      const plano = planosLista.find((p) => p.id === tenant.plano_id);
 
-  return {
-    ...tenant,
-    planos: plano ? { nome: plano.nome } : null,
-  };
-}) as Tenant[];
+      return {
+        ...tenant,
+        planos: plano ? { nome: plano.nome } : null,
+      };
+    }) as Tenant[];
+
     setTenants(lista);
 
     const tenantAtual = tenantSelecionadoId || lista[0]?.id || null;
@@ -162,7 +166,7 @@ await carregarTenants();
     setUsuarios((data || []) as Usuario[]);
   }
 
-  async function carregarPlanos() {
+  async function carregarPlanos(): Promise<Plano[]> {
     const { data, error } = await supabase
       .from("planos")
       .select("id, nome, ativo")
@@ -171,10 +175,14 @@ await carregarTenants();
 
     if (error) {
       alert("Erro ao carregar planos: " + error.message);
-      return;
+      return [];
     }
 
-    setPlanos((data || []) as Plano[]);
+    const lista = (data || []) as Plano[];
+
+    setPlanos(lista);
+
+    return lista;
   }
 
   async function carregarMembros(tenantId: string) {
@@ -302,7 +310,9 @@ await carregarTenants();
       setTenantSelecionadoId(data.id);
     }
 
-    await carregarTenants();
+    const planosCarregados = await carregarPlanos();
+    await carregarTenants(planosCarregados);
+
     limparForm();
     setSalvando(false);
   }
