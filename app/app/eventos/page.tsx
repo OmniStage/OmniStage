@@ -13,7 +13,9 @@ type Evento = {
   endereco: string | null;
   mapa_url: string | null;
   status: string | null;
-  tenant_id: string;
+  cliente_id: string | null;
+  status_aprovacao?: string | null;
+  ativo?: boolean | null;
   created_at: string | null;
   background_image?: string | null;
   logo_image?: string | null;
@@ -46,7 +48,9 @@ export default function EventosPage() {
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [musicFile, setMusicFile] = useState<File | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [clienteId, setClienteId] = useState<string | null>(null);
+  const [planoNome, setPlanoNome] = useState<string | null>(null);
+  const [limiteEventos, setLimiteEventos] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [formAberto, setFormAberto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -90,7 +94,7 @@ export default function EventosPage() {
     setFormAberto(false);
   }
 
-  async function carregarTenant() {
+  async function carregarCliente() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -101,22 +105,47 @@ export default function EventosPage() {
     }
 
     const { data, error } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user.id)
+      .from("cliente_usuarios")
+      .select(`
+        cliente_id,
+        status,
+        clientes:cliente_id (
+          id,
+          nome,
+          plano_id,
+          planos:plano_id (
+            id,
+            nome,
+            limite_eventos
+          )
+        )
+      `)
+      .eq("usuario_id", user.id)
+      .eq("status", "ativo")
       .limit(1)
       .maybeSingle();
 
-    if (error || !data?.tenant_id) {
-      alert("Este usuário ainda não está vinculado a uma empresa.");
+    if (error || !data?.cliente_id) {
+      alert("Este usuário ainda não está vinculado a um cliente/empresa.");
       return null;
     }
 
-    setTenantId(data.tenant_id);
-    return data.tenant_id as string;
+    const cliente = Array.isArray((data as any).clientes)
+      ? (data as any).clientes[0]
+      : (data as any).clientes;
+
+    const plano = Array.isArray(cliente?.planos)
+      ? cliente?.planos[0]
+      : cliente?.planos;
+
+    setClienteId(data.cliente_id);
+    setPlanoNome(plano?.nome || null);
+    setLimiteEventos(plano?.limite_eventos ?? null);
+
+    return data.cliente_id as string;
   }
 
-  async function carregarEventos(tenant: string) {
+  async function carregarEventos(cliente: string) {
     const { data, error } = await supabase
       .from("eventos")
       .select(`
@@ -128,13 +157,15 @@ export default function EventosPage() {
         endereco,
         mapa_url,
         status,
-        tenant_id,
+        cliente_id,
+        status_aprovacao,
+        ativo,
         created_at,
         background_image,
         logo_image,
         music_file
       `)
-      .eq("tenant_id", tenant)
+      .eq("cliente_id", cliente)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -146,10 +177,10 @@ export default function EventosPage() {
   }
 
   async function iniciarTela() {
-    const tenant = await carregarTenant();
+    const cliente = await carregarCliente();
 
-    if (tenant) {
-      await carregarEventos(tenant);
+    if (cliente) {
+      await carregarEventos(cliente);
     }
   }
 
@@ -162,11 +193,11 @@ export default function EventosPage() {
       .replace(/^-|-$/g, "");
   }
 
-  async function uploadArquivo(tenant: string, eventoSlug: string, file: File | null, tipo: string) {
+  async function uploadArquivo(cliente: string, eventoSlug: string, file: File | null, tipo: string) {
     if (!file) return null;
 
     const extension = file.name.split(".").pop() || "file";
-    const path = `${tenant}/${eventoSlug}/${tipo}-${Date.now()}.${extension}`;
+    const path = `${cliente}/${eventoSlug}/${tipo}-${Date.now()}.${extension}`;
 
     const { error } = await supabase.storage
       .from("event-assets")
@@ -192,23 +223,40 @@ export default function EventosPage() {
       return;
     }
 
-    let tenant = tenantId;
+    let cliente = clienteId;
 
-    if (!tenant) {
-      tenant = await carregarTenant();
+    if (!cliente) {
+      cliente = await carregarCliente();
     }
 
-    if (!tenant) return;
+    if (!cliente) return;
 
     setLoading(true);
 
     try {
       const estavaEditando = Boolean(editandoId);
+
+      if (!estavaEditando) {
+        const { data: permitido, error: limiteError } = await supabase.rpc("pode_criar_evento", {
+          p_cliente_id: cliente,
+        });
+
+        if (limiteError) {
+          throw new Error("Erro ao validar limite do plano: " + limiteError.message);
+        }
+
+        if (!permitido) {
+          alert("Seu plano atingiu o limite de eventos. Solicite upgrade para criar novos eventos.");
+          setLoading(false);
+          return;
+        }
+      }
+
       const eventoSlug = slugify(form.nome) || "evento";
       const [backgroundUrl, logoUrl, musicUrl] = await Promise.all([
-        uploadArquivo(tenant, eventoSlug, backgroundFile, "fundo"),
-        uploadArquivo(tenant, eventoSlug, logoFile, "logo"),
-        uploadArquivo(tenant, eventoSlug, musicFile, "musica"),
+        uploadArquivo(cliente, eventoSlug, backgroundFile, "fundo"),
+        uploadArquivo(cliente, eventoSlug, logoFile, "logo"),
+        uploadArquivo(cliente, eventoSlug, musicFile, "musica"),
       ]);
 
       const payload = {
@@ -229,10 +277,12 @@ export default function EventosPage() {
             .from("eventos")
             .update(payload)
             .eq("id", editandoId)
-            .eq("tenant_id", tenant)
+            .eq("cliente_id", cliente)
         : await supabase.from("eventos").insert({
             ...payload,
-            tenant_id: tenant,
+            cliente_id: cliente,
+            status_aprovacao: "aguardando_aprovacao",
+            ativo: true,
             background_image: backgroundUrl,
             logo_image: logoUrl,
             music_file: musicUrl,
@@ -244,8 +294,8 @@ export default function EventosPage() {
 
       limparFormulario();
       setFormAberto(false);
-      await carregarEventos(tenant);
-      alert(estavaEditando ? "Evento atualizado." : "Evento criado.");
+      await carregarEventos(cliente);
+      alert(estavaEditando ? "Evento atualizado." : "Evento criado e enviado para aprovação.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao salvar evento.");
     } finally {
@@ -272,7 +322,7 @@ export default function EventosPage() {
   }
 
   async function excluirEvento(evento: Evento) {
-    if (!tenantId) return;
+    if (!clienteId) return;
 
     const confirmar = confirm(
       `Tem certeza que deseja excluir o evento "${evento.nome}"? Essa ação pode remover dados ligados a este evento.`
@@ -284,7 +334,7 @@ export default function EventosPage() {
       .from("eventos")
       .delete()
       .eq("id", evento.id)
-      .eq("tenant_id", tenantId);
+      .eq("cliente_id", clienteId);
 
     if (error) {
       alert("Erro ao excluir evento: " + error.message);
@@ -304,7 +354,11 @@ export default function EventosPage() {
       <h1 style={{ fontSize: 48, margin: 0 }}>Eventos</h1>
 
       <p style={{ color: "#94a3b8", marginTop: 8 }}>
-        Cadastre as informações que serão usadas no convite digital, RSVP e cartão de entrada.
+        Cadastre seus eventos. Novos eventos ficam aguardando aprovação do administrador antes de liberar o uso completo.
+      </p>
+
+      <p style={{ color: "#94a3b8", marginTop: 6, fontWeight: 700 }}>
+        Plano: {planoNome || "não definido"} {limiteEventos !== null ? `· Limite: ${limiteEventos} evento(s)` : ""}
       </p>
 
       <div style={topActionsStyle}>
@@ -525,6 +579,14 @@ const sectionStyle: CSSProperties = {
   background: "#020617",
 };
 
+function labelStatusAprovacao(status: string | null | undefined) {
+  if (status === "aprovado") return "Aprovado";
+  if (status === "aguardando_aprovacao") return "Aguardando aprovação";
+  if (status === "bloqueado") return "Bloqueado";
+  if (status === "reprovado") return "Reprovado";
+  return "Rascunho";
+}
+
 const topActionsStyle: CSSProperties = {
   display: "flex",
   justifyContent: "flex-start",
@@ -659,3 +721,4 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed #334155",
   color: "#94a3b8",
 };
+
