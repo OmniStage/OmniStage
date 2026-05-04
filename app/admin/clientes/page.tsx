@@ -397,9 +397,13 @@ export default function AdminClientesPage() {
     if (tenantSelecionadoId) await carregarMembros(tenantSelecionadoId);
   }
 
-  function usuarioDoMembro(membro: TenantMember) {
-    return usuarios.find((usuario) => usuario.user_id === membro.user_id) || null;
-  }
+function usuarioDoMembro(membro: TenantMember) {
+  return (
+    usuarios.find((usuario) => usuario.user_id === membro.user_id) ||
+    usuarios.find((usuario) => usuario.id === membro.user_id) ||
+    null
+  );
+}
 
   return (
     <div style={pageStyle}>
