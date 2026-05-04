@@ -101,7 +101,9 @@ export default function AdminClientesPage() {
 
   async function carregarTudo() {
     setLoading(true);
-    await Promise.all([carregarTenants(), carregarUsuarios(), carregarPlanos()]);
+   await carregarPlanos();
+await carregarUsuarios();
+await carregarTenants();
     setLoading(false);
   }
 
@@ -109,21 +111,18 @@ export default function AdminClientesPage() {
     const { data, error } = await supabase
       .from("tenants")
       .select(`
-        id,
-        nome,
-        documento,
-        telefone,
-        email,
-        status,
-        created_at,
-        plano_id,
-        tipo,
-        responsavel_nome,
-        onboarding_completed,
-        planos:plano_id (
-          nome
-        )
-      `)
+  id,
+  nome,
+  documento,
+  telefone,
+  email,
+  status,
+  created_at,
+  plano_id,
+  tipo,
+  responsavel_nome,
+  onboarding_completed
+`)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -131,7 +130,14 @@ export default function AdminClientesPage() {
       return;
     }
 
-    const lista = normalizarTenants((data || []) as TenantRaw[]);
+   const lista = (data || []).map((tenant) => {
+  const plano = planos.find((p) => p.id === tenant.plano_id);
+
+  return {
+    ...tenant,
+    planos: plano ? { nome: plano.nome } : null,
+  };
+}) as Tenant[];
     setTenants(lista);
 
     const tenantAtual = tenantSelecionadoId || lista[0]?.id || null;
