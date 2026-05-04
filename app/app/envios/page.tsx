@@ -304,10 +304,36 @@ export default function EnviosPage() {
   }
 
   function inserirVariavel(variavel: string) {
+    const textarea = document.getElementById("editor-mensagem") as HTMLTextAreaElement | null;
+    const textoAtual = templates[tipoEnvio] || "";
+
+    if (!textarea) {
+      setTemplates((current) => ({
+        ...current,
+        [tipoEnvio]: `${textoAtual}${textoAtual.endsWith(" ") || textoAtual.length === 0 ? "" : " "}${variavel}`,
+      }));
+      return;
+    }
+
+    const inicio = textarea.selectionStart ?? textoAtual.length;
+    const fim = textarea.selectionEnd ?? textoAtual.length;
+
+    const novoTexto =
+      textoAtual.substring(0, inicio) +
+      variavel +
+      textoAtual.substring(fim);
+
     setTemplates((current) => ({
       ...current,
-      [tipoEnvio]: `${current[tipoEnvio] || ""}${current[tipoEnvio]?.endsWith(" ") ? "" : " "}${variavel}`,
+      [tipoEnvio]: novoTexto,
     }));
+
+    window.setTimeout(() => {
+      textarea.focus();
+      const novaPosicao = inicio + variavel.length;
+      textarea.selectionStart = novaPosicao;
+      textarea.selectionEnd = novaPosicao;
+    }, 0);
   }
 
   async function marcarComoEnviado(convidado: Convidado) {
@@ -576,6 +602,7 @@ export default function EnviosPage() {
               <label style={fieldLabelStyle}>Mensagem da campanha</label>
 
               <textarea
+                id="editor-mensagem"
                 value={mensagemAtual}
                 onChange={(event) =>
                   setTemplates((current) => ({
