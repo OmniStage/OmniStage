@@ -3,66 +3,115 @@
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
+type Tenant = {
+  id: string;
+  nome: string;
+  plano: string | null;
+  status: string | null;
+};
+
+type TenantMember = {
+  tenant_id: string;
+  role: string | null;
+  status: string | null;
+  tenants: Tenant | Tenant[] | null;
+};
+
 type Evento = {
   id: string;
   nome: string;
   data_evento: string | null;
   local: string | null;
   cidade: string | null;
-  cliente_id: string | null;
+  tenant_id: string | null;
   status_aprovacao: string | null;
   ativo: boolean | null;
   created_at: string | null;
 };
 
-type Cliente = {
-  id: string;
-  nome: string;
-  email: string | null;
-};
-
-export default function AdminEventosPage() {
+export default function AppEventosPage() {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenantId, setTenantId] = useState("");
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState("todos");
+  const [salvando, setSalvando] = useState(false);
+
+  const [form, setForm] = useState({
+    nome: "",
+    data_evento: "",
+    local: "",
+    cidade: "",
+  });
 
   useEffect(() => {
-    carregarTudo();
+    carregarTenantsDoUsuario();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function carregarTudo() {
+  async function carregarTenantsDoUsuario() {
     setLoading(true);
-    await carregarClientes();
-    await carregarEventos();
-    setLoading(false);
-  }
 
-  async function carregarClientes() {
-    const { data, error } = await supabase
-      .from("clientes")
-      .select("id,nome,email")
-      .order("nome", { ascending: true });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (error) {
-      alert("Erro ao carregar clientes: " + error.message);
+    if (userError || !user) {
+      setLoading(false);
       return;
     }
 
-    setClientes((data || []) as Cliente[]);
+    const { data, error } = await supabase
+      .from("tenant_members")
+      .select(`
+        tenant_id,
+        role,
+        status,
+        tenants:tenant_id (
+          id,
+          nome,
+          plano,
+          status
+        )
+      `)
+      .eq("user_id", user.id)
+      .eq("status", "ativo");
+
+    if (error) {
+      alert("Erro ao carregar vínculo do tenant: " + error.message);
+      setLoading(false);
+      return;
+    }
+
+    const lista = ((data || []) as TenantMember[])
+      .map((item) => (Array.isArray(item.tenants) ? item.tenants[0] : item.tenants))
+      .filter(Boolean) as Tenant[];
+
+    setTenants(lista);
+
+    const primeiroTenantId = lista[0]?.id || "";
+    setTenantId(primeiroTenantId);
+
+    if (primeiroTenantId) {
+      await carregarEventos(primeiroTenantId);
+    } else {
+      setEventos([]);
+    }
+
+    setLoading(false);
   }
 
-  async function carregarEventos() {
+  async function carregarEventos(idTenant: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id,nome,data_evento,local,cidade,cliente_id,status_aprovacao,ativo,created_at")
+      .select("id,nome,data_evento,local,cidade,tenant_id,status_aprovacao,ativo,created_at")
+      .eq("tenant_id", idTenant)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -73,225 +122,193 @@ export default function AdminEventosPage() {
     setEventos((data || []) as Evento[]);
   }
 
-  function clienteDoEvento(evento: Evento) {
-    return clientes.find((cliente) => cliente.id === evento.cliente_id) || null;
+  async function trocarTenant(id: string) {
+    setTenantId(id);
+    if (id) await carregarEventos(id);
+  }
+
+  async function criarEvento() {
+    if (!tenantId) {
+      alert("Nenhum tenant ativo encontrado para este usuário.");
+      return;
+    }
+
+    if (!form.nome.trim()) {
+      alert("Informe o nome do evento.");
+      return;
+    }
+
+    setSalvando(true);
+
+    const { error } = await supabase.from("eventos").insert({
+      nome: form.nome.trim(),
+      data_evento: form.data_evento || null,
+      local: form.local.trim() || null,
+      cidade: form.cidade.trim() || null,
+      tenant_id: tenantId,
+      status_aprovacao: "aguardando_aprovacao",
+      ativo: false,
+    });
+
+    if (error) {
+      alert("Erro ao criar evento: " + error.message);
+      setSalvando(false);
+      return;
+    }
+
+    setForm({ nome: "", data_evento: "", local: "", cidade: "" });
+    await carregarEventos(tenantId);
+    setSalvando(false);
   }
 
   const eventosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
     return eventos.filter((evento) => {
-      const cliente = clientes.find((item) => item.id === evento.cliente_id);
+      if (!termo) return true;
 
-      const buscaOk =
-        !termo ||
-        [evento.nome, evento.local, evento.cidade, cliente?.nome, cliente?.email]
-          .filter(Boolean)
-          .some((valor) => String(valor).toLowerCase().includes(termo));
-
-      const filtroOk = filtro === "todos" || evento.status_aprovacao === filtro;
-
-      return buscaOk && filtroOk;
+      return [evento.nome, evento.local, evento.cidade, evento.status_aprovacao]
+        .filter(Boolean)
+        .some((valor) => String(valor).toLowerCase().includes(termo));
     });
-  }, [eventos, clientes, busca, filtro]);
+  }, [eventos, busca]);
 
-  const stats = useMemo(() => {
-    return {
-      total: eventos.length,
-      aprovados: eventos.filter((e) => e.status_aprovacao === "aprovado").length,
-      aguardando: eventos.filter((e) => e.status_aprovacao === "aguardando_aprovacao").length,
-      bloqueados: eventos.filter((e) => e.status_aprovacao === "bloqueado").length,
-    };
-  }, [eventos]);
-
-  async function atualizarEvento(id: string, campos: Record<string, any>) {
-    const { error } = await supabase.from("eventos").update(campos).eq("id", id);
-
-    if (error) {
-      alert("Erro ao atualizar evento: " + error.message);
-      return;
-    }
-
-    await carregarEventos();
-  }
-
-  async function vincularCliente(eventoId: string, clienteId: string) {
-    await atualizarEvento(eventoId, { cliente_id: clienteId || null });
-  }
+  const tenantAtual = tenants.find((tenant) => tenant.id === tenantId) || null;
 
   return (
-    <div style={pageStyle}>
+    <div className="app-events-page">
       <style>{`
-        .admin-event-card {
-          transition: transform .17s cubic-bezier(.2,.8,.2,1), box-shadow .17s ease, border-color .17s ease;
-        }
-
-        .admin-event-card:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 18px 42px rgba(15,23,42,.08);
-          border-color: rgba(124,58,237,.22);
-        }
-
-        @media (max-width: 900px) {
-          .admin-event-card, .admin-event-filters {
-            grid-template-columns: 1fr !important;
-          }
-          .admin-event-actions {
-            justify-content: flex-start !important;
-          }
-        }
+        .app-events-page { display: flex; flex-direction: column; gap: 22px; }
+        .hero, .panel, .event-card { background: #fff; border: 1px solid rgba(226,232,240,.95); box-shadow: 0 24px 70px rgba(15,23,42,.08); }
+        .hero { border-radius: 26px; padding: 28px 32px; display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .eyebrow { color: #7c3aed; font-weight: 950; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+        .title { margin: 8px 0; font-size: 36px; font-weight: 950; color: #0f172a; letter-spacing: -.05em; }
+        .subtitle { margin: 0; color: #64748b; font-size: 16px; line-height: 1.45; }
+        .primary { border: none; background: linear-gradient(135deg,#7c3aed,#5b21b6); color: #fff; padding: 13px 18px; border-radius: 15px; font-weight: 900; cursor: pointer; box-shadow: 0 12px 26px rgba(124,58,237,.24); }
+        .panel { border-radius: 24px; padding: 24px; }
+        .panel-title { margin: 0; font-size: 22px; font-weight: 950; color: #0f172a; }
+        .panel-text { margin: 6px 0 0; color: #64748b; line-height: 1.4; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+        .filters { display: grid; grid-template-columns: 1fr 260px; gap: 10px; margin-top: 18px; }
+        .input { width: 100%; padding: 13px 15px; border-radius: 15px; border: 1px solid rgba(226,232,240,.95); background: #f8fafc; color: #0f172a; outline: none; font-weight: 850; }
+        .list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+        .event-card { border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; transition: transform .17s cubic-bezier(.2,.8,.2,1), box-shadow .17s ease, border-color .17s ease; }
+        .event-card:hover { transform: translateY(-1px); box-shadow: 0 18px 42px rgba(15,23,42,.08); border-color: rgba(124,58,237,.22); }
+        .item-title { color: #0f172a; font-size: 17px; font-weight: 950; }
+        .item-meta { color: #334155; font-size: 14px; font-weight: 850; margin-top: 4px; }
+        .small-line { color: #64748b; font-size: 12px; margin-top: 6px; }
+        .badge { padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 950; display: inline-flex; margin-left: 8px; }
+        .badge.active { background: #dcfce7; color: #166534; }
+        .badge.blocked { background: #fee2e2; color: #991b1b; }
+        .badge.pending { background: #fef3c7; color: #92400e; }
+        .badge.neutral { background: #e2e8f0; color: #475569; }
+        .empty { padding: 18px; border-radius: 16px; border: 1px dashed rgba(148,163,184,.5); color: #64748b; }
+        @media (max-width: 900px) { .grid, .filters { grid-template-columns: 1fr; } }
       `}</style>
 
-      <section style={heroStyle}>
+      <section className="hero">
         <div>
-          <span style={eyebrowStyle}>Admin OmniStage</span>
-          <h1 style={titleStyle}>Eventos</h1>
-          <p style={subtitleStyle}>
-            Aprove eventos criados por clientes, vincule empresas e controle liberação.
+          <span className="eyebrow">OmniStage App</span>
+          <h1 className="title">Eventos</h1>
+          <p className="subtitle">
+            {tenantAtual
+              ? `Eventos vinculados ao tenant ${tenantAtual.nome}.`
+              : "Nenhum tenant ativo vinculado ao seu usuário."}
           </p>
         </div>
 
-        <button onClick={carregarTudo} style={primaryButtonStyle}>
-          {loading ? "Atualizando..." : "Atualizar eventos"}
+        <button onClick={() => tenantId && carregarEventos(tenantId)} className="primary">
+          {loading ? "Carregando..." : "Atualizar"}
         </button>
       </section>
 
-      <section style={statsGridStyle}>
-        <MetricCard label="Eventos" value={stats.total} detail="Total" color="#7c3aed" bg="#ede9fe" />
-        <MetricCard label="Aprovados" value={stats.aprovados} detail="Liberados" color="#16a34a" bg="#dcfce7" />
-        <MetricCard label="Aguardando" value={stats.aguardando} detail="Em análise" color="#f59e0b" bg="#fef3c7" />
-        <MetricCard label="Bloqueados" value={stats.bloqueados} detail="Sem acesso" color="#dc2626" bg="#fee2e2" />
-      </section>
+      {tenants.length > 1 && (
+        <section className="panel">
+          <h2 className="panel-title">Selecionar tenant</h2>
+          <select value={tenantId} onChange={(e) => trocarTenant(e.target.value)} className="input" style={{ marginTop: 14 }}>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.nome}
+              </option>
+            ))}
+          </select>
+        </section>
+      )}
 
-      <section style={panelStyle}>
-        <div style={panelHeaderStyle}>
-          <div>
-            <h2 style={panelTitleStyle}>Lista de eventos</h2>
-            <p style={panelTextStyle}>Eventos criados no app do cliente aparecem aqui.</p>
-          </div>
+      <section className="panel">
+        <h2 className="panel-title">Criar evento</h2>
+        <p className="panel-text">O evento ficará aguardando aprovação do admin.</p>
 
-          <span style={counterStyle}>{eventosFiltrados.length} exibidos</span>
+        <div className="grid">
+          <input
+            value={form.nome}
+            onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+            placeholder="Nome do evento"
+            className="input"
+          />
+          <input
+            type="date"
+            value={form.data_evento}
+            onChange={(e) => setForm((f) => ({ ...f, data_evento: e.target.value }))}
+            className="input"
+          />
+          <input
+            value={form.local}
+            onChange={(e) => setForm((f) => ({ ...f, local: e.target.value }))}
+            placeholder="Local"
+            className="input"
+          />
+          <input
+            value={form.cidade}
+            onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))}
+            placeholder="Cidade"
+            className="input"
+          />
         </div>
 
-        <div className="admin-event-filters" style={filtersStyle}>
+        <button onClick={criarEvento} disabled={salvando || !tenantId} className="primary" style={{ marginTop: 14 }}>
+          {salvando ? "Salvando..." : "Criar evento"}
+        </button>
+      </section>
+
+      <section className="panel">
+        <h2 className="panel-title">Meus eventos</h2>
+
+        <div className="filters">
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por evento, cliente, local ou cidade"
-            style={inputStyle}
+            placeholder="Buscar por evento, local, cidade ou status"
+            className="input"
           />
-
-          <select value={filtro} onChange={(e) => setFiltro(e.target.value)} style={inputStyle}>
-            <option value="todos">Todos os status</option>
-            <option value="aguardando_aprovacao">Aguardando aprovação</option>
-            <option value="aprovado">Aprovado</option>
-            <option value="bloqueado">Bloqueado</option>
-            <option value="reprovado">Reprovado</option>
-            <option value="rascunho">Rascunho</option>
-          </select>
+          <div className="input">{eventosFiltrados.length} exibidos</div>
         </div>
 
-        <div style={listStyle}>
-          {eventosFiltrados.map((evento) => {
-            const cliente = clienteDoEvento(evento);
-
-            return (
-              <article key={evento.id} className="admin-event-card" style={eventCardStyle}>
-                <div>
-                  <div style={titleLineStyle}>
-                    <strong style={itemTitleStyle}>{evento.nome}</strong>
-                    <span style={getStatusStyle(evento.status_aprovacao)}>
-                      {labelStatus(evento.status_aprovacao)}
-                    </span>
-                  </div>
-
-                  <div style={itemMetaStyle}>
-                    Cliente: <strong>{cliente?.nome || "Sem cliente vinculado"}</strong>
-                  </div>
-
-                  <div style={smallLineStyle}>
-                    Data: <strong>{evento.data_evento ? formatarData(evento.data_evento) : "Não definida"}</strong> · Local:{" "}
-                    <strong>{evento.local || "Não informado"}</strong> · Cidade:{" "}
-                    <strong>{evento.cidade || "Não informada"}</strong>
-                  </div>
-
-                  <small style={idStyle}>ID: {evento.id}</small>
+        <div className="list">
+          {eventosFiltrados.map((evento) => (
+            <article key={evento.id} className="event-card">
+              <div>
+                <strong className="item-title">{evento.nome}</strong>
+                <span className={getStatusClass(evento.status_aprovacao)}>
+                  {labelStatus(evento.status_aprovacao)}
+                </span>
+                <div className="item-meta">
+                  Data: <strong>{evento.data_evento ? formatarData(evento.data_evento) : "Não definida"}</strong>
                 </div>
-
-                <div className="admin-event-actions" style={actionsStyle}>
-                  <select
-                    value={evento.cliente_id || ""}
-                    onChange={(e) => vincularCliente(evento.id, e.target.value)}
-                    style={miniSelectStyle}
-                  >
-                    <option value="">Sem cliente</option>
-                    {clientes.map((cliente) => (
-                      <option key={cliente.id} value={cliente.id}>
-                        {cliente.nome}
-                      </option>
-                    ))}
-                  </select>
-
-                  {evento.status_aprovacao !== "aprovado" && (
-                    <button
-                      onClick={() => atualizarEvento(evento.id, { status_aprovacao: "aprovado", ativo: true })}
-                      style={approveButtonStyle}
-                    >
-                      Aprovar
-                    </button>
-                  )}
-
-                  {evento.status_aprovacao !== "bloqueado" && (
-                    <button
-                      onClick={() => atualizarEvento(evento.id, { status_aprovacao: "bloqueado", ativo: false })}
-                      style={blockButtonStyle}
-                    >
-                      Bloquear
-                    </button>
-                  )}
-
-                  {evento.status_aprovacao !== "reprovado" && (
-                    <button
-                      onClick={() => atualizarEvento(evento.id, { status_aprovacao: "reprovado", ativo: false })}
-                      style={dangerButtonStyle}
-                    >
-                      Reprovar
-                    </button>
-                  )}
+                <div className="small-line">
+                  Local: <strong>{evento.local || "Não informado"}</strong> · Cidade:{" "}
+                  <strong>{evento.cidade || "Não informada"}</strong>
                 </div>
-              </article>
-            );
-          })}
+              </div>
+            </article>
+          ))}
 
           {!loading && eventosFiltrados.length === 0 && (
-            <div style={emptyStyle}>Nenhum evento encontrado.</div>
+            <div className="empty">Nenhum evento encontrado para este tenant.</div>
           )}
         </div>
       </section>
     </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  color,
-  bg,
-}: {
-  label: string;
-  value: number;
-  detail: string;
-  color: string;
-  bg: string;
-}) {
-  return (
-    <article style={metricCardStyle}>
-      <div style={{ ...iconStyle, background: bg, color }}>●</div>
-      <p style={metricLabelStyle}>{label}</p>
-      <strong style={metricValueStyle}>{value}</strong>
-      <p style={metricDetailStyle}>{detail}</p>
-    </article>
   );
 }
 
@@ -303,11 +320,11 @@ function labelStatus(status: string | null) {
   return "Rascunho";
 }
 
-function getStatusStyle(status: string | null): React.CSSProperties {
-  if (status === "aprovado") return activeBadgeStyle;
-  if (status === "bloqueado" || status === "reprovado") return blockedBadgeStyle;
-  if (status === "aguardando_aprovacao") return pendingBadgeStyle;
-  return neutralBadgeStyle;
+function getStatusClass(status: string | null) {
+  if (status === "aprovado") return "badge active";
+  if (status === "bloqueado" || status === "reprovado") return "badge blocked";
+  if (status === "aguardando_aprovacao") return "badge pending";
+  return "badge neutral";
 }
 
 function formatarData(data: string | null) {
@@ -316,45 +333,6 @@ function formatarData(data: string | null) {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
   });
 }
-
-const pageStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 22 };
-const heroStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,.95)", borderRadius: 26, padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, boxShadow: "0 24px 70px rgba(15,23,42,.08)", flexWrap: "wrap" };
-const eyebrowStyle: React.CSSProperties = { color: "#7c3aed", fontWeight: 950, fontSize: 12, textTransform: "uppercase", letterSpacing: ".12em" };
-const titleStyle: React.CSSProperties = { margin: "8px 0", fontSize: 36, fontWeight: 950, color: "#0f172a", letterSpacing: "-.05em" };
-const subtitleStyle: React.CSSProperties = { margin: 0, color: "#64748b", fontSize: 16, lineHeight: 1.45 };
-const primaryButtonStyle: React.CSSProperties = { border: "none", background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "#fff", padding: "13px 18px", borderRadius: 15, fontWeight: 900, cursor: "pointer", boxShadow: "0 12px 26px rgba(124,58,237,.24)" };
-const statsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14 };
-const metricCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,.95)", borderRadius: 22, padding: 18, boxShadow: "0 14px 36px rgba(15,23,42,.06)" };
-const iconStyle: React.CSSProperties = { width: 32, height: 32, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, fontSize: 15 };
-const metricLabelStyle: React.CSSProperties = { margin: 0, color: "#64748b", fontSize: 12, fontWeight: 900 };
-const metricValueStyle: React.CSSProperties = { display: "block", marginTop: 7, fontSize: 32, lineHeight: 1, fontWeight: 950, color: "#0f172a" };
-const metricDetailStyle: React.CSSProperties = { margin: "8px 0 0", color: "#64748b", fontSize: 12 };
-const panelStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,.95)", borderRadius: 24, padding: 24, boxShadow: "0 24px 70px rgba(15,23,42,.08)" };
-const panelHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" };
-const panelTitleStyle: React.CSSProperties = { margin: 0, fontSize: 22, fontWeight: 950, color: "#0f172a" };
-const panelTextStyle: React.CSSProperties = { margin: "6px 0 0", color: "#64748b", lineHeight: 1.4 };
-const counterStyle: React.CSSProperties = { padding: "9px 13px", borderRadius: 999, background: "rgba(124,58,237,.08)", color: "#7c3aed", fontSize: 13, fontWeight: 950 };
-const filtersStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 260px", gap: 10, marginTop: 18 };
-const inputStyle: React.CSSProperties = { width: "100%", padding: "13px 15px", borderRadius: 15, border: "1px solid rgba(226,232,240,.95)", background: "#f8fafc", color: "#0f172a", outline: "none", fontWeight: 850 };
-const listStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12, marginTop: 16 };
-const eventCardStyle: React.CSSProperties = { border: "1px solid rgba(226,232,240,.95)", borderRadius: 20, background: "#fbfdff", padding: 16, display: "grid", gridTemplateColumns: "minmax(280px,1fr) auto", gap: 14, alignItems: "center" };
-const titleLineStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
-const itemTitleStyle: React.CSSProperties = { color: "#0f172a", fontSize: 17, fontWeight: 950 };
-const itemMetaStyle: React.CSSProperties = { color: "#334155", fontSize: 14, fontWeight: 850, marginTop: 4 };
-const smallLineStyle: React.CSSProperties = { color: "#64748b", fontSize: 12, marginTop: 6 };
-const idStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 10, fontWeight: 700, wordBreak: "break-all", display: "block", marginTop: 6 };
-const actionsStyle: React.CSSProperties = { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" };
-const miniSelectStyle: React.CSSProperties = { border: "1px solid rgba(226,232,240,.95)", background: "#fff", color: "#0f172a", padding: "10px 11px", borderRadius: 999, fontWeight: 900, outline: "none", maxWidth: 220 };
-const approveButtonStyle: React.CSSProperties = { border: "1px solid rgba(22,163,74,.24)", background: "#dcfce7", color: "#166534", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const blockButtonStyle: React.CSSProperties = { border: "1px solid rgba(245,158,11,.24)", background: "#fef3c7", color: "#92400e", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const dangerButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,.24)", background: "#fee2e2", color: "#991b1b", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const activeBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 950 };
-const blockedBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 950 };
-const pendingBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 950 };
-const neutralBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#e2e8f0", color: "#475569", fontSize: 11, fontWeight: 950 };
-const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed rgba(148,163,184,.5)", color: "#64748b" };
 
