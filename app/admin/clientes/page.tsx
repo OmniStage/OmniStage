@@ -74,6 +74,14 @@ const formInicial: TenantForm = {
   responsavel_nome: "",
 };
 
+function normalizarId(valor: string | null | undefined) {
+  return String(valor || "").trim().toLowerCase();
+}
+
+function authIdDoUsuario(usuario: Usuario) {
+  return usuario.user_id || usuario.id;
+}
+
 export default function AdminClientesPage() {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -224,11 +232,15 @@ export default function AdminClientesPage() {
   }, [tenants, tenantSelecionadoId]);
 
   const usuariosDisponiveis = useMemo(() => {
-    const idsVinculados = new Set(membros.map((membro) => membro.user_id));
+    const idsVinculados = new Set(
+      membros.map((membro) => normalizarId(membro.user_id)),
+    );
 
     return usuarios.filter((usuario) => {
-      if (!usuario.user_id) return false;
-      return !idsVinculados.has(usuario.user_id);
+      const authId = authIdDoUsuario(usuario);
+      if (!authId) return false;
+
+      return !idsVinculados.has(normalizarId(authId));
     });
   }, [usuarios, membros]);
 
@@ -398,11 +410,11 @@ export default function AdminClientesPage() {
   }
 
 function usuarioDoMembro(membro: TenantMember) {
-  const membroUserId = String(membro.user_id || "").trim().toLowerCase();
+  const membroUserId = normalizarId(membro.user_id);
 
   return (
-    usuarios.find((usuario) => String(usuario.user_id || "").trim().toLowerCase() === membroUserId) ||
-    usuarios.find((usuario) => String(usuario.id || "").trim().toLowerCase() === membroUserId) ||
+    usuarios.find((usuario) => normalizarId(usuario.user_id) === membroUserId) ||
+    usuarios.find((usuario) => normalizarId(usuario.id) === membroUserId) ||
     null
   );
 }
@@ -612,7 +624,7 @@ function usuarioDoMembro(membro: TenantMember) {
             >
               <option value="">Selecionar usuário</option>
               {usuariosDisponiveis.map((usuario) => (
-                <option key={usuario.id} value={usuario.user_id || ""}>
+                <option key={usuario.id} value={authIdDoUsuario(usuario)}>
                   {usuario.nome || usuario.email || usuario.id}
                 </option>
               ))}
