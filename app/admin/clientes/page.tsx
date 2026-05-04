@@ -32,7 +32,7 @@ type Vinculo = {
   permissao: Permissao | string | null;
   status: Status | string | null;
   created_at: string | null;
-  perfis?: Perfil | null;
+  perfis?: Perfil | Perfil[] | null;
 };
 
 export default function AdminClientesPage() {
@@ -134,7 +134,7 @@ export default function AdminClientesPage() {
       return;
     }
 
-    setVinculos((data || []) as Vinculo[]);
+    setVinculos(normalizarVinculos(data || []));
   }
 
   const clientesFiltrados = useMemo(() => {
@@ -509,47 +509,51 @@ export default function AdminClientesPage() {
           </div>
 
           <div style={listStyle}>
-            {vinculos.map((vinculo) => (
-              <article key={vinculo.id} className="vinculo-card" style={vinculoCardStyle}>
-                <div>
-                  <strong style={itemTitleStyle}>
-                    {vinculo.perfis?.nome || vinculo.perfis?.email || "Usuário sem nome"}
-                  </strong>
-                  <div style={itemMetaStyle}>{vinculo.perfis?.email || "Sem e-mail"}</div>
-                  <div style={smallLineStyle}>
-                    Permissão: <strong>{vinculo.permissao}</strong> · Status:{" "}
-                    <strong>{vinculo.status}</strong>
+            {vinculos.map((vinculo) => {
+              const perfil = perfilDoVinculo(vinculo);
+
+              return (
+                <article key={vinculo.id} className="vinculo-card" style={vinculoCardStyle}>
+                  <div>
+                    <strong style={itemTitleStyle}>
+                      {perfil?.nome || perfil?.email || "Usuário sem nome"}
+                    </strong>
+                    <div style={itemMetaStyle}>{perfil?.email || "Sem e-mail"}</div>
+                    <div style={smallLineStyle}>
+                      Permissão: <strong>{vinculo.permissao}</strong> · Status:{" "}
+                      <strong>{vinculo.status}</strong>
+                    </div>
                   </div>
-                </div>
 
-                <div className="vinculo-actions" style={actionsStyle}>
-                  <select
-                    value={(vinculo.permissao || "admin") as Permissao}
-                    onChange={(e) =>
-                      atualizarVinculo(vinculo, { permissao: e.target.value as Permissao })
-                    }
-                    style={miniSelectStyle}
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="operador">Operador</option>
-                    <option value="visualizador">Visualizador</option>
-                  </select>
+                  <div className="vinculo-actions" style={actionsStyle}>
+                    <select
+                      value={(vinculo.permissao || "admin") as Permissao}
+                      onChange={(e) =>
+                        atualizarVinculo(vinculo, { permissao: e.target.value as Permissao })
+                      }
+                      style={miniSelectStyle}
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="operador">Operador</option>
+                      <option value="visualizador">Visualizador</option>
+                    </select>
 
-                  <select
-                    value={(vinculo.status || "ativo") as Status}
-                    onChange={(e) => atualizarVinculo(vinculo, { status: e.target.value as Status })}
-                    style={miniSelectStyle}
-                  >
-                    <option value="ativo">Ativo</option>
-                    <option value="bloqueado">Bloqueado</option>
-                  </select>
+                    <select
+                      value={(vinculo.status || "ativo") as Status}
+                      onChange={(e) => atualizarVinculo(vinculo, { status: e.target.value as Status })}
+                      style={miniSelectStyle}
+                    >
+                      <option value="ativo">Ativo</option>
+                      <option value="bloqueado">Bloqueado</option>
+                    </select>
 
-                  <button onClick={() => removerVinculo(vinculo)} style={dangerButtonStyle}>
-                    Remover
-                  </button>
-                </div>
-              </article>
-            ))}
+                    <button onClick={() => removerVinculo(vinculo)} style={dangerButtonStyle}>
+                      Remover
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
 
             {clienteSelecionadoId && vinculos.length === 0 && (
               <div style={emptyStyle}>Nenhum usuário vinculado a este cliente.</div>
@@ -677,6 +681,19 @@ function formatarData(data: string | null) {
   });
 }
 
+function normalizarVinculos(lista: any[]): Vinculo[] {
+  return lista.map((item) => ({
+    ...item,
+    perfis: Array.isArray(item.perfis) ? item.perfis[0] || null : item.perfis || null,
+  })) as Vinculo[];
+}
+
+function perfilDoVinculo(vinculo: Vinculo): Perfil | null {
+  if (!vinculo.perfis) return null;
+  if (Array.isArray(vinculo.perfis)) return vinculo.perfis[0] || null;
+  return vinculo.perfis;
+}
+
 const pageStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 22 };
 const heroStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,0.95)", borderRadius: 26, padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, boxShadow: "0 24px 70px rgba(15,23,42,0.08)", flexWrap: "wrap" };
 const eyebrowStyle: React.CSSProperties = { color: "#7c3aed", fontWeight: 950, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em" };
@@ -715,4 +732,4 @@ const actionsStyle: React.CSSProperties = { display: "flex", justifyContent: "fl
 const miniSelectStyle: React.CSSProperties = { border: "1px solid rgba(226,232,240,0.95)", background: "#fff", color: "#0f172a", padding: "10px 11px", borderRadius: 999, fontWeight: 900, outline: "none" };
 const activeBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 950 };
 const blockedBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 950 };
-const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed rgba(148,163,184,0.5)", color: "#64748b" };
+const emptyStyle: React.CSSProperties = { padding: 18,
