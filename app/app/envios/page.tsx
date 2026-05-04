@@ -50,6 +50,11 @@ export default function EnviosPage() {
     lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
     cartao_evento: campanhas.cartao_evento.templatePadrao,
   });
+  const [templatesConfigurados, setTemplatesConfigurados] = useState<Record<TipoEnvio, boolean>>({
+    convite: false,
+    lembrete_rsvp: false,
+    cartao_evento: false,
+  });
   const [loading, setLoading] = useState(true);
   const [salvandoTemplate, setSalvandoTemplate] = useState(false);
   const [busca, setBusca] = useState("");
@@ -58,6 +63,7 @@ export default function EnviosPage() {
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
+  const templateConfigurado = templatesConfigurados[tipoEnvio];
 
   async function carregarTudo() {
     setLoading(true);
@@ -114,14 +120,22 @@ export default function EnviosPage() {
       cartao_evento: campanhas.cartao_evento.templatePadrao,
     };
 
+    const novosConfigurados: Record<TipoEnvio, boolean> = {
+      convite: false,
+      lembrete_rsvp: false,
+      cartao_evento: false,
+    };
+
     (data || []).forEach((template) => {
       const tipo = template.tipo_envio as TipoEnvio;
       if (tipo in novosTemplates) {
-        novosTemplates[tipo] = template.mensagem;
+        novosTemplates[tipo] = template.mensagem || campanhas[tipo].templatePadrao;
+        novosConfigurados[tipo] = true;
       }
     });
 
     setTemplates(novosTemplates);
+    setTemplatesConfigurados(novosConfigurados);
   }
 
   useEffect(() => {
@@ -206,6 +220,11 @@ export default function EnviosPage() {
       alert("Erro ao salvar mensagem: " + error.message);
       return;
     }
+
+    setTemplatesConfigurados((current) => ({
+      ...current,
+      [tipoEnvio]: true,
+    }));
 
     alert("Mensagem salva com sucesso.");
   }
@@ -400,6 +419,16 @@ export default function EnviosPage() {
               </button>
             </div>
           </div>
+
+          {!templateConfigurado && (
+            <div style={templateWarningStyle}>
+              <strong>Mensagem ainda não configurada pelo cliente.</strong>
+              <span>
+                O sistema está mostrando um modelo padrão. Ao clicar em “Salvar mensagem”,
+                o template será criado automaticamente no Supabase para esta campanha.
+              </span>
+            </div>
+          )}
 
           <div className="envios-editor-grid" style={editorGridStyle}>
             <div style={editorColumnStyle}>
@@ -759,6 +788,20 @@ const campaignBadgeStyle: React.CSSProperties = { padding: "8px 12px", borderRad
 const templatePanelStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 22, padding: 24, boxShadow: "0 14px 40px rgba(15,23,42,0.05)" };
 const templateHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 18 };
 const templateActionsStyle: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap" };
+const templateWarningStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  marginBottom: 18,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(245,158,11,0.28)",
+  background: "#fffbeb",
+  color: "#92400e",
+  fontSize: 13,
+  fontWeight: 750,
+};
+
 const editorGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(280px, 1.05fr) minmax(280px, 0.95fr)", gap: 18 };
 const editorColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
 const previewColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
