@@ -81,7 +81,7 @@ export default function AppEventosPage() {
         )
       `)
       .eq("user_id", user.id)
-      .eq("status", "ativo");
+    
 
     if (error) {
       alert("Erro ao carregar vínculo do tenant: " + error.message);
