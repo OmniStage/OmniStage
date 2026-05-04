@@ -13,7 +13,7 @@ type Evento = {
   status_aprovacao: string | null;
   ativo: boolean | null;
   created_at: string | null;
-  clientes?: { id: string; nome: string; email: string | null } | null;
+  cliente?: { id: string; nome: string; email: string | null } | null;
 };
 
 type Cliente = { id: string; nome: string; email: string | null };
@@ -54,7 +54,11 @@ export default function AdminEventosPage() {
         status_aprovacao,
         ativo,
         created_at,
-        clientes:cliente_id (id,nome,email)
+        cliente:clientes!eventos_cliente_id_fkey (
+          id,
+          nome,
+          email
+        )
       `)
       .order("created_at", { ascending: false });
 
@@ -65,7 +69,7 @@ export default function AdminEventosPage() {
 
     const normalizados = (data || []).map((item: any) => ({
       ...item,
-      clientes: Array.isArray(item.clientes) ? item.clientes[0] || null : item.clientes || null,
+      cliente: Array.isArray(item.cliente) ? item.cliente[0] || null : item.cliente || null,
     })) as Evento[];
 
     setEventos(normalizados);
@@ -78,7 +82,7 @@ export default function AdminEventosPage() {
       .order("nome", { ascending: true });
 
     if (error) {
-      alert("Erro ao carregar clientes: " + error.message);
+      alert("Erro ao carregar cliente: " + error.message);
       return;
     }
 
@@ -91,7 +95,7 @@ export default function AdminEventosPage() {
     return eventos.filter((evento) => {
       const buscaOk =
         !termo ||
-        [evento.nome, evento.local, evento.cidade, evento.clientes?.nome, evento.clientes?.email]
+        [evento.nome, evento.local, evento.cidade, evento.cliente?.nome, evento.cliente?.email]
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
@@ -200,7 +204,7 @@ export default function AdminEventosPage() {
             <article key={evento.id} className="event-card">
               <div>
                 <div className="title-line"><strong className="item-title">{evento.nome}</strong><span className={getStatusClass(evento.status_aprovacao)}>{labelStatus(evento.status_aprovacao)}</span></div>
-                <div className="item-meta">Cliente: <strong>{evento.clientes?.nome || "Sem cliente vinculado"}</strong></div>
+                <div className="item-meta">Cliente: <strong>{evento.cliente?.nome || "Sem cliente vinculado"}</strong></div>
                 <div className="small-line">Data: <strong>{evento.data_evento ? formatarData(evento.data_evento) : "Não definida"}</strong> · Local: <strong>{evento.local || "Não informado"}</strong> · Cidade: <strong>{evento.cidade || "Não informada"}</strong></div>
                 <small className="id">ID: {evento.id}</small>
               </div>
