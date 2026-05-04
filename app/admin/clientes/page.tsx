@@ -398,9 +398,11 @@ export default function AdminClientesPage() {
   }
 
 function usuarioDoMembro(membro: TenantMember) {
+  const membroUserId = String(membro.user_id || "").trim().toLowerCase();
+
   return (
-    usuarios.find((usuario) => usuario.user_id === membro.user_id) ||
-    usuarios.find((usuario) => usuario.id === membro.user_id) ||
+    usuarios.find((usuario) => String(usuario.user_id || "").trim().toLowerCase() === membroUserId) ||
+    usuarios.find((usuario) => String(usuario.id || "").trim().toLowerCase() === membroUserId) ||
     null
   );
 }
