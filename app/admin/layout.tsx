@@ -12,7 +12,9 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,15 +22,15 @@ export default function AdminLayout({
   );
 
   const menu = [
-    { name: "Dashboard", href: "/admin", icon: "⌁" },
-    { name: "Clientes / Empresas", href: "/admin/clientes", icon: "◌" },
-    { name: "Redes / Franquias", href: "/admin/redes", icon: "◎" },
-    { name: "Eventos", href: "/admin/eventos", icon: "◇" },
-    { name: "Modelos de Convite", href: "/admin/modelos-convites", icon: "▣" },
-    { name: "Usuários", href: "/admin/usuarios", icon: "◉" },
-    { name: "Usuários x Redes", href: "/admin/usuarios-rede", icon: "⟡" },
-    { name: "Planos", href: "/admin/planos", icon: "◆" },
-    { name: "Configurações", href: "/admin/configuracoes", icon: "⚙" },
+    { name: "Dashboard", href: "/admin" },
+    { name: "Clientes / Empresas", href: "/admin/clientes" },
+    { name: "Redes / Franquias", href: "/admin/redes" },
+    { name: "Eventos", href: "/admin/eventos" },
+    { name: "Modelos de Convite", href: "/admin/modelos-convites" },
+    { name: "Usuários", href: "/admin/usuarios" },
+    { name: "Usuários x Redes", href: "/admin/usuarios-rede" },
+    { name: "Planos", href: "/admin/planos" },
+    { name: "Configurações", href: "/admin/configuracoes" },
   ];
 
   useEffect(() => {
@@ -64,6 +66,10 @@ export default function AdminLayout({
     checkAccess();
   }, [router, supabase]);
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -88,131 +94,104 @@ export default function AdminLayout({
   }
 
   return (
-    <div style={shellStyle}>
+    <div className="admin-shell">
       <style>{`
+        .admin-shell {
+          min-height: 100vh;
+          background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+          color: #0f172a;
+        }
+
+        .admin-mobile-topbar {
+          display: none;
+        }
+
         .admin-sidebar {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(124, 58, 237, 0.24) transparent;
+          position: fixed;
+          inset: 0 auto 0 0;
+          width: 300px;
+          background: rgba(255,255,255,0.92);
+          border-right: 1px solid #e2e8f0;
+          padding: 24px;
+          z-index: 40;
+          backdrop-filter: blur(14px);
+          box-shadow: 8px 0 30px rgba(15,23,42,0.035);
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .admin-main {
+          min-height: 100vh;
+          margin-left: 300px;
+          padding: 40px;
+          background:
+            radial-gradient(circle at 8% 0%, rgba(124,58,237,0.06), transparent 34%),
+            linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+        }
+
+        .admin-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 26px;
+          color: #0f172a;
+          font-size: 24px;
+          font-weight: 950;
+          letter-spacing: -0.04em;
+          line-height: 1.05;
+        }
+
+        .admin-brand-dot {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #7c3aed, #a855f7);
+          box-shadow: 0 0 0 7px rgba(124,58,237,0.08);
+          flex: 0 0 auto;
+        }
+
+        .admin-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 9px;
         }
 
         .admin-nav-link {
-          position: relative;
-          display: flex;
-          align-items: center;
-          gap: 11px;
-          min-height: 46px;
-          padding: 12px 14px;
+          display: block;
+          padding: 13px 16px;
           border-radius: 16px;
           text-decoration: none;
           color: #64748b;
           background: transparent;
-          font-weight: 850;
-          line-height: 1.12;
-          overflow: hidden;
-          isolation: isolate;
+          font-weight: 900;
           transition:
-            color 170ms ease,
             background 170ms ease,
+            color 170ms ease,
             transform 190ms cubic-bezier(.2,.8,.2,1),
             box-shadow 170ms ease;
         }
 
-        .admin-nav-link::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          z-index: -1;
-          border-radius: inherit;
-          background:
-            radial-gradient(circle at 12% 50%, rgba(124,58,237,0.13), transparent 38%),
-            linear-gradient(135deg, rgba(237,233,254,0.9), rgba(245,243,255,0.9));
-          opacity: 0;
-          transition: opacity 170ms ease;
-        }
-
-        .admin-nav-link::after {
-          content: "";
-          position: absolute;
-          left: 6px;
-          top: 50%;
-          width: 4px;
-          height: 22px;
-          border-radius: 999px;
-          background: linear-gradient(180deg, #7c3aed, #a855f7);
-          transform: translateY(-50%) scaleY(0.25);
-          opacity: 0;
-          transition:
-            opacity 180ms ease,
-            transform 200ms cubic-bezier(.2,.8,.2,1);
-        }
-
         .admin-nav-link:hover {
+          background: #f1f5f9;
           color: #6d28d9;
-          transform: translateX(4px);
-          box-shadow: 0 12px 26px rgba(15,23,42,0.055);
-        }
-
-        .admin-nav-link:hover::before {
-          opacity: 1;
-        }
-
-        .admin-nav-link:hover .admin-nav-icon {
-          background: #ffffff;
-          color: #7c3aed;
-          box-shadow: 0 8px 18px rgba(124,58,237,0.16);
-          transform: scale(1.04);
+          transform: translateX(3px);
         }
 
         .admin-nav-link.active {
           color: #6d28d9;
           background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-          box-shadow:
-            inset 0 0 0 1px rgba(109,40,217,0.10),
-            0 14px 30px rgba(124,58,237,0.12);
-        }
-
-        .admin-nav-link.active::after {
-          opacity: 1;
-          transform: translateY(-50%) scaleY(1);
-        }
-
-        .admin-nav-link.active .admin-nav-icon {
-          background: #ffffff;
-          color: #7c3aed;
-          box-shadow: 0 8px 18px rgba(124,58,237,0.16);
-        }
-
-        .admin-nav-icon {
-          width: 28px;
-          height: 28px;
-          min-width: 28px;
-          border-radius: 11px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f1f5f9;
-          color: #94a3b8;
-          font-size: 13px;
-          font-weight: 950;
-          transition:
-            background 170ms ease,
-            color 170ms ease,
-            box-shadow 170ms ease,
-            transform 170ms ease;
-        }
-
-        .admin-nav-text {
-          flex: 1;
-          min-width: 0;
+          box-shadow: inset 0 0 0 1px rgba(109,40,217,0.08);
         }
 
         .admin-logout {
           width: 100%;
-          margin-top: 24px;
+          margin-top: 22px;
           padding: 12px 16px;
           border-radius: 16px;
           border: 1px solid rgba(220,38,38,0.18);
-          background: #fff1f2;
+          background: #fee2e2;
           color: #991b1b;
           font-weight: 950;
           cursor: pointer;
@@ -223,39 +202,180 @@ export default function AdminLayout({
         }
 
         .admin-logout:hover {
-          background: #fee2e2;
+          background: #fecaca;
           transform: translateY(-1px);
           box-shadow: 0 12px 24px rgba(220,38,38,0.10);
         }
 
+        .admin-overlay {
+          display: none;
+        }
+
         @media (max-width: 900px) {
-          .admin-shell {
-            flex-direction: column;
+          .admin-mobile-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 35;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.92);
+            border-bottom: 1px solid #e2e8f0;
+            backdrop-filter: blur(18px);
+          }
+
+          .admin-mobile-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #0f172a;
+            font-size: 18px;
+            font-weight: 950;
+            letter-spacing: -0.04em;
+          }
+
+          .admin-menu-button {
+            width: 42px;
+            height: 42px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: 14px;
+            font-size: 22px;
+            font-weight: 950;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(15,23,42,0.05);
           }
 
           .admin-sidebar {
-            position: relative !important;
-            width: 100% !important;
-            height: auto !important;
+            width: min(82vw, 330px);
+            transform: translateX(-105%);
+            transition: transform 230ms cubic-bezier(.2,.8,.2,1);
+            box-shadow: 20px 0 60px rgba(15,23,42,0.16);
+          }
+
+          .admin-sidebar.open {
+            transform: translateX(0);
+          }
+
+          .admin-overlay {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 38;
+            background: rgba(15,23,42,0.26);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 200ms ease;
+          }
+
+          .admin-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
           }
 
           .admin-main {
-            padding: 18px !important;
+            margin-left: 0;
+            padding: 16px;
+            min-height: calc(100vh - 64px);
+            background:
+              radial-gradient(circle at 10% 0%, rgba(109,40,217,0.018), transparent 32%),
+              #f8fafc;
+          }
+
+          .admin-main > * {
+            max-width: 100%;
+          }
+
+          h1 {
+            font-size: 28px !important;
+            line-height: 1.08 !important;
+            letter-spacing: -0.04em !important;
+          }
+
+          h2 {
+            font-size: 20px !important;
+          }
+
+          button,
+          a,
+          input,
+          select {
+            max-width: 100%;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .admin-mobile-topbar {
+            height: 60px;
+            padding: 10px 12px;
+          }
+
+          .admin-main {
+            padding: 12px;
+          }
+
+          .admin-sidebar {
+            padding: 18px;
+          }
+
+          .admin-brand {
+            font-size: 22px;
+            margin-bottom: 22px;
+          }
+
+          .admin-nav-link {
+            padding: 12px 14px;
+            border-radius: 14px;
+            font-size: 15px;
           }
         }
       `}</style>
 
-      <aside className="admin-sidebar" style={sidebarStyle}>
+      <header className="admin-mobile-topbar">
+        <button
+          className="admin-menu-button"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Abrir menu"
+        >
+          ☰
+        </button>
+
+        <div className="admin-mobile-brand">
+          <span className="admin-brand-dot" />
+          Admin OmniStage
+        </div>
+
+        <button
+          onClick={handleLogout}
+          aria-label="Sair"
+          className="admin-menu-button"
+          style={{ fontSize: 13 }}
+        >
+          Sair
+        </button>
+      </header>
+
+      <div
+        className={menuOpen ? "admin-overlay open" : "admin-overlay"}
+        onClick={() => setMenuOpen(false)}
+      />
+
+      <aside className={menuOpen ? "admin-sidebar open" : "admin-sidebar"}>
         <div>
-          <div style={brandStyle}>
-            <span style={brandDotStyle} />
+          <div className="admin-brand">
+            <span className="admin-brand-dot" />
             <div>
-              <div style={brandTitleStyle}>Admin</div>
-              <div style={brandSubtitleStyle}>OmniStage</div>
+              <div>Admin</div>
+              <div>OmniStage</div>
             </div>
           </div>
 
-          <nav style={navStyle}>
+          <nav className="admin-nav">
             {menu.map((item) => {
               const active =
                 pathname === item.href ||
@@ -267,8 +387,7 @@ export default function AdminLayout({
                   href={item.href}
                   className={active ? "admin-nav-link active" : "admin-nav-link"}
                 >
-                  <span className="admin-nav-icon">{item.icon}</span>
-                  <span className="admin-nav-text">{item.name}</span>
+                  {item.name}
                 </Link>
               );
             })}
@@ -280,74 +399,7 @@ export default function AdminLayout({
         </button>
       </aside>
 
-      <main className="admin-main" style={mainStyle}>{children}</main>
+      <main className="admin-main">{children}</main>
     </div>
   );
 }
-
-const shellStyle: React.CSSProperties = {
-  display: "flex",
-  minHeight: "100vh",
-  background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-  color: "#0f172a",
-};
-
-const sidebarStyle: React.CSSProperties = {
-  width: 300,
-  background: "rgba(255,255,255,0.92)",
-  borderRight: "1px solid #e2e8f0",
-  padding: 24,
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "space-between",
-  boxShadow: "8px 0 30px rgba(15,23,42,0.035)",
-  backdropFilter: "blur(14px)",
-  position: "sticky",
-  top: 0,
-  height: "100vh",
-  overflowY: "auto",
-};
-
-const brandStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  marginBottom: 34,
-};
-
-const brandDotStyle: React.CSSProperties = {
-  width: 18,
-  height: 18,
-  borderRadius: 999,
-  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-  boxShadow: "0 0 0 7px rgba(124,58,237,0.08)",
-};
-
-const brandTitleStyle: React.CSSProperties = {
-  color: "#0f172a",
-  fontSize: 25,
-  fontWeight: 950,
-  lineHeight: 1,
-  letterSpacing: "-0.04em",
-};
-
-const brandSubtitleStyle: React.CSSProperties = {
-  color: "#0f172a",
-  fontSize: 25,
-  fontWeight: 950,
-  lineHeight: 1.05,
-  letterSpacing: "-0.04em",
-};
-
-const navStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const mainStyle: React.CSSProperties = {
-  flex: 1,
-  padding: 40,
-  background:
-    "radial-gradient(circle at 8% 0%, rgba(124,58,237,0.06), transparent 34%), linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-};
