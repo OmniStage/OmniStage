@@ -25,7 +25,27 @@ type Plano = {
   ativo: boolean | null;
 };
 
-const planoInicial = {
+type PlanoForm = {
+  nome: string;
+  descricao: string;
+  preco_mensal: number;
+  limite_eventos: number;
+  limite_convidados: number;
+  limite_usuarios: number;
+  validade_dias: number;
+  permite_convite_digital: boolean;
+  permite_dashboard: boolean;
+  permite_lista_presentes: boolean;
+  permite_whatsapp: boolean;
+  permite_checkin: boolean;
+  checkin_manual: boolean;
+  checkin_qrcode: boolean;
+  permite_rede: boolean;
+  permite_multiplos_eventos: boolean;
+  ativo: boolean;
+};
+
+const planoInicial: PlanoForm = {
   nome: "",
   descricao: "",
   preco_mensal: 0,
@@ -47,7 +67,7 @@ const planoInicial = {
 
 export default function AdminPlanosPage() {
   const [planos, setPlanos] = useState<Plano[]>([]);
-  const [form, setForm] = useState<any>(planoInicial);
+  const [form, setForm] = useState<PlanoForm>(planoInicial);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [formAberto, setFormAberto] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,8 +96,11 @@ export default function AdminPlanosPage() {
     carregarPlanos();
   }, []);
 
-  function atualizarCampo(campo: string, valor: any) {
-    setForm((atual: any) => ({
+  function atualizarCampo<K extends keyof PlanoForm>(
+    campo: K,
+    valor: PlanoForm[K],
+  ) {
+    setForm((atual) => ({
       ...atual,
       [campo]: valor,
     }));
@@ -125,7 +148,7 @@ export default function AdminPlanosPage() {
 
     const payload = {
       nome: form.nome.trim(),
-      descricao: form.descricao?.trim() || null,
+      descricao: form.descricao.trim() || null,
       preco_mensal: Number(form.preco_mensal || 0),
       limite_eventos: Number(form.limite_eventos || 0),
       limite_convidados: Number(form.limite_convidados || 0),
@@ -210,18 +233,49 @@ export default function AdminPlanosPage() {
           </div>
 
           <div style={formGridStyle}>
-            <CampoTexto label="Nome" value={form.nome} onChange={(v) => atualizarCampo("nome", v)} />
-            <CampoNumero label="Preço mensal" value={form.preco_mensal} onChange={(v) => atualizarCampo("preco_mensal", v)} />
-            <CampoNumero label="Validade em dias" value={form.validade_dias} onChange={(v) => atualizarCampo("validade_dias", v)} />
-            <CampoNumero label="Limite de eventos" value={form.limite_eventos} onChange={(v) => atualizarCampo("limite_eventos", v)} />
-            <CampoNumero label="Limite de convidados" value={form.limite_convidados} onChange={(v) => atualizarCampo("limite_convidados", v)} />
-            <CampoNumero label="Limite de usuários" value={form.limite_usuarios} onChange={(v) => atualizarCampo("limite_usuarios", v)} />
+            <CampoTexto
+              label="Nome"
+              value={form.nome}
+              onChange={(value) => atualizarCampo("nome", value)}
+            />
+
+            <CampoNumero
+              label="Preço mensal"
+              value={form.preco_mensal}
+              onChange={(value) => atualizarCampo("preco_mensal", value)}
+            />
+
+            <CampoNumero
+              label="Validade em dias"
+              value={form.validade_dias}
+              onChange={(value) => atualizarCampo("validade_dias", value)}
+            />
+
+            <CampoNumero
+              label="Limite de eventos"
+              value={form.limite_eventos}
+              onChange={(value) => atualizarCampo("limite_eventos", value)}
+            />
+
+            <CampoNumero
+              label="Limite de convidados"
+              value={form.limite_convidados}
+              onChange={(value) => atualizarCampo("limite_convidados", value)}
+            />
+
+            <CampoNumero
+              label="Limite de usuários"
+              value={form.limite_usuarios}
+              onChange={(value) => atualizarCampo("limite_usuarios", value)}
+            />
 
             <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
               <span>Descrição</span>
               <textarea
                 value={form.descricao}
-                onChange={(e) => atualizarCampo("descricao", e.target.value)}
+                onChange={(event) =>
+                  atualizarCampo("descricao", event.target.value)
+                }
                 style={{ ...inputStyle, minHeight: 90 }}
               />
             </label>
@@ -230,19 +284,78 @@ export default function AdminPlanosPage() {
           <h3 style={featureTitleStyle}>Recursos do plano</h3>
 
           <div style={featuresGridStyle}>
-            <Toggle label="Plano ativo" checked={form.ativo} onChange={(v) => atualizarCampo("ativo", v)} />
-            <Toggle label="Convite digital" checked={form.permite_convite_digital} onChange={(v) => atualizarCampo("permite_convite_digital", v)} />
-            <Toggle label="Dashboard" checked={form.permite_dashboard} onChange={(v) => atualizarCampo("permite_dashboard", v)} />
-            <Toggle label="Lista de presentes" checked={form.permite_lista_presentes} onChange={(v) => atualizarCampo("permite_lista_presentes", v)} />
-            <Toggle label="Envio WhatsApp" checked={form.permite_whatsapp} onChange={(v) => atualizarCampo("permite_whatsapp", v)} />
-            <Toggle label="Check-in" checked={form.permite_checkin} onChange={(v) => atualizarCampo("permite_checkin", v)} />
-            <Toggle label="Check-in manual" checked={form.checkin_manual} onChange={(v) => atualizarCampo("checkin_manual", v)} />
-            <Toggle label="Check-in QR Code" checked={form.checkin_qrcode} onChange={(v) => atualizarCampo("checkin_qrcode", v)} />
-            <Toggle label="Rede / multiempresa" checked={form.permite_rede} onChange={(v) => atualizarCampo("permite_rede", v)} />
-            <Toggle label="Múltiplos eventos" checked={form.permite_multiplos_eventos} onChange={(v) => atualizarCampo("permite_multiplos_eventos", v)} />
+            <Toggle
+              label="Plano ativo"
+              checked={form.ativo}
+              onChange={(value) => atualizarCampo("ativo", value)}
+            />
+
+            <Toggle
+              label="Convite digital"
+              checked={form.permite_convite_digital}
+              onChange={(value) =>
+                atualizarCampo("permite_convite_digital", value)
+              }
+            />
+
+            <Toggle
+              label="Dashboard"
+              checked={form.permite_dashboard}
+              onChange={(value) => atualizarCampo("permite_dashboard", value)}
+            />
+
+            <Toggle
+              label="Lista de presentes"
+              checked={form.permite_lista_presentes}
+              onChange={(value) =>
+                atualizarCampo("permite_lista_presentes", value)
+              }
+            />
+
+            <Toggle
+              label="Envio WhatsApp"
+              checked={form.permite_whatsapp}
+              onChange={(value) => atualizarCampo("permite_whatsapp", value)}
+            />
+
+            <Toggle
+              label="Check-in"
+              checked={form.permite_checkin}
+              onChange={(value) => atualizarCampo("permite_checkin", value)}
+            />
+
+            <Toggle
+              label="Check-in manual"
+              checked={form.checkin_manual}
+              onChange={(value) => atualizarCampo("checkin_manual", value)}
+            />
+
+            <Toggle
+              label="Check-in QR Code"
+              checked={form.checkin_qrcode}
+              onChange={(value) => atualizarCampo("checkin_qrcode", value)}
+            />
+
+            <Toggle
+              label="Rede / multiempresa"
+              checked={form.permite_rede}
+              onChange={(value) => atualizarCampo("permite_rede", value)}
+            />
+
+            <Toggle
+              label="Múltiplos eventos"
+              checked={form.permite_multiplos_eventos}
+              onChange={(value) =>
+                atualizarCampo("permite_multiplos_eventos", value)
+              }
+            />
           </div>
 
-          <button onClick={salvarPlano} disabled={loading} style={primaryButtonStyle}>
+          <button
+            onClick={salvarPlano}
+            disabled={loading}
+            style={primaryButtonStyle}
+          >
             {loading ? "Salvando..." : "Salvar plano"}
           </button>
         </section>
@@ -254,7 +367,9 @@ export default function AdminPlanosPage() {
             <div style={cardHeaderStyle}>
               <div>
                 <h2 style={cardTitleStyle}>{plano.nome}</h2>
-                <p style={descriptionStyle}>{plano.descricao || "Sem descrição"}</p>
+                <p style={descriptionStyle}>
+                  {plano.descricao || "Sem descrição"}
+                </p>
               </div>
 
               <span style={plano.ativo ? activeBadgeStyle : inactiveBadgeStyle}>
@@ -275,23 +390,41 @@ export default function AdminPlanosPage() {
             </div>
 
             <div style={resourceListStyle}>
-              <Recurso ativo={plano.permite_convite_digital} label="Convite digital" />
+              <Recurso
+                ativo={plano.permite_convite_digital}
+                label="Convite digital"
+              />
               <Recurso ativo={plano.permite_dashboard} label="Dashboard" />
-              <Recurso ativo={plano.permite_lista_presentes} label="Lista de presentes" />
+              <Recurso
+                ativo={plano.permite_lista_presentes}
+                label="Lista de presentes"
+              />
               <Recurso ativo={plano.permite_whatsapp} label="WhatsApp" />
               <Recurso ativo={plano.permite_checkin} label="Check-in" />
               <Recurso ativo={plano.checkin_manual} label="Check-in manual" />
               <Recurso ativo={plano.checkin_qrcode} label="Check-in QR Code" />
-              <Recurso ativo={plano.permite_rede} label="Rede / multiempresa" />
-              <Recurso ativo={plano.permite_multiplos_eventos} label="Múltiplos eventos" />
+              <Recurso
+                ativo={plano.permite_rede}
+                label="Rede / multiempresa"
+              />
+              <Recurso
+                ativo={plano.permite_multiplos_eventos}
+                label="Múltiplos eventos"
+              />
             </div>
 
             <div style={actionsStyle}>
-              <button onClick={() => editarPlano(plano)} style={secondaryButtonStyle}>
+              <button
+                onClick={() => editarPlano(plano)}
+                style={secondaryButtonStyle}
+              >
                 Editar
               </button>
 
-              <button onClick={() => alternarAtivo(plano)} style={dangerButtonStyle}>
+              <button
+                onClick={() => alternarAtivo(plano)}
+                style={dangerButtonStyle}
+              >
                 {plano.ativo ? "Inativar" : "Ativar"}
               </button>
             </div>
@@ -302,52 +435,84 @@ export default function AdminPlanosPage() {
   );
 }
 
-function CampoTexto({ label, value, onChange }: any) {
-  return (
-    <label style={fieldStyle}>
-      <span>{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
-    </label>
-  );
-}
+type CampoTextoProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+};
 
-function CampoNumero({ label, value, onChange }: any) {
+function CampoTexto({ label, value, onChange }: CampoTextoProps) {
   return (
     <label style={fieldStyle}>
       <span>{label}</span>
       <input
-        type="number"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         style={inputStyle}
       />
     </label>
   );
 }
 
-function Toggle({ label, checked, onChange }: any) {
+type CampoNumeroProps = {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+};
+
+function CampoNumero({ label, value, onChange }: CampoNumeroProps) {
+  return (
+    <label style={fieldStyle}>
+      <span>{label}</span>
+      <input
+        type="number"
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        style={inputStyle}
+      />
+    </label>
+  );
+}
+
+type ToggleProps = {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+};
+
+function Toggle({ label, checked, onChange }: ToggleProps) {
   return (
     <label style={toggleStyle}>
       <input
         type="checkbox"
-        checked={Boolean(checked)}
-        onChange={(e) => onChange(e.target.checked)}
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
       />
       <span>{label}</span>
     </label>
   );
 }
 
-function Info({ label, value }: any) {
+type InfoProps = {
+  label: string;
+  value: string | number | null | undefined;
+};
+
+function Info({ label, value }: InfoProps) {
   return (
     <div style={infoStyle}>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>{value ?? "-"}</strong>
     </div>
   );
 }
 
-function Recurso({ ativo, label }: any) {
+type RecursoProps = {
+  ativo: boolean | null | undefined;
+  label: string;
+};
+
+function Recurso({ ativo, label }: RecursoProps) {
   return (
     <span style={ativo ? recursoAtivoStyle : recursoInativoStyle}>
       {ativo ? "✓" : "×"} {label}
