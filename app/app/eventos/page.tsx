@@ -1,171 +1,68 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 
 type Evento = {
   id: string;
   nome: string;
   data_evento: string | null;
-  horario: string | null;
   local: string | null;
-  endereco: string | null;
-  mapa_url: string | null;
-  status: string | null;
+  cidade: string | null;
   cliente_id: string | null;
-  status_aprovacao?: string | null;
-  ativo?: boolean | null;
+  status_aprovacao: string | null;
+  ativo: boolean | null;
   created_at: string | null;
-  background_image?: string | null;
-  logo_image?: string | null;
-  music_file?: string | null;
 };
 
-type EventForm = {
+type Cliente = {
+  id: string;
   nome: string;
-  data_evento: string;
-  horario: string;
-  local: string;
-  endereco: string;
-  mapa_url: string;
-  status: string;
+  email: string | null;
 };
 
-const initialForm: EventForm = {
-  nome: "",
-  data_evento: "",
-  horario: "",
-  local: "",
-  endereco: "",
-  mapa_url: "",
-  status: "ativo",
-};
+export default function AdminEventosPage() {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-export default function EventosPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [form, setForm] = useState<EventForm>(initialForm);
-  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [musicFile, setMusicFile] = useState<File | null>(null);
-  const [clienteId, setClienteId] = useState<string | null>(null);
-  const [planoNome, setPlanoNome] = useState<string | null>(null);
-  const [limiteEventos, setLimiteEventos] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [formAberto, setFormAberto] = useState(false);
-  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtro, setFiltro] = useState("todos");
 
-  const eventosFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
+  useEffect(() => {
+    carregarTudo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    return eventos.filter((evento) => {
-      const statusOk = filtroStatus === "todos" || evento.status === filtroStatus;
-      const buscaOk =
-        !termo ||
-        [evento.nome, evento.local, evento.endereco, evento.status]
-          .filter(Boolean)
-          .some((valor) => String(valor).toLowerCase().includes(termo));
-
-      return statusOk && buscaOk;
-    });
-  }, [eventos, busca, filtroStatus]);
-
-  function updateForm(field: keyof EventForm, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
+  async function carregarTudo() {
+    setLoading(true);
+    await carregarClientes();
+    await carregarEventos();
+    setLoading(false);
   }
 
-  function limparFormulario() {
-    setForm(initialForm);
-    setBackgroundFile(null);
-    setLogoFile(null);
-    setMusicFile(null);
-    setEditandoId(null);
-  }
-
-  function abrirCriacao() {
-    limparFormulario();
-    setFormAberto(true);
-  }
-
-  function cancelarFormulario() {
-    limparFormulario();
-    setFormAberto(false);
-  }
-
-  async function carregarCliente() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert("Usuário não autenticado.");
-      return null;
-    }
-
+  async function carregarClientes() {
     const { data, error } = await supabase
-      .from("cliente_usuarios")
-      .select(`
-        cliente_id,
-        status,
-        clientes:cliente_id (
-          id,
-          nome,
-          plano_id,
-          planos:plano_id (
-            id,
-            nome,
-            limite_eventos
-          )
-        )
-      `)
-      .eq("usuario_id", user.id)
-      .eq("status", "ativo")
-      .limit(1)
-      .maybeSingle();
+      .from("clientes")
+      .select("id,nome,email")
+      .order("nome", { ascending: true });
 
-    if (error || !data?.cliente_id) {
-      alert("Este usuário ainda não está vinculado a um cliente/empresa.");
-      return null;
+    if (error) {
+      alert("Erro ao carregar clientes: " + error.message);
+      return;
     }
 
-    const cliente = Array.isArray((data as any).clientes)
-      ? (data as any).clientes[0]
-      : (data as any).clientes;
-
-    const plano = Array.isArray(cliente?.planos)
-      ? cliente?.planos[0]
-      : cliente?.planos;
-
-    setClienteId(data.cliente_id);
-    setPlanoNome(plano?.nome || null);
-    setLimiteEventos(plano?.limite_eventos ?? null);
-
-    return data.cliente_id as string;
+    setClientes((data || []) as Cliente[]);
   }
 
-  async function carregarEventos(cliente: string) {
+  async function carregarEventos() {
     const { data, error } = await supabase
       .from("eventos")
-      .select(`
-        id,
-        nome,
-        data_evento,
-        horario,
-        local,
-        endereco,
-        mapa_url,
-        status,
-        cliente_id,
-        status_aprovacao,
-        ativo,
-        created_at,
-        background_image,
-        logo_image,
-        music_file
-      `)
-      .eq("cliente_id", cliente)
+      .select("id,nome,data_evento,local,cidade,cliente_id,status_aprovacao,ativo,created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -176,549 +73,288 @@ export default function EventosPage() {
     setEventos((data || []) as Evento[]);
   }
 
-  async function iniciarTela() {
-    const cliente = await carregarCliente();
-
-    if (cliente) {
-      await carregarEventos(cliente);
-    }
+  function clienteDoEvento(evento: Evento) {
+    return clientes.find((cliente) => cliente.id === evento.cliente_id) || null;
   }
 
-  function slugify(text: string) {
-    return text
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-  }
+  const eventosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
 
-  async function uploadArquivo(cliente: string, eventoSlug: string, file: File | null, tipo: string) {
-    if (!file) return null;
+    return eventos.filter((evento) => {
+      const cliente = clientes.find((item) => item.id === evento.cliente_id);
 
-    const extension = file.name.split(".").pop() || "file";
-    const path = `${cliente}/${eventoSlug}/${tipo}-${Date.now()}.${extension}`;
+      const buscaOk =
+        !termo ||
+        [evento.nome, evento.local, evento.cidade, cliente?.nome, cliente?.email]
+          .filter(Boolean)
+          .some((valor) => String(valor).toLowerCase().includes(termo));
 
-    const { error } = await supabase.storage
-      .from("event-assets")
-      .upload(path, file, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+      const filtroOk = filtro === "todos" || evento.status_aprovacao === filtro;
 
-    if (error) {
-      throw new Error(`Erro ao subir ${tipo}: ${error.message}`);
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("event-assets").getPublicUrl(path);
-
-    return publicUrl;
-  }
-
-  async function salvarEvento() {
-    if (!form.nome.trim()) {
-      alert("Digite o nome do evento.");
-      return;
-    }
-
-    let cliente = clienteId;
-
-    if (!cliente) {
-      cliente = await carregarCliente();
-    }
-
-    if (!cliente) return;
-
-    setLoading(true);
-
-    try {
-      const estavaEditando = Boolean(editandoId);
-
-      if (!estavaEditando) {
-        const { data: permitido, error: limiteError } = await supabase.rpc("pode_criar_evento", {
-          p_cliente_id: cliente,
-        });
-
-        if (limiteError) {
-          throw new Error("Erro ao validar limite do plano: " + limiteError.message);
-        }
-
-        if (!permitido) {
-          alert("Seu plano atingiu o limite de eventos. Solicite upgrade para criar novos eventos.");
-          setLoading(false);
-          return;
-        }
-      }
-
-      const eventoSlug = slugify(form.nome) || "evento";
-      const [backgroundUrl, logoUrl, musicUrl] = await Promise.all([
-        uploadArquivo(cliente, eventoSlug, backgroundFile, "fundo"),
-        uploadArquivo(cliente, eventoSlug, logoFile, "logo"),
-        uploadArquivo(cliente, eventoSlug, musicFile, "musica"),
-      ]);
-
-      const payload = {
-        nome: form.nome.trim(),
-        data_evento: form.data_evento || null,
-        horario: form.horario.trim() || null,
-        local: form.local.trim() || null,
-        endereco: form.endereco.trim() || null,
-        mapa_url: form.mapa_url.trim() || null,
-        status: form.status,
-        ...(backgroundUrl ? { background_image: backgroundUrl } : {}),
-        ...(logoUrl ? { logo_image: logoUrl } : {}),
-        ...(musicUrl ? { music_file: musicUrl } : {}),
-      };
-
-      const { error } = editandoId
-        ? await supabase
-            .from("eventos")
-            .update(payload)
-            .eq("id", editandoId)
-            .eq("cliente_id", cliente)
-        : await supabase.from("eventos").insert({
-            ...payload,
-            cliente_id: cliente,
-            status_aprovacao: "aguardando_aprovacao",
-            ativo: true,
-            background_image: backgroundUrl,
-            logo_image: logoUrl,
-            music_file: musicUrl,
-          });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      limparFormulario();
-      setFormAberto(false);
-      await carregarEventos(cliente);
-      alert(estavaEditando ? "Evento atualizado." : "Evento criado e enviado para aprovação.");
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao salvar evento.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function editarEvento(evento: Evento) {
-    setEditandoId(evento.id);
-    setForm({
-      nome: evento.nome || "",
-      data_evento: evento.data_evento || "",
-      horario: evento.horario || "",
-      local: evento.local || "",
-      endereco: evento.endereco || "",
-      mapa_url: evento.mapa_url || "",
-      status: evento.status || "ativo",
+      return buscaOk && filtroOk;
     });
-    setBackgroundFile(null);
-    setLogoFile(null);
-    setMusicFile(null);
-    setFormAberto(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  }, [eventos, clientes, busca, filtro]);
 
-  async function excluirEvento(evento: Evento) {
-    if (!clienteId) return;
+  const stats = useMemo(() => {
+    return {
+      total: eventos.length,
+      aprovados: eventos.filter((e) => e.status_aprovacao === "aprovado").length,
+      aguardando: eventos.filter((e) => e.status_aprovacao === "aguardando_aprovacao").length,
+      bloqueados: eventos.filter((e) => e.status_aprovacao === "bloqueado").length,
+    };
+  }, [eventos]);
 
-    const confirmar = confirm(
-      `Tem certeza que deseja excluir o evento "${evento.nome}"? Essa ação pode remover dados ligados a este evento.`
-    );
-
-    if (!confirmar) return;
-
-    const { error } = await supabase
-      .from("eventos")
-      .delete()
-      .eq("id", evento.id)
-      .eq("cliente_id", clienteId);
+  async function atualizarEvento(id: string, campos: Record<string, any>) {
+    const { error } = await supabase.from("eventos").update(campos).eq("id", id);
 
     if (error) {
-      alert("Erro ao excluir evento: " + error.message);
+      alert("Erro ao atualizar evento: " + error.message);
       return;
     }
 
-    setEventos((current) => current.filter((item) => item.id !== evento.id));
-    alert("Evento excluído.");
+    await carregarEventos();
   }
 
-  useEffect(() => {
-    iniciarTela();
-  }, []);
+  async function vincularCliente(eventoId: string, clienteId: string) {
+    await atualizarEvento(eventoId, { cliente_id: clienteId || null });
+  }
 
   return (
-    <main style={{ color: "#fff" }}>
-      <h1 style={{ fontSize: 48, margin: 0 }}>Eventos</h1>
+    <div style={pageStyle}>
+      <style>{`
+        .admin-event-card {
+          transition: transform .17s cubic-bezier(.2,.8,.2,1), box-shadow .17s ease, border-color .17s ease;
+        }
 
-      <p style={{ color: "#94a3b8", marginTop: 8 }}>
-        Cadastre seus eventos. Novos eventos ficam aguardando aprovação do administrador antes de liberar o uso completo.
-      </p>
+        .admin-event-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 42px rgba(15,23,42,.08);
+          border-color: rgba(124,58,237,.22);
+        }
 
-      <p style={{ color: "#94a3b8", marginTop: 6, fontWeight: 700 }}>
-        Plano: {planoNome || "não definido"} {limiteEventos !== null ? `· Limite: ${limiteEventos} evento(s)` : ""}
-      </p>
+        @media (max-width: 900px) {
+          .admin-event-card, .admin-event-filters {
+            grid-template-columns: 1fr !important;
+          }
+          .admin-event-actions {
+            justify-content: flex-start !important;
+          }
+        }
+      `}</style>
 
-      <div style={topActionsStyle}>
-        <button onClick={abrirCriacao} style={buttonStyle}>
-          + Criar evento
-        </button>
-      </div>
-
-      {formAberto && (
-        <section style={sectionStyle}>
-          <div style={sectionHeaderStyle}>
-            <h2 style={{ margin: 0 }}>{editandoId ? "Editar evento" : "Criar evento"}</h2>
-            <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
-              Fechar
-            </button>
-          </div>
-
-          <div style={formGridStyle}>
-            <label style={fieldStyle}>
-              <span>Nome do evento</span>
-              <input
-                value={form.nome}
-                onChange={(event) => updateForm("nome", event.target.value)}
-                placeholder="Ex: Valentina XV"
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={fieldStyle}>
-              <span>Data</span>
-              <input
-                type="date"
-                value={form.data_evento}
-                onChange={(event) => updateForm("data_evento", event.target.value)}
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={fieldStyle}>
-              <span>Horário</span>
-              <input
-                value={form.horario}
-                onChange={(event) => updateForm("horario", event.target.value)}
-                placeholder="Ex: 20h"
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={fieldStyle}>
-              <span>Status</span>
-              <select
-                value={form.status}
-                onChange={(event) => updateForm("status", event.target.value)}
-                style={inputStyle}
-              >
-                <option value="ativo">Ativo</option>
-                <option value="rascunho">Rascunho</option>
-                <option value="publicado">Publicado</option>
-                <option value="encerrado">Encerrado</option>
-              </select>
-            </label>
-
-            <label style={fieldStyle}>
-              <span>Local</span>
-              <input
-                value={form.local}
-                onChange={(event) => updateForm("local", event.target.value)}
-                placeholder="Ex: Espaço Grand Hall"
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={fieldStyle}>
-              <span>Endereço</span>
-              <input
-                value={form.endereco}
-                onChange={(event) => updateForm("endereco", event.target.value)}
-                placeholder="Rua, número, cidade"
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-              <span>Link do mapa</span>
-              <input
-                value={form.mapa_url}
-                onChange={(event) => updateForm("mapa_url", event.target.value)}
-                placeholder="https://maps.google.com/..."
-                style={inputStyle}
-              />
-            </label>
-          </div>
-
-          <div style={uploadGridStyle}>
-            <label style={uploadBoxStyle}>
-              <strong>Imagem de fundo</strong>
-              <span>{editandoId ? "Envie apenas se quiser substituir." : "JPG, PNG ou WEBP usado no convite."}</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(event) => setBackgroundFile(event.target.files?.[0] || null)}
-              />
-            </label>
-
-            <label style={uploadBoxStyle}>
-              <strong>Logo do evento</strong>
-              <span>{editandoId ? "Envie apenas se quiser substituir." : "PNG/JPG para aplicar no layout."}</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
-              />
-            </label>
-
-            <label style={uploadBoxStyle}>
-              <strong>Música</strong>
-              <span>{editandoId ? "Envie apenas se quiser substituir." : "MP3 opcional para convites com áudio."}</span>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={(event) => setMusicFile(event.target.files?.[0] || null)}
-              />
-            </label>
-          </div>
-
-          <div style={formActionsStyle}>
-            <button onClick={salvarEvento} disabled={loading} style={buttonStyle}>
-              {loading ? "Salvando..." : editandoId ? "Salvar alterações" : "Criar evento"}
-            </button>
-            <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
-              Cancelar
-            </button>
-          </div>
-        </section>
-      )}
-
-      <section style={sectionStyle}>
-        <div style={sectionHeaderStyle}>
-          <h2 style={{ margin: 0 }}>Eventos criados</h2>
-          <span style={{ color: "#94a3b8", fontWeight: 700 }}>
-            {eventosFiltrados.length} de {eventos.length}
-          </span>
+      <section style={heroStyle}>
+        <div>
+          <span style={eyebrowStyle}>Admin OmniStage</span>
+          <h1 style={titleStyle}>Eventos</h1>
+          <p style={subtitleStyle}>
+            Aprove eventos criados por clientes, vincule empresas e controle liberação.
+          </p>
         </div>
 
-        <div style={filtersStyle}>
+        <button onClick={carregarTudo} style={primaryButtonStyle}>
+          {loading ? "Atualizando..." : "Atualizar eventos"}
+        </button>
+      </section>
+
+      <section style={statsGridStyle}>
+        <MetricCard label="Eventos" value={stats.total} detail="Total" color="#7c3aed" bg="#ede9fe" />
+        <MetricCard label="Aprovados" value={stats.aprovados} detail="Liberados" color="#16a34a" bg="#dcfce7" />
+        <MetricCard label="Aguardando" value={stats.aguardando} detail="Em análise" color="#f59e0b" bg="#fef3c7" />
+        <MetricCard label="Bloqueados" value={stats.bloqueados} detail="Sem acesso" color="#dc2626" bg="#fee2e2" />
+      </section>
+
+      <section style={panelStyle}>
+        <div style={panelHeaderStyle}>
+          <div>
+            <h2 style={panelTitleStyle}>Lista de eventos</h2>
+            <p style={panelTextStyle}>Eventos criados no app do cliente aparecem aqui.</p>
+          </div>
+
+          <span style={counterStyle}>{eventosFiltrados.length} exibidos</span>
+        </div>
+
+        <div className="admin-event-filters" style={filtersStyle}>
           <input
             value={busca}
-            onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar por nome, local, endereço..."
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por evento, cliente, local ou cidade"
             style={inputStyle}
           />
 
-          <select
-            value={filtroStatus}
-            onChange={(event) => setFiltroStatus(event.target.value)}
-            style={inputStyle}
-          >
+          <select value={filtro} onChange={(e) => setFiltro(e.target.value)} style={inputStyle}>
             <option value="todos">Todos os status</option>
-            <option value="ativo">Ativo</option>
+            <option value="aguardando_aprovacao">Aguardando aprovação</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="bloqueado">Bloqueado</option>
+            <option value="reprovado">Reprovado</option>
             <option value="rascunho">Rascunho</option>
-            <option value="publicado">Publicado</option>
-            <option value="encerrado">Encerrado</option>
           </select>
         </div>
 
-        <div style={{ display: "grid", gap: 16 }}>
-          {eventos.length === 0 && (
-            <div style={emptyStyle}>Nenhum evento cadastrado para este cliente.</div>
-          )}
+        <div style={listStyle}>
+          {eventosFiltrados.map((evento) => {
+            const cliente = clienteDoEvento(evento);
 
-          {eventos.length > 0 && eventosFiltrados.length === 0 && (
-            <div style={emptyStyle}>Nenhum evento encontrado com estes filtros.</div>
-          )}
+            return (
+              <article key={evento.id} className="admin-event-card" style={eventCardStyle}>
+                <div>
+                  <div style={titleLineStyle}>
+                    <strong style={itemTitleStyle}>{evento.nome}</strong>
+                    <span style={getStatusStyle(evento.status_aprovacao)}>
+                      {labelStatus(evento.status_aprovacao)}
+                    </span>
+                  </div>
 
-          {eventosFiltrados.map((evento) => (
-            <article key={evento.id} style={eventCardStyle}>
-              <div>
-                <strong style={{ fontSize: 22 }}>{evento.nome}</strong>
-                <p style={{ color: "#94a3b8", marginBottom: 0 }}>
-                  {evento.data_evento || "Sem data"} · {evento.horario || "Sem horário"} ·{" "}
-                  {evento.local || "Sem local"}
-                </p>
-                <small style={{ color: "#64748b" }}>{evento.endereco || "Endereço não informado"}</small>
-              </div>
+                  <div style={itemMetaStyle}>
+                    Cliente: <strong>{cliente?.nome || "Sem cliente vinculado"}</strong>
+                  </div>
 
-              <div style={eventActionsColumnStyle}>
-                <span style={statusStyle}>{evento.status || "sem status"}</span>
-                <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 13 }}>
-                  {evento.background_image ? "Fundo ok" : "Sem fundo"} ·{" "}
-                  {evento.logo_image ? "Logo ok" : "Sem logo"} ·{" "}
-                  {evento.music_file ? "Música ok" : "Sem música"}
+                  <div style={smallLineStyle}>
+                    Data: <strong>{evento.data_evento ? formatarData(evento.data_evento) : "Não definida"}</strong> · Local:{" "}
+                    <strong>{evento.local || "Não informado"}</strong> · Cidade:{" "}
+                    <strong>{evento.cidade || "Não informada"}</strong>
+                  </div>
+
+                  <small style={idStyle}>ID: {evento.id}</small>
                 </div>
-                <div style={rowActionsStyle}>
-                  <button onClick={() => editarEvento(evento)} style={smallButtonStyle}>
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => excluirEvento(evento)}
-                    style={{ ...smallButtonStyle, background: "#7f1d1d" }}
+
+                <div className="admin-event-actions" style={actionsStyle}>
+                  <select
+                    value={evento.cliente_id || ""}
+                    onChange={(e) => vincularCliente(evento.id, e.target.value)}
+                    style={miniSelectStyle}
                   >
-                    Excluir
-                  </button>
+                    <option value="">Sem cliente</option>
+                    {clientes.map((cliente) => (
+                      <option key={cliente.id} value={cliente.id}>
+                        {cliente.nome}
+                      </option>
+                    ))}
+                  </select>
+
+                  {evento.status_aprovacao !== "aprovado" && (
+                    <button
+                      onClick={() => atualizarEvento(evento.id, { status_aprovacao: "aprovado", ativo: true })}
+                      style={approveButtonStyle}
+                    >
+                      Aprovar
+                    </button>
+                  )}
+
+                  {evento.status_aprovacao !== "bloqueado" && (
+                    <button
+                      onClick={() => atualizarEvento(evento.id, { status_aprovacao: "bloqueado", ativo: false })}
+                      style={blockButtonStyle}
+                    >
+                      Bloquear
+                    </button>
+                  )}
+
+                  {evento.status_aprovacao !== "reprovado" && (
+                    <button
+                      onClick={() => atualizarEvento(evento.id, { status_aprovacao: "reprovado", ativo: false })}
+                      style={dangerButtonStyle}
+                    >
+                      Reprovar
+                    </button>
+                  )}
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
+
+          {!loading && eventosFiltrados.length === 0 && (
+            <div style={emptyStyle}>Nenhum evento encontrado.</div>
+          )}
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 
-const sectionStyle: CSSProperties = {
-  marginTop: 28,
-  padding: 22,
-  borderRadius: 18,
-  border: "1px solid #334155",
-  background: "#020617",
-};
+function MetricCard({
+  label,
+  value,
+  detail,
+  color,
+  bg,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <article style={metricCardStyle}>
+      <div style={{ ...iconStyle, background: bg, color }}>●</div>
+      <p style={metricLabelStyle}>{label}</p>
+      <strong style={metricValueStyle}>{value}</strong>
+      <p style={metricDetailStyle}>{detail}</p>
+    </article>
+  );
+}
 
-function labelStatusAprovacao(status: string | null | undefined) {
+function labelStatus(status: string | null) {
   if (status === "aprovado") return "Aprovado";
-  if (status === "aguardando_aprovacao") return "Aguardando aprovação";
   if (status === "bloqueado") return "Bloqueado";
   if (status === "reprovado") return "Reprovado";
+  if (status === "aguardando_aprovacao") return "Aguardando aprovação";
   return "Rascunho";
 }
 
-const topActionsStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-start",
-  marginTop: 24,
-};
+function getStatusStyle(status: string | null): React.CSSProperties {
+  if (status === "aprovado") return activeBadgeStyle;
+  if (status === "bloqueado" || status === "reprovado") return blockedBadgeStyle;
+  if (status === "aguardando_aprovacao") return pendingBadgeStyle;
+  return neutralBadgeStyle;
+}
 
-const sectionHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 18,
-};
+function formatarData(data: string | null) {
+  if (!data) return "Não informado";
+  return new Date(data).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-const formGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 14,
-};
-
-const fieldStyle: CSSProperties = {
-  display: "grid",
-  gap: 8,
-  color: "#cbd5e1",
-  fontWeight: 700,
-};
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  padding: 13,
-  borderRadius: 10,
-  background: "#020617",
-  color: "#fff",
-  border: "1px solid #334155",
-};
-
-const uploadGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 14,
-  marginTop: 18,
-};
-
-const uploadBoxStyle: CSSProperties = {
-  display: "grid",
-  gap: 8,
-  padding: 16,
-  borderRadius: 14,
-  border: "1px dashed #334155",
-  color: "#94a3b8",
-};
-
-const formActionsStyle: CSSProperties = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap",
-  marginTop: 20,
-};
-
-const buttonStyle: CSSProperties = {
-  padding: "14px 20px",
-  borderRadius: 10,
-  background: "#22c55e",
-  border: "none",
-  color: "#fff",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  padding: "12px 16px",
-  borderRadius: 10,
-  background: "#1e293b",
-  border: "1px solid #334155",
-  color: "#fff",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const filtersStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 220px",
-  gap: 12,
-  marginBottom: 18,
-};
-
-const eventCardStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 18,
-  background: "#0f172a",
-  padding: 18,
-  borderRadius: 14,
-  border: "1px solid #334155",
-};
-
-const eventActionsColumnStyle: CSSProperties = {
-  minWidth: 260,
-  textAlign: "right",
-};
-
-const rowActionsStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-end",
-  gap: 8,
-  marginTop: 14,
-};
-
-const smallButtonStyle: CSSProperties = {
-  padding: "9px 12px",
-  borderRadius: 9,
-  background: "#2563eb",
-  border: "none",
-  color: "#fff",
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const statusStyle: CSSProperties = {
-  display: "inline-block",
-  padding: "7px 11px",
-  borderRadius: 999,
-  background: "rgba(34,197,94,0.14)",
-  color: "#86efac",
-  fontWeight: 800,
-  fontSize: 12,
-};
-
-const emptyStyle: CSSProperties = {
-  padding: 18,
-  borderRadius: 12,
-  border: "1px dashed #334155",
-  color: "#94a3b8",
-};
+const pageStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 22 };
+const heroStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,.95)", borderRadius: 26, padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, boxShadow: "0 24px 70px rgba(15,23,42,.08)", flexWrap: "wrap" };
+const eyebrowStyle: React.CSSProperties = { color: "#7c3aed", fontWeight: 950, fontSize: 12, textTransform: "uppercase", letterSpacing: ".12em" };
+const titleStyle: React.CSSProperties = { margin: "8px 0", fontSize: 36, fontWeight: 950, color: "#0f172a", letterSpacing: "-.05em" };
+const subtitleStyle: React.CSSProperties = { margin: 0, color: "#64748b", fontSize: 16, lineHeight: 1.45 };
+const primaryButtonStyle: React.CSSProperties = { border: "none", background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "#fff", padding: "13px 18px", borderRadius: 15, fontWeight: 900, cursor: "pointer", boxShadow: "0 12px 26px rgba(124,58,237,.24)" };
+const statsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14 };
+const metricCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,.95)", borderRadius: 22, padding: 18, boxShadow: "0 14px 36px rgba(15,23,42,.06)" };
+const iconStyle: React.CSSProperties = { width: 32, height: 32, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, fontSize: 15 };
+const metricLabelStyle: React.CSSProperties = { margin: 0, color: "#64748b", fontSize: 12, fontWeight: 900 };
+const metricValueStyle: React.CSSProperties = { display: "block", marginTop: 7, fontSize: 32, lineHeight: 1, fontWeight: 950, color: "#0f172a" };
+const metricDetailStyle: React.CSSProperties = { margin: "8px 0 0", color: "#64748b", fontSize: 12 };
+const panelStyle: React.CSSProperties = { background: "#fff", border: "1px solid rgba(226,232,240,.95)", borderRadius: 24, padding: 24, boxShadow: "0 24px 70px rgba(15,23,42,.08)" };
+const panelHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" };
+const panelTitleStyle: React.CSSProperties = { margin: 0, fontSize: 22, fontWeight: 950, color: "#0f172a" };
+const panelTextStyle: React.CSSProperties = { margin: "6px 0 0", color: "#64748b", lineHeight: 1.4 };
+const counterStyle: React.CSSProperties = { padding: "9px 13px", borderRadius: 999, background: "rgba(124,58,237,.08)", color: "#7c3aed", fontSize: 13, fontWeight: 950 };
+const filtersStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 260px", gap: 10, marginTop: 18 };
+const inputStyle: React.CSSProperties = { width: "100%", padding: "13px 15px", borderRadius: 15, border: "1px solid rgba(226,232,240,.95)", background: "#f8fafc", color: "#0f172a", outline: "none", fontWeight: 850 };
+const listStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12, marginTop: 16 };
+const eventCardStyle: React.CSSProperties = { border: "1px solid rgba(226,232,240,.95)", borderRadius: 20, background: "#fbfdff", padding: 16, display: "grid", gridTemplateColumns: "minmax(280px,1fr) auto", gap: 14, alignItems: "center" };
+const titleLineStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+const itemTitleStyle: React.CSSProperties = { color: "#0f172a", fontSize: 17, fontWeight: 950 };
+const itemMetaStyle: React.CSSProperties = { color: "#334155", fontSize: 14, fontWeight: 850, marginTop: 4 };
+const smallLineStyle: React.CSSProperties = { color: "#64748b", fontSize: 12, marginTop: 6 };
+const idStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 10, fontWeight: 700, wordBreak: "break-all", display: "block", marginTop: 6 };
+const actionsStyle: React.CSSProperties = { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" };
+const miniSelectStyle: React.CSSProperties = { border: "1px solid rgba(226,232,240,.95)", background: "#fff", color: "#0f172a", padding: "10px 11px", borderRadius: 999, fontWeight: 900, outline: "none", maxWidth: 220 };
+const approveButtonStyle: React.CSSProperties = { border: "1px solid rgba(22,163,74,.24)", background: "#dcfce7", color: "#166534", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const blockButtonStyle: React.CSSProperties = { border: "1px solid rgba(245,158,11,.24)", background: "#fef3c7", color: "#92400e", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const dangerButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,.24)", background: "#fee2e2", color: "#991b1b", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const activeBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 950 };
+const blockedBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 950 };
+const pendingBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 950 };
+const neutralBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#e2e8f0", color: "#475569", fontSize: 11, fontWeight: 950 };
+const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed rgba(148,163,184,.5)", color: "#64748b" };
 
