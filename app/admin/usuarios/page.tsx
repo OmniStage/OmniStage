@@ -398,4 +398,9 @@ const miniSelectStyle: React.CSSProperties = { border: "1px solid rgba(226,232,2
 const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(124,58,237,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const approveButtonStyle: React.CSSProperties = { border: "1px solid rgba(22,163,74,0.24)", background: "#dcfce7", color: "#166534", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const blockButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.24)", background: "#fee2e2", color: "#991b1b", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-
+const adminBadgeStyle: React.CSSProperties = { padding: "6px 10px", borderRadius: 999, background: "#ede9fe", color: "#6d28d9", fontSize: 11, fontWeight: 950 };
+const clientBadgeStyle: React.CSSProperties = { padding: "6px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 11, fontWeight: 950 };
+const activeBadgeStyle: React.CSSProperties = { padding: "6px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 950 };
+const pendingBadgeStyle: React.CSSProperties = { padding: "6px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 950 };
+const blockedBadgeStyle: React.CSSProperties = { padding: "6px 10px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 950 };
+const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed rgba(148,163,184,0.5)", color: "#64748b" };
