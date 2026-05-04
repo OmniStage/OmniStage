@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 
 type ThemeMode = "light" | "dark" | "auto";
+
+type PerfilCliente = {
+  nome: string | null;
+  email: string | null;
+  role: string | null;
+  status: string | null;
+};
 
 export default function AppLayout({
   children,
@@ -12,8 +20,17 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
+  const [loading, setLoading] = useState(true);
+  const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const menu = [
     { name: "Dashboard", href: "/app/dashboard" },
@@ -36,6 +53,64 @@ export default function AppLayout({
     setMenuOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    validarAcessoCliente();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function validarAcessoCliente() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const { data: perfilEncontrado, error } = await supabase
+      .from("perfis")
+      .select("nome, email, role, status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erro ao buscar perfil:", error.message);
+      router.push("/login");
+      return;
+    }
+
+    if (!perfilEncontrado) {
+      router.push("/login");
+      return;
+    }
+
+    if (perfilEncontrado.status !== "ativo") {
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+      return;
+    }
+
+    if (perfilEncontrado.role === "admin") {
+      router.push("/admin");
+      return;
+    }
+
+    setPerfil({
+      nome:
+        perfilEncontrado.nome ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email ||
+        "Cliente",
+      email: perfilEncontrado.email || user.email || null,
+      role: perfilEncontrado.role || "cliente",
+      status: perfilEncontrado.status || "ativo",
+    });
+
+    setLoading(false);
+  }
+
   function aplicarTema(tema: ThemeMode) {
     setThemeMode(tema);
     window.localStorage.setItem("omnistage-theme", tema);
@@ -48,6 +123,32 @@ export default function AppLayout({
 
     document.documentElement.dataset.theme = tema;
   }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f8fafc",
+          color: "#0f172a",
+          fontWeight: 800,
+        }}
+      >
+        Validando acesso...
+      </div>
+    );
+  }
+
+  const nomeCliente = perfil?.nome || "Cliente";
+  const emailCliente = perfil?.email || "";
 
   return (
     <div className="omni-app-shell">
@@ -73,6 +174,8 @@ export default function AppLayout({
           backdrop-filter: blur(18px);
           box-shadow: 8px 0 30px rgba(15,23,42,0.035);
           overflow-y: auto;
+          display: flex;
+          flex-direction: column;
         }
 
         .omni-main {
@@ -93,7 +196,7 @@ export default function AppLayout({
           font-size: 22px;
           font-weight: 900;
           letter-spacing: -0.04em;
-          margin-bottom: 24px;
+          margin-bottom: 18px;
         }
 
         .omni-brand-dot {
@@ -102,6 +205,40 @@ export default function AppLayout({
           border-radius: 999px;
           background: #6d28d9;
           box-shadow: 0 0 0 6px rgba(109,40,217,0.08);
+        }
+
+        .omni-client-card {
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          padding: 14px;
+          margin-bottom: 18px;
+          background: rgba(248,250,252,0.86);
+          box-shadow: 0 8px 20px rgba(15,23,42,0.035);
+        }
+
+        .omni-client-label {
+          display: block;
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          margin-bottom: 6px;
+        }
+
+        .omni-client-name {
+          color: var(--text);
+          font-size: 15px;
+          font-weight: 900;
+          line-height: 1.25;
+          margin-bottom: 5px;
+        }
+
+        .omni-client-email {
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 700;
+          word-break: break-word;
         }
 
         .omni-theme-box {
@@ -137,6 +274,7 @@ export default function AppLayout({
           display: flex;
           flex-direction: column;
           gap: 8px;
+          flex: 1;
         }
 
         .omni-nav-link {
@@ -162,6 +300,24 @@ export default function AppLayout({
           background: #ede9fe;
           color: #6d28d9;
           box-shadow: inset 0 0 0 1px rgba(109,40,217,0.08);
+        }
+
+        .omni-logout {
+          width: 100%;
+          margin-top: 18px;
+          border: 1px solid rgba(220,38,38,0.18);
+          background: #fee2e2;
+          color: #991b1b;
+          border-radius: 14px;
+          padding: 12px 14px;
+          font-weight: 900;
+          cursor: pointer;
+          transition: transform 160ms ease, background 160ms ease;
+        }
+
+        .omni-logout:hover {
+          background: #fecaca;
+          transform: translateY(-1px);
         }
 
         .omni-overlay {
@@ -301,7 +457,14 @@ export default function AppLayout({
           OmniStage
         </div>
 
-        <div style={{ width: 42 }} />
+        <button
+          onClick={handleLogout}
+          aria-label="Sair"
+          className="omni-menu-button"
+          style={{ fontSize: 14 }}
+        >
+          Sair
+        </button>
       </header>
 
       <div
@@ -313,6 +476,12 @@ export default function AppLayout({
         <div className="omni-brand">
           <span className="omni-brand-dot" />
           OmniStage App
+        </div>
+
+        <div className="omni-client-card">
+          <span className="omni-client-label">Cliente logado</span>
+          <div className="omni-client-name">{nomeCliente}</div>
+          {emailCliente && <div className="omni-client-email">{emailCliente}</div>}
         </div>
 
         <div className="omni-theme-box">
@@ -343,6 +512,10 @@ export default function AppLayout({
             );
           })}
         </nav>
+
+        <button onClick={handleLogout} className="omni-logout">
+          Sair
+        </button>
       </aside>
 
       <main className="omni-main">{children}</main>
