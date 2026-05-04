@@ -12,6 +12,10 @@ type Plano = {
   ativo: boolean | null;
 };
 
+type PlanoRelacao = {
+  nome: string | null;
+};
+
 type Tenant = {
   id: string;
   nome: string;
@@ -24,7 +28,11 @@ type Tenant = {
   tipo: string | null;
   responsavel_nome: string | null;
   onboarding_completed: boolean | null;
-  planos?: { nome: string | null } | null;
+  planos?: PlanoRelacao | null;
+};
+
+type TenantRaw = Omit<Tenant, "planos"> & {
+  planos?: PlanoRelacao | PlanoRelacao[] | null;
 };
 
 type Usuario = {
@@ -123,7 +131,7 @@ export default function AdminClientesPage() {
       return;
     }
 
-    const lista = normalizarTenants((data || []) as Tenant[]);
+    const lista = normalizarTenants((data || []) as TenantRaw[]);
     setTenants(lista);
 
     const tenantAtual = tenantSelecionadoId || lista[0]?.id || null;
@@ -787,11 +795,17 @@ function formatarData(data: string | null) {
   });
 }
 
-function normalizarTenants(lista: Tenant[]): Tenant[] {
-  return lista.map((item) => ({
-    ...item,
-    planos: Array.isArray(item.planos) ? item.planos[0] || null : item.planos || null,
-  }));
+function normalizarTenants(lista: TenantRaw[]): Tenant[] {
+  return lista.map((item) => {
+    const planoNormalizado = Array.isArray(item.planos)
+      ? item.planos[0] || null
+      : item.planos || null;
+
+    return {
+      ...item,
+      planos: planoNormalizado,
+    };
+  });
 }
 
 const pageStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 22 };
