@@ -26,6 +26,11 @@ type Convidado = {
   data_envio_cartao?: string | null;
 };
 
+type Evento = {
+  id: string;
+  nome: string | null;
+};
+
 type Campanha = {
   key: TipoEnvio;
   titulo: string;
@@ -39,10 +44,11 @@ type Campanha = {
   templatePadrao: string;
 };
 
-const EVENTO_ID_PADRAO = "valentina-xv";
+
 
 export default function EnviosPage() {
   const [tipoEnvio, setTipoEnvio] = useState<TipoEnvio>("convite");
+  const [eventoAtual, setEventoAtual] = useState<Evento | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatusEnvio>("a_enviar");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [templates, setTemplates] = useState<Record<TipoEnvio, string>>({
@@ -67,11 +73,39 @@ export default function EnviosPage() {
 
   async function carregarTudo() {
     setLoading(true);
-    await Promise.all([carregarConvidados(), carregarTemplates()]);
+
+    const evento = await carregarEventoAtual();
+
+    if (evento) {
+      await Promise.all([carregarConvidados(evento.id), carregarTemplates(evento.id)]);
+    }
+
     setLoading(false);
   }
 
-  async function carregarConvidados() {
+  async function carregarEventoAtual() {
+    const { data, error } = await supabase
+      .from("eventos")
+      .select("id, nome")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      alert("Erro ao carregar evento: " + error.message);
+      return null;
+    }
+
+    if (!data) {
+      alert("Nenhum evento cadastrado encontrado.");
+      return null;
+    }
+
+    setEventoAtual(data as Evento);
+    return data as Evento;
+  }
+
+  async function carregarConvidados(eventoId: string) {
     const { data, error } = await supabase
       .from("convidados")
       .select(`
@@ -90,6 +124,7 @@ export default function EnviosPage() {
         status_envio_cartao,
         data_envio_cartao
       `)
+      .eq("evento_id", eventoId)
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
@@ -102,11 +137,11 @@ export default function EnviosPage() {
     setConvidados((data || []) as Convidado[]);
   }
 
-  async function carregarTemplates() {
+  async function carregarTemplates(eventoId: string) {
     const { data, error } = await supabase
       .from("envio_templates")
       .select("evento_id, tipo_envio, mensagem, ativo")
-      .eq("evento_id", EVENTO_ID_PADRAO)
+      .eq("evento_id", eventoId)
       .eq("ativo", true);
 
     if (error) {
@@ -200,11 +235,16 @@ export default function EnviosPage() {
   }, [publicoCampanha, campanha]);
 
   async function salvarTemplate() {
+    if (!eventoAtual?.id) {
+      alert("Selecione ou carregue um evento antes de salvar a mensagem.");
+      return;
+    }
+
     setSalvandoTemplate(true);
 
     const { error } = await supabase.from("envio_templates").upsert(
       {
-        evento_id: EVENTO_ID_PADRAO,
+        evento_id: eventoAtual.id,
         tipo_envio: tipoEnvio,
         titulo: campanha.titulo,
         mensagem: mensagemAtual,
@@ -336,6 +376,7 @@ export default function EnviosPage() {
           <h1 style={titleStyle}>Central de envios</h1>
           <p style={subtitleStyle}>
             Organize campanhas de WhatsApp por etapa do evento e personalize as mensagens por cliente.
+            {eventoAtual?.nome ? ` Evento: ${eventoAtual.nome}.` : ""}
           </p>
         </div>
 
