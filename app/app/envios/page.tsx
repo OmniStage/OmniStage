@@ -67,6 +67,8 @@ export default function EnviosPage() {
   const [busca, setBusca] = useState("");
   const [editorAberto, setEditorAberto] = useState(true);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
+  const [processandoMassa, setProcessandoMassa] = useState(false);
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
@@ -206,6 +208,7 @@ export default function EnviosPage() {
     setFiltroStatus("a_enviar");
     setBusca("");
     setPreviewId(null);
+    setSelecionados({});
   }, [tipoEnvio]);
 
   const publicoCampanha = useMemo(() => {
@@ -235,6 +238,22 @@ export default function EnviosPage() {
       return true;
     });
   }, [publicoCampanha, busca, filtroStatus, campanha]);
+
+  const convidadosSelecionados = useMemo(() => {
+    return convidadosFiltrados.filter((convidado) => selecionados[convidado.id]);
+  }, [convidadosFiltrados, selecionados]);
+
+  const todosFiltradosSelecionados =
+    convidadosFiltrados.length > 0 &&
+    convidadosFiltrados.every((convidado) => selecionados[convidado.id]);
+
+  const pendentesComTelefoneFiltrados = useMemo(() => {
+    return convidadosFiltrados.filter((convidado) => {
+      const telefoneOk = !!normalizarTelefone(convidado.telefone);
+      const enviado = getStatusEnvio(convidado, campanha) === "enviado";
+      return telefoneOk && !enviado;
+    });
+  }, [convidadosFiltrados, campanha]);
 
   const convidadoPreview = useMemo(() => {
     if (previewId) {
@@ -301,6 +320,89 @@ export default function EnviosPage() {
       ...current,
       [tipoEnvio]: campanha.templatePadrao,
     }));
+  }
+
+  function toggleSelecionado(convidadoId: string) {
+    setSelecionados((current) => ({
+      ...current,
+      [convidadoId]: !current[convidadoId],
+    }));
+  }
+
+  function toggleSelecionarTodosFiltrados() {
+    if (todosFiltradosSelecionados) {
+      setSelecionados({});
+      return;
+    }
+
+    const novoMapa: Record<string, boolean> = {};
+
+    convidadosFiltrados.forEach((convidado) => {
+      novoMapa[convidado.id] = true;
+    });
+
+    setSelecionados(novoMapa);
+  }
+
+  async function adicionarListaNaFila(lista: Convidado[]) {
+    if (!eventoAtual?.id) {
+      alert("Selecione um evento antes de adicionar à fila.");
+      return;
+    }
+
+    const elegiveis = lista.filter((convidado) => {
+      const telefoneOk = !!normalizarTelefone(convidado.telefone);
+      const enviado = getStatusEnvio(convidado, campanha) === "enviado";
+      return telefoneOk && !enviado;
+    });
+
+    if (elegiveis.length === 0) {
+      alert("Nenhum convidado elegível para adicionar à fila.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Adicionar ${elegiveis.length} convidado(s) à fila de envio desta campanha?`
+    );
+
+    if (!confirmar) return;
+
+    setProcessandoMassa(true);
+
+    const linhas = elegiveis.map((convidado) => ({
+      evento_id: eventoAtual.id,
+      convidado_id: convidado.id,
+      tipo_envio: tipoEnvio,
+      canal: "whatsapp",
+      telefone: normalizarTelefone(convidado.telefone),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      status: "pendente",
+    }));
+
+    const { error } = await supabase.from("envio_fila").insert(linhas);
+
+    if (error) {
+      setProcessandoMassa(false);
+      alert("Erro ao adicionar envios à fila: " + error.message);
+      return;
+    }
+
+    const historico = elegiveis.map((convidado) => ({
+      evento_id: eventoAtual.id,
+      convidado_id: convidado.id,
+      tipo_envio: tipoEnvio,
+      canal: "whatsapp",
+      telefone: normalizarTelefone(convidado.telefone),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      status: "pendente",
+      detalhe: "Adicionado à fila por ação em massa.",
+    }));
+
+    await supabase.from("envio_historico").insert(historico);
+
+    setSelecionados({});
+    setProcessandoMassa(false);
+    alert(`${elegiveis.length} envio(s) adicionados à fila.`);
   }
 
   function inserirVariavel(variavel: string) {
@@ -716,6 +818,49 @@ export default function EnviosPage() {
           />
         </div>
 
+        <div style={bulkBarStyle}>
+          <label style={selectAllStyle}>
+            <input
+              type="checkbox"
+              checked={todosFiltradosSelecionados}
+              onChange={toggleSelecionarTodosFiltrados}
+            />
+            Selecionar todos da lista filtrada
+          </label>
+
+          <div style={bulkActionsStyle}>
+            <span style={bulkCountStyle}>
+              {convidadosSelecionados.length} selecionado(s)
+            </span>
+
+            <button
+              className="envio-action"
+              onClick={() => adicionarListaNaFila(convidadosSelecionados)}
+              disabled={processandoMassa || convidadosSelecionados.length === 0}
+              style={
+                convidadosSelecionados.length === 0
+                  ? { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                  : filaButtonStyle
+              }
+            >
+              {processandoMassa ? "Processando..." : "Adicionar selecionados à fila"}
+            </button>
+
+            <button
+              className="envio-action"
+              onClick={() => adicionarListaNaFila(pendentesComTelefoneFiltrados)}
+              disabled={processandoMassa || pendentesComTelefoneFiltrados.length === 0}
+              style={
+                pendentesComTelefoneFiltrados.length === 0
+                  ? { ...primaryButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                  : primaryButtonStyle
+              }
+            >
+              Adicionar todos pendentes filtrados
+            </button>
+          </div>
+        </div>
+
         <div style={listStyle}>
           {convidadosFiltrados.map((convidado) => {
             const telefoneOk = !!normalizarTelefone(convidado.telefone);
@@ -724,6 +869,14 @@ export default function EnviosPage() {
 
             return (
               <article key={convidado.id} className="envio-card" style={cardStyle}>
+                <label style={rowCheckboxStyle}>
+                  <input
+                    type="checkbox"
+                    checked={!!selecionados[convidado.id]}
+                    onChange={() => toggleSelecionado(convidado.id)}
+                  />
+                </label>
+
                 <div style={guestInfoStyle}>
                   <strong style={guestNameStyle}>{convidado.nome || "Sem nome"}</strong>
                   <span style={guestMetaStyle}>
@@ -1044,7 +1197,7 @@ const tabStyle: React.CSSProperties = { padding: "9px 14px", borderRadius: 999, 
 const tabActiveStyle: React.CSSProperties = { ...tabStyle, background: "#6d28d9", color: "#fff", border: "1px solid #6d28d9" };
 const searchRowStyle: React.CSSProperties = { display: "flex", gap: 10, marginTop: 16 };
 const searchInputStyle: React.CSSProperties = { flex: 1, minWidth: 260, padding: 13, borderRadius: 14, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", outline: "none" };
-const listStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12, marginTop: 16 };
+const bulkBarStyle: React.CSSProperties = {   display: "flex",   justifyContent: "space-between",   alignItems: "center",   gap: 14,   flexWrap: "wrap",   marginTop: 16,   padding: 14,   borderRadius: 18,   border: "1px solid var(--line)",   background: "#f8fafc", };  const selectAllStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 9,   color: "var(--text)",   fontWeight: 850,   cursor: "pointer", };  const bulkActionsStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 8,   flexWrap: "wrap", };  const bulkCountStyle: React.CSSProperties = {   padding: "8px 11px",   borderRadius: 999,   background: "rgba(109,40,217,0.08)",   color: "#6d28d9",   fontSize: 12,   fontWeight: 900, };  const rowCheckboxStyle: React.CSSProperties = {   display: "flex",   alignItems: "flex-start",   paddingTop: 4,   cursor: "pointer", };  const listStyle: React.CSSProperties = {   display: "flex",   flexDirection: "column",   gap: 12,   marginTop: 16, };
 const cardStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 18, background: "rgba(255,255,255,0.78)", padding: 16, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" };
 const guestInfoStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, flex: 1, minWidth: 280 };
 const guestNameStyle: React.CSSProperties = { color: "var(--text)", fontSize: 17, fontWeight: 900 };
