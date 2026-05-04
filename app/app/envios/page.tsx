@@ -336,6 +336,59 @@ export default function EnviosPage() {
           : item
       )
     );
+
+    await registrarHistoricoEnvio(convidado, "enviado", "Marcado manualmente como enviado.");
+  }
+
+  async function registrarHistoricoEnvio(
+    convidado: Convidado,
+    status: "pendente" | "enviado" | "erro",
+    detalhe?: string
+  ) {
+    if (!eventoAtual?.id) return;
+
+    await supabase.from("envio_historico").insert({
+      evento_id: eventoAtual.id,
+      convidado_id: convidado.id,
+      tipo_envio: tipoEnvio,
+      canal: "whatsapp",
+      telefone: normalizarTelefone(convidado.telefone),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      status,
+      detalhe: detalhe || null,
+    });
+  }
+
+  async function adicionarFilaEnvio(convidado: Convidado) {
+    if (!eventoAtual?.id) {
+      alert("Selecione um evento antes de adicionar à fila.");
+      return;
+    }
+
+    const telefone = normalizarTelefone(convidado.telefone);
+
+    if (!telefone) {
+      alert("Este convidado não tem telefone cadastrado.");
+      return;
+    }
+
+    const { error } = await supabase.from("envio_fila").insert({
+      evento_id: eventoAtual.id,
+      convidado_id: convidado.id,
+      tipo_envio: tipoEnvio,
+      canal: "whatsapp",
+      telefone,
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      status: "pendente",
+    });
+
+    if (error) {
+      alert("Erro ao adicionar à fila: " + error.message);
+      return;
+    }
+
+    await registrarHistoricoEnvio(convidado, "pendente", "Adicionado à fila de envio.");
+    alert("Convidado adicionado à fila de envio.");
   }
 
   function abrirWhatsApp(convidado: Convidado) {
@@ -349,6 +402,7 @@ export default function EnviosPage() {
     const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
+    registrarHistoricoEnvio(convidado, "pendente", "WhatsApp aberto para envio manual.");
     window.open(link, "_blank", "noopener,noreferrer");
   }
 
@@ -686,6 +740,19 @@ export default function EnviosPage() {
 
                   <button
                     className="envio-action"
+                    onClick={() => adicionarFilaEnvio(convidado)}
+                    disabled={!telefoneOk}
+                    style={
+                      telefoneOk
+                        ? filaButtonStyle
+                        : { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                    }
+                  >
+                    Adicionar à fila
+                  </button>
+
+                  <button
+                    className="envio-action"
                     onClick={() => marcarComoEnviado(convidado)}
                     disabled={enviado}
                     style={
@@ -959,6 +1026,7 @@ const messagePreviewStyle: React.CSSProperties = { margin: "10px 0 0", color: "v
 const sentDateStyle: React.CSSProperties = { marginTop: 8, color: "var(--muted)", fontWeight: 800 };
 const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" };
 const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "#16a34a", color: "#fff", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "#dbeafe", color: "#1d4ed8", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
