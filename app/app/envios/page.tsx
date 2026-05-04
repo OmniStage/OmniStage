@@ -48,6 +48,7 @@ type Campanha = {
 
 export default function EnviosPage() {
   const [tipoEnvio, setTipoEnvio] = useState<TipoEnvio>("convite");
+  const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoAtual, setEventoAtual] = useState<Evento | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatusEnvio>("a_enviar");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
@@ -71,38 +72,62 @@ export default function EnviosPage() {
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
   const templateConfigurado = templatesConfigurados[tipoEnvio];
 
-  async function carregarTudo() {
+  async function carregarTudo(eventoPreferencialId?: string) {
     setLoading(true);
 
-    const evento = await carregarEventoAtual();
+    const evento = await carregarEventos(eventoPreferencialId);
 
     if (evento) {
       await Promise.all([carregarConvidados(evento.id), carregarTemplates(evento.id)]);
+    } else {
+      setConvidados([]);
     }
 
     setLoading(false);
   }
 
-  async function carregarEventoAtual() {
+  async function carregarEventos(eventoPreferencialId?: string) {
     const { data, error } = await supabase
       .from("eventos")
       .select("id, nome")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
     if (error) {
-      alert("Erro ao carregar evento: " + error.message);
+      alert("Erro ao carregar eventos: " + error.message);
       return null;
     }
 
-    if (!data) {
-      alert("Nenhum evento cadastrado encontrado.");
+    const lista = (data || []) as Evento[];
+    setEventos(lista);
+
+    if (lista.length === 0) {
+      setEventoAtual(null);
       return null;
     }
 
-    setEventoAtual(data as Evento);
-    return data as Evento;
+    const eventoEscolhido =
+      lista.find((evento) => evento.id === eventoPreferencialId) ||
+      (eventoAtual?.id ? lista.find((evento) => evento.id === eventoAtual.id) : null) ||
+      lista[0];
+
+    setEventoAtual(eventoEscolhido);
+    return eventoEscolhido;
+  }
+
+  async function trocarEvento(eventoId: string) {
+    const evento = eventos.find((item) => item.id === eventoId);
+
+    if (!evento) return;
+
+    setEventoAtual(evento);
+    setLoading(true);
+    setBusca("");
+    setFiltroStatus("a_enviar");
+    setPreviewId(null);
+
+    await Promise.all([carregarConvidados(evento.id), carregarTemplates(evento.id)]);
+
+    setLoading(false);
   }
 
   async function carregarConvidados(eventoId: string) {
@@ -380,9 +405,30 @@ export default function EnviosPage() {
           </p>
         </div>
 
-        <button onClick={carregarTudo} style={primaryButtonStyle}>
+        <button onClick={() => carregarTudo(eventoAtual?.id)} style={primaryButtonStyle}>
           {loading ? "Atualizando..." : "Atualizar lista"}
         </button>
+      </section>
+
+      <section style={eventSelectorPanelStyle}>
+        <div>
+          <label style={fieldLabelStyle}>Evento selecionado</label>
+          <p style={panelTextStyle}>
+            Escolha o evento para carregar a fila de convidados e os templates de mensagem.
+          </p>
+        </div>
+
+        <select
+          value={eventoAtual?.id || ""}
+          onChange={(event) => trocarEvento(event.target.value)}
+          style={eventSelectStyle}
+        >
+          {eventos.map((evento) => (
+            <option key={evento.id} value={evento.id}>
+              {evento.nome || "Evento sem nome"}
+            </option>
+          ))}
+        </select>
       </section>
 
       <section style={campaignSelectorStyle}>
@@ -827,6 +873,31 @@ const eyebrowStyle: React.CSSProperties = { color: "#6d28d9", fontWeight: 800, f
 const titleStyle: React.CSSProperties = { margin: "8px 0 8px", fontSize: 34, fontWeight: 900, color: "var(--text)" };
 const subtitleStyle: React.CSSProperties = { margin: 0, color: "var(--muted)", fontSize: 16 };
 const primaryButtonStyle: React.CSSProperties = { border: "none", background: "#6d28d9", color: "#fff", padding: "13px 18px", borderRadius: 14, fontWeight: 900, cursor: "pointer" };
+const eventSelectorPanelStyle: React.CSSProperties = {
+  background: "var(--card)",
+  border: "1px solid var(--line)",
+  borderRadius: 22,
+  padding: 20,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 16,
+  flexWrap: "wrap",
+  boxShadow: "0 14px 40px rgba(15,23,42,0.05)",
+};
+
+const eventSelectStyle: React.CSSProperties = {
+  minWidth: 280,
+  flex: "0 1 420px",
+  padding: "13px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--line)",
+  background: "#fff",
+  color: "var(--text)",
+  fontWeight: 900,
+  outline: "none",
+};
+
 const campaignSelectorStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 };
 const campaignButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", padding: 16, borderRadius: 18, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 5, fontWeight: 900, boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
 const campaignHeaderStyle: React.CSSProperties = { border: "1px solid", borderRadius: 22, padding: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" };
