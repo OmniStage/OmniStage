@@ -520,12 +520,13 @@ export default function CheckinEventoPage({
   async function iniciarQr() {
     if (!scannerPronto || !window.Html5Qrcode || qrAtivo) return;
 
-    // Primeiro abre a área visual do QR. O html5-qrcode precisa que o elemento
-    // #qr-reader exista no DOM antes de iniciar a câmera.
-    setQrAtivo(true);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-
     try {
+      // Mostra o container somente quando o QR for ativado.
+      // O html5-qrcode precisa que o elemento #qr-reader já exista no DOM.
+      setQrAtivo(true);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
       await carregarCameras();
 
       if (camerasRef.current.length && cameraIndexRef.current < 0) {
@@ -548,21 +549,32 @@ export default function CheckinEventoPage({
 
       setCameraAtual(nomeCamera);
 
-      const qr = new window.Html5Qrcode("qr-reader");
+      const qrElement = document.getElementById("qr-reader");
+      if (!qrElement) {
+        throw new Error("Área do QR code ainda não foi carregada.");
+      }
+
+      const qr = new window.Html5Qrcode("qr-reader", false);
       qrRef.current = qr;
 
       await qr.start(
         configCamera,
         {
-          fps: 14,
+          // No computador, FPS muito alto piora a leitura em webcam comum.
+          // 10–12 fps costuma dar imagem mais estável e menos reflexo/blur.
+          fps: 10,
           rememberLastUsedCamera: false,
           disableFlip: false,
+          aspectRatio: 1,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
           qrbox: (w: number, h: number) => {
             const base = Math.min(w || 320, h || 320);
             const tela = window.innerWidth || 360;
-            const factor = tela <= 768 ? 0.76 : tela <= 1180 ? 0.78 : 0.72;
+            const factor = tela <= 768 ? 0.84 : tela <= 1180 ? 0.82 : 0.8;
             const size = Math.floor(
-              Math.max(240, Math.min(base * factor, 520)),
+              Math.max(260, Math.min(base * factor, 560)),
             );
             return { width: size, height: size };
           },
@@ -571,7 +583,6 @@ export default function CheckinEventoPage({
           await processarToken(decodedText, "qr");
         },
       );
-
       atualizarResultado({
         tipo: "idle",
         titulo: "QR code ativo",
@@ -950,8 +961,8 @@ export default function CheckinEventoPage({
           );
           const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
           const grupoTemSync = grupo.membros.some(convidadoSync);
-          const grupoTemEfeitoAtivo = grupo.membros.some((m) =>
-            Boolean(cardsPiscando[m.id]),
+          const grupoTemEfeitoAtivo = grupo.membros.some(
+            (m) => Boolean(cardsPiscando[m.id]),
           );
 
           // Mantém o card visível enquanto a animação está rodando.
@@ -1139,9 +1150,10 @@ export default function CheckinEventoPage({
             onClick={async () => {
               if (qrAtivo) {
                 await pararQr();
-              } else {
-                await iniciarQr();
+                return;
               }
+
+              await iniciarQr();
             }}
           >
             {qrAtivo ? "QR ativo" : "Ativar QR"}
@@ -1199,26 +1211,9 @@ export default function CheckinEventoPage({
             <p className="result-msg">{resultado.mensagem}</p>
           </div>
 
-          {qrAtivo ? (
+          {qrAtivo && (
             <div className="reader-box">
               <div id="qr-reader" />
-            </div>
-          ) : (
-            <div
-              className="reader-box"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                padding: 24,
-                color: "#94a3b8",
-                fontWeight: 900,
-                letterSpacing: ".04em",
-                textTransform: "uppercase",
-              }}
-            >
-              QR Code desativado
             </div>
           )}
 
