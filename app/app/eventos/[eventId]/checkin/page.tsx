@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 declare global {
   interface Window {
     Html5Qrcode?: any;
-    webkitAudioContext?: typeof AudioContext;
   }
 }
 
@@ -89,8 +88,17 @@ export default function CheckinEventoPage({
   const ultimoTokenRef = useRef({ token: "", at: 0 });
   const camerasRef = useRef<any[]>([]);
   const cameraIndexRef = useRef(-1);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioReadyRef = useRef(false);
+  const audioRefs = useRef<{
+    success: HTMLAudioElement | null;
+    already: HTMLAudioElement | null;
+    error: HTMLAudioElement | null;
+  }>({
+    success: null,
+    already: null,
+    error: null,
+  });
+  const audioUnlockedRef = useRef(false);
+  const [efeitoId, setEfeitoId] = useState(0);
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
 
@@ -114,6 +122,19 @@ export default function CheckinEventoPage({
       pararQr();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    audioRefs.current.success = new Audio("/sounds/success.mp3");
+    audioRefs.current.already = new Audio("/sounds/already.mp3");
+    audioRefs.current.error = new Audio("/sounds/error.mp3");
+
+    Object.values(audioRefs.current).forEach((audio) => {
+      if (!audio) return;
+      audio.preload = "auto";
+      audio.volume = 1;
+      audio.load();
+    });
   }, []);
 
   function normalizar(texto: string | null | undefined) {
@@ -145,108 +166,83 @@ export default function CheckinEventoPage({
     return normalizar(c.status_checkin) === "SYNC_PENDENTE";
   }
 
-  function obterAudioContext(): AudioContext | null {
+  async function desbloquearAudio() {
+    const audios = Object.values(audioRefs.current).filter(
+      Boolean,
+    ) as HTMLAudioElement[];
+
+    if (!audios.length) return;
+
     try {
-      const AudioContextClass =
-        window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return null;
+      await Promise.all(
+        audios.map(async (audio) => {
+          const volumeOriginal = audio.volume;
+          audio.volume = 0.01;
+          audio.currentTime = 0;
+          await audio.play();
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = volumeOriginal || 1;
+        }),
+      );
 
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioContextClass();
-      }
-
-      const ctxAtual = audioCtxRef.current;
-      if (!ctxAtual) return null;
-
-      if (ctxAtual.state === "suspended") {
-        void ctxAtual.resume();
-      }
-
-      return ctxAtual;
+      audioUnlockedRef.current = true;
+      setSomAtivo(true);
     } catch {
-      return null;
+      // Alguns navegadores só liberam no segundo clique real.
+      // Mantém a tela funcionando e tenta novamente no próximo botão.
+      audioUnlockedRef.current = false;
+      setSomAtivo(false);
     }
   }
 
-  function tocarSequencia(
-    ctxParam: AudioContext,
-    tons: Array<{
-      freq: number;
-      gain: number;
-      duration: number;
-      wave: OscillatorType;
-      delay?: number;
-    }>,
+  function tocarArquivo(
+    tipo: "success" | "already" | "error",
+    volume = 1,
   ) {
-    const ctx: AudioContext = ctxParam;
-    const now = ctx.currentTime + 0.035;
+    const baseAudio = audioRefs.current[tipo];
+    if (!baseAudio) return;
 
-    for (const tom of tons) {
-      try {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const start = now + (tom.delay || 0);
-        const end = start + tom.duration;
+    try {
+      const audio = baseAudio.cloneNode(true) as HTMLAudioElement;
+      audio.volume = volume;
+      audio.currentTime = 0;
 
-        osc.type = tom.wave;
-        osc.frequency.setValueAtTime(tom.freq, start);
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(tom.gain, start + 0.018);
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(end + 0.04);
-      } catch {}
+      void audio.play().then(() => {
+        audioUnlockedRef.current = true;
+        setSomAtivo(true);
+      }).catch(() => {
+        audioUnlockedRef.current = false;
+        setSomAtivo(false);
+      });
+    } catch {
+      audioUnlockedRef.current = false;
+      setSomAtivo(false);
     }
   }
 
-  function desbloquearAudio() {
-    const ctx = obterAudioContext();
-    if (!ctx) return;
-
-    audioReadyRef.current = true;
-    setSomAtivo(true);
-
-    tocarSequencia(ctx, [
-      { freq: 660, gain: 0.2, duration: 0.13, wave: "triangle", delay: 0 },
-      { freq: 880, gain: 0.16, duration: 0.13, wave: "triangle", delay: 0.1 },
-    ]);
-  }
-
-  function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
-    const ctx = obterAudioContext();
-    if (!ctx) return;
-
-    audioReadyRef.current = true;
-    setSomAtivo(true);
-
+  function tocarSom(tipo: "ok" | "erro" | "usado" | "sync" | "tick") {
     if (tipo === "ok") {
-      tocarSequencia(ctx, [
-        { freq: 247, gain: 0.24, duration: 0.22, wave: "triangle", delay: 0 },
-        { freq: 392, gain: 0.2, duration: 0.22, wave: "sine", delay: 0.08 },
-        { freq: 659, gain: 0.18, duration: 0.28, wave: "sine", delay: 0.16 },
-        { freq: 988, gain: 0.12, duration: 0.22, wave: "triangle", delay: 0.28 },
-      ]);
+      tocarArquivo("success", 1);
+      return;
+    }
+
+    if (tipo === "usado") {
+      tocarArquivo("already", 1);
+      return;
+    }
+
+    if (tipo === "sync") {
+      tocarArquivo("error", 0.75);
       return;
     }
 
     if (tipo === "tick") {
-      tocarSequencia(ctx, [
-        { freq: 1175, gain: 0.18, duration: 0.1, wave: "triangle", delay: 0 },
-        { freq: 1568, gain: 0.11, duration: 0.08, wave: "sine", delay: 0.07 },
-      ]);
+      tocarArquivo("success", 0.26);
       return;
     }
 
-    if (tipo === "usado" || tipo === "erro") {
-      tocarSequencia(ctx, [
-        { freq: 880, gain: 0.2, duration: 0.09, wave: "square", delay: 0 },
-        { freq: 220, gain: 0.22, duration: 0.18, wave: "sawtooth", delay: 0.1 },
-        { freq: 120, gain: 0.18, duration: 0.28, wave: "square", delay: 0.26 },
-      ]);
-    }
+    tocarArquivo("error", 1);
   }
 
   function tocarClick() {
@@ -261,7 +257,19 @@ export default function CheckinEventoPage({
   }
 
   function piscarCard(id: string) {
-    setCardsPiscando((prev) => ({ ...prev, [id]: true }));
+    // Remove e reaplica a classe para a animação reiniciar SEMPRE,
+    // inclusive quando o mesmo cartão recebe outro feedback rapidamente.
+    setCardsPiscando((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setCardsPiscando((prev) => ({ ...prev, [id]: true }));
+      });
+    });
 
     setTimeout(() => {
       setCardsPiscando((prev) => {
@@ -400,6 +408,7 @@ export default function CheckinEventoPage({
   function atualizarResultado(next: Resultado) {
     setResultado(next);
     setOverlay(next);
+    setEfeitoId(Date.now() + Math.random());
     setFlash(next.tipo);
     setTimeout(() => setFlash(null), 700);
 
@@ -587,13 +596,13 @@ export default function CheckinEventoPage({
     if (convidadoEntrou(convidado)) {
       piscarCard(convidado.id);
       atualizarResultado({
-        tipo: "erro",
+        tipo: "usado",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      tocarSom("erro");
+      tocarSom("usado");
       vibrar("erro");
       busyRef.current = false;
       return;
@@ -615,13 +624,13 @@ export default function CheckinEventoPage({
     if (convidadoEntrou(convidado)) {
       piscarCard(convidado.id);
       atualizarResultado({
-        tipo: "erro",
+        tipo: "usado",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      tocarSom("erro");
+      tocarSom("usado");
       vibrar("erro");
       return;
     }
@@ -666,7 +675,7 @@ export default function CheckinEventoPage({
         mensagem: "Sem conexão com o banco. Ficou como sync pendente.",
         token: convidado.token,
       });
-      tocarSom("erro");
+      tocarSom("usado");
       vibrar("erro");
       return;
     }
@@ -688,13 +697,13 @@ export default function CheckinEventoPage({
 
       piscarCard(convidado.id);
       atualizarResultado({
-        tipo: "erro",
+        tipo: "usado",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      tocarSom("erro");
+      tocarSom("usado");
       vibrar("erro");
       return;
     }
@@ -734,9 +743,9 @@ export default function CheckinEventoPage({
       membros.forEach((m, idx) =>
         setTimeout(() => piscarCard(m.id), idx * 120),
       );
-      tocarSom("erro");
+      tocarSom("usado");
       atualizarResultado({
-        tipo: "erro",
+        tipo: "usado",
         titulo: "Grupo já liberado",
         mensagem: "Todos os integrantes deste grupo já entraram.",
       });
@@ -960,7 +969,7 @@ export default function CheckinEventoPage({
       {flash && flash !== "idle" && <div className={`flash ${flash}`} />}
 
       {overlay && overlay.tipo !== "idle" && (
-        <div className="premium-overlay">
+        <div key={efeitoId} className="premium-overlay">
           <div className="premium-card">
             <div className={`premium-icon ${overlay.tipo}`}>
               {overlay.tipo === "ok"
