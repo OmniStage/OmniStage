@@ -112,11 +112,8 @@ export default function AppEventosPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [salvando, setSalvando] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [formAberto, setFormAberto] = useState(false);
   const [toast, setToast] = useState("");
-  const [tab, setTab] = useState<
-    "dados" | "data" | "local" | "programacao" | "identidade" | "convite"
-  >("dados");
   const [modo, setModo] = useState<"criar" | "editar">("criar");
   const [eventoEditandoId, setEventoEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState<FormEvento>(emptyForm);
@@ -135,14 +132,18 @@ export default function AppEventosPage() {
     setModo("criar");
     setEventoEditandoId(null);
     setForm(emptyForm);
-    setTab("dados");
-    setDrawerOpen(true);
+    setFormAberto(true);
+    setTimeout(() => {
+      document.getElementById("form-evento")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
   }
 
   function abrirEdicao(evento: Evento) {
     setModo("editar");
     setEventoEditandoId(evento.id);
-    setTab("dados");
 
     setForm({
       nome: evento.nome || "",
@@ -179,7 +180,20 @@ export default function AppEventosPage() {
       observacoes_convite: evento.observacoes_convite || "",
     });
 
-    setDrawerOpen(true);
+    setFormAberto(true);
+    setTimeout(() => {
+      document.getElementById("form-evento")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  }
+
+  function fecharForm() {
+    setModo("criar");
+    setEventoEditandoId(null);
+    setForm(emptyForm);
+    setFormAberto(false);
   }
 
   async function carregarTenantsDoUsuario() {
@@ -371,12 +385,12 @@ export default function AppEventosPage() {
       showToast("Evento atualizado com sucesso.");
     }
 
+    await carregarEventos(tenantId);
+
     setForm(emptyForm);
     setEventoEditandoId(null);
     setModo("criar");
-    setDrawerOpen(false);
-
-    await carregarEventos(tenantId);
+    setFormAberto(false);
     setSalvando(false);
   }
 
@@ -509,7 +523,8 @@ export default function AppEventosPage() {
 
         .hero,
         .panel,
-        .event-card {
+        .event-card,
+        .event-form-panel {
           background: #fff;
           border: 1px solid rgba(226,232,240,.95);
           box-shadow: 0 24px 70px rgba(15,23,42,.08);
@@ -570,16 +585,27 @@ export default function AppEventosPage() {
         }
 
         .primary {
-          background: linear-gradient(135deg,#7c3aed,#5b21b6);
+          background: linear-gradient(135deg,#22c55e,#16a34a);
           color: #fff;
-          padding: 13px 18px;
+          padding: 14px 22px;
+          box-shadow: 0 16px 34px rgba(34,197,94,.24);
+        }
+
+        .purple {
+          background: linear-gradient(135deg,#7c3aed,#5b21b6);
           box-shadow: 0 16px 34px rgba(124,58,237,.26);
         }
 
         .secondary {
-          background: #f1f5f9;
+          background: #fff;
           color: #0f172a;
           padding: 13px 18px;
+          border: 1px solid rgba(203,213,225,.95);
+        }
+
+        .soft {
+          background: #f1f5f9;
+          border: none;
         }
 
         .danger {
@@ -589,11 +615,10 @@ export default function AppEventosPage() {
         }
 
         .ghost {
-          width: 38px;
-          height: 38px;
-          background: #f8fafc;
+          background: #fff;
           color: #0f172a;
-          font-size: 18px;
+          padding: 13px 18px;
+          border: 1px solid rgba(203,213,225,.95);
         }
 
         .primary:hover,
@@ -623,29 +648,110 @@ export default function AppEventosPage() {
           color: #0f172a;
         }
 
-        .filters {
+        .event-form-panel {
+          border-radius: 28px;
+          padding: 32px;
+          animation: formIn .28s cubic-bezier(.16,1,.3,1) both;
+        }
+
+        .form-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 28px;
+        }
+
+        .form-title {
+          margin: 0;
+          color: #0f172a;
+          font-size: 30px;
+          font-weight: 950;
+          letter-spacing: -.04em;
+        }
+
+        .form-subtitle {
+          margin: 8px 0 0;
+          color: #64748b;
+          font-size: 15px;
+          font-weight: 700;
+        }
+
+        .section {
+          padding-top: 24px;
+          margin-top: 24px;
+          border-top: 1px solid rgba(226,232,240,.9);
+        }
+
+        .section:first-of-type {
+          padding-top: 0;
+          margin-top: 0;
+          border-top: none;
+        }
+
+        .section-title {
+          margin: 0 0 8px;
+          font-size: 22px;
+          font-weight: 950;
+          color: #0f172a;
+        }
+
+        .section-title.blue {
+          color: #0ea5e9;
+        }
+
+        .section-desc {
+          margin: 0 0 20px;
+          color: #64748b;
+          font-size: 15px;
+          font-weight: 700;
+        }
+
+        .form-grid {
           display: grid;
-          grid-template-columns: 1fr 260px;
-          gap: 10px;
-          margin-top: 18px;
+          grid-template-columns: 1fr 1fr;
+          gap: 18px 20px;
+        }
+
+        .form-grid-4 {
+          display: grid;
+          grid-template-columns: 1.2fr .8fr 1.2fr .8fr;
+          gap: 18px 20px;
+        }
+
+        .full {
+          grid-column: 1 / -1;
+        }
+
+        .field-label {
+          display: block;
+          color: #334155;
+          font-size: 18px;
+          font-weight: 950;
+          margin-bottom: 10px;
+        }
+
+        .required {
+          color: #ef4444;
         }
 
         .input,
         .textarea,
         .select {
           width: 100%;
-          padding: 13px 15px;
-          border-radius: 15px;
-          border: 1px solid rgba(226,232,240,.95);
-          background: #f8fafc;
+          padding: 17px 18px;
+          border-radius: 18px;
+          border: 1px solid rgba(203,213,225,.95);
+          background: #fff;
           color: #0f172a;
           outline: none;
-          font-weight: 850;
+          font-size: 15px;
+          font-weight: 800;
           transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
         }
 
         .textarea {
-          min-height: 110px;
+          min-height: 130px;
           resize: vertical;
           font-family: inherit;
         }
@@ -653,9 +759,15 @@ export default function AppEventosPage() {
         .input:focus,
         .textarea:focus,
         .select:focus {
-          background: #fff;
           border-color: rgba(124,58,237,.45);
           box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+        }
+
+        .filters {
+          display: grid;
+          grid-template-columns: 1fr 260px;
+          gap: 10px;
+          margin-top: 18px;
         }
 
         .list {
@@ -748,156 +860,46 @@ export default function AppEventosPage() {
           background: linear-gradient(180deg,#fff,#f8fafc);
         }
 
-        .drawer-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 40;
-          background: rgba(15,23,42,.42);
-          backdrop-filter: blur(10px);
-          animation: overlayIn .24s ease both;
-        }
-
-        .drawer {
-          position: fixed;
-          top: 14px;
-          right: 14px;
-          bottom: 14px;
-          width: 560px;
-          z-index: 50;
-          background:
-            radial-gradient(circle at top left, rgba(124,58,237,.10), transparent 32%),
-            #fff;
-          border: 1px solid rgba(226,232,240,.95);
-          border-radius: 28px;
-          box-shadow:
-            -24px 24px 80px rgba(15,23,42,.22),
-            inset 0 1px 0 rgba(255,255,255,.75);
-          display: flex;
-          flex-direction: column;
-          animation: drawerIn .42s cubic-bezier(.16,1,.3,1) both;
-          overflow: hidden;
-        }
-
-        .drawer-content {
-          padding: 22px;
-          overflow-y: auto;
-        }
-
-        .drawer-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-          padding-bottom: 18px;
-          border-bottom: 1px solid rgba(226,232,240,.75);
-        }
-
-        .drawer-kicker {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          color: #7c3aed;
-          font-size: 11px;
-          font-weight: 950;
-          text-transform: uppercase;
-          letter-spacing: .12em;
-        }
-
-        .drawer-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: #7c3aed;
-          box-shadow: 0 0 0 6px rgba(124,58,237,.10);
-        }
-
-        .drawer-title {
-          margin: 10px 0 0;
-          font-size: 26px;
-          font-weight: 950;
-          color: #0f172a;
-          letter-spacing: -.04em;
-        }
-
-        .drawer-sub {
-          margin: 8px 0 0;
-          color: #64748b;
-          line-height: 1.45;
-          font-weight: 700;
-        }
-
-        .tabs {
-          display: flex;
-          gap: 8px;
-          padding: 14px 22px;
-          border-bottom: 1px solid rgba(226,232,240,.75);
-          overflow-x: auto;
-          background: rgba(248,250,252,.8);
-        }
-
-        .tabs button {
-          border: none;
-          white-space: nowrap;
-          padding: 10px 13px;
-          border-radius: 999px;
-          background: transparent;
-          color: #64748b;
-          font-weight: 950;
-          cursor: pointer;
-        }
-
-        .tabs button.active {
-          background: #fff;
-          color: #7c3aed;
-          box-shadow: 0 8px 24px rgba(15,23,42,.08);
-        }
-
-        .drawer-form {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-
-        .grid-2 {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-
-        .field-label {
-          color: #475569;
-          font-size: 12px;
-          font-weight: 950;
-          margin-bottom: 7px;
-        }
-
         .check-row {
           display: flex;
           align-items: center;
           gap: 10px;
           color: #334155;
           font-weight: 850;
+          margin-top: 4px;
+        }
+
+        .programacao-list {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
         }
 
         .programacao-item {
-          padding: 14px;
-          border-radius: 18px;
+          padding: 18px;
+          border-radius: 22px;
           background: #f8fafc;
-          border: 1px solid rgba(226,232,240,.9);
+          border: 1px solid rgba(226,232,240,.95);
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 14px;
+        }
+
+        .upload-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 18px;
         }
 
         .upload-box {
           border: 1px dashed rgba(148,163,184,.7);
           background: #f8fafc;
-          border-radius: 18px;
-          padding: 14px;
+          border-radius: 22px;
+          padding: 16px;
         }
 
         .upload-preview {
-          margin-top: 10px;
+          margin-top: 12px;
           border-radius: 16px;
           overflow: hidden;
           background: #fff;
@@ -918,26 +920,11 @@ export default function AppEventosPage() {
           word-break: break-all;
         }
 
-        .helper-card {
-          margin-top: 18px;
-          padding: 14px;
-          border-radius: 18px;
-          background: #f8fafc;
-          border: 1px solid rgba(226,232,240,.9);
-          color: #64748b;
-          font-size: 13px;
-          line-height: 1.45;
-          font-weight: 750;
-        }
-
-        .drawer-footer {
-          margin-top: auto;
-          padding: 16px 22px;
-          border-top: 1px solid rgba(226,232,240,.75);
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          background: rgba(255,255,255,.96);
+        .form-actions {
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+          margin-top: 28px;
         }
 
         .toast {
@@ -955,26 +942,21 @@ export default function AppEventosPage() {
           max-width: 360px;
         }
 
-        @keyframes overlayIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes drawerIn {
-          from {
-            opacity: 0;
-            transform: translateX(34px) scale(.985);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-          }
-        }
-
         @keyframes toastIn {
           from {
             opacity: 0;
             transform: translateY(14px) scale(.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes formIn {
+          from {
+            opacity: 0;
+            transform: translateY(12px) scale(.992);
           }
           to {
             opacity: 1;
@@ -993,43 +975,43 @@ export default function AppEventosPage() {
           }
         }
 
-        @media (max-width: 900px) {
-          .filters,
-          .grid-2 {
+        @media (max-width: 1100px) {
+          .form-grid,
+          .form-grid-4,
+          .upload-grid,
+          .filters {
             grid-template-columns: 1fr;
-          }
-
-          .hero {
-            padding: 24px;
-          }
-
-          .title {
-            font-size: 32px;
           }
         }
 
         @media (max-width: 640px) {
-          .hero-actions {
+          .hero,
+          .panel,
+          .event-form-panel {
+            padding: 22px;
+            border-radius: 24px;
+          }
+
+          .title {
+            font-size: 30px;
+          }
+
+          .form-title {
+            font-size: 26px;
+          }
+
+          .field-label {
+            font-size: 16px;
+          }
+
+          .hero-actions,
+          .form-actions {
             width: 100%;
           }
 
-          .hero-actions button {
+          .hero-actions button,
+          .form-actions button {
             flex: 1;
-          }
-
-          .drawer {
-            top: auto;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            height: 94vh;
-            border-radius: 28px 28px 0 0;
-            animation: drawerMobileIn .42s cubic-bezier(.16,1,.3,1) both;
-          }
-
-          .drawer-footer {
-            grid-template-columns: 1fr;
           }
 
           .toast {
@@ -1037,17 +1019,6 @@ export default function AppEventosPage() {
             right: 16px;
             bottom: 16px;
             max-width: none;
-          }
-
-          @keyframes drawerMobileIn {
-            from {
-              opacity: 0;
-              transform: translateY(42px) scale(.985);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
           }
         }
       `}</style>
@@ -1064,7 +1035,11 @@ export default function AppEventosPage() {
         </div>
 
         <div className="hero-actions">
-          <button onClick={abrirCriacao} className="primary" disabled={!tenantId}>
+          <button
+            onClick={abrirCriacao}
+            className="primary purple"
+            disabled={!tenantId}
+          >
             + Criar evento
           </button>
 
@@ -1092,6 +1067,453 @@ export default function AppEventosPage() {
               </option>
             ))}
           </select>
+        </section>
+      )}
+
+      {formAberto && (
+        <section id="form-evento" className="event-form-panel">
+          <div className="form-head">
+            <div>
+              <h2 className="form-title">
+                {modo === "criar" ? "Criar evento" : "Alterar evento"}
+              </h2>
+              <p className="form-subtitle">
+                Cadastre aqui todos os dados que serão usados no convite digital,
+                RSVP, check-in e relatórios.
+              </p>
+            </div>
+
+            <button onClick={fecharForm} className="ghost">
+              Fechar
+            </button>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title">1. Dados principais</h3>
+            <p className="section-desc">
+              Informações básicas para identificar o evento.
+            </p>
+
+            <div className="form-grid">
+              <label>
+                <span className="field-label">
+                  Nome do evento <span className="required">*</span>
+                </span>
+                <input
+                  value={form.nome}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, nome: e.target.value }))
+                  }
+                  placeholder="Ex: Valentina XV"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Tipo de local</span>
+                <select
+                  value={form.tipo_local}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, tipo_local: e.target.value }))
+                  }
+                  className="select"
+                >
+                  <option value="novo">Em um novo endereço</option>
+                  <option value="cadastrado">Local já cadastrado</option>
+                  <option value="online">Online</option>
+                </select>
+              </label>
+
+              <label>
+                <span className="field-label">Cor primária</span>
+                <input
+                  type="color"
+                  value={form.cor_primaria}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, cor_primaria: e.target.value }))
+                  }
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Cor secundária</span>
+                <input
+                  type="color"
+                  value={form.cor_secundaria}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, cor_secundaria: e.target.value }))
+                  }
+                  className="input"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title blue">2. Data e horário</h3>
+            <p className="section-desc">
+              Informe aos participantes quando seu evento vai acontecer.
+            </p>
+
+            <div className="form-grid-4">
+              <label>
+                <span className="field-label">
+                  Data de início <span className="required">*</span>
+                </span>
+                <input
+                  type="date"
+                  value={form.data_inicio}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, data_inicio: e.target.value }))
+                  }
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">
+                  Hora de início <span className="required">*</span>
+                </span>
+                <input
+                  type="time"
+                  value={form.hora_inicio}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, hora_inicio: e.target.value }))
+                  }
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Data de término</span>
+                <input
+                  type="date"
+                  value={form.data_termino}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, data_termino: e.target.value }))
+                  }
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Hora de término</span>
+                <input
+                  type="time"
+                  value={form.hora_termino}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, hora_termino: e.target.value }))
+                  }
+                  className="input"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title blue">
+              3. Onde o seu evento vai acontecer?
+            </h3>
+            <p className="section-desc">
+              Cadastre o local completo para usar no convite e no mapa.
+            </p>
+
+            <div className="form-grid">
+              <label className="full">
+                <span className="field-label">
+                  Nome do local <span className="required">*</span>
+                </span>
+                <input
+                  value={form.nome_local}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, nome_local: e.target.value }))
+                  }
+                  placeholder="Ex: Guerrah Hall"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">CEP</span>
+                <input
+                  value={form.cep}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, cep: e.target.value }))
+                  }
+                  placeholder="Ex: 27900-000"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">
+                  Cidade <span className="required">*</span>
+                </span>
+                <input
+                  value={form.cidade}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, cidade: e.target.value }))
+                  }
+                  placeholder="Ex: Macaé"
+                  className="input"
+                />
+              </label>
+
+              <label className="full">
+                <span className="field-label">
+                  Av./Rua <span className="required">*</span>
+                </span>
+                <input
+                  value={form.rua}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, rua: e.target.value }))
+                  }
+                  placeholder="Rua / Avenida"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Número</span>
+                <input
+                  value={form.numero}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, numero: e.target.value }))
+                  }
+                  placeholder="Número"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Complemento</span>
+                <input
+                  value={form.complemento}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, complemento: e.target.value }))
+                  }
+                  placeholder="Complemento"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">Bairro</span>
+                <input
+                  value={form.bairro}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, bairro: e.target.value }))
+                  }
+                  placeholder="Bairro"
+                  className="input"
+                />
+              </label>
+
+              <label>
+                <span className="field-label">
+                  Estado <span className="required">*</span>
+                </span>
+                <input
+                  value={form.estado}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, estado: e.target.value }))
+                  }
+                  placeholder="RJ"
+                  className="input"
+                />
+              </label>
+
+              <label className="full check-row">
+                <input
+                  type="checkbox"
+                  checked={form.mostrar_mapa}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      mostrar_mapa: e.target.checked,
+                    }))
+                  }
+                />
+                Mostrar o endereço no Google Maps
+              </label>
+
+              <label className="full">
+                <span className="field-label">Link do Google Maps</span>
+                <input
+                  value={form.mapa_url}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, mapa_url: e.target.value }))
+                  }
+                  placeholder="Cole aqui o link do Google Maps"
+                  className="input"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title blue">4. Programação do evento</h3>
+            <p className="section-desc">
+              Adicione os horários importantes que poderão aparecer no convite
+              digital.
+            </p>
+
+            <div className="programacao-list">
+              {form.programacao.length === 0 && (
+                <div className="empty">
+                  Nenhum horário cadastrado. Adicione a programação do evento.
+                </div>
+              )}
+
+              {form.programacao.map((item, index) => (
+                <div key={index} className="programacao-item">
+                  <div className="form-grid">
+                    <label>
+                      <span className="field-label">Horário</span>
+                      <input
+                        type="time"
+                        value={item.hora}
+                        onChange={(e) =>
+                          atualizarProgramacao(index, "hora", e.target.value)
+                        }
+                        className="input"
+                      />
+                    </label>
+
+                    <label>
+                      <span className="field-label">Título</span>
+                      <input
+                        value={item.titulo}
+                        onChange={(e) =>
+                          atualizarProgramacao(index, "titulo", e.target.value)
+                        }
+                        placeholder="Ex: Recepção"
+                        className="input"
+                      />
+                    </label>
+
+                    <label className="full">
+                      <span className="field-label">Descrição</span>
+                      <input
+                        value={item.descricao}
+                        onChange={(e) =>
+                          atualizarProgramacao(
+                            index,
+                            "descricao",
+                            e.target.value
+                          )
+                        }
+                        placeholder="Detalhe da programação"
+                        className="input"
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => removerProgramacao(index)}
+                  >
+                    Remover horário
+                  </button>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="secondary soft"
+                onClick={adicionarProgramacao}
+              >
+                + Adicionar horário
+              </button>
+            </div>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title blue">5. Identidade visual</h3>
+            <p className="section-desc">
+              Arquivos que poderão ser usados no convite digital e nas telas do
+              evento.
+            </p>
+
+            <div className="upload-grid">
+              <UploadField
+                label="Logomarca"
+                accept="image/*"
+                value={form.logo_url}
+                onFile={(file) => uploadArquivo(file, "logo_url")}
+              />
+
+              <UploadField
+                label="Background"
+                accept="image/*"
+                value={form.background_url}
+                onFile={(file) => uploadArquivo(file, "background_url")}
+              />
+
+              <UploadField
+                label="Música"
+                accept="audio/*"
+                value={form.musica_url}
+                onFile={(file) => uploadArquivo(file, "musica_url")}
+              />
+            </div>
+          </div>
+
+          <div className="section">
+            <h3 className="section-title blue">6. Informações do convite</h3>
+            <p className="section-desc">
+              Textos base que serão aproveitados na aba Convite Digital.
+            </p>
+
+            <div className="form-grid">
+              <label className="full">
+                <span className="field-label">Texto principal do convite</span>
+                <textarea
+                  value={form.texto_convite}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, texto_convite: e.target.value }))
+                  }
+                  placeholder="Ex: Com alegria convidamos você para celebrar este momento especial..."
+                  className="textarea"
+                />
+              </label>
+
+              <label className="full">
+                <span className="field-label">Observações do convite</span>
+                <textarea
+                  value={form.observacoes_convite}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      observacoes_convite: e.target.value,
+                    }))
+                  }
+                  placeholder="Ex: Traje, estacionamento, confirmação, informações extras..."
+                  className="textarea"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button
+              onClick={salvarEvento}
+              disabled={salvando || !tenantId}
+              className="primary"
+            >
+              {salvando
+                ? "Salvando..."
+                : modo === "criar"
+                ? "Criar evento"
+                : "Salvar alterações"}
+            </button>
+
+            <button onClick={fecharForm} className="secondary">
+              Cancelar
+            </button>
+          </div>
         </section>
       )}
 
@@ -1124,7 +1546,9 @@ export default function AppEventosPage() {
                       ? formatarData(evento.data_inicio || evento.data_evento)
                       : "Não definida"}
                   </strong>
-                  {evento.hora_inicio ? ` · ${limparHora(evento.hora_inicio)}` : ""}
+                  {evento.hora_inicio
+                    ? ` · ${limparHora(evento.hora_inicio)}`
+                    : ""}
                 </div>
 
                 <div className="small-line">
@@ -1152,497 +1576,6 @@ export default function AppEventosPage() {
           )}
         </div>
       </section>
-
-      {drawerOpen && (
-        <>
-          <div className="drawer-overlay" onClick={() => setDrawerOpen(false)} />
-
-          <aside className="drawer">
-            <div className="drawer-content">
-              <div className="drawer-top">
-                <div>
-                  <span className="drawer-kicker">
-                    <span className="drawer-dot" />
-                    {modo === "criar" ? "Novo evento" : "Editar evento"}
-                  </span>
-                  <h2 className="drawer-title">
-                    {modo === "criar" ? "Criar evento" : "Alterar evento"}
-                  </h2>
-                  <p className="drawer-sub">
-                    Centralize todos os dados do evento aqui. Depois o convite
-                    digital usará essas informações.
-                  </p>
-                </div>
-
-                <button
-                  className="ghost"
-                  onClick={() => setDrawerOpen(false)}
-                  aria-label="Fechar"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-
-            <div className="tabs">
-              <button
-                onClick={() => setTab("dados")}
-                className={tab === "dados" ? "active" : ""}
-              >
-                Dados
-              </button>
-              <button
-                onClick={() => setTab("data")}
-                className={tab === "data" ? "active" : ""}
-              >
-                Data
-              </button>
-              <button
-                onClick={() => setTab("local")}
-                className={tab === "local" ? "active" : ""}
-              >
-                Local
-              </button>
-              <button
-                onClick={() => setTab("programacao")}
-                className={tab === "programacao" ? "active" : ""}
-              >
-                Programação
-              </button>
-              <button
-                onClick={() => setTab("identidade")}
-                className={tab === "identidade" ? "active" : ""}
-              >
-                Identidade
-              </button>
-              <button
-                onClick={() => setTab("convite")}
-                className={tab === "convite" ? "active" : ""}
-              >
-                Convite
-              </button>
-            </div>
-
-            <div className="drawer-content">
-              <div className="drawer-form">
-                {tab === "dados" && (
-                  <>
-                    <label>
-                      <div className="field-label">Nome do evento</div>
-                      <input
-                        value={form.nome}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, nome: e.target.value }))
-                        }
-                        placeholder="Ex: Valentina XV"
-                        className="input"
-                      />
-                    </label>
-
-                    <label>
-                      <div className="field-label">Tipo de local</div>
-                      <select
-                        value={form.tipo_local}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, tipo_local: e.target.value }))
-                        }
-                        className="select"
-                      >
-                        <option value="novo">Novo local</option>
-                        <option value="cadastrado">Local já cadastrado</option>
-                        <option value="online">Online</option>
-                      </select>
-                    </label>
-
-                    <div className="grid-2">
-                      <label>
-                        <div className="field-label">Cor primária</div>
-                        <input
-                          type="color"
-                          value={form.cor_primaria}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              cor_primaria: e.target.value,
-                            }))
-                          }
-                          className="input"
-                        />
-                      </label>
-
-                      <label>
-                        <div className="field-label">Cor secundária</div>
-                        <input
-                          type="color"
-                          value={form.cor_secundaria}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              cor_secundaria: e.target.value,
-                            }))
-                          }
-                          className="input"
-                        />
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {tab === "data" && (
-                  <div className="grid-2">
-                    <label>
-                      <div className="field-label">Data de início</div>
-                      <input
-                        type="date"
-                        value={form.data_inicio}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, data_inicio: e.target.value }))
-                        }
-                        className="input"
-                      />
-                    </label>
-
-                    <label>
-                      <div className="field-label">Hora de início</div>
-                      <input
-                        type="time"
-                        value={form.hora_inicio}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, hora_inicio: e.target.value }))
-                        }
-                        className="input"
-                      />
-                    </label>
-
-                    <label>
-                      <div className="field-label">Data de término</div>
-                      <input
-                        type="date"
-                        value={form.data_termino}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            data_termino: e.target.value,
-                          }))
-                        }
-                        className="input"
-                      />
-                    </label>
-
-                    <label>
-                      <div className="field-label">Hora de término</div>
-                      <input
-                        type="time"
-                        value={form.hora_termino}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            hora_termino: e.target.value,
-                          }))
-                        }
-                        className="input"
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {tab === "local" && (
-                  <>
-                    <label>
-                      <div className="field-label">Nome do local</div>
-                      <input
-                        value={form.nome_local}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, nome_local: e.target.value }))
-                        }
-                        placeholder="Ex: Guerrah Hall"
-                        className="input"
-                      />
-                    </label>
-
-                    <div className="grid-2">
-                      <label>
-                        <div className="field-label">CEP</div>
-                        <input
-                          value={form.cep}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, cep: e.target.value }))
-                          }
-                          placeholder="Ex: 27900-000"
-                          className="input"
-                        />
-                      </label>
-
-                      <label>
-                        <div className="field-label">Estado</div>
-                        <input
-                          value={form.estado}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, estado: e.target.value }))
-                          }
-                          placeholder="RJ"
-                          className="input"
-                        />
-                      </label>
-                    </div>
-
-                    <label>
-                      <div className="field-label">Rua</div>
-                      <input
-                        value={form.rua}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, rua: e.target.value }))
-                        }
-                        placeholder="Rua / Avenida"
-                        className="input"
-                      />
-                    </label>
-
-                    <div className="grid-2">
-                      <label>
-                        <div className="field-label">Número</div>
-                        <input
-                          value={form.numero}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, numero: e.target.value }))
-                          }
-                          placeholder="Número"
-                          className="input"
-                        />
-                      </label>
-
-                      <label>
-                        <div className="field-label">Complemento</div>
-                        <input
-                          value={form.complemento}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              complemento: e.target.value,
-                            }))
-                          }
-                          placeholder="Complemento"
-                          className="input"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid-2">
-                      <label>
-                        <div className="field-label">Bairro</div>
-                        <input
-                          value={form.bairro}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, bairro: e.target.value }))
-                          }
-                          placeholder="Bairro"
-                          className="input"
-                        />
-                      </label>
-
-                      <label>
-                        <div className="field-label">Cidade</div>
-                        <input
-                          value={form.cidade}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, cidade: e.target.value }))
-                          }
-                          placeholder="Cidade"
-                          className="input"
-                        />
-                      </label>
-                    </div>
-
-                    <label className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={form.mostrar_mapa}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            mostrar_mapa: e.target.checked,
-                          }))
-                        }
-                      />
-                      Mostrar mapa no convite
-                    </label>
-
-                    <label>
-                      <div className="field-label">URL do mapa</div>
-                      <input
-                        value={form.mapa_url}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, mapa_url: e.target.value }))
-                        }
-                        placeholder="Link do Google Maps"
-                        className="input"
-                      />
-                    </label>
-                  </>
-                )}
-
-                {tab === "programacao" && (
-                  <>
-                    {form.programacao.length === 0 && (
-                      <div className="empty">
-                        Nenhum horário cadastrado. Adicione a programação do
-                        evento.
-                      </div>
-                    )}
-
-                    {form.programacao.map((item, index) => (
-                      <div key={index} className="programacao-item">
-                        <div className="grid-2">
-                          <label>
-                            <div className="field-label">Horário</div>
-                            <input
-                              type="time"
-                              value={item.hora}
-                              onChange={(e) =>
-                                atualizarProgramacao(
-                                  index,
-                                  "hora",
-                                  e.target.value
-                                )
-                              }
-                              className="input"
-                            />
-                          </label>
-
-                          <label>
-                            <div className="field-label">Título</div>
-                            <input
-                              value={item.titulo}
-                              onChange={(e) =>
-                                atualizarProgramacao(
-                                  index,
-                                  "titulo",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Ex: Recepção"
-                              className="input"
-                            />
-                          </label>
-                        </div>
-
-                        <label>
-                          <div className="field-label">Descrição</div>
-                          <input
-                            value={item.descricao}
-                            onChange={(e) =>
-                              atualizarProgramacao(
-                                index,
-                                "descricao",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Detalhe da programação"
-                            className="input"
-                          />
-                        </label>
-
-                        <button
-                          className="danger"
-                          onClick={() => removerProgramacao(index)}
-                        >
-                          Remover horário
-                        </button>
-                      </div>
-                    ))}
-
-                    <button className="secondary" onClick={adicionarProgramacao}>
-                      + Adicionar horário
-                    </button>
-                  </>
-                )}
-
-                {tab === "identidade" && (
-                  <>
-                    <UploadField
-                      label="Logomarca do evento"
-                      accept="image/*"
-                      value={form.logo_url}
-                      onFile={(file) => uploadArquivo(file, "logo_url")}
-                    />
-
-                    <UploadField
-                      label="Background do convite"
-                      accept="image/*"
-                      value={form.background_url}
-                      onFile={(file) => uploadArquivo(file, "background_url")}
-                    />
-
-                    <UploadField
-                      label="Música do evento"
-                      accept="audio/*"
-                      value={form.musica_url}
-                      onFile={(file) => uploadArquivo(file, "musica_url")}
-                    />
-                  </>
-                )}
-
-                {tab === "convite" && (
-                  <>
-                    <label>
-                      <div className="field-label">Texto principal do convite</div>
-                      <textarea
-                        value={form.texto_convite}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            texto_convite: e.target.value,
-                          }))
-                        }
-                        placeholder="Ex: Com alegria convidamos você para celebrar este momento especial..."
-                        className="textarea"
-                      />
-                    </label>
-
-                    <label>
-                      <div className="field-label">Observações do convite</div>
-                      <textarea
-                        value={form.observacoes_convite}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            observacoes_convite: e.target.value,
-                          }))
-                        }
-                        placeholder="Ex: Traje, estacionamento, confirmação, informações extras..."
-                        className="textarea"
-                      />
-                    </label>
-
-                    <div className="helper-card">
-                      Esses dados serão usados depois na aba Convite Digital para
-                      montar o preview e preencher o convite automaticamente.
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="drawer-footer">
-              <button onClick={() => setDrawerOpen(false)} className="secondary">
-                Cancelar
-              </button>
-
-              <button
-                onClick={salvarEvento}
-                disabled={salvando || !tenantId}
-                className="primary"
-              >
-                {salvando
-                  ? "Salvando..."
-                  : modo === "criar"
-                  ? "Criar evento"
-                  : "Salvar alterações"}
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
 
       {toast && <div className="toast">{toast}</div>}
     </div>
