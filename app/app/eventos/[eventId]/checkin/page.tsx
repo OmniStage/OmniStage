@@ -142,44 +142,58 @@ export default function CheckinEventoPage({
     return normalizar(c.status_checkin) === "SYNC_PENDENTE";
   }
 
-  function obterAudioContext() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return null;
+  async function obterAudioContext() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
 
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContextClass();
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContextClass();
+      }
+
+      if (audioCtxRef.current.state === "suspended") {
+        await audioCtxRef.current.resume();
+      }
+
+      return audioCtxRef.current;
+    } catch {
+      return null;
     }
-
-    if (audioCtxRef.current.state === "suspended") {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-
-    return audioCtxRef.current;
   }
 
-  function desbloquearAudio() {
-    try {
-      const ctx = obterAudioContext();
-      if (!ctx) return;
+  async function tocarBipDesbloqueio(ctx: AudioContext) {
+    const now = ctx.currentTime + 0.01;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.02);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  async function desbloquearAudio() {
+    const ctx = await obterAudioContext();
+    if (!ctx) return;
+
+    try {
+      await tocarBipDesbloqueio(ctx);
       setSomAtivo(true);
     } catch {}
   }
 
-  function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
-    try {
-      const ctx = obterAudioContext();
-      if (!ctx) return;
-      setSomAtivo(true);
+  async function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
+    const audio = await obterAudioContext();
+    if (!audio) return;
 
-      const audio: AudioContext = ctx;
-      const now = audio.currentTime;
+    try {
+      setSomAtivo(true);
+      const now = audio.currentTime + 0.01;
 
       function tone(
         freq: number,
@@ -190,37 +204,35 @@ export default function CheckinEventoPage({
       ) {
         const osc = audio.createOscillator();
         const gain = audio.createGain();
+        const start = now + delay;
+        const end = start + duration;
 
         osc.type = wave;
-        osc.frequency.setValueAtTime(freq, now + delay);
-        gain.gain.setValueAtTime(0.0001, now + delay);
-        gain.gain.exponentialRampToValueAtTime(gainValue, now + delay + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
         osc.connect(gain).connect(audio.destination);
-        osc.start(now + delay);
-        osc.stop(now + delay + duration + 0.05);
+        osc.start(start);
+        osc.stop(end + 0.05);
       }
 
       if (tipo === "ok") {
-        tone(220, 0.16, 0.24, "triangle");
-        tone(392, 0.13, 0.24, "sine", 0.07);
-        tone(659, 0.11, 0.3, "sine", 0.15);
-        tone(988, 0.08, 0.25, "triangle", 0.26);
+        tone(220, 0.22, 0.24, "triangle");
+        tone(392, 0.18, 0.24, "sine", 0.08);
+        tone(659, 0.16, 0.3, "sine", 0.16);
+        tone(988, 0.11, 0.25, "triangle", 0.29);
       }
 
       if (tipo === "tick") {
-        tone(1244, 0.08, 0.14, "triangle");
+        tone(1244, 0.16, 0.14, "triangle");
       }
 
-      if (tipo === "usado") {
-        tone(260, 0.18, 0.12, "square");
-        tone(150, 0.2, 0.24, "sawtooth", 0.12);
-        tone(95, 0.16, 0.28, "square", 0.28);
-      }
-
-      if (tipo === "erro") {
-        tone(800, 0.12, 0.08, "square");
-        tone(180, 0.14, 0.24, "sawtooth", 0.1);
+      if (tipo === "usado" || tipo === "erro") {
+        tone(880, 0.16, 0.09, "square");
+        tone(220, 0.18, 0.18, "sawtooth", 0.10);
+        tone(120, 0.16, 0.26, "square", 0.26);
       }
     } catch {}
   }
@@ -546,13 +558,13 @@ export default function CheckinEventoPage({
     if (convidadoEntrou(convidado)) {
       piscarCard(convidado.id);
       atualizarResultado({
-        tipo: "usado",
+        tipo: "erro",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      tocarSom("usado");
+      tocarSom("erro");
       vibrar("erro");
       busyRef.current = false;
       return;
@@ -574,13 +586,13 @@ export default function CheckinEventoPage({
     if (convidadoEntrou(convidado)) {
       piscarCard(convidado.id);
       atualizarResultado({
-        tipo: "usado",
+        tipo: "erro",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      await tocarSom("usado");
+      await tocarSom("erro");
       vibrar("erro");
       return;
     }
@@ -647,13 +659,13 @@ export default function CheckinEventoPage({
 
       piscarCard(convidado.id);
       atualizarResultado({
-        tipo: "usado",
+        tipo: "erro",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      await tocarSom("usado");
+      await tocarSom("erro");
       vibrar("erro");
       return;
     }
@@ -691,9 +703,9 @@ export default function CheckinEventoPage({
 
     if (!pendentes.length) {
       membros.forEach((m, idx) => setTimeout(() => piscarCard(m.id), idx * 120));
-      tocarSom("usado");
+      tocarSom("erro");
       atualizarResultado({
-        tipo: "usado",
+        tipo: "erro",
         titulo: "Grupo já liberado",
         mensagem: "Todos os integrantes deste grupo já entraram.",
       });
@@ -846,8 +858,9 @@ export default function CheckinEventoPage({
         #qr-reader video, #qr-reader canvas { width:100%!important; height:100%!important; object-fit:cover!important; }
         .result-card { border-radius:24px; padding:20px; margin-bottom:14px; border:1px solid var(--line); background:rgba(248,250,252,.76); position:relative; overflow:hidden; }
         .result-card.ok { background:linear-gradient(135deg,rgba(22,163,74,.12),rgba(255,255,255,.88)); border-color:rgba(22,163,74,.28); }
-        .result-card.usado, .result-card.sync { background:linear-gradient(135deg,rgba(217,119,6,.14),rgba(255,255,255,.88)); border-color:rgba(217,119,6,.28); }
-        .result-card.erro { background:linear-gradient(135deg,rgba(225,29,72,.13),rgba(255,255,255,.88)); border-color:rgba(225,29,72,.28); }
+        .result-card.sync { background:linear-gradient(135deg,rgba(217,119,6,.14),rgba(255,255,255,.88)); border-color:rgba(217,119,6,.28); }
+        .result-card.usado,
+        .result-card.erro { background:linear-gradient(135deg,rgba(225,29,72,.15),rgba(255,255,255,.88)); border-color:rgba(225,29,72,.34); }
         .result-kicker { color:var(--muted); font-size:11px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; }
         .result-title { margin:8px 0 0; font-size:28px; line-height:1; font-weight:950; letter-spacing:-.04em; }
         .result-name { margin-top:10px; font-size:22px; font-weight:950; }
@@ -885,14 +898,16 @@ export default function CheckinEventoPage({
         .history-name { margin-top:4px; font-weight:950; font-size:13px; }
         .flash { position:fixed; inset:0; pointer-events:none; z-index:9997; animation:flashFade .7s ease forwards; }
         .flash.ok { background:radial-gradient(circle,rgba(22,163,74,.2),rgba(22,163,74,.08) 35%,transparent 70%); }
-        .flash.usado,.flash.sync { background:radial-gradient(circle,rgba(217,119,6,.2),rgba(217,119,6,.08) 35%,transparent 70%); }
-        .flash.erro { background:radial-gradient(circle,rgba(225,29,72,.2),rgba(225,29,72,.08) 35%,transparent 70%); }
+        .flash.sync { background:radial-gradient(circle,rgba(217,119,6,.2),rgba(217,119,6,.08) 35%,transparent 70%); }
+        .flash.usado,
+        .flash.erro { background:radial-gradient(circle,rgba(225,29,72,.24),rgba(225,29,72,.1) 35%,transparent 70%); }
         @keyframes flashFade { 0%{opacity:1} 100%{opacity:0} }
         .premium-overlay { position:fixed; inset:0; z-index:9998; pointer-events:none; display:grid; place-items:center; background:rgba(15,23,42,.18); backdrop-filter:blur(2px); animation:overlayFade 1.35s ease forwards; }
         .premium-card { width:min(520px,calc(100vw - 40px)); border-radius:30px; padding:30px 26px; text-align:center; background:rgba(255,255,255,.96); border:1px solid var(--line); box-shadow:0 30px 90px rgba(15,23,42,.24); transform:scale(.96) translateY(8px); animation:premiumPop .45s cubic-bezier(.2,.9,.2,1.1) forwards; }
         .premium-icon { width:76px; height:76px; border-radius:999px; margin:0 auto 16px; display:grid; place-items:center; font-size:38px; font-weight:950; }
         .premium-icon.ok { background:#dcfce7; color:#166534; }
-        .premium-icon.usado,.premium-icon.sync { background:#fef3c7; color:#92400e; }
+        .premium-icon.sync { background:#fef3c7; color:#92400e; }
+        .premium-icon.usado,
         .premium-icon.erro { background:#ffe4e6; color:#be123c; }
         .premium-title { margin:0; font-size:30px; font-weight:950; letter-spacing:-.04em; }
         .premium-name { margin-top:8px; font-size:18px; font-weight:900; }
