@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function ModelosConvitePage() {
@@ -428,13 +428,17 @@ export default function ModelosConvitePage() {
           </div>
 
           {preview && !htmlTemplate ? (
-            <img src={preview} alt="Preview do modelo" style={previewImage} />
+            <div style={phonePreviewShell}>
+              <img src={preview} alt="Preview do modelo" style={previewImage} />
+            </div>
           ) : htmlTemplate ? (
-            <iframe
-              title="Preview do modelo"
-              srcDoc={htmlTemplate}
-              style={iframePreview}
-            />
+            <div style={phonePreviewShell}>
+              <iframe
+                title="Preview do modelo"
+                srcDoc={htmlTemplate}
+                style={iframePreview}
+              />
+            </div>
           ) : (
             <div style={emptyPreview}>
               <div style={emptyIcon}>✦</div>
@@ -485,17 +489,21 @@ export default function ModelosConvitePage() {
               </div>
 
               {t.preview_image ? (
-                <img
-                  src={t.preview_image}
-                  alt={t.nome || t.name || "Preview do modelo"}
-                  style={modelImage}
-                />
+                <div style={miniPhoneShell}>
+                  <img
+                    src={t.preview_image}
+                    alt={t.nome || t.name || "Preview do modelo"}
+                    style={miniImage}
+                  />
+                </div>
               ) : t.html_template ? (
-                <iframe
-                  title={`Preview ${t.nome || t.name}`}
-                  srcDoc={t.html_template}
-                  style={miniFrame}
-                />
+                <div style={miniPhoneShell}>
+                  <iframe
+                    title={`Preview ${t.nome || t.name}`}
+                    srcDoc={t.html_template}
+                    style={miniFrame}
+                  />
+                </div>
               ) : (
                 <div style={miniEmpty}>Sem preview</div>
               )}
@@ -528,14 +536,14 @@ export default function ModelosConvitePage() {
   );
 }
 
-const page: React.CSSProperties = {
+const page: CSSProperties = {
   maxWidth: 1320,
   margin: "0 auto",
   padding: "34px 34px 60px",
   color: "#0f172a",
 };
 
-const hero: React.CSSProperties = {
+const hero: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -543,7 +551,7 @@ const hero: React.CSSProperties = {
   marginBottom: 22,
 };
 
-const eyebrow: React.CSSProperties = {
+const eyebrow: CSSProperties = {
   display: "inline-flex",
   padding: "6px 10px",
   borderRadius: 999,
@@ -554,14 +562,14 @@ const eyebrow: React.CSSProperties = {
   marginBottom: 10,
 };
 
-const h1: React.CSSProperties = {
+const h1: CSSProperties = {
   margin: 0,
   fontSize: 42,
   lineHeight: 1.05,
   letterSpacing: "-0.04em",
 };
 
-const subtitle: React.CSSProperties = {
+const subtitle: CSSProperties = {
   maxWidth: 680,
   marginTop: 10,
   color: "#64748b",
@@ -569,14 +577,14 @@ const subtitle: React.CSSProperties = {
   lineHeight: 1.6,
 };
 
-const statsGrid: React.CSSProperties = {
+const statsGrid: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 14,
   marginBottom: 18,
 };
 
-const statCard: React.CSSProperties = {
+const statCard: CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   borderRadius: 18,
@@ -584,20 +592,20 @@ const statCard: React.CSSProperties = {
   boxShadow: "0 12px 34px rgba(15, 23, 42, 0.06)",
 };
 
-const statLabel: React.CSSProperties = {
+const statLabel: CSSProperties = {
   display: "block",
   color: "#64748b",
   fontSize: 13,
   marginBottom: 8,
 };
 
-const statValue: React.CSSProperties = {
+const statValue: CSSProperties = {
   display: "block",
   fontSize: 28,
   letterSpacing: "-0.04em",
 };
 
-const card: React.CSSProperties = {
+const card: CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   borderRadius: 22,
@@ -605,7 +613,7 @@ const card: React.CSSProperties = {
   boxShadow: "0 18px 50px rgba(15, 23, 42, 0.07)",
 };
 
-const sectionHeader: React.CSSProperties = {
+const sectionHeader: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
@@ -613,32 +621,32 @@ const sectionHeader: React.CSSProperties = {
   marginBottom: 16,
 };
 
-const h2: React.CSSProperties = {
+const h2: CSSProperties = {
   margin: 0,
   fontSize: 20,
   letterSpacing: "-0.02em",
 };
 
-const smallText: React.CSSProperties = {
+const smallText: CSSProperties = {
   margin: "6px 0 0",
   color: "#64748b",
   fontSize: 14,
 };
 
-const categoryRow: React.CSSProperties = {
+const categoryRow: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr auto",
   gap: 10,
 };
 
-const chips: React.CSSProperties = {
+const chips: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 8,
   marginTop: 14,
 };
 
-const pill: React.CSSProperties = {
+const pill: CSSProperties = {
   padding: "7px 11px",
   borderRadius: 999,
   background: "#f5f3ff",
@@ -647,38 +655,38 @@ const pill: React.CSSProperties = {
   fontWeight: 700,
 };
 
-const emptyText: React.CSSProperties = {
+const emptyText: CSSProperties = {
   color: "#94a3b8",
   fontSize: 14,
 };
 
-const editorGrid: React.CSSProperties = {
+const editorGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.05fr 0.95fr",
+  gridTemplateColumns: "1fr 460px",
   gap: 18,
   marginTop: 18,
   alignItems: "start",
 };
 
-const formGrid: React.CSSProperties = {
+const formGrid: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 14,
 };
 
-const field: React.CSSProperties = {
+const field: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 7,
 };
 
-const label: React.CSSProperties = {
+const label: CSSProperties = {
   fontSize: 13,
   fontWeight: 800,
   color: "#334155",
 };
 
-const input: React.CSSProperties = {
+const input: CSSProperties = {
   width: "100%",
   minHeight: 46,
   padding: "0 13px",
@@ -690,7 +698,7 @@ const input: React.CSSProperties = {
   fontSize: 14,
 };
 
-const textarea: React.CSSProperties = {
+const textarea: CSSProperties = {
   width: "100%",
   minHeight: 280,
   padding: 14,
@@ -707,14 +715,14 @@ const textarea: React.CSSProperties = {
   outline: "none",
 };
 
-const actionsBar: React.CSSProperties = {
+const actionsBar: CSSProperties = {
   display: "flex",
   gap: 10,
   marginTop: 16,
   flexWrap: "wrap",
 };
 
-const btnPrimary: React.CSSProperties = {
+const btnPrimary: CSSProperties = {
   minHeight: 44,
   padding: "0 18px",
   borderRadius: 12,
@@ -727,13 +735,13 @@ const btnPrimary: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const btnGreen: React.CSSProperties = {
+const btnGreen: CSSProperties = {
   ...btnPrimary,
   background: "linear-gradient(135deg, #22c55e, #16a34a)",
   boxShadow: "0 12px 26px rgba(34, 197, 94, 0.22)",
 };
 
-const btnGhost: React.CSSProperties = {
+const btnGhost: CSSProperties = {
   minHeight: 44,
   padding: "0 18px",
   borderRadius: 12,
@@ -744,7 +752,7 @@ const btnGhost: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const editBadge: React.CSSProperties = {
+const editBadge: CSSProperties = {
   padding: "7px 10px",
   borderRadius: 999,
   background: "#fff7ed",
@@ -753,13 +761,13 @@ const editBadge: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const previewCard: React.CSSProperties = {
+const previewCard: CSSProperties = {
   ...card,
   position: "sticky",
   top: 20,
 };
 
-const previewMeta: React.CSSProperties = {
+const previewMeta: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 10,
@@ -771,34 +779,46 @@ const previewMeta: React.CSSProperties = {
   marginBottom: 14,
 };
 
-const previewName: React.CSSProperties = {
+const previewName: CSSProperties = {
   fontWeight: 900,
   color: "#0f172a",
 };
 
-const previewCategory: React.CSSProperties = {
+const previewCategory: CSSProperties = {
   color: "#7c3aed",
   fontWeight: 800,
   fontSize: 12,
 };
 
-const iframePreview: React.CSSProperties = {
+const phonePreviewShell: CSSProperties = {
   width: "100%",
-  height: 560,
-  borderRadius: 18,
-  border: "1px solid #e2e8f0",
+  height: 720,
+  overflow: "auto",
+  borderRadius: 26,
+  border: "1px solid #dbe3ef",
+  background: "#020617",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+};
+
+const iframePreview: CSSProperties = {
+  width: "430px",
+  minWidth: "430px",
+  height: "820px",
+  border: "none",
+  display: "block",
+  margin: "0 auto",
   background: "#020617",
 };
 
-const previewImage: React.CSSProperties = {
+const previewImage: CSSProperties = {
   width: "100%",
-  height: 560,
-  objectFit: "cover",
-  borderRadius: 18,
-  border: "1px solid #e2e8f0",
+  minHeight: 720,
+  objectFit: "contain",
+  display: "block",
+  background: "#020617",
 };
 
-const emptyPreview: React.CSSProperties = {
+const emptyPreview: CSSProperties = {
   height: 560,
   display: "flex",
   flexDirection: "column",
@@ -813,7 +833,7 @@ const emptyPreview: React.CSSProperties = {
   textAlign: "center",
 };
 
-const emptyIcon: React.CSSProperties = {
+const emptyIcon: CSSProperties = {
   width: 44,
   height: 44,
   borderRadius: 14,
@@ -824,44 +844,44 @@ const emptyIcon: React.CSSProperties = {
   fontSize: 22,
 };
 
-const modelsSection: React.CSSProperties = {
+const modelsSection: CSSProperties = {
   marginTop: 24,
 };
 
-const modelsGrid: React.CSSProperties = {
+const modelsGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-  gap: 16,
+  gridTemplateColumns: "repeat(auto-fill, minmax(430px, 1fr))",
+  gap: 20,
 };
 
-const modelCard: React.CSSProperties = {
+const modelCard: CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
-  borderRadius: 20,
-  padding: 16,
-  boxShadow: "0 14px 36px rgba(15, 23, 42, 0.06)",
+  borderRadius: 24,
+  padding: 22,
+  boxShadow: "0 18px 45px rgba(15, 23, 42, 0.08)",
 };
 
-const modelTop: React.CSSProperties = {
+const modelTop: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 12,
   alignItems: "flex-start",
 };
 
-const modelTitle: React.CSSProperties = {
+const modelTitle: CSSProperties = {
   display: "block",
   fontSize: 16,
   color: "#0f172a",
 };
 
-const modelSlug: React.CSSProperties = {
+const modelSlug: CSSProperties = {
   marginTop: 4,
   fontSize: 13,
   color: "#64748b",
 };
 
-const statusBadge: React.CSSProperties = {
+const statusBadge: CSSProperties = {
   padding: "6px 9px",
   borderRadius: 999,
   fontSize: 12,
@@ -869,7 +889,7 @@ const statusBadge: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const modelInfo: React.CSSProperties = {
+const modelInfo: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 10,
@@ -878,26 +898,36 @@ const modelInfo: React.CSSProperties = {
   fontSize: 13,
 };
 
-const modelImage: React.CSSProperties = {
+const miniPhoneShell: CSSProperties = {
   width: "100%",
-  height: 190,
-  objectFit: "cover",
+  height: 440,
+  overflow: "auto",
   marginTop: 14,
-  borderRadius: 16,
-  border: "1px solid #e2e8f0",
-};
-
-const miniFrame: React.CSSProperties = {
-  width: "100%",
-  height: 190,
-  marginTop: 14,
-  borderRadius: 16,
-  border: "1px solid #e2e8f0",
+  borderRadius: 20,
+  border: "1px solid #dbe3ef",
   background: "#020617",
 };
 
-const miniEmpty: React.CSSProperties = {
-  height: 190,
+const miniFrame: CSSProperties = {
+  width: "430px",
+  minWidth: "430px",
+  height: "760px",
+  border: "none",
+  display: "block",
+  margin: "0 auto",
+  background: "#020617",
+};
+
+const miniImage: CSSProperties = {
+  width: "100%",
+  minHeight: 440,
+  objectFit: "contain",
+  display: "block",
+  background: "#020617",
+};
+
+const miniEmpty: CSSProperties = {
+  height: 240,
   marginTop: 14,
   borderRadius: 16,
   display: "grid",
@@ -907,14 +937,14 @@ const miniEmpty: React.CSSProperties = {
   background: "#f8fafc",
 };
 
-const modelActions: React.CSSProperties = {
+const modelActions: CSSProperties = {
   display: "flex",
   gap: 8,
   flexWrap: "wrap",
   marginTop: 14,
 };
 
-const btnBaseSmall: React.CSSProperties = {
+const btnBaseSmall: CSSProperties = {
   minHeight: 36,
   padding: "0 11px",
   borderRadius: 10,
@@ -923,31 +953,31 @@ const btnBaseSmall: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const btnBlue: React.CSSProperties = {
+const btnBlue: CSSProperties = {
   ...btnBaseSmall,
   background: "#2563eb",
   color: "#fff",
 };
 
-const btnPurple: React.CSSProperties = {
+const btnPurple: CSSProperties = {
   ...btnBaseSmall,
   background: "#7c3aed",
   color: "#fff",
 };
 
-const btnSoft: React.CSSProperties = {
+const btnSoft: CSSProperties = {
   ...btnBaseSmall,
   background: "#f1f5f9",
   color: "#334155",
 };
 
-const btnDanger: React.CSSProperties = {
+const btnDanger: CSSProperties = {
   ...btnBaseSmall,
   background: "#fee2e2",
   color: "#991b1b",
 };
 
-const emptyList: React.CSSProperties = {
+const emptyList: CSSProperties = {
   gridColumn: "1 / -1",
   padding: 24,
   borderRadius: 18,
