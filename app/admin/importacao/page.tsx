@@ -877,8 +877,8 @@ export default function AdminImportacaoPage() {
         {hasSheetLoaded && (
           <section style={mappingBoxStyle}>
             <div style={headerStyle}>
-              <h2 style={{ margin: 0 }}>Mapeamento de colunas</h2>
-              <span style={{ color: "#94a3b8", fontWeight: 800 }}>
+              <h2 style={{ margin: 0, color: "#0f172a" }}>Mapeamento de colunas</h2>
+              <span style={{ color: "#64748b", fontWeight: 800 }}>
                 {sheetRows.length} linhas · {sheetHeaders.length} colunas
               </span>
             </div>
@@ -901,7 +901,7 @@ export default function AdminImportacaoPage() {
             </div>
 
             <div style={{ marginTop: 16 }}>
-              <strong style={{ color: "#cbd5e1" }}>Prévia do texto gerado</strong>
+              <strong style={{ color: "#334155" }}>Prévia do texto gerado</strong>
               <pre style={preStyle}>
                 {mappedTextPreview.split("\n").slice(0, 5).join("\n") ||
                   "Mapeie as colunas para visualizar o texto final."}
@@ -976,7 +976,7 @@ export default function AdminImportacaoPage() {
               <h2 style={sectionTitleStyle}>Prévia da importação</h2>
             </div>
 
-            <span style={{ color: "#94a3b8", fontWeight: 800 }}>
+            <span style={{ color: "#64748b", fontWeight: 800 }}>
               {totalSelecionados} selecionados · {totalValidos} válidos ·{" "}
               {totalDuplicados} duplicados
             </span>
@@ -1010,15 +1010,15 @@ export default function AdminImportacaoPage() {
                   style={{
                     ...cardStyle,
                     border: item.is_duplicate
-                      ? "1px solid rgba(239,68,68,0.6)"
+                      ? "1px solid rgba(239,68,68,0.45)"
                       : checked
-                      ? "1px solid rgba(250,204,21,0.6)"
-                      : "1px solid rgba(148,163,184,0.22)",
+                      ? "1px solid rgba(250,204,21,0.7)"
+                      : "1px solid #e2e8f0",
                     background: item.is_duplicate
-                      ? "rgba(127,29,29,0.22)"
+                      ? "#fef2f2"
                       : checked
-                      ? "rgba(250,204,21,0.08)"
-                      : "rgba(15,23,42,0.86)",
+                      ? "#fefce8"
+                      : "#ffffff",
                   }}
                 >
                   <div style={cardLeftStyle}>
@@ -1031,15 +1031,15 @@ export default function AdminImportacaoPage() {
                     />
 
                     <div>
-                      <strong style={{ fontSize: 20 }}>{item.nome}</strong>
+                      <strong style={{ fontSize: 20, color: "#0f172a" }}>{item.nome}</strong>
 
-                      <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                      <p style={{ color: "#64748b", margin: "6px 0 0" }}>
                         Legacy ID: {item.legacy_id || "sem ID"} · Grupo:{" "}
                         {item.grupo || "sem grupo"} · Telefone:{" "}
                         {item.telefone || "sem telefone"}
                       </p>
 
-                      <p style={{ color: "#cbd5e1", margin: "6px 0 0" }}>
+                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
                         RSVP: {item.status_rsvp || "pendente"} · Envio:{" "}
                         {item.status_envio || "pendente"}
                       </p>
@@ -1055,15 +1055,15 @@ export default function AdminImportacaoPage() {
                     style={{
                       ...badgeStyle,
                       background: item.is_duplicate
-                        ? "rgba(239,68,68,0.16)"
+                        ? "#fee2e2"
                         : checked
-                        ? "rgba(250,204,21,0.16)"
-                        : "rgba(34,197,94,0.14)",
+                        ? "#fef3c7"
+                        : "#dcfce7",
                       color: item.is_duplicate
-                        ? "#fca5a5"
+                        ? "#991b1b"
                         : checked
-                        ? "#fde68a"
-                        : "#86efac",
+                        ? "#854d0e"
+                        : "#166534",
                     }}
                   >
                     {item.is_duplicate ? "Duplicado" : checked ? "Selecionado" : "OK"}
@@ -1088,13 +1088,13 @@ export default function AdminImportacaoPage() {
             <h2 style={sectionTitleStyle}>Histórico de importações</h2>
           </div>
 
-          <span style={{ color: "#94a3b8", fontWeight: 800 }}>
+          <span style={{ color: "#64748b", fontWeight: 800 }}>
             {history.length} lotes
           </span>
         </div>
 
         {history.length === 0 && (
-          <div style={{ color: "#94a3b8" }}>
+          <div style={{ color: "#64748b" }}>
             Nenhuma importação registrada para este evento.
           </div>
         )}
@@ -1103,11 +1103,11 @@ export default function AdminImportacaoPage() {
           {history.map((item) => (
             <article key={item.id} style={cardStyle}>
               <div>
-                <strong>
+                <strong style={{ color: "#0f172a" }}>
                   Lote {item.id.slice(0, 8)} · {item.status || "preview"}
                 </strong>
 
-                <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                <p style={{ color: "#64748b", margin: "6px 0 0" }}>
                   Total: {item.total_rows || 0} · Importados:{" "}
                   {item.imported_rows || 0} · Duplicados:{" "}
                   {item.duplicated_rows || 0} · Revertidos:{" "}
@@ -1125,8 +1125,8 @@ export default function AdminImportacaoPage() {
                   disabled={loading}
                   style={{
                     ...ghostButtonStyle,
-                    borderColor: "rgba(239,68,68,0.55)",
-                    color: "#fca5a5",
+                    borderColor: "#fecaca",
+                    color: "#991b1b",
                   }}
                 >
                   Reverter
@@ -1153,7 +1153,9 @@ function MappingSelect({
 }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <span style={{ color: "#94a3b8", fontSize: 13 }}>Coluna da planilha</span>
+      <span style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>
+        Coluna da planilha
+      </span>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <select
@@ -1169,16 +1171,16 @@ function MappingSelect({
           ))}
         </select>
 
-        <span style={{ color: "#64748b", fontWeight: 900 }}>→</span>
+        <span style={{ color: "#94a3b8", fontWeight: 900 }}>→</span>
 
-        <strong style={{ color: "#fff", minWidth: 160 }}>{label}</strong>
+        <strong style={{ color: "#0f172a", minWidth: 160 }}>{label}</strong>
       </div>
     </div>
   );
 }
 
 const pageStyle: CSSProperties = {
-  color: "#fff",
+  color: "#0f172a",
   maxWidth: 1280,
   margin: "0 auto",
   padding: "8px 0 48px",
@@ -1218,8 +1220,8 @@ const subtitleStyle: CSSProperties = {
 const statusPillStyle: CSSProperties = {
   padding: "10px 14px",
   borderRadius: 999,
-  background: "rgba(15,23,42,0.06)",
-  border: "1px solid rgba(15,23,42,0.08)",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
   color: "#334155",
   fontWeight: 900,
   whiteSpace: "nowrap",
@@ -1229,10 +1231,9 @@ const sectionStyle: CSSProperties = {
   marginTop: 22,
   padding: 24,
   borderRadius: 24,
-  border: "1px solid rgba(148,163,184,0.22)",
-  background:
-    "linear-gradient(180deg, rgba(2,6,23,0.98), rgba(15,23,42,0.98))",
-  boxShadow: "0 24px 60px rgba(15,23,42,0.16)",
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  boxShadow: "0 18px 45px rgba(15,23,42,0.08)",
 };
 
 const sectionHeaderStyle: CSSProperties = {
@@ -1250,8 +1251,8 @@ const stepStyle: CSSProperties = {
   width: 34,
   height: 24,
   borderRadius: 999,
-  background: "rgba(124,58,237,0.18)",
-  color: "#c4b5fd",
+  background: "#ede9fe",
+  color: "#6d28d9",
   fontSize: 12,
   fontWeight: 900,
   marginBottom: 8,
@@ -1261,14 +1262,15 @@ const sectionTitleStyle: CSSProperties = {
   margin: 0,
   fontSize: 22,
   letterSpacing: "-0.02em",
+  color: "#0f172a",
 };
 
 const modeBadgeStyle: CSSProperties = {
   padding: "9px 12px",
   borderRadius: 999,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  color: "#cbd5e1",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  color: "#334155",
   fontWeight: 900,
   fontSize: 13,
 };
@@ -1283,8 +1285,9 @@ const methodGridStyle: CSSProperties = {
 const methodCardStyle: CSSProperties = {
   padding: 16,
   borderRadius: 18,
-  background: "rgba(255,255,255,0.035)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  color: "#0f172a",
 };
 
 const methodIconStyle: CSSProperties = {
@@ -1294,12 +1297,12 @@ const methodIconStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   borderRadius: 14,
-  background: "rgba(255,255,255,0.08)",
+  background: "#eef2ff",
   marginBottom: 12,
 };
 
 const methodTextStyle: CSSProperties = {
-  color: "#94a3b8",
+  color: "#64748b",
   fontSize: 14,
   lineHeight: 1.45,
   margin: "8px 0 0",
@@ -1313,14 +1316,14 @@ const mappingBoxStyle: CSSProperties = {
   marginTop: 22,
   padding: 18,
   borderRadius: 18,
-  border: "1px solid rgba(250,204,21,0.25)",
-  background: "rgba(250,204,21,0.045)",
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
 };
 
 const fieldStyle: CSSProperties = {
   display: "grid",
   gap: 8,
-  color: "#cbd5e1",
+  color: "#334155",
   fontWeight: 800,
 };
 
@@ -1328,9 +1331,9 @@ const inputStyle: CSSProperties = {
   width: "100%",
   padding: 14,
   borderRadius: 14,
-  background: "rgba(2,6,23,0.86)",
-  color: "#fff",
-  border: "1px solid rgba(148,163,184,0.3)",
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid #cbd5e1",
   outline: "none",
 };
 
@@ -1404,20 +1407,20 @@ const selectionActionsStyle: CSSProperties = {
 const buttonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 14,
-  background: "linear-gradient(135deg, #22c55e, #16a34a)",
+  background: "#16a34a",
   border: "none",
   color: "#fff",
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "0 12px 30px rgba(34,197,94,0.24)",
+  boxShadow: "0 12px 30px rgba(22,163,74,0.22)",
 };
 
 const secondaryButtonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 14,
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  color: "#fff",
+  background: "#f8fafc",
+  border: "1px solid #cbd5e1",
+  color: "#0f172a",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1425,9 +1428,9 @@ const secondaryButtonStyle: CSSProperties = {
 const ghostButtonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 14,
-  background: "transparent",
-  border: "1px solid rgba(148,163,184,0.25)",
-  color: "#cbd5e1",
+  background: "#ffffff",
+  border: "1px solid #cbd5e1",
+  color: "#334155",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1435,9 +1438,9 @@ const ghostButtonStyle: CSSProperties = {
 const goldButtonStyle: CSSProperties = {
   padding: "14px 20px",
   borderRadius: 14,
-  border: "1px solid rgba(250,204,21,0.42)",
-  background: "rgba(250,204,21,0.12)",
-  color: "#fde68a",
+  border: "1px solid #facc15",
+  background: "#fefce8",
+  color: "#854d0e",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -1445,9 +1448,9 @@ const goldButtonStyle: CSSProperties = {
 const smallButtonStyle: CSSProperties = {
   padding: "10px 14px",
   borderRadius: 12,
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  color: "#fff",
+  background: "#f8fafc",
+  border: "1px solid #cbd5e1",
+  color: "#0f172a",
   fontWeight: 800,
   cursor: "pointer",
 };
@@ -1467,8 +1470,9 @@ const cardStyle: CSSProperties = {
   alignItems: "center",
   padding: 16,
   borderRadius: 18,
-  border: "1px solid rgba(148,163,184,0.22)",
-  background: "rgba(15,23,42,0.86)",
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  color: "#0f172a",
 };
 
 const cardLeftStyle: CSSProperties = {
@@ -1497,9 +1501,9 @@ const preStyle: CSSProperties = {
   marginTop: 8,
   padding: 12,
   borderRadius: 14,
-  border: "1px solid rgba(148,163,184,0.22)",
-  background: "rgba(2,6,23,0.9)",
-  color: "#94a3b8",
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  color: "#475569",
   overflowX: "auto",
   whiteSpace: "pre-wrap",
   fontSize: 12,
