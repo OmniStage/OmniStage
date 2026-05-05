@@ -142,44 +142,58 @@ export default function CheckinEventoPage({
     return normalizar(c.status_checkin) === "SYNC_PENDENTE";
   }
 
-  function obterAudioContext() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return null;
+  async function obterAudioContext() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
 
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContextClass();
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContextClass();
+      }
+
+      if (audioCtxRef.current.state === "suspended") {
+        await audioCtxRef.current.resume();
+      }
+
+      return audioCtxRef.current;
+    } catch {
+      return null;
     }
-
-    if (audioCtxRef.current.state === "suspended") {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-
-    return audioCtxRef.current;
   }
 
-  function desbloquearAudio() {
-    try {
-      const ctx = obterAudioContext();
-      if (!ctx) return;
+  async function tocarBipDesbloqueio(ctx: AudioContext) {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.02);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  async function desbloquearAudio() {
+    const ctx = await obterAudioContext();
+    if (!ctx) return;
+
+    try {
+      await tocarBipDesbloqueio(ctx);
       setSomAtivo(true);
     } catch {}
   }
 
-  function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
-    try {
-      const ctx = obterAudioContext();
-      if (!ctx) return;
-      setSomAtivo(true);
+  async function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
+    const audio = await obterAudioContext();
+    if (!audio) return;
 
-      const audio: AudioContext = ctx;
-      const now = audio.currentTime;
+    try {
+      setSomAtivo(true);
+      const now = audio.currentTime + 0.01;
 
       function tone(
         freq: number,
@@ -190,37 +204,40 @@ export default function CheckinEventoPage({
       ) {
         const osc = audio.createOscillator();
         const gain = audio.createGain();
+        const start = now + delay;
+        const end = start + duration;
 
         osc.type = wave;
-        osc.frequency.setValueAtTime(freq, now + delay);
-        gain.gain.setValueAtTime(0.0001, now + delay);
-        gain.gain.exponentialRampToValueAtTime(gainValue, now + delay + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
         osc.connect(gain).connect(audio.destination);
-        osc.start(now + delay);
-        osc.stop(now + delay + duration + 0.05);
+        osc.start(start);
+        osc.stop(end + 0.05);
       }
 
       if (tipo === "ok") {
-        tone(220, 0.16, 0.24, "triangle");
-        tone(392, 0.13, 0.24, "sine", 0.07);
-        tone(659, 0.11, 0.3, "sine", 0.15);
-        tone(988, 0.08, 0.25, "triangle", 0.26);
+        tone(220, 0.22, 0.24, "triangle");
+        tone(392, 0.18, 0.24, "sine", 0.08);
+        tone(659, 0.16, 0.3, "sine", 0.16);
+        tone(988, 0.11, 0.25, "triangle", 0.29);
       }
 
       if (tipo === "tick") {
-        tone(1244, 0.08, 0.14, "triangle");
+        tone(1244, 0.16, 0.14, "triangle");
       }
 
       if (tipo === "usado") {
-        tone(260, 0.18, 0.12, "square");
-        tone(150, 0.2, 0.24, "sawtooth", 0.12);
-        tone(95, 0.16, 0.28, "square", 0.28);
+        tone(260, 0.22, 0.13, "square");
+        tone(150, 0.22, 0.25, "sawtooth", 0.13);
+        tone(95, 0.18, 0.3, "square", 0.3);
       }
 
       if (tipo === "erro") {
-        tone(800, 0.12, 0.08, "square");
-        tone(180, 0.14, 0.24, "sawtooth", 0.1);
+        tone(800, 0.16, 0.09, "square");
+        tone(180, 0.18, 0.24, "sawtooth", 0.11);
       }
     } catch {}
   }
@@ -720,7 +737,7 @@ export default function CheckinEventoPage({
     return { total, entrou, pendentes, sync };
   }, [convidados]);
 
-  const gruposRender = useMemo<GrupoRender[]>((() => {
+  const gruposRender = useMemo<GrupoRender[]>(() => {
     const q = normalizar(busca);
     const mapa = new Map<string, Convidado[]>();
 
@@ -770,7 +787,7 @@ export default function CheckinEventoPage({
         );
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }) as any, [convidados, busca, statusFiltro, tipoFiltro]);
+  }, [convidados, busca, statusFiltro, tipoFiltro]);
 
   return (
     <div className="checkin-page">
