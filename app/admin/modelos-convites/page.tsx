@@ -170,6 +170,7 @@ export default function ModelosConvitePage() {
       .order("nome");
 
     if (error) return alert("Erro ao carregar categorias: " + error.message);
+
     setCategorias(data || []);
   }
 
@@ -206,6 +207,7 @@ export default function ModelosConvitePage() {
       .order("created_at", { ascending: false });
 
     if (error) return alert("Erro ao carregar modelos: " + error.message);
+
     setTemplates(data || []);
   }
 
@@ -288,6 +290,7 @@ export default function ModelosConvitePage() {
       .eq("id", id);
 
     if (error) return alert("Erro ao alterar status: " + error.message);
+
     carregarTemplates();
   }
 
@@ -347,7 +350,10 @@ export default function ModelosConvitePage() {
 
   const pageStyle: CSSProperties = {
     ...page,
-    padding: isMobile ? "20px 14px 44px" : "32px 32px 56px",
+    width: "100%",
+    maxWidth: "100%",
+    overflowX: "hidden",
+    padding: isMobile ? "18px 14px 44px" : "32px 32px 56px",
   };
 
   const heroStyle: CSSProperties = {
@@ -385,6 +391,7 @@ export default function ModelosConvitePage() {
       : isTablet
       ? "repeat(2, minmax(0, 1fr))"
       : "repeat(3, minmax(0, 1fr))",
+    width: "100%",
   };
 
   return (
@@ -642,13 +649,13 @@ export default function ModelosConvitePage() {
                   <AutoScaledImage
                     src={t.preview_image}
                     alt={t.nome || t.name || "Preview do modelo"}
-                    maxHeight={isMobile ? 480 : 420}
+                    maxHeight={isMobile ? 360 : 420}
                   />
                 ) : t.html_template ? (
                   <AutoScaledIframe
                     html={t.html_template}
                     title={`Preview ${t.nome || t.name}`}
-                    maxHeight={isMobile ? 480 : 420}
+                    maxHeight={isMobile ? 360 : 420}
                   />
                 ) : (
                   <div style={miniEmpty}>Sem preview</div>
@@ -684,9 +691,9 @@ export default function ModelosConvitePage() {
 }
 
 const page: CSSProperties = {
-  maxWidth: 1480,
   margin: "0 auto",
   color: "#0f172a",
+  boxSizing: "border-box",
 };
 
 const hero: CSSProperties = {
@@ -754,6 +761,7 @@ const card: CSSProperties = {
   borderRadius: 22,
   padding: 22,
   boxShadow: "0 16px 42px rgba(15, 23, 42, 0.06)",
+  minWidth: 0,
 };
 
 const sectionHeader: CSSProperties = {
@@ -818,6 +826,7 @@ const field: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 7,
+  minWidth: 0,
 };
 
 const label: CSSProperties = {
@@ -836,6 +845,7 @@ const input: CSSProperties = {
   color: "#0f172a",
   outline: "none",
   fontSize: 14,
+  boxSizing: "border-box",
 };
 
 const textarea: CSSProperties = {
@@ -853,6 +863,7 @@ const textarea: CSSProperties = {
   lineHeight: 1.6,
   resize: "vertical",
   outline: "none",
+  boxSizing: "border-box",
 };
 
 const actionsBar: CSSProperties = {
@@ -971,7 +982,9 @@ const modelCard: CSSProperties = {
   padding: 18,
   boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   minWidth: 0,
+  width: "100%",
   overflow: "hidden",
+  boxSizing: "border-box",
 };
 
 const modelTop: CSSProperties = {
@@ -991,6 +1004,7 @@ const modelSlug: CSSProperties = {
   marginTop: 4,
   fontSize: 13,
   color: "#64748b",
+  wordBreak: "break-word",
 };
 
 const statusBadge: CSSProperties = {
