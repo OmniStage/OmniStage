@@ -191,9 +191,12 @@ export default function CheckinEventoPage({
     const audio = await obterAudioContext();
     if (!audio) return;
 
+    // A partir daqui o TypeScript sabe que não é null.
+    const ctx: AudioContext = audio;
+
     try {
       setSomAtivo(true);
-      const now = audio.currentTime + 0.01;
+      const now = ctx.currentTime + 0.01;
 
       function tone(
         freq: number,
@@ -202,8 +205,8 @@ export default function CheckinEventoPage({
         wave: OscillatorType,
         delay = 0
       ) {
-        const osc = audio.createOscillator();
-        const gain = audio.createGain();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         const start = now + delay;
         const end = start + duration;
 
@@ -213,7 +216,7 @@ export default function CheckinEventoPage({
         gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.025);
         gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
-        osc.connect(gain).connect(audio.destination);
+        osc.connect(gain).connect(ctx.destination);
         osc.start(start);
         osc.stop(end + 0.05);
       }
