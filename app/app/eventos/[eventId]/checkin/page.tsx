@@ -195,35 +195,43 @@ export default function CheckinEventoPage({
   }
 
   async function desbloquearAudio() {
-    const audios = [
-      ...Object.values(audioRefs.current),
-      ...audioPoolRefs.current.success,
-      ...audioPoolRefs.current.already,
-      ...audioPoolRefs.current.error,
-    ].filter(Boolean) as HTMLAudioElement[];
+    // O botão de som agora só libera o áudio, sem tocar o kit inteiro.
+    // Antes ele tentava reproduzir vários arquivos/pool ao mesmo tempo e gerava
+    // aquele efeito estranho de repetição rápida.
+    const audio =
+      audioRefs.current.success ||
+      audioPoolRefs.current.success[0] ||
+      audioRefs.current.already ||
+      audioRefs.current.error;
 
-    if (!audios.length) return;
+    if (!audio) {
+      audioUnlockedRef.current = true;
+      definirSomAtivo(true);
+      return;
+    }
 
     try {
-      await Promise.all(
-        audios.map(async (audio) => {
-          const volumeOriginal = audio.volume;
-          audio.volume = 0.01;
-          audio.currentTime = 0;
-          await audio.play();
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = volumeOriginal || 1;
-        }),
-      );
+      const volumeOriginal = audio.volume;
+      const mutedOriginal = audio.muted;
+
+      audio.muted = true;
+      audio.volume = 0;
+      audio.currentTime = 0;
+
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+
+      audio.muted = mutedOriginal;
+      audio.volume = volumeOriginal || 1;
 
       audioUnlockedRef.current = true;
       definirSomAtivo(true);
     } catch {
-      // Alguns navegadores só liberam no segundo clique real.
-      // Mantém a tela funcionando e tenta novamente no próximo botão.
+      // Mesmo se o navegador bloquear esse teste silencioso, mantemos o botão
+      // como ativo para tentar tocar no próximo check-in real do operador.
       audioUnlockedRef.current = false;
-      definirSomAtivo(false);
+      definirSomAtivo(true);
     }
   }
 
@@ -247,6 +255,8 @@ export default function CheckinEventoPage({
           audioUnlockedRef.current = true;
         })
         .catch(() => {
+          // Não desligamos o botão de som aqui. Em alguns tablets/iPhones uma
+          // tentativa pode falhar isoladamente, mas a próxima leitura pode tocar.
           audioUnlockedRef.current = false;
         });
     } catch {
@@ -1391,6 +1401,5 @@ function Metric({ label, value }: { label: string; value: number }) {
       <div className="stat-value">{value}</div>
     </div>
   );
-}
 
    
