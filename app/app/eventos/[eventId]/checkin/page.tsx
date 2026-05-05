@@ -222,6 +222,10 @@ export default function CheckinEventoPage({
   }
 
   function tocarSom(tipo: "ok" | "erro" | "usado" | "sync" | "tick") {
+    // Som só para feedback de check-in e somente quando o operador ativar.
+    // Botões de navegação/ação não disparam áudio.
+    if (!somAtivo) return;
+
     if (tipo === "ok") {
       tocarArquivo("success", 1);
       return;
@@ -474,7 +478,6 @@ export default function CheckinEventoPage({
   }
 
   async function iniciarQr() {
-    desbloquearAudio();
     if (!scannerPronto || !window.Html5Qrcode || qrAtivo) return;
 
     try {
@@ -553,7 +556,6 @@ export default function CheckinEventoPage({
   }
 
   async function trocarCamera() {
-    desbloquearAudio();
     const rodando = qrAtivo;
     if (rodando) await pararQr();
 
@@ -594,7 +596,6 @@ export default function CheckinEventoPage({
     raw: string,
     origem: "qr" | "manual" = "manual",
   ) {
-    desbloquearAudio();
 
     const token = extrairToken(raw);
     if (!token) return;
@@ -650,7 +651,6 @@ export default function CheckinEventoPage({
     convidado: Convidado,
     origem: "qr" | "manual" = "manual",
   ) {
-    desbloquearAudio();
 
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
@@ -776,7 +776,6 @@ export default function CheckinEventoPage({
   }
 
   async function liberarGrupoInteiro(membros: Convidado[]) {
-    desbloquearAudio();
     const pendentes = membros.filter((m) => !convidadoEntrou(m));
 
     if (!pendentes.length) {
@@ -848,7 +847,6 @@ export default function CheckinEventoPage({
       titulo: "Sincronização concluída",
       mensagem: "Pendências sincronizadas com o banco.",
     });
-    tocarSomSincronizado("ok", 70);
   }
 
   const resumo = useMemo(() => {
@@ -1045,7 +1043,6 @@ export default function CheckinEventoPage({
           <button
             className="btn"
             onClick={() => {
-              tocarClick();
               carregarConvidados();
             }}
           >
@@ -1055,7 +1052,6 @@ export default function CheckinEventoPage({
           <button
             className={qrAtivo ? "btn success" : "btn primary"}
             onClick={() => {
-              tocarClick();
               qrAtivo ? pararQr() : iniciarQr();
             }}
           >
@@ -1065,7 +1061,6 @@ export default function CheckinEventoPage({
           <button
             className="btn"
             onClick={() => {
-              tocarClick();
               trocarCamera();
             }}
           >
@@ -1075,7 +1070,6 @@ export default function CheckinEventoPage({
           <button
             className="btn"
             onClick={() => {
-              tocarClick();
               sincronizarPendentes();
             }}
           >
@@ -1084,7 +1078,14 @@ export default function CheckinEventoPage({
 
           <button
             className={somAtivo ? "btn success" : "btn"}
-            onClick={desbloquearAudio}
+            onClick={() => {
+              if (somAtivo) {
+                setSomAtivo(false);
+                return;
+              }
+
+              desbloquearAudio();
+            }}
           >
             {somAtivo ? "Som ativo" : "Ativar som"}
           </button>
@@ -1121,7 +1122,7 @@ export default function CheckinEventoPage({
                 : "Carregando leitor de QR code..."}
             <br />
             Status: {online ? "Online" : "Offline"} • Som:{" "}
-            {somAtivo ? "Ativo" : "Clique em Ativar som"}
+            {somAtivo ? "Ativo" : "Desativado"}
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -1129,7 +1130,6 @@ export default function CheckinEventoPage({
               className="input"
               placeholder="Leitor físico / token + Enter"
               autoComplete="off"
-              onFocus={desbloquearAudio}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   const input = e.target as HTMLInputElement;
@@ -1167,7 +1167,6 @@ export default function CheckinEventoPage({
             <input
               className="input"
               value={busca}
-              onFocus={desbloquearAudio}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar por nome, grupo, telefone, email ou token"
             />
@@ -1324,4 +1323,3 @@ function Metric({ label, value }: { label: string; value: number }) {
       <div className="stat-value">{value}</div>
     </div>
   );
-}
