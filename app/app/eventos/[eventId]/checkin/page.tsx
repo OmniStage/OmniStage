@@ -72,11 +72,16 @@ export default function CheckinEventoPage({
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [flash, setFlash] = useState<Resultado["tipo"] | null>(null);
   const [overlay, setOverlay] = useState<Resultado | null>(null);
-  const [cardsPiscando, setCardsPiscando] = useState<Record<string, number>>(
+  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>(
     {},
   );
   const [somAtivo, setSomAtivo] = useState(false);
   const somAtivoRef = useRef(false);
+
+  function definirSomAtivo(ativo: boolean) {
+    somAtivoRef.current = ativo;
+    setSomAtivo(ativo);
+  }
 
   const [resultado, setResultado] = useState<Resultado>({
     tipo: "idle",
@@ -100,11 +105,6 @@ export default function CheckinEventoPage({
   });
   const audioUnlockedRef = useRef(false);
   const [efeitoId, setEfeitoId] = useState(0);
-
-  function definirSomAtivo(ativo: boolean) {
-    somAtivoRef.current = ativo;
-    setSomAtivo(ativo);
-  }
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
 
@@ -202,7 +202,10 @@ export default function CheckinEventoPage({
     }
   }
 
-  function tocarArquivo(tipo: "success" | "already" | "error", volume = 1) {
+  function tocarArquivo(
+    tipo: "success" | "already" | "error",
+    volume = 1,
+  ) {
     const baseAudio = audioRefs.current[tipo];
     if (!baseAudio) return;
 
@@ -290,10 +293,8 @@ export default function CheckinEventoPage({
   }
 
   function piscarCard(id: string) {
-    // Timestamp único: força o React a remontar o efeito visual sempre,
-    // inclusive em cards individuais e em check-ins repetidos muito rápidos.
-    const efeito = Date.now() + Math.random();
-
+    // Remove e reaplica a classe para a animação reiniciar SEMPRE,
+    // inclusive quando o mesmo cartão recebe outro feedback rapidamente.
     setCardsPiscando((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -302,18 +303,17 @@ export default function CheckinEventoPage({
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setCardsPiscando((prev) => ({ ...prev, [id]: efeito }));
+        setCardsPiscando((prev) => ({ ...prev, [id]: true }));
       });
     });
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       setCardsPiscando((prev) => {
-        if (prev[id] !== efeito) return prev;
         const next = { ...prev };
         delete next[id];
         return next;
       });
-    }, 1300);
+    }, 1100);
   }
 
   function lerPendentes(): Record<
@@ -515,21 +515,15 @@ export default function CheckinEventoPage({
       await qr.start(
         configCamera,
         {
-          // Leitura mais estável em celular/tablet e em QR exibido em tela.
-          // Área maior ajuda quando há reflexo; FPS menor reduz leituras tremidas.
-          fps: 10,
+          fps: 14,
           rememberLastUsedCamera: false,
           disableFlip: false,
-          aspectRatio: 1,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true,
-          },
           qrbox: (w: number, h: number) => {
             const base = Math.min(w || 320, h || 320);
             const tela = window.innerWidth || 360;
-            const factor = tela <= 768 ? 0.88 : tela <= 1180 ? 0.84 : 0.78;
+            const factor = tela <= 768 ? 0.76 : tela <= 1180 ? 0.78 : 0.72;
             const size = Math.floor(
-              Math.max(260, Math.min(base * factor, 560)),
+              Math.max(240, Math.min(base * factor, 520)),
             );
             return { width: size, height: size };
           },
@@ -608,6 +602,7 @@ export default function CheckinEventoPage({
     raw: string,
     origem: "qr" | "manual" = "manual",
   ) {
+
     const token = extrairToken(raw);
     if (!token) return;
     if (leituraDuplicada(token)) return;
@@ -662,6 +657,7 @@ export default function CheckinEventoPage({
     convidado: Convidado,
     origem: "qr" | "manual" = "manual",
   ) {
+
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
       feedbackSincronizado(
@@ -775,8 +771,7 @@ export default function CheckinEventoPage({
       convidado.id,
       {
         tipo: "ok",
-        titulo:
-          origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
+        titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
         nome: convidado.nome,
         mensagem: "Check-in registrado com sucesso.",
         token: convidado.token,
@@ -972,8 +967,6 @@ export default function CheckinEventoPage({
         .control-row { display:grid; grid-template-columns:1fr 170px 210px; gap:10px; margin-bottom:14px; }
         .guest-list { display:grid; gap:14px; max-height:74vh; overflow:auto; padding-right:4px; }
         .group-card { border:1px solid var(--line); border-radius:26px; padding:16px; background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(248,250,252,.9)); box-shadow:0 12px 34px rgba(15,23,42,.045); }
-        .group-card.group-flash { animation:groupFlash 1.15s ease; box-shadow:0 0 0 2px rgba(34,197,94,.28),0 18px 48px rgba(34,197,94,.18); }
-        @keyframes groupFlash { 0%{transform:scale(.995)} 35%{transform:scale(1.008)} 100%{transform:scale(1)} }
         .group-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
         .group-title { font-size:20px; font-weight:950; letter-spacing:-.03em; }
         .group-sub { color:var(--muted); font-weight:800; margin-top:6px; line-height:1.35; }
@@ -983,8 +976,8 @@ export default function CheckinEventoPage({
         .guest-card:hover { transform:translateY(-1px); box-shadow:0 12px 34px rgba(15,23,42,.07); }
         .guest-card.entered { background:rgba(240,253,244,.86); border-color:rgba(22,163,74,.24); }
         .guest-card.sync { background:rgba(255,251,235,.9); border-color:rgba(217,119,6,.28); }
-        .guest-card.led-flash { animation:ledFlash 1.18s ease; box-shadow:0 0 0 3px rgba(34,197,94,.55),0 0 42px rgba(34,197,94,.52),inset 0 0 32px rgba(34,197,94,.16); border-color:rgba(34,197,94,.62)!important; }
-        @keyframes ledFlash { 0%{transform:scale(.985);filter:brightness(1)} 18%{transform:scale(1.018);filter:brightness(1.26)} 45%{transform:scale(1.008);filter:brightness(1.16)} 100%{transform:scale(1);filter:brightness(1)} }
+        .guest-card.led-flash { animation:ledFlash 1.05s ease; box-shadow:0 0 0 2px rgba(34,197,94,.45),0 0 34px rgba(34,197,94,.45),inset 0 0 28px rgba(34,197,94,.12); }
+        @keyframes ledFlash { 0%{transform:scale(.99);filter:brightness(1)} 35%{transform:scale(1.015);filter:brightness(1.2)} 100%{transform:scale(1);filter:brightness(1)} }
         .guest-name { font-size:18px; font-weight:950; letter-spacing:-.02em; }
         .guest-sub { margin-top:4px; color:var(--muted); font-size:13px; font-weight:750; }
         .token { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#64748b; }
@@ -1218,10 +1211,7 @@ export default function CheckinEventoPage({
                 const algumSync = grupo.membros.some(convidadoSync);
 
                 return (
-                  <div
-                    key={grupo.key}
-                    className={`group-card ${grupo.membros.some((m) => cardsPiscando[m.id]) ? "group-flash" : ""}`}
-                  >
+                  <div key={grupo.key} className="group-card">
                     <div className="group-head">
                       <div>
                         <div className="group-title">
@@ -1272,7 +1262,7 @@ export default function CheckinEventoPage({
                         const sync = convidadoSync(c);
                         return (
                           <div
-                            key={`${c.id}-${cardsPiscando[c.id] || 0}`}
+                            key={c.id}
                             className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? "led-flash" : ""}`}
                           >
                             <div>
