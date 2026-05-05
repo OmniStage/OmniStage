@@ -1,17 +1,70 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Evento = {
   id: string;
   nome: string | null;
   status: string | null;
+  tenant_id: string | null;
 };
 
-export default async function CheckinPage() {
-  const { data: eventos, error } = await supabase
-    .from("eventos")
-    .select("id, nome, status")
-    .order("created_at", { ascending: false });
+export default function CheckinPage() {
+  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    carregarEventosDoCliente();
+  }, []);
+
+  async function carregarEventosDoCliente() {
+    setLoading(true);
+    setErro(null);
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+
+    if (authError || !userId) {
+      setErro("Login não encontrado. Saia e entre novamente.");
+      setEventos([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: member, error: memberError } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .eq("status", "ativo")
+      .limit(1)
+      .maybeSingle();
+
+    if (memberError || !member?.tenant_id) {
+      setErro("Seu usuário ainda não está vinculado a uma empresa ativa.");
+      setEventos([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("eventos")
+      .select("id, nome, status, tenant_id")
+      .eq("tenant_id", member.tenant_id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setErro(`Erro ao carregar eventos: ${error.message}`);
+      setEventos([]);
+      setLoading(false);
+      return;
+    }
+
+    setEventos((data || []) as Evento[]);
+    setLoading(false);
+  }
 
   return (
     <div>
@@ -47,11 +100,11 @@ export default async function CheckinPage() {
             fontSize: 16,
           }}
         >
-          Selecione o evento para abrir a portaria e iniciar o check-in.
+          Selecione apenas eventos vinculados à empresa do usuário logado.
         </p>
       </div>
 
-      {error && (
+      {erro && (
         <div
           style={{
             padding: 20,
@@ -63,11 +116,11 @@ export default async function CheckinPage() {
             fontWeight: 800,
           }}
         >
-          Erro ao carregar eventos: {error.message}
+          {erro}
         </div>
       )}
 
-      {!error && !eventos?.length && (
+      {loading && !erro && (
         <div
           style={{
             padding: 20,
@@ -78,12 +131,27 @@ export default async function CheckinPage() {
             fontWeight: 750,
           }}
         >
-          Nenhum evento encontrado.
+          Carregando eventos...
+        </div>
+      )}
+
+      {!loading && !erro && !eventos.length && (
+        <div
+          style={{
+            padding: 20,
+            border: "1px solid var(--line)",
+            borderRadius: 16,
+            background: "var(--card)",
+            color: "var(--muted)",
+            fontWeight: 750,
+          }}
+        >
+          Nenhum evento encontrado para este cliente.
         </div>
       )}
 
       <div style={{ display: "grid", gap: 16 }}>
-        {eventos?.map((evento: Evento) => (
+        {eventos.map((evento) => (
           <Link
             key={evento.id}
             href={`/app/eventos/${evento.id}/checkin`}
