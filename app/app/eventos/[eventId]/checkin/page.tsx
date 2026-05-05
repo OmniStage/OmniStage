@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 declare global {
@@ -1068,19 +1068,7 @@ export default function CheckinEventoPage({
   const usarModoEscuro = modoNoturnoAuto && modoNoturno;
 
   return (
-    <div
-      className={`checkin-page ${usarModoEscuro ? "dark-mode" : ""}`}
-      style={
-        usarTemaEvento && backgroundEvento
-          ? ({
-              backgroundImage: `linear-gradient(120deg, rgba(248,250,252,.94), rgba(248,250,252,.88)), url(${backgroundEvento})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundAttachment: "fixed",
-            } as CSSProperties)
-          : undefined
-      }
-    >
+    <div className={`checkin-page ${usarModoEscuro ? "dark-mode" : ""}`}>
       <style>{`
         .checkin-page { --purple:#6d28d9; --purple2:#8b5cf6; --green:#16a34a; --red:#e11d48; --amber:#d97706; --text:#0f172a; --muted:#64748b; --card:rgba(255,255,255,.88); --line:#dbe3ef; min-height:100vh; padding:28px; color:var(--text); background-color:#f5f8fc; }
         .checkin-page.dark-mode { --text:#f8fafc; --muted:#cbd5e1; --card:rgba(15,23,42,.82); --line:rgba(148,163,184,.26); background-color:#07111f; }
@@ -1091,8 +1079,8 @@ export default function CheckinEventoPage({
         .title { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
         .subtitle { margin:14px 0 0; color:var(--muted); font-size:17px; font-weight:650; }
         .hero-brand { display:flex; align-items:center; gap:18px; min-width:0; }
-        .event-logo { width:76px; height:76px; border-radius:22px; object-fit:cover; border:1px solid var(--line); box-shadow:0 16px 36px rgba(15,23,42,.14); background:white; }
-        .event-logo-fallback { width:76px; height:76px; border-radius:22px; display:grid; place-items:center; background:linear-gradient(135deg,var(--purple),var(--purple2)); color:white; font-size:22px; font-weight:950; box-shadow:0 16px 36px rgba(109,40,217,.2); }
+        .hero-event-title { min-width:0; }
+        .event-logo-title { display:block; width:min(460px, 100%); max-height:110px; object-fit:contain; object-position:left center; border-radius:16px; }
         .saas-toggles { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px; }
         .mini-toggle { border:1px solid var(--line); border-radius:999px; padding:9px 12px; background:rgba(255,255,255,.7); color:var(--text); font-weight:900; font-size:12px; cursor:pointer; }
         .mini-toggle.active { background:#dcfce7; border-color:#bbf7d0; color:#166534; }
@@ -1190,7 +1178,7 @@ export default function CheckinEventoPage({
         @keyframes premiumPop { to{transform:scale(1) translateY(0)} }
         @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
         @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr 170px} }
-        @media (max-width:640px){ .checkin-page{padding:16px}.hero-brand{align-items:flex-start}.event-logo,.event-logo-fallback{width:58px;height:58px;border-radius:18px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
+        @media (max-width:640px){ .checkin-page{padding:16px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:82px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
 
       {flash && flash !== "idle" && <div className={`flash ${flash}`} />}
@@ -1214,17 +1202,32 @@ export default function CheckinEventoPage({
         </div>
       )}
 
-      <header className="checkin-hero">
+      <header
+        className="checkin-hero"
+        style={
+          usarTemaEvento && backgroundEvento
+            ? {
+                backgroundImage: `linear-gradient(120deg, rgba(255,255,255,.88), rgba(255,255,255,.94)), url(${backgroundEvento})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         <div className="hero-brand">
-          {logoEvento ? (
-            <img className="event-logo" src={logoEvento} alt="Logo do evento" />
-          ) : (
-            <div className="event-logo-fallback">OS</div>
-          )}
-
-          <div>
+          <div className="hero-event-title">
             <div className="eyebrow">OmniStage Check-in</div>
-            <h1 className="title">{evento?.nome || "Portaria do evento"}</h1>
+
+            {logoEvento ? (
+              <img
+                className="event-logo-title"
+                src={logoEvento}
+                alt={evento?.nome || "Logo do evento"}
+              />
+            ) : (
+              <h1 className="title">{evento?.nome || "Portaria do evento"}</h1>
+            )}
+
             <p className="subtitle">
               QR code, leitor físico, grupos, busca manual e controle híbrido de
               entrada.
