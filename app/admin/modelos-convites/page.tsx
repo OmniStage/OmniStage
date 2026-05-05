@@ -39,10 +39,13 @@ function AutoScaledIframe({
     if (!container) return;
 
     function resize() {
-      const availableWidth = container.clientWidth;
-      const nextScale = Math.min(availableWidth / baseWidth, 1);
-      setScale(nextScale);
-    }
+  if (!container) return;
+
+  const availableWidth = container.clientWidth;
+  const nextScale = Math.min(availableWidth / baseWidth, 1);
+
+  setScale(nextScale);
+}
 
     resize();
 
