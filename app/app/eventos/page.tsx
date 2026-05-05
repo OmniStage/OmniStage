@@ -148,7 +148,6 @@ export default function AppEventosPage() {
       nome: evento.nome || "",
       data_evento: evento.data_evento || "",
       local: evento.local || "",
-      cidade: evento.cidade || "",
 
       data_inicio: evento.data_inicio || evento.data_evento || "",
       hora_inicio: limparHora(evento.hora_inicio),
@@ -218,7 +217,9 @@ export default function AppEventosPage() {
     }
 
     const lista = ((data || []) as TenantMember[])
-      .map((item) => (Array.isArray(item.tenants) ? item.tenants[0] : item.tenants))
+      .map((item) =>
+        Array.isArray(item.tenants) ? item.tenants[0] : item.tenants
+      )
       .filter(Boolean) as Tenant[];
 
     setTenants(lista);
@@ -1067,7 +1068,10 @@ export default function AppEventosPage() {
             + Criar evento
           </button>
 
-          <button onClick={() => tenantId && carregarEventos(tenantId)} className="secondary">
+          <button
+            onClick={() => tenantId && carregarEventos(tenantId)}
+            className="secondary"
+          >
             {loading ? "Carregando..." : "Atualizar"}
           </button>
         </div>
@@ -1124,8 +1128,11 @@ export default function AppEventosPage() {
                 </div>
 
                 <div className="small-line">
-                  Local: <strong>{evento.nome_local || evento.local || "Não informado"}</strong> · Cidade:{" "}
-                  <strong>{evento.cidade || "Não informada"}</strong>
+                  Local:{" "}
+                  <strong>
+                    {evento.nome_local || evento.local || "Não informado"}
+                  </strong>{" "}
+                  · Cidade: <strong>{evento.cidade || "Não informada"}</strong>
                 </div>
               </div>
 
@@ -1162,33 +1169,56 @@ export default function AppEventosPage() {
                     {modo === "criar" ? "Criar evento" : "Alterar evento"}
                   </h2>
                   <p className="drawer-sub">
-                    Centralize todos os dados do evento aqui. Depois o convite digital usará essas informações.
+                    Centralize todos os dados do evento aqui. Depois o convite
+                    digital usará essas informações.
                   </p>
                 </div>
 
-                <button className="ghost" onClick={() => setDrawerOpen(false)} aria-label="Fechar">
+                <button
+                  className="ghost"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-label="Fechar"
+                >
                   ×
                 </button>
               </div>
             </div>
 
             <div className="tabs">
-              <button onClick={() => setTab("dados")} className={tab === "dados" ? "active" : ""}>
+              <button
+                onClick={() => setTab("dados")}
+                className={tab === "dados" ? "active" : ""}
+              >
                 Dados
               </button>
-              <button onClick={() => setTab("data")} className={tab === "data" ? "active" : ""}>
+              <button
+                onClick={() => setTab("data")}
+                className={tab === "data" ? "active" : ""}
+              >
                 Data
               </button>
-              <button onClick={() => setTab("local")} className={tab === "local" ? "active" : ""}>
+              <button
+                onClick={() => setTab("local")}
+                className={tab === "local" ? "active" : ""}
+              >
                 Local
               </button>
-              <button onClick={() => setTab("programacao")} className={tab === "programacao" ? "active" : ""}>
+              <button
+                onClick={() => setTab("programacao")}
+                className={tab === "programacao" ? "active" : ""}
+              >
                 Programação
               </button>
-              <button onClick={() => setTab("identidade")} className={tab === "identidade" ? "active" : ""}>
+              <button
+                onClick={() => setTab("identidade")}
+                className={tab === "identidade" ? "active" : ""}
+              >
                 Identidade
               </button>
-              <button onClick={() => setTab("convite")} className={tab === "convite" ? "active" : ""}>
+              <button
+                onClick={() => setTab("convite")}
+                className={tab === "convite" ? "active" : ""}
+              >
                 Convite
               </button>
             </div>
@@ -1201,7 +1231,9 @@ export default function AppEventosPage() {
                       <div className="field-label">Nome do evento</div>
                       <input
                         value={form.nome}
-                        onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, nome: e.target.value }))
+                        }
                         placeholder="Ex: Valentina XV"
                         className="input"
                       />
@@ -1211,7 +1243,9 @@ export default function AppEventosPage() {
                       <div className="field-label">Tipo de local</div>
                       <select
                         value={form.tipo_local}
-                        onChange={(e) => setForm((f) => ({ ...f, tipo_local: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, tipo_local: e.target.value }))
+                        }
                         className="select"
                       >
                         <option value="novo">Novo local</option>
@@ -1226,7 +1260,12 @@ export default function AppEventosPage() {
                         <input
                           type="color"
                           value={form.cor_primaria}
-                          onChange={(e) => setForm((f) => ({ ...f, cor_primaria: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              cor_primaria: e.target.value,
+                            }))
+                          }
                           className="input"
                         />
                       </label>
@@ -1236,7 +1275,12 @@ export default function AppEventosPage() {
                         <input
                           type="color"
                           value={form.cor_secundaria}
-                          onChange={(e) => setForm((f) => ({ ...f, cor_secundaria: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              cor_secundaria: e.target.value,
+                            }))
+                          }
                           className="input"
                         />
                       </label>
@@ -1251,7 +1295,9 @@ export default function AppEventosPage() {
                       <input
                         type="date"
                         value={form.data_inicio}
-                        onChange={(e) => setForm((f) => ({ ...f, data_inicio: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, data_inicio: e.target.value }))
+                        }
                         className="input"
                       />
                     </label>
@@ -1261,7 +1307,9 @@ export default function AppEventosPage() {
                       <input
                         type="time"
                         value={form.hora_inicio}
-                        onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, hora_inicio: e.target.value }))
+                        }
                         className="input"
                       />
                     </label>
@@ -1271,7 +1319,12 @@ export default function AppEventosPage() {
                       <input
                         type="date"
                         value={form.data_termino}
-                        onChange={(e) => setForm((f) => ({ ...f, data_termino: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            data_termino: e.target.value,
+                          }))
+                        }
                         className="input"
                       />
                     </label>
@@ -1281,7 +1334,12 @@ export default function AppEventosPage() {
                       <input
                         type="time"
                         value={form.hora_termino}
-                        onChange={(e) => setForm((f) => ({ ...f, hora_termino: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            hora_termino: e.target.value,
+                          }))
+                        }
                         className="input"
                       />
                     </label>
@@ -1294,7 +1352,9 @@ export default function AppEventosPage() {
                       <div className="field-label">Nome do local</div>
                       <input
                         value={form.nome_local}
-                        onChange={(e) => setForm((f) => ({ ...f, nome_local: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, nome_local: e.target.value }))
+                        }
                         placeholder="Ex: Guerrah Hall"
                         className="input"
                       />
@@ -1305,7 +1365,9 @@ export default function AppEventosPage() {
                         <div className="field-label">CEP</div>
                         <input
                           value={form.cep}
-                          onChange={(e) => setForm((f) => ({ ...f, cep: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, cep: e.target.value }))
+                          }
                           placeholder="Ex: 27900-000"
                           className="input"
                         />
@@ -1315,7 +1377,9 @@ export default function AppEventosPage() {
                         <div className="field-label">Estado</div>
                         <input
                           value={form.estado}
-                          onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, estado: e.target.value }))
+                          }
                           placeholder="RJ"
                           className="input"
                         />
@@ -1326,7 +1390,9 @@ export default function AppEventosPage() {
                       <div className="field-label">Rua</div>
                       <input
                         value={form.rua}
-                        onChange={(e) => setForm((f) => ({ ...f, rua: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, rua: e.target.value }))
+                        }
                         placeholder="Rua / Avenida"
                         className="input"
                       />
@@ -1337,7 +1403,9 @@ export default function AppEventosPage() {
                         <div className="field-label">Número</div>
                         <input
                           value={form.numero}
-                          onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, numero: e.target.value }))
+                          }
                           placeholder="Número"
                           className="input"
                         />
@@ -1347,7 +1415,12 @@ export default function AppEventosPage() {
                         <div className="field-label">Complemento</div>
                         <input
                           value={form.complemento}
-                          onChange={(e) => setForm((f) => ({ ...f, complemento: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              complemento: e.target.value,
+                            }))
+                          }
                           placeholder="Complemento"
                           className="input"
                         />
@@ -1359,7 +1432,9 @@ export default function AppEventosPage() {
                         <div className="field-label">Bairro</div>
                         <input
                           value={form.bairro}
-                          onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, bairro: e.target.value }))
+                          }
                           placeholder="Bairro"
                           className="input"
                         />
@@ -1369,7 +1444,9 @@ export default function AppEventosPage() {
                         <div className="field-label">Cidade</div>
                         <input
                           value={form.cidade}
-                          onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, cidade: e.target.value }))
+                          }
                           placeholder="Cidade"
                           className="input"
                         />
@@ -1380,7 +1457,12 @@ export default function AppEventosPage() {
                       <input
                         type="checkbox"
                         checked={form.mostrar_mapa}
-                        onChange={(e) => setForm((f) => ({ ...f, mostrar_mapa: e.target.checked }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            mostrar_mapa: e.target.checked,
+                          }))
+                        }
                       />
                       Mostrar mapa no convite
                     </label>
@@ -1389,7 +1471,9 @@ export default function AppEventosPage() {
                       <div className="field-label">URL do mapa</div>
                       <input
                         value={form.mapa_url}
-                        onChange={(e) => setForm((f) => ({ ...f, mapa_url: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, mapa_url: e.target.value }))
+                        }
                         placeholder="Link do Google Maps"
                         className="input"
                       />
@@ -1401,7 +1485,8 @@ export default function AppEventosPage() {
                   <>
                     {form.programacao.length === 0 && (
                       <div className="empty">
-                        Nenhum horário cadastrado. Adicione a programação do evento.
+                        Nenhum horário cadastrado. Adicione a programação do
+                        evento.
                       </div>
                     )}
 
@@ -1413,7 +1498,13 @@ export default function AppEventosPage() {
                             <input
                               type="time"
                               value={item.hora}
-                              onChange={(e) => atualizarProgramacao(index, "hora", e.target.value)}
+                              onChange={(e) =>
+                                atualizarProgramacao(
+                                  index,
+                                  "hora",
+                                  e.target.value
+                                )
+                              }
                               className="input"
                             />
                           </label>
@@ -1422,7 +1513,13 @@ export default function AppEventosPage() {
                             <div className="field-label">Título</div>
                             <input
                               value={item.titulo}
-                              onChange={(e) => atualizarProgramacao(index, "titulo", e.target.value)}
+                              onChange={(e) =>
+                                atualizarProgramacao(
+                                  index,
+                                  "titulo",
+                                  e.target.value
+                                )
+                              }
                               placeholder="Ex: Recepção"
                               className="input"
                             />
@@ -1433,13 +1530,22 @@ export default function AppEventosPage() {
                           <div className="field-label">Descrição</div>
                           <input
                             value={item.descricao}
-                            onChange={(e) => atualizarProgramacao(index, "descricao", e.target.value)}
+                            onChange={(e) =>
+                              atualizarProgramacao(
+                                index,
+                                "descricao",
+                                e.target.value
+                              )
+                            }
                             placeholder="Detalhe da programação"
                             className="input"
                           />
                         </label>
 
-                        <button className="danger" onClick={() => removerProgramacao(index)}>
+                        <button
+                          className="danger"
+                          onClick={() => removerProgramacao(index)}
+                        >
                           Remover horário
                         </button>
                       </div>
@@ -1482,7 +1588,12 @@ export default function AppEventosPage() {
                       <div className="field-label">Texto principal do convite</div>
                       <textarea
                         value={form.texto_convite}
-                        onChange={(e) => setForm((f) => ({ ...f, texto_convite: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            texto_convite: e.target.value,
+                          }))
+                        }
                         placeholder="Ex: Com alegria convidamos você para celebrar este momento especial..."
                         className="textarea"
                       />
@@ -1492,14 +1603,20 @@ export default function AppEventosPage() {
                       <div className="field-label">Observações do convite</div>
                       <textarea
                         value={form.observacoes_convite}
-                        onChange={(e) => setForm((f) => ({ ...f, observacoes_convite: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            observacoes_convite: e.target.value,
+                          }))
+                        }
                         placeholder="Ex: Traje, estacionamento, confirmação, informações extras..."
                         className="textarea"
                       />
                     </label>
 
                     <div className="helper-card">
-                      Esses dados serão usados depois na aba Convite Digital para montar o preview e preencher o convite automaticamente.
+                      Esses dados serão usados depois na aba Convite Digital para
+                      montar o preview e preencher o convite automaticamente.
                     </div>
                   </>
                 )}
@@ -1511,7 +1628,11 @@ export default function AppEventosPage() {
                 Cancelar
               </button>
 
-              <button onClick={salvarEvento} disabled={salvando || !tenantId} className="primary">
+              <button
+                onClick={salvarEvento}
+                disabled={salvando || !tenantId}
+                className="primary"
+              >
                 {salvando
                   ? "Salvando..."
                   : modo === "criar"
