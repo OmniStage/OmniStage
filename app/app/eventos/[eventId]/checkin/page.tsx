@@ -629,17 +629,20 @@ export default function CheckinEventoPage({
     try {
       const ctx = obterAudioContext();
       if (!ctx) return;
-      const now = ctx.currentTime;
+
+      // Garante para o TypeScript que o contexto não é nulo dentro da função tone.
+      const audio: AudioContext = ctx;
+      const now = audio.currentTime;
 
       function tone(freq: number, gainValue: number, duration: number, wave: OscillatorType, delay = 0) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
         osc.type = wave;
         osc.frequency.setValueAtTime(freq, now + delay);
         gain.gain.setValueAtTime(0.0001, now + delay);
         gain.gain.exponentialRampToValueAtTime(gainValue, now + delay + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
-        osc.connect(gain).connect(ctx.destination);
+        osc.connect(gain).connect(audio.destination);
         osc.start(now + delay);
         osc.stop(now + delay + duration + 0.05);
       }
