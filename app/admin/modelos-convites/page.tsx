@@ -3,7 +3,130 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 
+function useViewportWidth() {
+  const [width, setWidth] = useState(1440);
+
+  useEffect(() => {
+    function update() {
+      setWidth(window.innerWidth);
+    }
+
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  return width;
+}
+
+function AutoScaledIframe({
+  html,
+  title = "Preview",
+  baseWidth = 430,
+  baseHeight = 920,
+  maxHeight = 420,
+}: {
+  html: string;
+  title?: string;
+  baseWidth?: number;
+  baseHeight?: number;
+  maxHeight?: number;
+}) {
+  const [scale, setScale] = useState(1);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!container) return;
+
+    function resize() {
+      const availableWidth = container.clientWidth;
+      const nextScale = Math.min(availableWidth / baseWidth, 1);
+      setScale(nextScale);
+    }
+
+    resize();
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [container, baseWidth]);
+
+  return (
+    <div
+      ref={setContainer}
+      style={{
+        width: "100%",
+        height: maxHeight,
+        overflow: "hidden",
+        borderRadius: 18,
+        border: "1px solid #dbe3ef",
+        background: "#020617",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+      }}
+    >
+      <iframe
+        title={title}
+        srcDoc={html}
+        style={{
+          width: baseWidth,
+          height: baseHeight,
+          border: "none",
+          background: "#020617",
+          transform: `scale(${scale})`,
+          transformOrigin: "top center",
+          flexShrink: 0,
+        }}
+      />
+    </div>
+  );
+}
+
+function AutoScaledImage({
+  src,
+  alt,
+  maxHeight = 420,
+}: {
+  src: string;
+  alt: string;
+  maxHeight?: number;
+}) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: maxHeight,
+        overflow: "hidden",
+        borderRadius: 18,
+        border: "1px solid #dbe3ef",
+        background: "#020617",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          display: "block",
+        }}
+      />
+    </div>
+  );
+}
+
 export default function ModelosConvitePage() {
+  const viewport = useViewportWidth();
+
+  const isMobile = viewport < 760;
+  const isTablet = viewport >= 760 && viewport < 1100;
+
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
@@ -194,16 +317,23 @@ export default function ModelosConvitePage() {
       .eq("invite_template_id", id)
       .limit(1);
 
-    if (usoError) return alert("Erro ao verificar uso do modelo: " + usoError.message);
+    if (usoError) {
+      return alert("Erro ao verificar uso do modelo: " + usoError.message);
+    }
 
     if (eventosUsando && eventosUsando.length > 0) {
-      alert("Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua.");
+      alert(
+        "Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua."
+      );
       return;
     }
 
     if (!confirm("Tem certeza que deseja excluir este modelo?")) return;
 
-    const { error } = await supabase.from("invite_templates").delete().eq("id", id);
+    const { error } = await supabase
+      .from("invite_templates")
+      .delete()
+      .eq("id", id);
 
     if (error) return alert("Erro ao excluir: " + error.message);
 
@@ -215,14 +345,59 @@ export default function ModelosConvitePage() {
     carregarTemplates();
   }, []);
 
+  const pageStyle: CSSProperties = {
+    ...page,
+    padding: isMobile ? "20px 14px 44px" : "32px 32px 56px",
+  };
+
+  const heroStyle: CSSProperties = {
+    ...hero,
+    flexDirection: isMobile ? "column" : "row",
+    alignItems: isMobile ? "flex-start" : "center",
+  };
+
+  const statsGridStyle: CSSProperties = {
+    ...statsGrid,
+    gridTemplateColumns: isMobile
+      ? "repeat(2, minmax(0, 1fr))"
+      : "repeat(4, minmax(0, 1fr))",
+  };
+
+  const categoryRowStyle: CSSProperties = {
+    ...categoryRow,
+    gridTemplateColumns: isMobile ? "1fr" : "1fr auto",
+  };
+
+  const editorGridStyle: CSSProperties = {
+    ...editorGrid,
+    gridTemplateColumns: isMobile || isTablet ? "1fr" : "1fr 500px",
+  };
+
+  const formGridStyle: CSSProperties = {
+    ...formGrid,
+    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+  };
+
+  const modelsGridStyle: CSSProperties = {
+    ...modelsGrid,
+    gridTemplateColumns: isMobile
+      ? "1fr"
+      : isTablet
+      ? "repeat(2, minmax(0, 1fr))"
+      : "repeat(3, minmax(0, 1fr))",
+  };
+
   return (
-    <main style={page}>
-      <section style={hero}>
+    <main style={pageStyle}>
+      <section style={heroStyle}>
         <div>
           <div style={eyebrow}>Admin OmniStage</div>
-          <h1 style={h1}>Modelos de Convite</h1>
+          <h1 style={{ ...h1, fontSize: isMobile ? 32 : 40 }}>
+            Modelos de Convite
+          </h1>
           <p style={subtitle}>
-            Crie, edite e organize templates HTML reutilizáveis para eventos e clientes.
+            Crie, edite e organize templates HTML reutilizáveis para eventos e
+            clientes.
           </p>
         </div>
 
@@ -231,11 +406,26 @@ export default function ModelosConvitePage() {
         </button>
       </section>
 
-      <section style={statsGrid}>
-        <div style={statCard}><span style={statLabel}>Total</span><strong style={statValue}>{totalModelos}</strong></div>
-        <div style={statCard}><span style={statLabel}>Ativos</span><strong style={statValue}>{modelosAtivos}</strong></div>
-        <div style={statCard}><span style={statLabel}>Inativos</span><strong style={statValue}>{modelosInativos}</strong></div>
-        <div style={statCard}><span style={statLabel}>Categorias</span><strong style={statValue}>{categorias.length}</strong></div>
+      <section style={statsGridStyle}>
+        <div style={statCard}>
+          <span style={statLabel}>Total</span>
+          <strong style={statValue}>{totalModelos}</strong>
+        </div>
+
+        <div style={statCard}>
+          <span style={statLabel}>Ativos</span>
+          <strong style={statValue}>{modelosAtivos}</strong>
+        </div>
+
+        <div style={statCard}>
+          <span style={statLabel}>Inativos</span>
+          <strong style={statValue}>{modelosInativos}</strong>
+        </div>
+
+        <div style={statCard}>
+          <span style={statLabel}>Categorias</span>
+          <strong style={statValue}>{categorias.length}</strong>
+        </div>
       </section>
 
       <section style={card}>
@@ -246,7 +436,7 @@ export default function ModelosConvitePage() {
           </div>
         </div>
 
-        <div style={categoryRow}>
+        <div style={categoryRowStyle}>
           <input
             placeholder="Nova categoria: 15 anos, Casamento, Infantil..."
             value={novaCategoria}
@@ -254,31 +444,42 @@ export default function ModelosConvitePage() {
             style={input}
           />
 
-          <button onClick={criarCategoria} style={btnGreen} disabled={salvandoCategoria}>
+          <button
+            onClick={criarCategoria}
+            style={btnGreen}
+            disabled={salvandoCategoria}
+          >
             {salvandoCategoria ? "Criando..." : "Criar categoria"}
           </button>
         </div>
 
         <div style={chips}>
-          {categorias.length === 0 && <span style={emptyText}>Nenhuma categoria cadastrada.</span>}
+          {categorias.length === 0 && (
+            <span style={emptyText}>Nenhuma categoria cadastrada.</span>
+          )}
+
           {categorias.map((c) => (
-            <span key={c.id} style={pill}>{c.nome}</span>
+            <span key={c.id} style={pill}>
+              {c.nome}
+            </span>
           ))}
         </div>
       </section>
 
-      <section style={editorGrid}>
+      <section style={editorGridStyle}>
         <div style={card}>
           <div style={sectionHeader}>
             <div>
               <h2 style={h2}>{editandoId ? "Editar modelo" : "Novo modelo"}</h2>
-              <p style={smallText}>Cadastre o HTML principal que será usado no convite.</p>
+              <p style={smallText}>
+                Cadastre o HTML principal que será usado no convite.
+              </p>
             </div>
 
             {editandoId && <span style={editBadge}>Editando</span>}
           </div>
 
-          <div style={formGrid}>
+          <div style={formGridStyle}>
             <label style={field}>
               <span style={label}>Nome do modelo</span>
               <input
@@ -291,10 +492,16 @@ export default function ModelosConvitePage() {
 
             <label style={field}>
               <span style={label}>Categoria</span>
-              <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={input}>
+              <select
+                value={categoriaId}
+                onChange={(e) => setCategoriaId(e.target.value)}
+                style={input}
+              >
                 <option value="">Selecione a categoria</option>
                 {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
                 ))}
               </select>
             </label>
@@ -336,14 +543,25 @@ export default function ModelosConvitePage() {
               style={btnPrimary}
               disabled={loading}
             >
-              {loading ? "Salvando..." : editandoId ? "Salvar alteração" : "Criar modelo"}
+              {loading
+                ? "Salvando..."
+                : editandoId
+                ? "Salvar alteração"
+                : "Criar modelo"}
             </button>
 
-            <button onClick={limparFormulario} style={btnGhost}>Limpar</button>
+            <button onClick={limparFormulario} style={btnGhost}>
+              Limpar
+            </button>
           </div>
         </div>
 
-        <aside style={previewCard}>
+        <aside
+          style={{
+            ...previewCard,
+            position: isMobile || isTablet ? "relative" : "sticky",
+          }}
+        >
           <div style={sectionHeader}>
             <div>
               <h2 style={h2}>Preview ao vivo</h2>
@@ -353,17 +571,23 @@ export default function ModelosConvitePage() {
 
           <div style={previewMeta}>
             <span style={previewName}>{nome || "Modelo sem nome"}</span>
-            <span style={previewCategory}>{categoriaSelecionada?.nome || "Sem categoria"}</span>
+            <span style={previewCategory}>
+              {categoriaSelecionada?.nome || "Sem categoria"}
+            </span>
           </div>
 
           {preview && !htmlTemplate ? (
-            <div style={phonePreviewShell}>
-              <img src={preview} alt="Preview do modelo" style={previewImage} />
-            </div>
+            <AutoScaledImage
+              src={preview}
+              alt="Preview do modelo"
+              maxHeight={isMobile ? 520 : 720}
+            />
           ) : htmlTemplate ? (
-            <div style={phonePreviewShell}>
-              <iframe title="Preview do modelo" srcDoc={htmlTemplate} style={iframePreview} />
-            </div>
+            <AutoScaledIframe
+              html={htmlTemplate}
+              title="Preview do modelo"
+              maxHeight={isMobile ? 560 : 720}
+            />
           ) : (
             <div style={emptyPreview}>
               <div style={emptyIcon}>✦</div>
@@ -378,12 +602,16 @@ export default function ModelosConvitePage() {
         <div style={sectionHeader}>
           <div>
             <h2 style={h2}>Modelos cadastrados</h2>
-            <p style={smallText}>Cards menores, até 3 por linha, com preview maior.</p>
+            <p style={smallText}>
+              Cards responsivos com preview automático sem cortar.
+            </p>
           </div>
         </div>
 
-        <div style={modelsGrid}>
-          {templates.length === 0 && <div style={emptyList}>Nenhum modelo cadastrado ainda.</div>}
+        <div style={modelsGridStyle}>
+          {templates.length === 0 && (
+            <div style={emptyList}>Nenhum modelo cadastrado ainda.</div>
+          )}
 
           {templates.map((t) => (
             <article key={t.id} style={modelCard}>
@@ -409,25 +637,43 @@ export default function ModelosConvitePage() {
                 <span>{t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
               </div>
 
-              {t.preview_image ? (
-                <div style={miniPhoneShell}>
-                  <img src={t.preview_image} alt={t.nome || t.name || "Preview do modelo"} style={miniImage} />
-                </div>
-              ) : t.html_template ? (
-                <div style={miniPhoneShell}>
-                  <iframe title={`Preview ${t.nome || t.name}`} srcDoc={t.html_template} style={miniFrame} />
-                </div>
-              ) : (
-                <div style={miniEmpty}>Sem preview</div>
-              )}
+              <div style={{ marginTop: 14 }}>
+                {t.preview_image ? (
+                  <AutoScaledImage
+                    src={t.preview_image}
+                    alt={t.nome || t.name || "Preview do modelo"}
+                    maxHeight={isMobile ? 480 : 420}
+                  />
+                ) : t.html_template ? (
+                  <AutoScaledIframe
+                    html={t.html_template}
+                    title={`Preview ${t.nome || t.name}`}
+                    maxHeight={isMobile ? 480 : 420}
+                  />
+                ) : (
+                  <div style={miniEmpty}>Sem preview</div>
+                )}
+              </div>
 
               <div style={modelActions}>
-                <button onClick={() => editarTemplate(t)} style={btnBlue}>Editar</button>
-                <button onClick={() => duplicarTemplate(t)} style={btnPurple}>Duplicar</button>
-                <button onClick={() => alternarStatus(t.id, t.active)} style={btnSoft}>
+                <button onClick={() => editarTemplate(t)} style={btnBlue}>
+                  Editar
+                </button>
+
+                <button onClick={() => duplicarTemplate(t)} style={btnPurple}>
+                  Duplicar
+                </button>
+
+                <button
+                  onClick={() => alternarStatus(t.id, t.active)}
+                  style={btnSoft}
+                >
                   {t.active ? "Desativar" : "Ativar"}
                 </button>
-                <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>Excluir</button>
+
+                <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>
+                  Excluir
+                </button>
               </div>
             </article>
           ))}
@@ -440,13 +686,11 @@ export default function ModelosConvitePage() {
 const page: CSSProperties = {
   maxWidth: 1480,
   margin: "0 auto",
-  padding: "32px 32px 56px",
   color: "#0f172a",
 };
 
 const hero: CSSProperties = {
   display: "flex",
-  alignItems: "center",
   justifyContent: "space-between",
   gap: 24,
   marginBottom: 20,
@@ -465,7 +709,6 @@ const eyebrow: CSSProperties = {
 
 const h1: CSSProperties = {
   margin: 0,
-  fontSize: 40,
   lineHeight: 1.05,
   letterSpacing: "-0.04em",
 };
@@ -480,7 +723,6 @@ const subtitle: CSSProperties = {
 
 const statsGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 14,
   marginBottom: 18,
 };
@@ -536,7 +778,6 @@ const smallText: CSSProperties = {
 
 const categoryRow: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr auto",
   gap: 10,
 };
 
@@ -563,7 +804,6 @@ const emptyText: CSSProperties = {
 
 const editorGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 500px",
   gap: 18,
   marginTop: 18,
   alignItems: "start",
@@ -571,7 +811,6 @@ const editorGrid: CSSProperties = {
 
 const formGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
   gap: 14,
 };
 
@@ -608,7 +847,8 @@ const textarea: CSSProperties = {
   border: "1px solid #dbe3ef",
   background: "#0b1020",
   color: "#e5e7eb",
-  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  fontFamily:
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   fontSize: 13,
   lineHeight: 1.6,
   resize: "vertical",
@@ -663,7 +903,6 @@ const editBadge: CSSProperties = {
 
 const previewCard: CSSProperties = {
   ...card,
-  position: "sticky",
   top: 20,
 };
 
@@ -690,34 +929,6 @@ const previewCategory: CSSProperties = {
   fontSize: 12,
 };
 
-const phonePreviewShell: CSSProperties = {
-  width: "430px",
-  height: 720,
-  overflow: "auto",
-  margin: "0 auto",
-  borderRadius: 26,
-  border: "1px solid #dbe3ef",
-  background: "#020617",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
-};
-
-const iframePreview: CSSProperties = {
-  width: "430px",
-  minWidth: "430px",
-  height: "900px",
-  border: "none",
-  display: "block",
-  background: "#020617",
-};
-
-const previewImage: CSSProperties = {
-  width: "100%",
-  minHeight: 720,
-  objectFit: "contain",
-  display: "block",
-  background: "#020617",
-};
-
 const emptyPreview: CSSProperties = {
   height: 560,
   display: "flex",
@@ -726,7 +937,8 @@ const emptyPreview: CSSProperties = {
   justifyContent: "center",
   gap: 8,
   color: "#94a3b8",
-  background: "radial-gradient(circle at 50% 0%, #f5f3ff 0, #ffffff 45%, #f8fafc 100%)",
+  background:
+    "radial-gradient(circle at 50% 0%, #f5f3ff 0, #ffffff 45%, #f8fafc 100%)",
   border: "1px dashed #cbd5e1",
   borderRadius: 18,
   textAlign: "center",
@@ -749,7 +961,6 @@ const modelsSection: CSSProperties = {
 
 const modelsGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: 18,
 };
 
@@ -760,6 +971,7 @@ const modelCard: CSSProperties = {
   padding: 18,
   boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   minWidth: 0,
+  overflow: "hidden",
 };
 
 const modelTop: CSSProperties = {
@@ -796,38 +1008,6 @@ const modelInfo: CSSProperties = {
   marginTop: 12,
   color: "#64748b",
   fontSize: 13,
-};
-
-const miniPhoneShell: CSSProperties = {
-  width: "100%",
-  height: 360,
-  overflow: "hidden",
-  marginTop: 14,
-  borderRadius: 18,
-  border: "1px solid #dbe3ef",
-  background: "#020617",
-  position: "relative",
-};
-
-const miniFrame: CSSProperties = {
-  width: "430px",
-  minWidth: "430px",
-  height: "900px",
-  border: "none",
-  display: "block",
-  background: "#020617",
-  transform: "scale(0.78)",
-  transformOrigin: "top center",
-  marginLeft: "50%",
-  translate: "-50% 0",
-};
-
-const miniImage: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  objectFit: "contain",
-  display: "block",
-  background: "#020617",
 };
 
 const miniEmpty: CSSProperties = {
