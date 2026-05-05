@@ -495,20 +495,24 @@ export default function AppEventosPage() {
       .toString(36)
       .slice(2)}.${extensao}`;
 
-    const { error } = await supabase.storage.from("eventos").upload(nomeArquivo, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+    const { error } = await supabase.storage
+      .from("event-assets")
+      .upload(nomeArquivo, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
     if (error) {
       alert(
-        "Erro ao enviar arquivo. Confirme se o bucket 'eventos' existe no Supabase Storage. Detalhe: " +
+        "Erro ao enviar arquivo. Confirme se o bucket 'event-assets' existe no Supabase Storage. Detalhe: " +
           error.message
       );
       return;
     }
 
-    const { data } = supabase.storage.from("eventos").getPublicUrl(nomeArquivo);
+    const { data } = supabase.storage
+      .from("event-assets")
+      .getPublicUrl(nomeArquivo);
 
     setForm((f) => ({
       ...f,
