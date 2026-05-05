@@ -28,12 +28,14 @@ type Evento = {
   ativo: boolean | null;
   created_at: string | null;
 
+  tipo_evento?: string | null;
+  categoria_evento?: string | null;
+
   data_inicio?: string | null;
   hora_inicio?: string | null;
   data_termino?: string | null;
   hora_termino?: string | null;
 
-  tipo_local?: string | null;
   endereco?: string | null;
   nome_local?: string | null;
   cep?: string | null;
@@ -48,12 +50,11 @@ type Evento = {
   logo_url?: string | null;
   background_url?: string | null;
   musica_url?: string | null;
-
-  cor_primaria?: string | null;
-  cor_secundaria?: string | null;
-  texto_convite?: string | null;
-  observacoes_convite?: string | null;
 };
+
+const TIPOS_EVENTO = ["Esportivo", "Social", "Empresarial", "Cultural"];
+
+const CATEGORIAS_FIXAS = ["15 anos", "Casamento", "Festa infantil", "Corrida"];
 
 const emptyForm = {
   nome: "",
@@ -61,12 +62,15 @@ const emptyForm = {
   local: "",
   cidade: "",
 
+  tipo_evento: "",
+  categoria_evento: "",
+  nova_categoria_evento: "",
+
   data_inicio: "",
   hora_inicio: "",
   data_termino: "",
   hora_termino: "",
 
-  tipo_local: "novo",
   endereco: "",
   nome_local: "",
   cep: "",
@@ -81,11 +85,6 @@ const emptyForm = {
   logo_url: "",
   background_url: "",
   musica_url: "",
-
-  cor_primaria: "#7c3aed",
-  cor_secundaria: "#0f172a",
-  texto_convite: "",
-  observacoes_convite: "",
 };
 
 type FormEvento = typeof emptyForm;
@@ -142,17 +141,24 @@ export default function AppEventosPage() {
     setEventoEditandoId(evento.id);
     setErroCep("");
 
+    const categoriaAtual = evento.categoria_evento || "";
+    const categoriaEhFixa = CATEGORIAS_FIXAS.includes(categoriaAtual);
+
     setForm({
       nome: evento.nome || "",
       data_evento: evento.data_evento || "",
       local: evento.local || "",
+      cidade: evento.cidade || "",
+
+      tipo_evento: evento.tipo_evento || "",
+      categoria_evento: categoriaEhFixa ? categoriaAtual : categoriaAtual ? "__nova__" : "",
+      nova_categoria_evento: categoriaEhFixa ? "" : categoriaAtual,
 
       data_inicio: evento.data_inicio || evento.data_evento || "",
       hora_inicio: limparHora(evento.hora_inicio),
       data_termino: evento.data_termino || "",
       hora_termino: limparHora(evento.hora_termino),
 
-      tipo_local: evento.tipo_local || "novo",
       endereco: evento.endereco || "",
       nome_local: evento.nome_local || evento.local || "",
       cep: formatarCep(evento.cep || ""),
@@ -160,7 +166,6 @@ export default function AppEventosPage() {
       numero: evento.numero || "",
       complemento: evento.complemento || "",
       bairro: evento.bairro || "",
-      cidade: evento.cidade || "",
       estado: evento.estado || "",
       mostrar_mapa: evento.mostrar_mapa ?? true,
       mapa_url: evento.mapa_url || "",
@@ -168,11 +173,6 @@ export default function AppEventosPage() {
       logo_url: evento.logo_url || "",
       background_url: evento.background_url || "",
       musica_url: evento.musica_url || "",
-
-      cor_primaria: evento.cor_primaria || "#7c3aed",
-      cor_secundaria: evento.cor_secundaria || "#0f172a",
-      texto_convite: evento.texto_convite || "",
-      observacoes_convite: evento.observacoes_convite || "",
     });
 
     setFormAberto(true);
@@ -228,9 +228,7 @@ export default function AppEventosPage() {
     }
 
     const lista = ((data || []) as TenantMember[])
-      .map((item) =>
-        Array.isArray(item.tenants) ? item.tenants[0] : item.tenants
-      )
+      .map((item) => (Array.isArray(item.tenants) ? item.tenants[0] : item.tenants))
       .filter(Boolean) as Tenant[];
 
     setTenants(lista);
@@ -260,11 +258,12 @@ export default function AppEventosPage() {
         status_aprovacao,
         ativo,
         created_at,
+        tipo_evento,
+        categoria_evento,
         data_inicio,
         hora_inicio,
         data_termino,
         hora_termino,
-        tipo_local,
         endereco,
         nome_local,
         cep,
@@ -277,11 +276,7 @@ export default function AppEventosPage() {
         mapa_url,
         logo_url,
         background_url,
-        musica_url,
-        cor_primaria,
-        cor_secundaria,
-        texto_convite,
-        observacoes_convite
+        musica_url
       `)
       .eq("tenant_id", idTenant)
       .order("created_at", { ascending: false });
@@ -356,6 +351,21 @@ export default function AppEventosPage() {
       return;
     }
 
+    if (!form.tipo_evento.trim()) {
+      alert("Selecione o tipo de evento.");
+      return;
+    }
+
+    const categoriaFinal =
+      form.categoria_evento === "__nova__"
+        ? form.nova_categoria_evento.trim()
+        : form.categoria_evento.trim();
+
+    if (!categoriaFinal) {
+      alert("Selecione ou informe a categoria do evento.");
+      return;
+    }
+
     if (!form.data_inicio) {
       alert("Informe a data de início do evento.");
       return;
@@ -379,6 +389,9 @@ export default function AppEventosPage() {
     const payload = {
       nome: form.nome.trim(),
 
+      tipo_evento: form.tipo_evento || null,
+      categoria_evento: categoriaFinal || null,
+
       data_evento: form.data_inicio || form.data_evento || null,
       local: form.nome_local || form.local || null,
       cidade: form.cidade || null,
@@ -388,7 +401,6 @@ export default function AppEventosPage() {
       data_termino: form.data_termino || null,
       hora_termino: form.hora_termino || null,
 
-      tipo_local: form.tipo_local || null,
       endereco: enderecoFinal || null,
       nome_local: form.nome_local || null,
       cep: somenteNumeros(form.cep) || null,
@@ -403,11 +415,6 @@ export default function AppEventosPage() {
       logo_url: form.logo_url || null,
       background_url: form.background_url || null,
       musica_url: form.musica_url || null,
-
-      cor_primaria: form.cor_primaria || null,
-      cor_secundaria: form.cor_secundaria || null,
-      texto_convite: form.texto_convite || null,
-      observacoes_convite: form.observacoes_convite || null,
     };
 
     if (modo === "criar") {
@@ -488,12 +495,10 @@ export default function AppEventosPage() {
       .toString(36)
       .slice(2)}.${extensao}`;
 
-    const { error } = await supabase.storage
-      .from("eventos")
-      .upload(nomeArquivo, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+    const { error } = await supabase.storage.from("eventos").upload(nomeArquivo, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
 
     if (error) {
       alert(
@@ -524,6 +529,8 @@ export default function AppEventosPage() {
         evento.local,
         evento.cidade,
         evento.nome_local,
+        evento.tipo_evento,
+        evento.categoria_evento,
         evento.status_aprovacao,
       ]
         .filter(Boolean)
@@ -536,16 +543,9 @@ export default function AppEventosPage() {
   return (
     <div className="app-events-page">
       <style>{`
-        .app-events-page {
-          display: flex;
-          flex-direction: column;
-          gap: 22px;
-        }
+        .app-events-page { display: flex; flex-direction: column; gap: 22px; }
 
-        .hero,
-        .panel,
-        .event-card,
-        .event-form-panel {
+        .hero, .panel, .event-card, .event-form-panel {
           background: #fff;
           border: 1px solid rgba(226,232,240,.95);
           box-shadow: 0 24px 70px rgba(15,23,42,.08);
@@ -584,25 +584,14 @@ export default function AppEventosPage() {
           line-height: 1.45;
         }
 
-        .hero-actions {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
+        .hero-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-        .primary,
-        .secondary,
-        .danger,
-        .ghost {
+        .primary, .secondary, .danger, .ghost {
           border: none;
           border-radius: 15px;
           font-weight: 950;
           cursor: pointer;
-          transition:
-            transform .18s cubic-bezier(.2,.8,.2,1),
-            box-shadow .18s ease,
-            opacity .18s ease;
+          transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, opacity .18s ease;
         }
 
         .primary {
@@ -624,10 +613,7 @@ export default function AppEventosPage() {
           border: 1px solid rgba(203,213,225,.95);
         }
 
-        .soft {
-          background: #f1f5f9;
-          border: none;
-        }
+        .soft { background: #f1f5f9; border: none; }
 
         .danger {
           background: #fee2e2;
@@ -642,25 +628,15 @@ export default function AppEventosPage() {
           border: 1px solid rgba(203,213,225,.95);
         }
 
-        .primary:hover,
-        .secondary:hover,
-        .danger:hover,
-        .ghost:hover {
-          transform: translateY(-1px);
-        }
+        .primary:hover, .secondary:hover, .danger:hover, .ghost:hover { transform: translateY(-1px); }
 
-        .primary:disabled,
-        .secondary:disabled,
-        .danger:disabled {
+        .primary:disabled, .secondary:disabled, .danger:disabled {
           opacity: .55;
           cursor: not-allowed;
           transform: none;
         }
 
-        .panel {
-          border-radius: 24px;
-          padding: 24px;
-        }
+        .panel { border-radius: 24px; padding: 24px; }
 
         .panel-title {
           margin: 0;
@@ -712,9 +688,7 @@ export default function AppEventosPage() {
           box-shadow: 0 18px 48px rgba(15,23,42,.06);
         }
 
-        .section:first-of-type {
-          margin-top: 0;
-        }
+        .section:first-of-type { margin-top: 0; }
 
         .section-title {
           margin: 0 0 6px;
@@ -753,9 +727,7 @@ export default function AppEventosPage() {
           gap: 18px 20px;
         }
 
-        .full {
-          grid-column: 1 / -1;
-        }
+        .full { grid-column: 1 / -1; }
 
         .field-label {
           display: block;
@@ -765,13 +737,9 @@ export default function AppEventosPage() {
           margin-bottom: 10px;
         }
 
-        .required {
-          color: #ef4444;
-        }
+        .required { color: #ef4444; }
 
-        .input,
-        .textarea,
-        .select {
+        .input, .textarea, .select {
           width: 100%;
           padding: 17px 18px;
           border-radius: 18px;
@@ -790,9 +758,7 @@ export default function AppEventosPage() {
           font-family: inherit;
         }
 
-        .input:focus,
-        .textarea:focus,
-        .select:focus {
+        .input:focus, .textarea:focus, .select:focus {
           border-color: rgba(124,58,237,.45);
           box-shadow: 0 0 0 4px rgba(124,58,237,.10);
         }
@@ -864,10 +830,7 @@ export default function AppEventosPage() {
           align-items: center;
           flex-wrap: wrap;
           animation: cardIn .36s cubic-bezier(.2,.8,.2,1) both;
-          transition:
-            transform .17s cubic-bezier(.2,.8,.2,1),
-            box-shadow .17s ease,
-            border-color .17s ease;
+          transition: transform .17s cubic-bezier(.2,.8,.2,1), box-shadow .17s ease, border-color .17s ease;
         }
 
         .event-card:hover {
@@ -876,30 +839,11 @@ export default function AppEventosPage() {
           border-color: rgba(124,58,237,.22);
         }
 
-        .item-title {
-          color: #0f172a;
-          font-size: 17px;
-          font-weight: 950;
-        }
+        .item-title { color: #0f172a; font-size: 17px; font-weight: 950; }
+        .item-meta { color: #334155; font-size: 14px; font-weight: 850; margin-top: 4px; }
+        .small-line { color: #64748b; font-size: 12px; margin-top: 6px; }
 
-        .item-meta {
-          color: #334155;
-          font-size: 14px;
-          font-weight: 850;
-          margin-top: 4px;
-        }
-
-        .small-line {
-          color: #64748b;
-          font-size: 12px;
-          margin-top: 6px;
-        }
-
-        .card-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
+        .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
         .badge {
           padding: 5px 9px;
@@ -910,25 +854,10 @@ export default function AppEventosPage() {
           margin-left: 8px;
         }
 
-        .badge.active {
-          background: #dcfce7;
-          color: #166534;
-        }
-
-        .badge.blocked {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-
-        .badge.pending {
-          background: #fef3c7;
-          color: #92400e;
-        }
-
-        .badge.neutral {
-          background: #e2e8f0;
-          color: #475569;
-        }
+        .badge.active { background: #dcfce7; color: #166534; }
+        .badge.blocked { background: #fee2e2; color: #991b1b; }
+        .badge.pending { background: #fef3c7; color: #92400e; }
+        .badge.neutral { background: #e2e8f0; color: #475569; }
 
         .empty {
           padding: 24px;
@@ -1005,84 +934,41 @@ export default function AppEventosPage() {
         }
 
         @keyframes toastIn {
-          from {
-            opacity: 0;
-            transform: translateY(14px) scale(.96);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(14px) scale(.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @keyframes formIn {
-          from {
-            opacity: 0;
-            transform: translateY(12px) scale(.992);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(12px) scale(.992); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @keyframes cardIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px) scale(.992);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(8px) scale(.992); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @media (max-width: 1100px) {
-          .form-grid,
-          .form-grid-4,
-          .upload-grid,
-          .filters {
+          .form-grid, .form-grid-4, .upload-grid, .filters {
             grid-template-columns: 1fr;
           }
         }
 
         @media (max-width: 640px) {
-          .hero,
-          .panel,
-          .event-form-panel {
+          .hero, .panel, .event-form-panel {
             padding: 22px;
             border-radius: 24px;
           }
 
-          .title {
-            font-size: 30px;
-          }
+          .title { font-size: 30px; }
+          .form-title { font-size: 26px; }
+          .section { padding: 20px; }
+          .section-title { font-size: 21px; }
+          .field-label { font-size: 16px; }
 
-          .form-title {
-            font-size: 26px;
-          }
+          .hero-actions, .form-actions { width: 100%; }
 
-          .section {
-            padding: 20px;
-          }
-
-          .section-title {
-            font-size: 21px;
-          }
-
-          .field-label {
-            font-size: 16px;
-          }
-
-          .hero-actions,
-          .form-actions {
-            width: 100%;
-          }
-
-          .hero-actions button,
-          .form-actions button {
-            flex: 1;
-          }
+          .hero-actions button, .form-actions button { flex: 1; }
 
           .toast {
             left: 16px;
@@ -1105,18 +991,11 @@ export default function AppEventosPage() {
         </div>
 
         <div className="hero-actions">
-          <button
-            onClick={abrirCriacao}
-            className="primary purple"
-            disabled={!tenantId}
-          >
+          <button onClick={abrirCriacao} className="primary purple" disabled={!tenantId}>
             + Criar evento
           </button>
 
-          <button
-            onClick={() => tenantId && carregarEventos(tenantId)}
-            className="secondary"
-          >
+          <button onClick={() => tenantId && carregarEventos(tenantId)} className="secondary">
             {loading ? "Carregando..." : "Atualizar"}
           </button>
         </div>
@@ -1148,8 +1027,7 @@ export default function AppEventosPage() {
                 {modo === "criar" ? "Criar evento" : "Alterar evento"}
               </h2>
               <p className="form-subtitle">
-                Cadastre aqui todos os dados que serão usados no convite digital,
-                RSVP, check-in e relatórios.
+                Cadastre aqui os dados principais do evento. A programação e o convite digital ficam em abas próprias.
               </p>
             </div>
 
@@ -1160,9 +1038,7 @@ export default function AppEventosPage() {
 
           <div className="section">
             <h3 className="section-title">1. Dados principais</h3>
-            <p className="section-desc">
-              Informações básicas para identificar o evento.
-            </p>
+            <p className="section-desc">Informações básicas para identificar e classificar o evento.</p>
 
             <div className="form-grid">
               <label>
@@ -1171,60 +1047,75 @@ export default function AppEventosPage() {
                 </span>
                 <input
                   value={form.nome}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, nome: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
                   placeholder="Ex: Valentina XV"
                   className="input"
                 />
               </label>
 
               <label>
-                <span className="field-label">Tipo de local</span>
+                <span className="field-label">
+                  Tipo de evento <span className="required">*</span>
+                </span>
                 <select
-                  value={form.tipo_local}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, tipo_local: e.target.value }))
-                  }
+                  value={form.tipo_evento}
+                  onChange={(e) => setForm((f) => ({ ...f, tipo_evento: e.target.value }))}
                   className="select"
                 >
-                  <option value="novo">Em um novo endereço</option>
-                  <option value="cadastrado">Local já cadastrado</option>
-                  <option value="online">Online</option>
+                  <option value="">Selecione</option>
+                  {TIPOS_EVENTO.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
+                  ))}
                 </select>
               </label>
 
               <label>
-                <span className="field-label">Cor primária</span>
-                <input
-                  type="color"
-                  value={form.cor_primaria}
+                <span className="field-label">
+                  Categoria <span className="required">*</span>
+                </span>
+                <select
+                  value={form.categoria_evento}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, cor_primaria: e.target.value }))
+                    setForm((f) => ({
+                      ...f,
+                      categoria_evento: e.target.value,
+                      nova_categoria_evento:
+                        e.target.value === "__nova__" ? f.nova_categoria_evento : "",
+                    }))
                   }
-                  className="input"
-                />
+                  className="select"
+                >
+                  <option value="">Selecione</option>
+                  {CATEGORIAS_FIXAS.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                  <option value="__nova__">+ Incluir nova categoria</option>
+                </select>
               </label>
 
-              <label>
-                <span className="field-label">Cor secundária</span>
-                <input
-                  type="color"
-                  value={form.cor_secundaria}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, cor_secundaria: e.target.value }))
-                  }
-                  className="input"
-                />
-              </label>
+              {form.categoria_evento === "__nova__" && (
+                <label>
+                  <span className="field-label">Nova categoria</span>
+                  <input
+                    value={form.nova_categoria_evento}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, nova_categoria_evento: e.target.value }))
+                    }
+                    placeholder="Ex: Formatura"
+                    className="input"
+                  />
+                </label>
+              )}
             </div>
           </div>
 
           <div className="section">
             <h3 className="section-title">2. Data e horário</h3>
-            <p className="section-desc">
-              Informe aos participantes quando seu evento vai acontecer.
-            </p>
+            <p className="section-desc">Informe quando o evento vai acontecer.</p>
 
             <div className="form-grid-4">
               <label>
@@ -1234,9 +1125,7 @@ export default function AppEventosPage() {
                 <input
                   type="date"
                   value={form.data_inicio}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, data_inicio: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, data_inicio: e.target.value }))}
                   className="input"
                 />
               </label>
@@ -1246,9 +1135,7 @@ export default function AppEventosPage() {
                 <input
                   type="time"
                   value={form.hora_inicio}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, hora_inicio: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
                   className="input"
                 />
               </label>
@@ -1258,9 +1145,7 @@ export default function AppEventosPage() {
                 <input
                   type="date"
                   value={form.data_termino}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, data_termino: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, data_termino: e.target.value }))}
                   className="input"
                 />
               </label>
@@ -1270,9 +1155,7 @@ export default function AppEventosPage() {
                 <input
                   type="time"
                   value={form.hora_termino}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, hora_termino: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, hora_termino: e.target.value }))}
                   className="input"
                 />
               </label>
@@ -1281,9 +1164,7 @@ export default function AppEventosPage() {
 
           <div className="section">
             <h3 className="section-title">3. Local do evento</h3>
-            <p className="section-desc">
-              Cadastre o local completo para usar no convite e no mapa.
-            </p>
+            <p className="section-desc">Cadastre o local completo para usar no mapa e nas demais telas.</p>
 
             <div className="form-grid">
               <label className="full">
@@ -1292,9 +1173,7 @@ export default function AppEventosPage() {
                 </span>
                 <input
                   value={form.nome_local}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, nome_local: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, nome_local: e.target.value }))}
                   placeholder="Ex: Guerrah Hall"
                   className="input"
                 />
@@ -1313,9 +1192,7 @@ export default function AppEventosPage() {
                   className="input"
                   maxLength={9}
                 />
-                {buscandoCep && (
-                  <div className="field-help">Buscando endereço...</div>
-                )}
+                {buscandoCep && <div className="field-help">Buscando endereço...</div>}
                 {erroCep && <div className="field-error">{erroCep}</div>}
               </label>
 
@@ -1325,9 +1202,7 @@ export default function AppEventosPage() {
                 </span>
                 <input
                   value={form.cidade}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, cidade: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))}
                   placeholder="Ex: Macaé"
                   className="input"
                 />
@@ -1339,9 +1214,7 @@ export default function AppEventosPage() {
                 </span>
                 <input
                   value={form.rua}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, rua: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, rua: e.target.value }))}
                   placeholder="Rua / Avenida"
                   className="input"
                 />
@@ -1351,9 +1224,7 @@ export default function AppEventosPage() {
                 <span className="field-label">Número</span>
                 <input
                   value={form.numero}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, numero: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))}
                   placeholder="Número"
                   className="input"
                 />
@@ -1363,9 +1234,7 @@ export default function AppEventosPage() {
                 <span className="field-label">Complemento</span>
                 <input
                   value={form.complemento}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, complemento: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, complemento: e.target.value }))}
                   placeholder="Complemento"
                   className="input"
                 />
@@ -1375,9 +1244,7 @@ export default function AppEventosPage() {
                 <span className="field-label">Bairro</span>
                 <input
                   value={form.bairro}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, bairro: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))}
                   placeholder="Bairro"
                   className="input"
                 />
@@ -1405,12 +1272,7 @@ export default function AppEventosPage() {
                 <input
                   type="checkbox"
                   checked={form.mostrar_mapa}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      mostrar_mapa: e.target.checked,
-                    }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, mostrar_mapa: e.target.checked }))}
                 />
                 Mostrar o endereço no Google Maps
               </label>
@@ -1419,15 +1281,12 @@ export default function AppEventosPage() {
                 <span className="field-label">Link do Google Maps</span>
                 <input
                   value={form.mapa_url || mapaAutomatico}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, mapa_url: e.target.value }))
-                  }
+                  onChange={(e) => setForm((f) => ({ ...f, mapa_url: e.target.value }))}
                   placeholder="Gerado automaticamente pelo endereço"
                   className="input"
                 />
                 <div className="field-help">
-                  Se deixar em branco, o sistema usa o endereço digitado para
-                  gerar o mapa automaticamente.
+                  Se deixar em branco, o sistema usa o endereço digitado para gerar o mapa automaticamente.
                 </div>
               </label>
 
@@ -1461,10 +1320,7 @@ export default function AppEventosPage() {
 
           <div className="section">
             <h3 className="section-title">4. Identidade visual</h3>
-            <p className="section-desc">
-              Arquivos que poderão ser usados no convite digital e nas telas do
-              evento.
-            </p>
+            <p className="section-desc">Arquivos que poderão ser usados no convite digital e nas telas do evento.</p>
 
             <div className="upload-grid">
               <UploadField
@@ -1490,48 +1346,8 @@ export default function AppEventosPage() {
             </div>
           </div>
 
-          <div className="section">
-            <h3 className="section-title">5. Informações do convite</h3>
-            <p className="section-desc">
-              Textos base que serão aproveitados na aba Convite Digital.
-            </p>
-
-            <div className="form-grid">
-              <label className="full">
-                <span className="field-label">Texto principal do convite</span>
-                <textarea
-                  value={form.texto_convite}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, texto_convite: e.target.value }))
-                  }
-                  placeholder="Ex: Com alegria convidamos você para celebrar este momento especial..."
-                  className="textarea"
-                />
-              </label>
-
-              <label className="full">
-                <span className="field-label">Observações do convite</span>
-                <textarea
-                  value={form.observacoes_convite}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      observacoes_convite: e.target.value,
-                    }))
-                  }
-                  placeholder="Ex: Traje, estacionamento, confirmação, informações extras..."
-                  className="textarea"
-                />
-              </label>
-            </div>
-          </div>
-
           <div className="form-actions">
-            <button
-              onClick={salvarEvento}
-              disabled={salvando || !tenantId}
-              className="primary"
-            >
+            <button onClick={salvarEvento} disabled={salvando || !tenantId} className="primary">
               {salvando
                 ? "Salvando..."
                 : modo === "criar"
@@ -1553,7 +1369,7 @@ export default function AppEventosPage() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por evento, local, cidade ou status"
+            placeholder="Buscar por evento, local, cidade, tipo, categoria ou status"
             className="input"
           />
           <div className="input">{eventosFiltrados.length} exibidos</div>
@@ -1575,17 +1391,17 @@ export default function AppEventosPage() {
                       ? formatarData(evento.data_inicio || evento.data_evento)
                       : "Não definida"}
                   </strong>
-                  {evento.hora_inicio
-                    ? ` · ${limparHora(evento.hora_inicio)}`
-                    : ""}
+                  {evento.hora_inicio ? ` · ${limparHora(evento.hora_inicio)}` : ""}
                 </div>
 
                 <div className="small-line">
-                  Local:{" "}
-                  <strong>
-                    {evento.nome_local || evento.local || "Não informado"}
-                  </strong>{" "}
-                  · Cidade: <strong>{evento.cidade || "Não informada"}</strong>
+                  Tipo: <strong>{evento.tipo_evento || "Não informado"}</strong> · Categoria:{" "}
+                  <strong>{evento.categoria_evento || "Não informada"}</strong>
+                </div>
+
+                <div className="small-line">
+                  Local: <strong>{evento.nome_local || evento.local || "Não informado"}</strong> · Cidade:{" "}
+                  <strong>{evento.cidade || "Não informada"}</strong>
                 </div>
               </div>
 
@@ -1679,9 +1495,7 @@ function somenteNumeros(valor: string) {
 
 function formatarCep(valor: string) {
   const numeros = somenteNumeros(valor).slice(0, 8);
-
   if (numeros.length <= 5) return numeros;
-
   return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
 }
 
