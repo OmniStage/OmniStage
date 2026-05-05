@@ -1,7 +1,7 @@
 "use client";
 
-import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties, ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Evento = {
@@ -48,6 +48,12 @@ type SheetMapping = {
   data_hora_envio: string;
 };
 
+type VcfContact = {
+  nome: string;
+  telefone: string | null;
+  grupo: string | null;
+};
+
 const initialMapping: SheetMapping = {
   legacy_id: "",
   grupo: "",
@@ -60,6 +66,8 @@ const initialMapping: SheetMapping = {
 };
 
 export default function AdminImportacaoPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
@@ -73,12 +81,14 @@ export default function AdminImportacaoPage() {
   const [batchId, setBatchId] = useState<string | null>(null);
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [vcfFileName, setVcfFileName] = useState<string | null>(null);
+  const [vcfContacts, setVcfContacts] = useState<VcfContact[]>([]);
+  const [activeMode, setActiveMode] = useState<"texto" | "sheets" | "vcf">("texto");
 
   const hasSheetLoaded = sheetHeaders.length > 0 && sheetRows.length > 0;
 
   const mappedTextPreview = useMemo(() => {
     if (!hasSheetLoaded) return "";
-
     return montarTextoMapeado(false);
   }, [sheetRows, mapping, hasSheetLoaded]);
 
@@ -139,11 +149,21 @@ export default function AdminImportacaoPage() {
     }
   }
 
-  function cancelarPrevia() {
-    setTexto("");
+  function limparPreview() {
     setPreview([]);
     setSelectedIds([]);
     setBatchId(null);
+  }
+
+  function cancelarPrevia() {
+    setTexto("");
+    setVcfFileName(null);
+    setVcfContacts([]);
+    limparPreview();
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function limparPlanilhaCarregada() {
@@ -151,9 +171,20 @@ export default function AdminImportacaoPage() {
     setSheetRows([]);
     setMapping(initialMapping);
     setTexto("");
-    setPreview([]);
-    setSelectedIds([]);
-    setBatchId(null);
+    setActiveMode("texto");
+    limparPreview();
+  }
+
+  function limparVcf() {
+    setVcfFileName(null);
+    setVcfContacts([]);
+    setTexto("");
+    setActiveMode("texto");
+    limparPreview();
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   function normalizarGoogleSheetsUrl(url: string) {
@@ -162,6 +193,139 @@ export default function AdminImportacaoPage() {
     }
 
     return url;
+  }
+
+  function normalizePhone(phone: string | null) {
+    if (!phone) return null;
+
+    const onlyNumbers = phone.replace(/\D/g, "");
+
+    if (!onlyNumbers) return null;
+
+    return onlyNumbers;
+  }
+
+  function decodeVcfValue(value: string) {
+    return value
+      .replace(/\\n/g, " ")
+      .replace(/\\,/g, ",")
+      .replace(/\\;/g, ";")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function parseVCF(vcfText: string): VcfContact[] {
+    const contacts: VcfContact[] = [];
+    const normalizedText = vcfText.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+    const blocks = normalizedText
+      .split(/END:VCARD/i)
+      .map((block) => block.trim())
+      .filter(Boolean);
+
+    for (const block of blocks) {
+      const lines = block.split(/\r?\n/);
+
+      const fnLine = lines.find((line) => /^FN/i.test(line));
+      const nLine = lines.find((line) => /^N[:;]/i.test(line));
+      const telLine = lines.find((line) => /^TEL/i.test(line));
+
+      let rawName = "";
+
+      if (fnLine) {
+        rawName = fnLine.split(":").slice(1).join(":");
+      }
+
+      if (!rawName && nLine) {
+        rawName = nLine
+          .split(":")
+          .slice(1)
+          .join(":")
+          .split(";")
+          .filter(Boolean)
+          .reverse()
+          .join(" ");
+      }
+
+      const rawPhone = telLine ? telLine.split(":").slice(1).join(":") : "";
+
+      let nome = decodeVcfValue(rawName);
+      let grupo: string | null = null;
+
+      if (!nome) continue;
+
+      if (nome.includes(" - ")) {
+        const [possibleGroup, ...rest] = nome.split(" - ");
+        const parsedName = rest.join(" - ").trim();
+
+        if (possibleGroup.trim() && parsedName) {
+          grupo = possibleGroup.trim();
+          nome = parsedName;
+        }
+      }
+
+      contacts.push({
+        nome,
+        telefone: normalizePhone(rawPhone),
+        grupo,
+      });
+    }
+
+    return contacts;
+  }
+
+  async function handleVcfUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const isVcf =
+      file.name.toLowerCase().endsWith(".vcf") ||
+      file.type === "text/vcard" ||
+      file.type === "text/x-vcard" ||
+      file.type === "text/plain";
+
+    if (!isVcf) {
+      alert("Envie um arquivo .vcf válido.");
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const contacts = parseVCF(content);
+
+      if (contacts.length === 0) {
+        alert("Nenhum contato encontrado no arquivo .vcf.");
+        return;
+      }
+
+      const textoConvertido = contacts
+        .map((contact) =>
+          [
+            "",
+            contact.grupo || "",
+            contact.nome,
+            contact.telefone || "",
+            "pendente",
+            "",
+            "",
+            "",
+          ].join("    ")
+        )
+        .join("\n");
+
+      setActiveMode("vcf");
+      setVcfFileName(file.name);
+      setVcfContacts(contacts);
+      setTexto(textoConvertido);
+      setSheetHeaders([]);
+      setSheetRows([]);
+      setMapping(initialMapping);
+      limparPreview();
+
+      alert(`${contacts.length} contato(s) carregado(s) do arquivo .vcf.`);
+    } catch {
+      alert("Erro ao ler o arquivo .vcf.");
+    }
   }
 
   function updateMapping(field: keyof SheetMapping, value: string) {
@@ -209,9 +373,7 @@ export default function AdminImportacaoPage() {
 
     if (updateState) {
       setTexto(textoMapeado);
-      setPreview([]);
-      setSelectedIds([]);
-      setBatchId(null);
+      limparPreview();
     }
 
     return textoMapeado;
@@ -314,13 +476,18 @@ export default function AdminImportacaoPage() {
       const headers = result.headers || [];
       const rows = result.rows || [];
 
+      setActiveMode("sheets");
       setSheetHeaders(headers);
       setSheetRows(rows);
       setTexto("");
-      setPreview([]);
-      setSelectedIds([]);
-      setBatchId(null);
+      setVcfFileName(null);
+      setVcfContacts([]);
+      limparPreview();
       sugerirMapeamento(headers);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
 
       alert(`${result.total || 0} linhas carregadas. Revise o mapeamento antes de gerar a prévia.`);
     } catch (error) {
@@ -342,11 +509,17 @@ export default function AdminImportacaoPage() {
     }
 
     if (!hasSheetLoaded && !texto.trim()) {
-      alert("Cole os convidados da planilha antiga ou carregue uma planilha.");
+      alert("Cole os convidados da planilha antiga, carregue uma planilha ou envie um arquivo .vcf.");
       return;
     }
 
-    const payload: any = {
+    const payload: {
+      action: string;
+      tenantId: string;
+      eventoId: string;
+      mappedRows?: ReturnType<typeof montarMappedRows>;
+      text?: string;
+    } = {
       action: "preview",
       tenantId,
       eventoId,
@@ -441,6 +614,12 @@ export default function AdminImportacaoPage() {
       setPreview([]);
       setSelectedIds([]);
       setBatchId(null);
+      setVcfFileName(null);
+      setVcfContacts([]);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
 
       await carregarHistorico(tenantId, eventoId);
     } catch (error) {
@@ -494,16 +673,33 @@ export default function AdminImportacaoPage() {
   const totalDuplicados = preview.filter((item) => item.is_duplicate).length;
   const totalValidos = preview.length - totalDuplicados;
   const totalSelecionados = selectedIds.length;
+  const contatosComTelefone = vcfContacts.filter((item) => item.telefone).length;
+  const contatosSemTelefone = vcfContacts.length - contatosComTelefone;
 
   return (
-    <main style={{ color: "#fff" }}>
-      <h1 style={{ fontSize: 44, margin: 0 }}>Admin · Importação Legada</h1>
+    <main style={pageStyle}>
+      <div style={topBarStyle}>
+        <div>
+          <div style={eyebrowStyle}>Admin OmniStage</div>
+          <h1 style={titleStyle}>Importação de convidados</h1>
+          <p style={subtitleStyle}>
+            Importe convidados por Google Sheets, texto colado ou contatos do celular em .vcf.
+          </p>
+        </div>
 
-      <p style={{ color: "#94a3b8", marginTop: 8 }}>
-        Use esta tela para importar eventos antigos ou planilhas externas com mapeamento manual.
-      </p>
+        <div style={statusPillStyle}>
+          {eventos.length} evento(s) carregado(s)
+        </div>
+      </div>
 
       <section style={sectionStyle}>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <span style={stepStyle}>01</span>
+            <h2 style={sectionTitleStyle}>Selecione o evento</h2>
+          </div>
+        </div>
+
         <label style={fieldStyle}>
           <span>Evento</span>
           <select
@@ -511,9 +707,7 @@ export default function AdminImportacaoPage() {
             onChange={async (event) => {
               const novoEventoId = event.target.value;
               setEventoId(novoEventoId);
-              setPreview([]);
-              setSelectedIds([]);
-              setBatchId(null);
+              limparPreview();
 
               if (tenantId && novoEventoId) {
                 await carregarHistorico(tenantId, novoEventoId);
@@ -529,14 +723,52 @@ export default function AdminImportacaoPage() {
             ))}
           </select>
         </label>
+      </section>
 
-        <p style={{ color: "#64748b", marginTop: 18 }}>
-          {hasSheetLoaded
-            ? "Modo: Planilha com mapeamento manual"
-            : "Modo: Texto livre / colar lista / parser automático"}
-        </p>
+      <section style={sectionStyle}>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <span style={stepStyle}>02</span>
+            <h2 style={sectionTitleStyle}>Escolha a forma de importação</h2>
+          </div>
 
-        <div style={{ marginTop: 18 }}>
+          <span style={modeBadgeStyle}>
+            Modo atual:{" "}
+            {activeMode === "vcf"
+              ? "Contatos .vcf"
+              : activeMode === "sheets"
+              ? "Google Sheets"
+              : "Texto livre"}
+          </span>
+        </div>
+
+        <div style={methodGridStyle}>
+          <article style={methodCardStyle}>
+            <div style={methodIconStyle}>📄</div>
+            <strong>Google Sheets CSV</strong>
+            <p style={methodTextStyle}>
+              Use uma planilha publicada em CSV com mapeamento manual de colunas.
+            </p>
+          </article>
+
+          <article style={methodCardStyle}>
+            <div style={methodIconStyle}>✍️</div>
+            <strong>Texto colado</strong>
+            <p style={methodTextStyle}>
+              Cole uma lista antiga, dados de planilha ou texto recebido por WhatsApp.
+            </p>
+          </article>
+
+          <article style={{ ...methodCardStyle, ...highlightMethodStyle }}>
+            <div style={methodIconStyle}>📱</div>
+            <strong>Contatos do celular (.vcf)</strong>
+            <p style={methodTextStyle}>
+              Importe contatos exportados do celular ou compartilhados pelo WhatsApp.
+            </p>
+          </article>
+        </div>
+
+        <div style={blockStyle}>
           <label style={fieldStyle}>
             <span>Link Google Sheets CSV</span>
             <input
@@ -560,13 +792,49 @@ export default function AdminImportacaoPage() {
               <button
                 onClick={limparPlanilhaCarregada}
                 disabled={loading}
-                style={secondaryButtonStyle}
+                style={ghostButtonStyle}
               >
-                Limpar planilha carregada
+                Limpar planilha
               </button>
             )}
           </div>
         </div>
+
+        <div style={vcfBoxStyle}>
+          <div>
+            <strong style={{ fontSize: 18 }}>Importar contatos .vcf</strong>
+            <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+              Ideal para o cliente exportar contatos do celular e enviar em arquivo.
+            </p>
+          </div>
+
+          <label style={uploadButtonStyle}>
+            Escolher arquivo .vcf
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".vcf,text/vcard,text/x-vcard,text/plain"
+              onChange={handleVcfUpload}
+              style={{ display: "none" }}
+            />
+          </label>
+        </div>
+
+        {vcfContacts.length > 0 && (
+          <div style={vcfSummaryStyle}>
+            <div>
+              <strong>{vcfFileName || "Arquivo .vcf carregado"}</strong>
+              <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+                {vcfContacts.length} contato(s) encontrados · {contatosComTelefone} com telefone ·{" "}
+                {contatosSemTelefone} sem telefone
+              </p>
+            </div>
+
+            <button onClick={limparVcf} disabled={loading} style={ghostButtonStyle}>
+              Remover VCF
+            </button>
+          </div>
+        )}
 
         {hasSheetLoaded && (
           <section style={mappingBoxStyle}>
@@ -604,17 +872,22 @@ export default function AdminImportacaoPage() {
           </section>
         )}
 
-        <div style={{ marginTop: 18 }}>
+        <div style={blockStyle}>
           <label style={fieldStyle}>
-            <span>Colar dados da planilha antiga</span>
+            <span>Colar dados ou revisar texto convertido</span>
             <textarea
               value={texto}
-              onChange={(event) => setTexto(event.target.value)}
+              onChange={(event) => {
+                setTexto(event.target.value);
+                setActiveMode("texto");
+                limparPreview();
+              }}
               placeholder={`3    FAMILIA_ANDREZZA    ANDREZZA FERRAZ    5522999787402    confirmado    02/05/2026    enviado    02/05/2026 18:40`}
               style={{
                 ...inputStyle,
                 minHeight: 220,
                 resize: "vertical",
+                lineHeight: 1.55,
               }}
             />
           </label>
@@ -638,7 +911,7 @@ export default function AdminImportacaoPage() {
               <button
                 onClick={cancelarPrevia}
                 disabled={loading}
-                style={secondaryButtonStyle}
+                style={ghostButtonStyle}
               >
                 Cancelar prévia
               </button>
@@ -650,7 +923,11 @@ export default function AdminImportacaoPage() {
       {preview.length > 0 && (
         <section style={sectionStyle}>
           <div style={headerStyle}>
-            <h2 style={{ margin: 0 }}>Prévia</h2>
+            <div>
+              <span style={stepStyle}>03</span>
+              <h2 style={sectionTitleStyle}>Prévia da importação</h2>
+            </div>
+
             <span style={{ color: "#94a3b8", fontWeight: 800 }}>
               {totalSelecionados} selecionados · {totalValidos} válidos ·{" "}
               {totalDuplicados} duplicados
@@ -688,12 +965,12 @@ export default function AdminImportacaoPage() {
                       ? "1px solid rgba(239,68,68,0.6)"
                       : checked
                       ? "1px solid rgba(250,204,21,0.6)"
-                      : "1px solid #334155",
+                      : "1px solid rgba(148,163,184,0.22)",
                     background: item.is_duplicate
                       ? "rgba(127,29,29,0.22)"
                       : checked
                       ? "rgba(250,204,21,0.08)"
-                      : "#0f172a",
+                      : "rgba(15,23,42,0.86)",
                   }}
                 >
                   <div style={cardLeftStyle}>
@@ -758,7 +1035,11 @@ export default function AdminImportacaoPage() {
 
       <section style={sectionStyle}>
         <div style={headerStyle}>
-          <h2 style={{ margin: 0 }}>Histórico de importações</h2>
+          <div>
+            <span style={stepStyle}>04</span>
+            <h2 style={sectionTitleStyle}>Histórico de importações</h2>
+          </div>
+
           <span style={{ color: "#94a3b8", fontWeight: 800 }}>
             {history.length} lotes
           </span>
@@ -795,7 +1076,7 @@ export default function AdminImportacaoPage() {
                   onClick={() => reverterImportacao(item.id)}
                   disabled={loading}
                   style={{
-                    ...secondaryButtonStyle,
+                    ...ghostButtonStyle,
                     borderColor: "rgba(239,68,68,0.55)",
                     color: "#fca5a5",
                   }}
@@ -848,36 +1129,201 @@ function MappingSelect({
   );
 }
 
+const pageStyle: CSSProperties = {
+  color: "#fff",
+  maxWidth: 1280,
+  margin: "0 auto",
+  padding: "8px 0 48px",
+};
+
+const topBarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 24,
+  marginBottom: 26,
+};
+
+const eyebrowStyle: CSSProperties = {
+  color: "#64748b",
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  fontSize: 12,
+  fontWeight: 900,
+  marginBottom: 8,
+};
+
+const titleStyle: CSSProperties = {
+  fontSize: 46,
+  lineHeight: 1.05,
+  margin: 0,
+  letterSpacing: "-0.04em",
+  color: "#0f172a",
+};
+
+const subtitleStyle: CSSProperties = {
+  color: "#64748b",
+  marginTop: 10,
+  fontSize: 17,
+};
+
+const statusPillStyle: CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 999,
+  background: "rgba(15,23,42,0.06)",
+  border: "1px solid rgba(15,23,42,0.08)",
+  color: "#334155",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
 const sectionStyle: CSSProperties = {
-  marginTop: 28,
-  padding: 22,
+  marginTop: 22,
+  padding: 24,
+  borderRadius: 24,
+  border: "1px solid rgba(148,163,184,0.22)",
+  background:
+    "linear-gradient(180deg, rgba(2,6,23,0.98), rgba(15,23,42,0.98))",
+  boxShadow: "0 24px 60px rgba(15,23,42,0.16)",
+};
+
+const sectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 18,
+};
+
+const stepStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 34,
+  height: 24,
+  borderRadius: 999,
+  background: "rgba(124,58,237,0.18)",
+  color: "#c4b5fd",
+  fontSize: 12,
+  fontWeight: 900,
+  marginBottom: 8,
+};
+
+const sectionTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: 22,
+  letterSpacing: "-0.02em",
+};
+
+const modeBadgeStyle: CSSProperties = {
+  padding: "9px 12px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "#cbd5e1",
+  fontWeight: 900,
+  fontSize: 13,
+};
+
+const methodGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 14,
+  marginBottom: 22,
+};
+
+const methodCardStyle: CSSProperties = {
+  padding: 16,
   borderRadius: 18,
-  border: "1px solid #334155",
-  background: "#020617",
+  background: "rgba(255,255,255,0.035)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const highlightMethodStyle: CSSProperties = {
+  background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(124,58,237,0.08))",
+  border: "1px solid rgba(34,197,94,0.34)",
+};
+
+const methodIconStyle: CSSProperties = {
+  width: 38,
+  height: 38,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.08)",
+  marginBottom: 12,
+};
+
+const methodTextStyle: CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 14,
+  lineHeight: 1.45,
+  margin: "8px 0 0",
+};
+
+const blockStyle: CSSProperties = {
+  marginTop: 18,
 };
 
 const mappingBoxStyle: CSSProperties = {
   marginTop: 22,
   padding: 18,
-  borderRadius: 16,
+  borderRadius: 18,
   border: "1px solid rgba(250,204,21,0.25)",
-  background: "rgba(250,204,21,0.04)",
+  background: "rgba(250,204,21,0.045)",
 };
 
 const fieldStyle: CSSProperties = {
   display: "grid",
   gap: 8,
   color: "#cbd5e1",
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
-  padding: 13,
-  borderRadius: 10,
-  background: "#020617",
+  padding: 14,
+  borderRadius: 14,
+  background: "rgba(2,6,23,0.86)",
   color: "#fff",
-  border: "1px solid #334155",
+  border: "1px solid rgba(148,163,184,0.3)",
+  outline: "none",
+};
+
+const vcfBoxStyle: CSSProperties = {
+  marginTop: 18,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 18,
+  padding: 18,
+  borderRadius: 18,
+  background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(124,58,237,0.08))",
+  border: "1px solid rgba(34,197,94,0.34)",
+};
+
+const vcfSummaryStyle: CSSProperties = {
+  marginTop: 12,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  padding: 16,
+  borderRadius: 16,
+  background: "rgba(34,197,94,0.08)",
+  border: "1px solid rgba(34,197,94,0.25)",
+};
+
+const uploadButtonStyle: CSSProperties = {
+  padding: "14px 18px",
+  borderRadius: 14,
+  border: "1px solid rgba(34,197,94,0.42)",
+  background: "rgba(34,197,94,0.14)",
+  color: "#bbf7d0",
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const mappingGridStyle: CSSProperties = {
@@ -902,27 +1348,38 @@ const selectionActionsStyle: CSSProperties = {
 
 const buttonStyle: CSSProperties = {
   padding: "14px 20px",
-  borderRadius: 10,
-  background: "#22c55e",
+  borderRadius: 14,
+  background: "linear-gradient(135deg, #22c55e, #16a34a)",
   border: "none",
   color: "#fff",
-  fontWeight: "bold",
+  fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "0 12px 30px rgba(34,197,94,0.24)",
 };
 
 const secondaryButtonStyle: CSSProperties = {
   padding: "14px 20px",
-  borderRadius: 10,
-  background: "#1e293b",
-  border: "1px solid #334155",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.12)",
   color: "#fff",
-  fontWeight: "bold",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const ghostButtonStyle: CSSProperties = {
+  padding: "14px 20px",
+  borderRadius: 14,
+  background: "transparent",
+  border: "1px solid rgba(148,163,184,0.25)",
+  color: "#cbd5e1",
+  fontWeight: 900,
   cursor: "pointer",
 };
 
 const goldButtonStyle: CSSProperties = {
   padding: "14px 20px",
-  borderRadius: 10,
+  borderRadius: 14,
   border: "1px solid rgba(250,204,21,0.42)",
   background: "rgba(250,204,21,0.12)",
   color: "#fde68a",
@@ -932,9 +1389,9 @@ const goldButtonStyle: CSSProperties = {
 
 const smallButtonStyle: CSSProperties = {
   padding: "10px 14px",
-  borderRadius: 10,
-  background: "#1e293b",
-  border: "1px solid #334155",
+  borderRadius: 12,
+  background: "rgba(255,255,255,0.07)",
+  border: "1px solid rgba(255,255,255,0.1)",
   color: "#fff",
   fontWeight: 800,
   cursor: "pointer",
@@ -954,9 +1411,9 @@ const cardStyle: CSSProperties = {
   gap: 16,
   alignItems: "center",
   padding: 16,
-  borderRadius: 14,
-  border: "1px solid #334155",
-  background: "#0f172a",
+  borderRadius: 18,
+  border: "1px solid rgba(148,163,184,0.22)",
+  background: "rgba(15,23,42,0.86)",
 };
 
 const cardLeftStyle: CSSProperties = {
@@ -984,9 +1441,9 @@ const badgeStyle: CSSProperties = {
 const preStyle: CSSProperties = {
   marginTop: 8,
   padding: 12,
-  borderRadius: 12,
-  border: "1px solid #334155",
-  background: "#020617",
+  borderRadius: 14,
+  border: "1px solid rgba(148,163,184,0.22)",
+  background: "rgba(2,6,23,0.9)",
   color: "#94a3b8",
   overflowX: "auto",
   whiteSpace: "pre-wrap",
