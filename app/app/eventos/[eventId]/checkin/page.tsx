@@ -142,58 +142,44 @@ export default function CheckinEventoPage({
     return normalizar(c.status_checkin) === "SYNC_PENDENTE";
   }
 
-  async function obterAudioContext() {
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return null;
+  function obterAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
 
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new AudioContextClass();
-      }
-
-      if (audioCtxRef.current.state === "suspended") {
-        await audioCtxRef.current.resume();
-      }
-
-      return audioCtxRef.current;
-    } catch {
-      return null;
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContextClass();
     }
+
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
+    return audioCtxRef.current;
   }
 
-  async function tocarBipDesbloqueio(ctx: AudioContext) {
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(880, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.22);
-  }
-
-  async function desbloquearAudio() {
-    const ctx = await obterAudioContext();
-    if (!ctx) return;
-
+  function desbloquearAudio() {
     try {
-      await tocarBipDesbloqueio(ctx);
+      const ctx = obterAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.02);
       setSomAtivo(true);
     } catch {}
   }
 
-  async function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
-    const audio = await obterAudioContext();
-    if (!audio) return;
-
+  function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
     try {
+      const ctx = obterAudioContext();
+      if (!ctx) return;
       setSomAtivo(true);
-      const now = audio.currentTime + 0.01;
+
+      const audio: AudioContext = ctx;
+      const now = audio.currentTime;
 
       function tone(
         freq: number,
@@ -204,40 +190,37 @@ export default function CheckinEventoPage({
       ) {
         const osc = audio.createOscillator();
         const gain = audio.createGain();
-        const start = now + delay;
-        const end = start + duration;
 
         osc.type = wave;
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
+        osc.frequency.setValueAtTime(freq, now + delay);
+        gain.gain.setValueAtTime(0.0001, now + delay);
+        gain.gain.exponentialRampToValueAtTime(gainValue, now + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
         osc.connect(gain).connect(audio.destination);
-        osc.start(start);
-        osc.stop(end + 0.05);
+        osc.start(now + delay);
+        osc.stop(now + delay + duration + 0.05);
       }
 
       if (tipo === "ok") {
-        tone(220, 0.22, 0.24, "triangle");
-        tone(392, 0.18, 0.24, "sine", 0.08);
-        tone(659, 0.16, 0.3, "sine", 0.16);
-        tone(988, 0.11, 0.25, "triangle", 0.29);
+        tone(220, 0.16, 0.24, "triangle");
+        tone(392, 0.13, 0.24, "sine", 0.07);
+        tone(659, 0.11, 0.3, "sine", 0.15);
+        tone(988, 0.08, 0.25, "triangle", 0.26);
       }
 
       if (tipo === "tick") {
-        tone(1244, 0.16, 0.14, "triangle");
+        tone(1244, 0.08, 0.14, "triangle");
       }
 
       if (tipo === "usado") {
-        tone(260, 0.22, 0.13, "square");
-        tone(150, 0.22, 0.25, "sawtooth", 0.13);
-        tone(95, 0.18, 0.3, "square", 0.3);
+        tone(260, 0.18, 0.12, "square");
+        tone(150, 0.2, 0.24, "sawtooth", 0.12);
+        tone(95, 0.16, 0.28, "square", 0.28);
       }
 
       if (tipo === "erro") {
-        tone(800, 0.16, 0.09, "square");
-        tone(180, 0.18, 0.24, "sawtooth", 0.11);
+        tone(800, 0.12, 0.08, "square");
+        tone(180, 0.14, 0.24, "sawtooth", 0.1);
       }
     } catch {}
   }
@@ -585,29 +568,28 @@ export default function CheckinEventoPage({
     convidado: Convidado,
     origem: "qr" | "manual" = "manual"
   ) {
-    desbloquearAudio();
+    await desbloquearAudio();
+
+    // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
       piscarCard(convidado.id);
-      tocarSom("usado");
+      atualizarResultado({
+        tipo: "usado",
+        titulo: "Cartão já utilizado",
+        nome: convidado.nome,
+        mensagem: "Este convidado já teve a entrada registrada.",
+        token: convidado.token,
+      });
+      await tocarSom("usado");
+      vibrar("erro");
       return;
     }
 
     const agora = new Date().toISOString();
 
-    setConvidados((prev) =>
-      prev.map((c) =>
-        c.id === convidado.id
-          ? {
-              ...c,
-              checkin_realizado: true,
-              status_checkin: "entrou",
-              data_checkin: agora,
-            }
-          : c
-      )
-    );
-
-    const { error } = await supabase
+    // Trava real no banco: só atualiza se ainda não realizou check-in.
+    // Isso impede dois leitores/botões registrarem a mesma entrada ao mesmo tempo.
+    const { data, error } = await supabase
       .from("convidados")
       .update({
         checkin_realizado: true,
@@ -615,7 +597,9 @@ export default function CheckinEventoPage({
         data_checkin: agora,
       })
       .eq("id", convidado.id)
-      .eq("evento_id", eventoId);
+      .eq("evento_id", eventoId)
+      .or("checkin_realizado.is.false,checkin_realizado.is.null")
+      .select("id");
 
     if (error) {
       salvarPendente(convidado, agora);
@@ -641,12 +625,54 @@ export default function CheckinEventoPage({
         mensagem: "Sem conexão com o banco. Ficou como sync pendente.",
         token: convidado.token,
       });
-      tocarSom("erro");
+      await tocarSom("erro");
+      vibrar("erro");
+      return;
+    }
+
+    // Se o update não retornou linha, alguém já registrou esse check-in antes.
+    if (!data || data.length === 0) {
+      setConvidados((prev) =>
+        prev.map((c) =>
+          c.id === convidado.id
+            ? {
+                ...c,
+                checkin_realizado: true,
+                status_checkin: "entrou",
+                data_checkin: c.data_checkin || agora,
+              }
+            : c
+        )
+      );
+
+      piscarCard(convidado.id);
+      atualizarResultado({
+        tipo: "usado",
+        titulo: "Cartão já utilizado",
+        nome: convidado.nome,
+        mensagem: "Este convidado já teve a entrada registrada.",
+        token: convidado.token,
+      });
+      await tocarSom("usado");
       vibrar("erro");
       return;
     }
 
     removerPendente(convidado.token);
+
+    setConvidados((prev) =>
+      prev.map((c) =>
+        c.id === convidado.id
+          ? {
+              ...c,
+              checkin_realizado: true,
+              status_checkin: "entrou",
+              data_checkin: agora,
+            }
+          : c
+      )
+    );
+
     piscarCard(convidado.id);
     atualizarResultado({
       tipo: "ok",
@@ -655,7 +681,7 @@ export default function CheckinEventoPage({
       mensagem: "Check-in registrado com sucesso.",
       token: convidado.token,
     });
-    tocarSom("ok");
+    await tocarSom("ok");
     vibrar("ok");
   }
 
@@ -737,7 +763,7 @@ export default function CheckinEventoPage({
     return { total, entrou, pendentes, sync };
   }, [convidados]);
 
-  const gruposRender = useMemo<GrupoRender[]>(() => {
+  const gruposRender = useMemo<GrupoRender[]>((() => {
     const q = normalizar(busca);
     const mapa = new Map<string, Convidado[]>();
 
@@ -787,7 +813,7 @@ export default function CheckinEventoPage({
         );
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convidados, busca, statusFiltro, tipoFiltro]);
+  }) as any, [convidados, busca, statusFiltro, tipoFiltro]);
 
   return (
     <div className="checkin-page">
@@ -810,8 +836,13 @@ export default function CheckinEventoPage({
         .stat-value { font-size:34px; line-height:1; font-weight:950; margin-top:8px; }
         .main-grid { display:grid; grid-template-columns:430px minmax(0,1fr); gap:18px; align-items:start; }
         .panel { background:var(--card); border:1px solid var(--line); border-radius:26px; padding:18px; box-shadow:0 14px 42px rgba(15,23,42,.06); }
-        .reader-box { overflow:hidden; border-radius:22px; background:#020617; border:1px solid rgba(255,255,255,.12); aspect-ratio:1/1; display:grid; place-items:center; }
-        #qr-reader { width:100%; min-height:100%; }
+        .reader-box { position:relative; overflow:hidden; border-radius:22px; background:#020617; border:1px solid rgba(255,255,255,.12); aspect-ratio:1/1; display:block; }
+        #qr-reader { width:100%!important; height:100%!important; min-height:0!important; border:0!important; overflow:hidden!important; }
+        #qr-reader > div { padding:0!important; border:0!important; }
+        #qr-reader__scan_region { position:relative!important; width:100%!important; height:100%!important; min-height:0!important; display:block!important; overflow:hidden!important; background:#020617!important; }
+        #qr-reader__scan_region video { position:absolute!important; inset:0!important; width:100%!important; height:100%!important; object-fit:cover!important; display:block!important; }
+        #qr-reader__scan_region canvas { width:100%!important; height:100%!important; object-fit:cover!important; }
+        #qr-reader__dashboard, #qr-reader__dashboard_section, #qr-reader__status_span, #qr-reader__scan_region img { display:none!important; }
         #qr-reader video, #qr-reader canvas { width:100%!important; height:100%!important; object-fit:cover!important; }
         .result-card { border-radius:24px; padding:20px; margin-bottom:14px; border:1px solid var(--line); background:rgba(248,250,252,.76); position:relative; overflow:hidden; }
         .result-card.ok { background:linear-gradient(135deg,rgba(22,163,74,.12),rgba(255,255,255,.88)); border-color:rgba(22,163,74,.28); }
