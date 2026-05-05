@@ -1401,5 +1401,6 @@ function Metric({ label, value }: { label: string; value: number }) {
       <div className="stat-value">{value}</div>
     </div>
   );
+}
 
    
