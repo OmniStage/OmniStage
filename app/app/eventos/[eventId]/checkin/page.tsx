@@ -72,10 +72,11 @@ export default function CheckinEventoPage({
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [flash, setFlash] = useState<Resultado["tipo"] | null>(null);
   const [overlay, setOverlay] = useState<Resultado | null>(null);
-  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>(
+  const [cardsPiscando, setCardsPiscando] = useState<Record<string, number>>(
     {},
   );
   const [somAtivo, setSomAtivo] = useState(false);
+  const somAtivoRef = useRef(false);
 
   const [resultado, setResultado] = useState<Resultado>({
     tipo: "idle",
@@ -99,6 +100,11 @@ export default function CheckinEventoPage({
   });
   const audioUnlockedRef = useRef(false);
   const [efeitoId, setEfeitoId] = useState(0);
+
+  function definirSomAtivo(ativo: boolean) {
+    somAtivoRef.current = ativo;
+    setSomAtivo(ativo);
+  }
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
 
@@ -187,19 +193,16 @@ export default function CheckinEventoPage({
       );
 
       audioUnlockedRef.current = true;
-      setSomAtivo(true);
+      definirSomAtivo(true);
     } catch {
       // Alguns navegadores só liberam no segundo clique real.
       // Mantém a tela funcionando e tenta novamente no próximo botão.
       audioUnlockedRef.current = false;
-      setSomAtivo(false);
+      definirSomAtivo(false);
     }
   }
 
-  function tocarArquivo(
-    tipo: "success" | "already" | "error",
-    volume = 1,
-  ) {
+  function tocarArquivo(tipo: "success" | "already" | "error", volume = 1) {
     const baseAudio = audioRefs.current[tipo];
     if (!baseAudio) return;
 
@@ -208,23 +211,23 @@ export default function CheckinEventoPage({
       audio.volume = volume;
       audio.currentTime = 0;
 
-      void audio.play().then(() => {
-        audioUnlockedRef.current = true;
-        setSomAtivo(true);
-      }).catch(() => {
-        audioUnlockedRef.current = false;
-        setSomAtivo(false);
-      });
+      void audio
+        .play()
+        .then(() => {
+          audioUnlockedRef.current = true;
+        })
+        .catch(() => {
+          audioUnlockedRef.current = false;
+        });
     } catch {
       audioUnlockedRef.current = false;
-      setSomAtivo(false);
     }
   }
 
   function tocarSom(tipo: "ok" | "erro" | "usado" | "sync" | "tick") {
     // Som só para feedback de check-in e somente quando o operador ativar.
     // Botões de navegação/ação não disparam áudio.
-    if (!somAtivo) return;
+    if (!somAtivoRef.current) return;
 
     if (tipo === "ok") {
       tocarArquivo("success", 1);
@@ -287,8 +290,10 @@ export default function CheckinEventoPage({
   }
 
   function piscarCard(id: string) {
-    // Remove e reaplica a classe para a animação reiniciar SEMPRE,
-    // inclusive quando o mesmo cartão recebe outro feedback rapidamente.
+    // Timestamp único: força o React a remontar o efeito visual sempre,
+    // inclusive em cards individuais e em check-ins repetidos muito rápidos.
+    const efeito = Date.now() + Math.random();
+
     setCardsPiscando((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -297,17 +302,18 @@ export default function CheckinEventoPage({
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setCardsPiscando((prev) => ({ ...prev, [id]: true }));
+        setCardsPiscando((prev) => ({ ...prev, [id]: efeito }));
       });
     });
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setCardsPiscando((prev) => {
+        if (prev[id] !== efeito) return prev;
         const next = { ...prev };
         delete next[id];
         return next;
       });
-    }, 1100);
+    }, 1300);
   }
 
   function lerPendentes(): Record<
@@ -509,15 +515,21 @@ export default function CheckinEventoPage({
       await qr.start(
         configCamera,
         {
-          fps: 14,
+          // Leitura mais estável em celular/tablet e em QR exibido em tela.
+          // Área maior ajuda quando há reflexo; FPS menor reduz leituras tremidas.
+          fps: 10,
           rememberLastUsedCamera: false,
           disableFlip: false,
+          aspectRatio: 1,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
           qrbox: (w: number, h: number) => {
             const base = Math.min(w || 320, h || 320);
             const tela = window.innerWidth || 360;
-            const factor = tela <= 768 ? 0.76 : tela <= 1180 ? 0.78 : 0.72;
+            const factor = tela <= 768 ? 0.88 : tela <= 1180 ? 0.84 : 0.78;
             const size = Math.floor(
-              Math.max(240, Math.min(base * factor, 520)),
+              Math.max(260, Math.min(base * factor, 560)),
             );
             return { width: size, height: size };
           },
@@ -596,7 +608,6 @@ export default function CheckinEventoPage({
     raw: string,
     origem: "qr" | "manual" = "manual",
   ) {
-
     const token = extrairToken(raw);
     if (!token) return;
     if (leituraDuplicada(token)) return;
@@ -651,7 +662,6 @@ export default function CheckinEventoPage({
     convidado: Convidado,
     origem: "qr" | "manual" = "manual",
   ) {
-
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
       feedbackSincronizado(
@@ -765,7 +775,8 @@ export default function CheckinEventoPage({
       convidado.id,
       {
         tipo: "ok",
-        titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
+        titulo:
+          origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
         nome: convidado.nome,
         mensagem: "Check-in registrado com sucesso.",
         token: convidado.token,
@@ -961,6 +972,8 @@ export default function CheckinEventoPage({
         .control-row { display:grid; grid-template-columns:1fr 170px 210px; gap:10px; margin-bottom:14px; }
         .guest-list { display:grid; gap:14px; max-height:74vh; overflow:auto; padding-right:4px; }
         .group-card { border:1px solid var(--line); border-radius:26px; padding:16px; background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(248,250,252,.9)); box-shadow:0 12px 34px rgba(15,23,42,.045); }
+        .group-card.group-flash { animation:groupFlash 1.15s ease; box-shadow:0 0 0 2px rgba(34,197,94,.28),0 18px 48px rgba(34,197,94,.18); }
+        @keyframes groupFlash { 0%{transform:scale(.995)} 35%{transform:scale(1.008)} 100%{transform:scale(1)} }
         .group-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
         .group-title { font-size:20px; font-weight:950; letter-spacing:-.03em; }
         .group-sub { color:var(--muted); font-weight:800; margin-top:6px; line-height:1.35; }
@@ -970,8 +983,8 @@ export default function CheckinEventoPage({
         .guest-card:hover { transform:translateY(-1px); box-shadow:0 12px 34px rgba(15,23,42,.07); }
         .guest-card.entered { background:rgba(240,253,244,.86); border-color:rgba(22,163,74,.24); }
         .guest-card.sync { background:rgba(255,251,235,.9); border-color:rgba(217,119,6,.28); }
-        .guest-card.led-flash { animation:ledFlash 1.05s ease; box-shadow:0 0 0 2px rgba(34,197,94,.45),0 0 34px rgba(34,197,94,.45),inset 0 0 28px rgba(34,197,94,.12); }
-        @keyframes ledFlash { 0%{transform:scale(.99);filter:brightness(1)} 35%{transform:scale(1.015);filter:brightness(1.2)} 100%{transform:scale(1);filter:brightness(1)} }
+        .guest-card.led-flash { animation:ledFlash 1.18s ease; box-shadow:0 0 0 3px rgba(34,197,94,.55),0 0 42px rgba(34,197,94,.52),inset 0 0 32px rgba(34,197,94,.16); border-color:rgba(34,197,94,.62)!important; }
+        @keyframes ledFlash { 0%{transform:scale(.985);filter:brightness(1)} 18%{transform:scale(1.018);filter:brightness(1.26)} 45%{transform:scale(1.008);filter:brightness(1.16)} 100%{transform:scale(1);filter:brightness(1)} }
         .guest-name { font-size:18px; font-weight:950; letter-spacing:-.02em; }
         .guest-sub { margin-top:4px; color:var(--muted); font-size:13px; font-weight:750; }
         .token { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#64748b; }
@@ -1080,7 +1093,7 @@ export default function CheckinEventoPage({
             className={somAtivo ? "btn success" : "btn"}
             onClick={() => {
               if (somAtivo) {
-                setSomAtivo(false);
+                definirSomAtivo(false);
                 return;
               }
 
@@ -1205,7 +1218,10 @@ export default function CheckinEventoPage({
                 const algumSync = grupo.membros.some(convidadoSync);
 
                 return (
-                  <div key={grupo.key} className="group-card">
+                  <div
+                    key={grupo.key}
+                    className={`group-card ${grupo.membros.some((m) => cardsPiscando[m.id]) ? "group-flash" : ""}`}
+                  >
                     <div className="group-head">
                       <div>
                         <div className="group-title">
@@ -1256,7 +1272,7 @@ export default function CheckinEventoPage({
                         const sync = convidadoSync(c);
                         return (
                           <div
-                            key={c.id}
+                            key={`${c.id}-${cardsPiscando[c.id] || 0}`}
                             className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? "led-flash" : ""}`}
                           >
                             <div>
@@ -1323,3 +1339,6 @@ function Metric({ label, value }: { label: string; value: number }) {
       <div className="stat-value">{value}</div>
     </div>
   );
+}
+
+   
