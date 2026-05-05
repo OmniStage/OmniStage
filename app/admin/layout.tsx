@@ -28,7 +28,6 @@ export default function AdminLayout({
     { name: "Eventos", href: "/admin/eventos" },
     { name: "Modelos de Convite", href: "/admin/modelos-convites" },
     { name: "Usuários", href: "/admin/usuarios" },
-    { name: "Usuários x Redes", href: "/admin/usuarios-rede" },
     { name: "Planos", href: "/admin/planos" },
     { name: "Configurações", href: "/admin/configuracoes" },
   ];
