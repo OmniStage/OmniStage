@@ -8,7 +8,7 @@ type Evento = {
 };
 
 export default async function CheckinPage() {
-  const { data: eventos } = await supabase
+  const { data: eventos, error } = await supabase
     .from("eventos")
     .select("id, nome, status")
     .order("created_at", { ascending: false });
@@ -51,13 +51,31 @@ export default async function CheckinPage() {
         </p>
       </div>
 
-      {!eventos?.length && (
+      {error && (
+        <div
+          style={{
+            padding: 20,
+            border: "1px solid rgba(225,29,72,.24)",
+            borderRadius: 16,
+            background: "rgba(255,228,230,.7)",
+            color: "#be123c",
+            marginBottom: 16,
+            fontWeight: 800,
+          }}
+        >
+          Erro ao carregar eventos: {error.message}
+        </div>
+      )}
+
+      {!error && !eventos?.length && (
         <div
           style={{
             padding: 20,
             border: "1px solid var(--line)",
             borderRadius: 16,
             background: "var(--card)",
+            color: "var(--muted)",
+            fontWeight: 750,
           }}
         >
           Nenhum evento encontrado.
@@ -65,10 +83,10 @@ export default async function CheckinPage() {
       )}
 
       <div style={{ display: "grid", gap: 16 }}>
-        {eventos?.map((evento) => (
+        {eventos?.map((evento: Evento) => (
           <Link
             key={evento.id}
-            href={`/app/eventos/${evento.id}/checkin`}
+            href={`/app/checkin/${evento.id}`}
             style={{
               display: "block",
               padding: 20,
@@ -80,25 +98,13 @@ export default async function CheckinPage() {
               transition: "all 0.2s ease",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
               <div>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 20,
-                    fontWeight: 900,
-                  }}
-                >
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>
                   {evento.nome || "Evento sem nome"}
                 </h2>
 
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontSize: 13,
-                    color: "var(--muted)",
-                  }}
-                >
+                <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}>
                   ID: {evento.id}
                   {evento.status && ` • ${evento.status}`}
                 </div>
@@ -112,6 +118,7 @@ export default async function CheckinPage() {
                   padding: "10px 16px",
                   borderRadius: 12,
                   fontWeight: 900,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Abrir
