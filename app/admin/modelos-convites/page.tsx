@@ -46,36 +46,24 @@ export default function ModelosConvitePage() {
       .eq("active", true)
       .order("nome");
 
-    if (error) {
-      alert("Erro ao carregar categorias: " + error.message);
-      return;
-    }
-
+    if (error) return alert("Erro ao carregar categorias: " + error.message);
     setCategorias(data || []);
   }
 
   async function criarCategoria() {
-    if (!novaCategoria.trim()) {
-      alert("Digite o nome da categoria");
-      return;
-    }
-
-    const novoSlug = gerarSlug(novaCategoria);
+    if (!novaCategoria.trim()) return alert("Digite o nome da categoria");
 
     setSalvandoCategoria(true);
 
     const { error } = await supabase.from("invite_template_categories").insert({
       nome: novaCategoria.trim(),
-      slug: novoSlug,
+      slug: gerarSlug(novaCategoria),
       active: true,
     });
 
     setSalvandoCategoria(false);
 
-    if (error) {
-      alert("Erro ao criar categoria: " + error.message);
-      return;
-    }
+    if (error) return alert("Erro ao criar categoria: " + error.message);
 
     setNovaCategoria("");
     await carregarCategorias();
@@ -94,11 +82,7 @@ export default function ModelosConvitePage() {
       `)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      alert("Erro ao carregar modelos: " + error.message);
-      return;
-    }
-
+    if (error) return alert("Erro ao carregar modelos: " + error.message);
     setTemplates(data || []);
   }
 
@@ -181,7 +165,6 @@ export default function ModelosConvitePage() {
       .eq("id", id);
 
     if (error) return alert("Erro ao alterar status: " + error.message);
-
     carregarTemplates();
   }
 
@@ -211,25 +194,16 @@ export default function ModelosConvitePage() {
       .eq("invite_template_id", id)
       .limit(1);
 
-    if (usoError) {
-      alert("Erro ao verificar uso do modelo: " + usoError.message);
-      return;
-    }
+    if (usoError) return alert("Erro ao verificar uso do modelo: " + usoError.message);
 
     if (eventosUsando && eventosUsando.length > 0) {
-      alert(
-        "Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua."
-      );
+      alert("Este modelo já está sendo usado em evento. Desative ou duplique, mas não exclua.");
       return;
     }
 
-    const confirmacao = confirm("Tem certeza que deseja excluir este modelo?");
-    if (!confirmacao) return;
+    if (!confirm("Tem certeza que deseja excluir este modelo?")) return;
 
-    const { error } = await supabase
-      .from("invite_templates")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("invite_templates").delete().eq("id", id);
 
     if (error) return alert("Erro ao excluir: " + error.message);
 
@@ -248,8 +222,7 @@ export default function ModelosConvitePage() {
           <div style={eyebrow}>Admin OmniStage</div>
           <h1 style={h1}>Modelos de Convite</h1>
           <p style={subtitle}>
-            Crie, edite e organize templates HTML reutilizáveis para eventos,
-            clientes e experiências digitais.
+            Crie, edite e organize templates HTML reutilizáveis para eventos e clientes.
           </p>
         </div>
 
@@ -259,25 +232,10 @@ export default function ModelosConvitePage() {
       </section>
 
       <section style={statsGrid}>
-        <div style={statCard}>
-          <span style={statLabel}>Total de modelos</span>
-          <strong style={statValue}>{totalModelos}</strong>
-        </div>
-
-        <div style={statCard}>
-          <span style={statLabel}>Ativos</span>
-          <strong style={statValue}>{modelosAtivos}</strong>
-        </div>
-
-        <div style={statCard}>
-          <span style={statLabel}>Inativos</span>
-          <strong style={statValue}>{modelosInativos}</strong>
-        </div>
-
-        <div style={statCard}>
-          <span style={statLabel}>Categorias</span>
-          <strong style={statValue}>{categorias.length}</strong>
-        </div>
+        <div style={statCard}><span style={statLabel}>Total</span><strong style={statValue}>{totalModelos}</strong></div>
+        <div style={statCard}><span style={statLabel}>Ativos</span><strong style={statValue}>{modelosAtivos}</strong></div>
+        <div style={statCard}><span style={statLabel}>Inativos</span><strong style={statValue}>{modelosInativos}</strong></div>
+        <div style={statCard}><span style={statLabel}>Categorias</span><strong style={statValue}>{categorias.length}</strong></div>
       </section>
 
       <section style={card}>
@@ -296,24 +254,15 @@ export default function ModelosConvitePage() {
             style={input}
           />
 
-          <button
-            onClick={criarCategoria}
-            style={btnGreen}
-            disabled={salvandoCategoria}
-          >
+          <button onClick={criarCategoria} style={btnGreen} disabled={salvandoCategoria}>
             {salvandoCategoria ? "Criando..." : "Criar categoria"}
           </button>
         </div>
 
         <div style={chips}>
-          {categorias.length === 0 && (
-            <span style={emptyText}>Nenhuma categoria cadastrada.</span>
-          )}
-
+          {categorias.length === 0 && <span style={emptyText}>Nenhuma categoria cadastrada.</span>}
           {categorias.map((c) => (
-            <span key={c.id} style={pill}>
-              {c.nome}
-            </span>
+            <span key={c.id} style={pill}>{c.nome}</span>
           ))}
         </div>
       </section>
@@ -322,12 +271,8 @@ export default function ModelosConvitePage() {
         <div style={card}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={h2}>
-                {editandoId ? "Editar modelo" : "Novo modelo"}
-              </h2>
-              <p style={smallText}>
-                Cadastre o HTML principal que será usado no convite.
-              </p>
+              <h2 style={h2}>{editandoId ? "Editar modelo" : "Novo modelo"}</h2>
+              <p style={smallText}>Cadastre o HTML principal que será usado no convite.</p>
             </div>
 
             {editandoId && <span style={editBadge}>Editando</span>}
@@ -346,16 +291,10 @@ export default function ModelosConvitePage() {
 
             <label style={field}>
               <span style={label}>Categoria</span>
-              <select
-                value={categoriaId}
-                onChange={(e) => setCategoriaId(e.target.value)}
-                style={input}
-              >
+              <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} style={input}>
                 <option value="">Selecione a categoria</option>
                 {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.nome}</option>
                 ))}
               </select>
             </label>
@@ -397,16 +336,10 @@ export default function ModelosConvitePage() {
               style={btnPrimary}
               disabled={loading}
             >
-              {loading
-                ? "Salvando..."
-                : editandoId
-                ? "Salvar alteração"
-                : "Criar modelo"}
+              {loading ? "Salvando..." : editandoId ? "Salvar alteração" : "Criar modelo"}
             </button>
 
-            <button onClick={limparFormulario} style={btnGhost}>
-              Limpar
-            </button>
+            <button onClick={limparFormulario} style={btnGhost}>Limpar</button>
           </div>
         </div>
 
@@ -414,17 +347,13 @@ export default function ModelosConvitePage() {
           <div style={sectionHeader}>
             <div>
               <h2 style={h2}>Preview ao vivo</h2>
-              <p style={smallText}>
-                Veja como o HTML renderiza antes de salvar.
-              </p>
+              <p style={smallText}>Veja como o HTML renderiza antes de salvar.</p>
             </div>
           </div>
 
           <div style={previewMeta}>
             <span style={previewName}>{nome || "Modelo sem nome"}</span>
-            <span style={previewCategory}>
-              {categoriaSelecionada?.nome || "Sem categoria"}
-            </span>
+            <span style={previewCategory}>{categoriaSelecionada?.nome || "Sem categoria"}</span>
           </div>
 
           {preview && !htmlTemplate ? (
@@ -433,11 +362,7 @@ export default function ModelosConvitePage() {
             </div>
           ) : htmlTemplate ? (
             <div style={phonePreviewShell}>
-              <iframe
-                title="Preview do modelo"
-                srcDoc={htmlTemplate}
-                style={iframePreview}
-              />
+              <iframe title="Preview do modelo" srcDoc={htmlTemplate} style={iframePreview} />
             </div>
           ) : (
             <div style={emptyPreview}>
@@ -453,16 +378,12 @@ export default function ModelosConvitePage() {
         <div style={sectionHeader}>
           <div>
             <h2 style={h2}>Modelos cadastrados</h2>
-            <p style={smallText}>
-              Gerencie status, edição, duplicação e exclusão dos templates.
-            </p>
+            <p style={smallText}>Cards menores, até 3 por linha, com preview maior.</p>
           </div>
         </div>
 
         <div style={modelsGrid}>
-          {templates.length === 0 && (
-            <div style={emptyList}>Nenhum modelo cadastrado ainda.</div>
-          )}
+          {templates.length === 0 && <div style={emptyList}>Nenhum modelo cadastrado ainda.</div>}
 
           {templates.map((t) => (
             <article key={t.id} style={modelCard}>
@@ -490,43 +411,23 @@ export default function ModelosConvitePage() {
 
               {t.preview_image ? (
                 <div style={miniPhoneShell}>
-                  <img
-                    src={t.preview_image}
-                    alt={t.nome || t.name || "Preview do modelo"}
-                    style={miniImage}
-                  />
+                  <img src={t.preview_image} alt={t.nome || t.name || "Preview do modelo"} style={miniImage} />
                 </div>
               ) : t.html_template ? (
                 <div style={miniPhoneShell}>
-                  <iframe
-                    title={`Preview ${t.nome || t.name}`}
-                    srcDoc={t.html_template}
-                    style={miniFrame}
-                  />
+                  <iframe title={`Preview ${t.nome || t.name}`} srcDoc={t.html_template} style={miniFrame} />
                 </div>
               ) : (
                 <div style={miniEmpty}>Sem preview</div>
               )}
 
               <div style={modelActions}>
-                <button onClick={() => editarTemplate(t)} style={btnBlue}>
-                  Editar
-                </button>
-
-                <button onClick={() => duplicarTemplate(t)} style={btnPurple}>
-                  Duplicar
-                </button>
-
-                <button
-                  onClick={() => alternarStatus(t.id, t.active)}
-                  style={btnSoft}
-                >
+                <button onClick={() => editarTemplate(t)} style={btnBlue}>Editar</button>
+                <button onClick={() => duplicarTemplate(t)} style={btnPurple}>Duplicar</button>
+                <button onClick={() => alternarStatus(t.id, t.active)} style={btnSoft}>
                   {t.active ? "Desativar" : "Ativar"}
                 </button>
-
-                <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>
-                  Excluir
-                </button>
+                <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>Excluir</button>
               </div>
             </article>
           ))}
@@ -537,9 +438,9 @@ export default function ModelosConvitePage() {
 }
 
 const page: CSSProperties = {
-  maxWidth: 1320,
+  maxWidth: 1480,
   margin: "0 auto",
-  padding: "34px 34px 60px",
+  padding: "32px 32px 56px",
   color: "#0f172a",
 };
 
@@ -548,7 +449,7 @@ const hero: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 24,
-  marginBottom: 22,
+  marginBottom: 20,
 };
 
 const eyebrow: CSSProperties = {
@@ -564,17 +465,17 @@ const eyebrow: CSSProperties = {
 
 const h1: CSSProperties = {
   margin: 0,
-  fontSize: 42,
+  fontSize: 40,
   lineHeight: 1.05,
   letterSpacing: "-0.04em",
 };
 
 const subtitle: CSSProperties = {
-  maxWidth: 680,
+  maxWidth: 660,
   marginTop: 10,
   color: "#64748b",
   fontSize: 16,
-  lineHeight: 1.6,
+  lineHeight: 1.5,
 };
 
 const statsGrid: CSSProperties = {
@@ -588,20 +489,20 @@ const statCard: CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
   borderRadius: 18,
-  padding: 18,
-  boxShadow: "0 12px 34px rgba(15, 23, 42, 0.06)",
+  padding: 16,
+  boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)",
 };
 
 const statLabel: CSSProperties = {
   display: "block",
   color: "#64748b",
   fontSize: 13,
-  marginBottom: 8,
+  marginBottom: 6,
 };
 
 const statValue: CSSProperties = {
   display: "block",
-  fontSize: 28,
+  fontSize: 26,
   letterSpacing: "-0.04em",
 };
 
@@ -610,7 +511,7 @@ const card: CSSProperties = {
   border: "1px solid #e2e8f0",
   borderRadius: 22,
   padding: 22,
-  boxShadow: "0 18px 50px rgba(15, 23, 42, 0.07)",
+  boxShadow: "0 16px 42px rgba(15, 23, 42, 0.06)",
 };
 
 const sectionHeader: CSSProperties = {
@@ -662,7 +563,7 @@ const emptyText: CSSProperties = {
 
 const editorGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 460px",
+  gridTemplateColumns: "1fr 500px",
   gap: 18,
   marginTop: 18,
   alignItems: "start",
@@ -707,8 +608,7 @@ const textarea: CSSProperties = {
   border: "1px solid #dbe3ef",
   background: "#0b1020",
   color: "#e5e7eb",
-  fontFamily:
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   fontSize: 13,
   lineHeight: 1.6,
   resize: "vertical",
@@ -731,14 +631,14 @@ const btnPrimary: CSSProperties = {
   color: "#ffffff",
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "0 12px 26px rgba(124, 58, 237, 0.24)",
+  boxShadow: "0 12px 26px rgba(124, 58, 237, 0.22)",
   whiteSpace: "nowrap",
 };
 
 const btnGreen: CSSProperties = {
   ...btnPrimary,
   background: "linear-gradient(135deg, #22c55e, #16a34a)",
-  boxShadow: "0 12px 26px rgba(34, 197, 94, 0.22)",
+  boxShadow: "0 12px 26px rgba(34, 197, 94, 0.2)",
 };
 
 const btnGhost: CSSProperties = {
@@ -791,9 +691,10 @@ const previewCategory: CSSProperties = {
 };
 
 const phonePreviewShell: CSSProperties = {
-  width: "100%",
+  width: "430px",
   height: 720,
   overflow: "auto",
+  margin: "0 auto",
   borderRadius: 26,
   border: "1px solid #dbe3ef",
   background: "#020617",
@@ -803,10 +704,9 @@ const phonePreviewShell: CSSProperties = {
 const iframePreview: CSSProperties = {
   width: "430px",
   minWidth: "430px",
-  height: "820px",
+  height: "900px",
   border: "none",
   display: "block",
-  margin: "0 auto",
   background: "#020617",
 };
 
@@ -826,8 +726,7 @@ const emptyPreview: CSSProperties = {
   justifyContent: "center",
   gap: 8,
   color: "#94a3b8",
-  background:
-    "radial-gradient(circle at 50% 0%, #f5f3ff 0, #ffffff 45%, #f8fafc 100%)",
+  background: "radial-gradient(circle at 50% 0%, #f5f3ff 0, #ffffff 45%, #f8fafc 100%)",
   border: "1px dashed #cbd5e1",
   borderRadius: 18,
   textAlign: "center",
@@ -850,22 +749,23 @@ const modelsSection: CSSProperties = {
 
 const modelsGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(520px, 1fr))",
-  gap: 24,
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 18,
 };
 
 const modelCard: CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e2e8f0",
-  borderRadius: 24,
-  padding: 22,
-  boxShadow: "0 18px 45px rgba(15, 23, 42, 0.08)",
+  borderRadius: 22,
+  padding: 18,
+  boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+  minWidth: 0,
 };
 
 const modelTop: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   alignItems: "flex-start",
 };
 
@@ -893,17 +793,17 @@ const modelInfo: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 10,
-  marginTop: 14,
+  marginTop: 12,
   color: "#64748b",
   fontSize: 13,
 };
 
 const miniPhoneShell: CSSProperties = {
   width: "100%",
-  height: 620,
+  height: 360,
   overflow: "hidden",
   marginTop: 14,
-  borderRadius: 22,
+  borderRadius: 18,
   border: "1px solid #dbe3ef",
   background: "#020617",
   position: "relative",
@@ -912,18 +812,19 @@ const miniPhoneShell: CSSProperties = {
 const miniFrame: CSSProperties = {
   width: "430px",
   minWidth: "430px",
-  height: "920px",
+  height: "900px",
   border: "none",
   display: "block",
   background: "#020617",
-  transform: "scale(0.82)",
+  transform: "scale(0.78)",
   transformOrigin: "top center",
   marginLeft: "50%",
   translate: "-50% 0",
 };
+
 const miniImage: CSSProperties = {
   width: "100%",
-  minHeight: 440,
+  height: "100%",
   objectFit: "contain",
   display: "block",
   background: "#020617",
@@ -948,12 +849,13 @@ const modelActions: CSSProperties = {
 };
 
 const btnBaseSmall: CSSProperties = {
-  minHeight: 36,
-  padding: "0 11px",
+  minHeight: 34,
+  padding: "0 10px",
   borderRadius: 10,
   border: "none",
   fontWeight: 800,
   cursor: "pointer",
+  fontSize: 13,
 };
 
 const btnBlue: CSSProperties = {
