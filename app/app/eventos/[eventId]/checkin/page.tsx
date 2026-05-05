@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 declare global {
   interface Window {
     Html5Qrcode?: any;
+    webkitAudioContext?: typeof AudioContext;
   }
 }
 
@@ -27,11 +28,23 @@ type Convidado = {
 };
 
 type Resultado = {
-  tipo: "idle" | "ok" | "usado" | "erro";
+  tipo: "idle" | "ok" | "usado" | "erro" | "sync";
   titulo: string;
   mensagem: string;
   nome?: string;
+  token?: string;
 };
+
+type LogItem = {
+  id: string;
+  tipo: Resultado["tipo"];
+  nome: string;
+  token: string;
+  horario: string;
+  mensagem: string;
+};
+
+type StatusFiltro = "todos" | "pendentes" | "entrou" | "sync";
 
 export default function CheckinEventoPage({
   params,
@@ -42,26 +55,48 @@ export default function CheckinEventoPage({
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [busca, setBusca] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState<"todos" | "pendentes" | "entrou">("todos");
+  const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>("todos");
   const [loading, setLoading] = useState(true);
   const [qrAtivo, setQrAtivo] = useState(false);
   const [scannerPronto, setScannerPronto] = useState(false);
-  const [processando, setProcessando] = useState(false);
+  const [cameraAtual, setCameraAtual] = useState("");
+  const [online, setOnline] = useState(true);
+  const [logs, setLogs] = useState<LogItem[]>([]);
+  const [flash, setFlash] = useState<Resultado["tipo"] | null>(null);
+  const [overlay, setOverlay] = useState<Resultado | null>(null);
 
   const [resultado, setResultado] = useState<Resultado>({
     tipo: "idle",
     titulo: "Pronto para check-in",
-    mensagem: "Ative o QR code ou use a busca manual.",
+    mensagem: "Ative o QR code, use o leitor físico ou libere manualmente.",
   });
 
   const qrRef = useRef<any>(null);
+  const busyRef = useRef(false);
   const ultimoTokenRef = useRef({ token: "", at: 0 });
+  const camerasRef = useRef<any[]>([]);
+  const cameraIndexRef = useRef(-1);
+
+  const localKey = `omnistage_checkin_pending_${eventoId}`;
 
   useEffect(() => {
-    carregarConvidados();
+    setOnline(navigator.onLine !== false);
     carregarScriptQr();
+    carregarConvidados();
+
+    const onOnline = () => {
+      setOnline(true);
+      sincronizarPendentes();
+    };
+
+    const onOffline = () => setOnline(false);
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
 
     return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
       pararQr();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,21 +111,62 @@ export default function CheckinEventoPage({
         "id, evento_id, tenant_id, grupo_id, nome, telefone, email, token, status_rsvp, checkin_realizado, data_checkin, status_checkin, grupo, tipo_convite"
       )
       .eq("evento_id", eventoId)
-      .eq("status_rsvp", "confirmado")
+      .ilike("status_rsvp", "confirmado")
       .order("nome", { ascending: true });
 
     if (error) {
-      setResultado({
+      atualizarResultado({
         tipo: "erro",
         titulo: "Erro ao carregar convidados",
         mensagem: error.message,
       });
       setConvidados([]);
-    } else {
-      setConvidados((data || []) as Convidado[]);
+      setLoading(false);
+      return;
     }
 
+    const lista = ((data || []) as Convidado[]).map(aplicarEstadoLocal);
+    setConvidados(lista);
     setLoading(false);
+  }
+
+  function aplicarEstadoLocal(c: Convidado): Convidado {
+    const pendentes = lerPendentes();
+    const local = pendentes[c.token];
+
+    if (!local) return c;
+
+    if (convidadoEntrou(c)) {
+      removerPendente(c.token);
+      return c;
+    }
+
+    return {
+      ...c,
+      checkin_realizado: true,
+      status_checkin: "sync_pendente",
+      data_checkin: local.data_checkin || c.data_checkin,
+    };
+  }
+
+  function lerPendentes(): Record<string, { nome: string; data_checkin: string }> {
+    try {
+      return JSON.parse(localStorage.getItem(localKey) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function salvarPendente(c: Convidado, data_checkin: string) {
+    const pendentes = lerPendentes();
+    pendentes[c.token] = { nome: c.nome, data_checkin };
+    localStorage.setItem(localKey, JSON.stringify(pendentes));
+  }
+
+  function removerPendente(token: string) {
+    const pendentes = lerPendentes();
+    delete pendentes[token];
+    localStorage.setItem(localKey, JSON.stringify(pendentes));
   }
 
   function carregarScriptQr() {
@@ -99,12 +175,21 @@ export default function CheckinEventoPage({
       return;
     }
 
+    const scriptExistente = document.querySelector(
+      'script[src*="html5-qrcode"]'
+    );
+
+    if (scriptExistente) {
+      scriptExistente.addEventListener("load", () => setScannerPronto(true));
+      return;
+    }
+
     const script = document.createElement("script");
     script.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
     script.async = true;
     script.onload = () => setScannerPronto(true);
     script.onerror = () =>
-      setResultado({
+      atualizarResultado({
         tipo: "erro",
         titulo: "Erro no scanner",
         mensagem: "Não foi possível carregar o leitor de QR code.",
@@ -147,55 +232,118 @@ export default function CheckinEventoPage({
   }
 
   function convidadoEntrou(c: Convidado) {
-    return c.checkin_realizado === true || normalizar(c.status_checkin) === "ENTROU";
+    return (
+      c.checkin_realizado === true ||
+      normalizar(c.status_checkin) === "ENTROU" ||
+      normalizar(c.status_checkin) === "SYNC_PENDENTE"
+    );
+  }
+
+  function convidadoSync(c: Convidado) {
+    return normalizar(c.status_checkin) === "SYNC_PENDENTE";
+  }
+
+  function atualizarResultado(next: Resultado) {
+    setResultado(next);
+    setOverlay(next);
+
+    setFlash(next.tipo);
+    setTimeout(() => setFlash(null), 650);
+
+    if (next.tipo !== "idle") {
+      setLogs((prev) => [
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          tipo: next.tipo,
+          nome: next.nome || next.titulo,
+          token: next.token || "—",
+          horario: new Date().toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          mensagem: next.mensagem,
+        },
+        ...prev,
+      ].slice(0, 8));
+    }
+
+    setTimeout(() => setOverlay(null), 1500);
+  }
+
+  async function carregarCameras() {
+    try {
+      if (!window.Html5Qrcode?.getCameras) return [];
+      const cameras = await window.Html5Qrcode.getCameras();
+      camerasRef.current = cameras || [];
+      return camerasRef.current;
+    } catch {
+      camerasRef.current = [];
+      return [];
+    }
   }
 
   async function iniciarQr() {
     if (!scannerPronto || !window.Html5Qrcode || qrAtivo) return;
 
     try {
+      await carregarCameras();
+
+      if (camerasRef.current.length && cameraIndexRef.current < 0) {
+        const traseira = camerasRef.current.findIndex((camera) =>
+          /back|rear|traseira|environment/i.test(camera.label || "")
+        );
+        cameraIndexRef.current = traseira >= 0 ? traseira : 0;
+      }
+
+      const configCamera =
+        camerasRef.current.length && cameraIndexRef.current >= 0
+          ? camerasRef.current[cameraIndexRef.current].id
+          : { facingMode: "environment" };
+
+      const nomeCamera =
+        camerasRef.current.length && cameraIndexRef.current >= 0
+          ? camerasRef.current[cameraIndexRef.current].label ||
+            `Câmera ${cameraIndexRef.current + 1}`
+          : "Câmera traseira";
+
+      setCameraAtual(nomeCamera);
+
       const qr = new window.Html5Qrcode("qr-reader");
       qrRef.current = qr;
 
       await qr.start(
-        { facingMode: "environment" },
+        configCamera,
         {
-          fps: 12,
+          fps: 14,
+          rememberLastUsedCamera: false,
+          disableFlip: false,
           qrbox: (w: number, h: number) => {
-            const size = Math.floor(Math.min(w, h) * 0.72);
+            const base = Math.min(w || 320, h || 320);
+            const tela = window.innerWidth || 360;
+            const factor = tela <= 768 ? 0.76 : tela <= 1180 ? 0.78 : 0.72;
+            const size = Math.floor(Math.max(240, Math.min(base * factor, 520)));
             return { width: size, height: size };
           },
-          rememberLastUsedCamera: true,
         },
         async (decodedText: string) => {
-          const token = extrairToken(decodedText);
-          if (!token || processando) return;
-
-          const now = Date.now();
-          if (
-            ultimoTokenRef.current.token === token &&
-            now - ultimoTokenRef.current.at < 1200
-          ) {
-            return;
-          }
-
-          ultimoTokenRef.current = { token, at: now };
-          await processarToken(token);
+          await processarToken(decodedText, "qr");
         }
       );
 
       setQrAtivo(true);
-      setResultado({
+      atualizarResultado({
         tipo: "idle",
         titulo: "QR code ativo",
-        mensagem: "Aproxime o cartão do convidado da câmera.",
+        mensagem: `Aproxime o cartão do convidado da câmera. ${nomeCamera}`,
       });
     } catch (error: any) {
-      setResultado({
+      atualizarResultado({
         tipo: "erro",
         titulo: "Câmera indisponível",
         mensagem: error?.message || "Não foi possível iniciar o QR code.",
       });
+      tocarSom("erro");
     }
   }
 
@@ -211,44 +359,93 @@ export default function CheckinEventoPage({
     setQrAtivo(false);
   }
 
-  async function processarToken(raw: string) {
+  async function trocarCamera() {
+    const rodando = qrAtivo;
+    if (rodando) await pararQr();
+
+    await carregarCameras();
+
+    if (camerasRef.current.length > 1) {
+      cameraIndexRef.current =
+        cameraIndexRef.current < 0
+          ? 0
+          : (cameraIndexRef.current + 1) % camerasRef.current.length;
+
+      setCameraAtual(
+        camerasRef.current[cameraIndexRef.current].label ||
+          `Câmera ${cameraIndexRef.current + 1}`
+      );
+    }
+
+    if (rodando) {
+      setTimeout(() => iniciarQr(), 250);
+    }
+  }
+
+  function leituraDuplicada(token: string) {
+    const t = normalizar(token);
+    const now = Date.now();
+
+    if (
+      t &&
+      t === normalizar(ultimoTokenRef.current.token) &&
+      now - ultimoTokenRef.current.at < 1100
+    ) {
+      return true;
+    }
+
+    ultimoTokenRef.current = { token, at: now };
+    return false;
+  }
+
+  async function processarToken(raw: string, origem: "qr" | "manual" = "manual") {
     const token = extrairToken(raw);
     if (!token) return;
+    if (leituraDuplicada(token)) return;
+    if (busyRef.current) return;
 
-    setProcessando(true);
+    busyRef.current = true;
 
     const convidado = convidados.find(
       (c) => normalizar(c.token) === normalizar(token)
     );
 
     if (!convidado) {
-      setResultado({
+      atualizarResultado({
         tipo: "erro",
-        titulo: "QR não localizado",
+        titulo: "Token não localizado",
         mensagem: `Token não encontrado: ${token}`,
+        token,
       });
       tocarSom("erro");
-      setProcessando(false);
+      busyRef.current = false;
       return;
     }
 
     if (convidadoEntrou(convidado)) {
-      setResultado({
+      atualizarResultado({
         tipo: "usado",
         titulo: "Cartão já utilizado",
         nome: convidado.nome,
         mensagem: "Este convidado já teve a entrada registrada.",
+        token: convidado.token,
       });
       tocarSom("usado");
-      setProcessando(false);
+      vibrar("erro");
+      busyRef.current = false;
       return;
     }
 
-    await liberarConvidado(convidado);
-    setProcessando(false);
+    await liberarConvidado(convidado, origem);
+    setTimeout(() => {
+      busyRef.current = false;
+    }, 250);
   }
 
-  async function liberarConvidado(convidado: Convidado) {
+  async function liberarConvidado(
+    convidado: Convidado,
+    origem: "qr" | "manual" = "manual"
+  ) {
     if (convidadoEntrou(convidado)) return;
 
     const agora = new Date().toISOString();
@@ -277,6 +474,8 @@ export default function CheckinEventoPage({
       .eq("evento_id", eventoId);
 
     if (error) {
+      salvarPendente(convidado, agora);
+
       setConvidados((prev) =>
         prev.map((c) =>
           c.id === convidado.id
@@ -290,22 +489,75 @@ export default function CheckinEventoPage({
         )
       );
 
-      setResultado({
-        tipo: "erro",
+      atualizarResultado({
+        tipo: "sync",
         titulo: "Entrada salva localmente",
         nome: convidado.nome,
-        mensagem: "Não sincronizou com o banco. Ficou como sync pendente.",
+        mensagem: "Sem conexão com o banco. Ficou como sync pendente.",
+        token: convidado.token,
       });
 
       tocarSom("erro");
+      vibrar("erro");
       return;
     }
 
-    setResultado({
+    removerPendente(convidado.token);
+
+    atualizarResultado({
       tipo: "ok",
-      titulo: "Entrada liberada",
+      titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
       nome: convidado.nome,
       mensagem: "Check-in registrado com sucesso.",
+      token: convidado.token,
+    });
+
+    tocarSom("ok");
+    vibrar("ok");
+  }
+
+  async function sincronizarPendentes() {
+    const pendentesLocais = lerPendentes();
+    const tokens = Object.keys(pendentesLocais);
+
+    if (!tokens.length) return;
+
+    for (const token of tokens) {
+      const convidado = convidados.find(
+        (c) => normalizar(c.token) === normalizar(token)
+      );
+
+      if (!convidado) {
+        removerPendente(token);
+        continue;
+      }
+
+      const { error } = await supabase
+        .from("convidados")
+        .update({
+          checkin_realizado: true,
+          status_checkin: "entrou",
+          data_checkin: pendentesLocais[token].data_checkin,
+        })
+        .eq("id", convidado.id)
+        .eq("evento_id", eventoId);
+
+      if (!error) {
+        removerPendente(token);
+        setConvidados((prev) =>
+          prev.map((c) =>
+            c.id === convidado.id
+              ? { ...c, status_checkin: "entrou", checkin_realizado: true }
+              : c
+          )
+        );
+      }
+    }
+
+    atualizarResultado({
+      tipo: "ok",
+      titulo: "Sincronização concluída",
+      mensagem: "Pendências sincronizadas com o banco.",
     });
 
     tocarSom("ok");
@@ -313,44 +565,69 @@ export default function CheckinEventoPage({
 
   function tocarSom(tipo: "ok" | "erro" | "usado") {
     try {
-      const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioContextClass();
       const now = ctx.currentTime;
 
-      const sequencia =
-        tipo === "ok"
-          ? [440, 660, 880]
-          : tipo === "usado"
-          ? [260, 180, 120]
-          : [180, 120];
-
-      sequencia.forEach((freq, i) => {
+      function tone(
+        freq: number,
+        gainValue: number,
+        duration: number,
+        wave: OscillatorType,
+        delay = 0
+      ) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
-        osc.type = tipo === "ok" ? "triangle" : "sawtooth";
-        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        osc.type = wave;
+        osc.frequency.setValueAtTime(freq, now + delay);
 
-        gain.gain.setValueAtTime(0.0001, now + i * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.12, now + i * 0.08 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + 0.22);
+        gain.gain.setValueAtTime(0.0001, now + delay);
+        gain.gain.exponentialRampToValueAtTime(
+          gainValue,
+          now + delay + 0.02
+        );
+        gain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          now + delay + duration
+        );
 
         osc.connect(gain).connect(ctx.destination);
-        osc.start(now + i * 0.08);
-        osc.stop(now + i * 0.08 + 0.25);
-      });
+        osc.start(now + delay);
+        osc.stop(now + delay + duration + 0.05);
+      }
+
+      if (tipo === "ok") {
+        tone(200, 0.14, 0.25, "triangle");
+        tone(350, 0.11, 0.25, "sine", 0.08);
+        tone(520, 0.1, 0.3, "sine", 0.16);
+      }
+
+      if (tipo === "usado") {
+        tone(260, 0.18, 0.12, "square");
+        tone(150, 0.2, 0.24, "sawtooth", 0.12);
+        tone(95, 0.16, 0.28, "square", 0.28);
+      }
+
+      if (tipo === "erro") {
+        tone(800, 0.12, 0.08, "square");
+        tone(180, 0.14, 0.24, "sawtooth", 0.1);
+      }
+    } catch {}
+  }
+
+  function vibrar(tipo: "ok" | "erro") {
+    try {
+      if (!navigator.vibrate) return;
+      navigator.vibrate(tipo === "ok" ? [90, 40, 120] : [160, 60, 160]);
     } catch {}
   }
 
   const resumo = useMemo(() => {
     const total = convidados.length;
+    const sync = convidados.filter(convidadoSync).length;
     const entrou = convidados.filter(convidadoEntrou).length;
-    const sync = convidados.filter(
-      (c) => normalizar(c.status_checkin) === "SYNC_PENDENTE"
-    ).length;
     const pendentes = Math.max(total - entrou, 0);
-
     return { total, entrou, pendentes, sync };
   }, [convidados]);
 
@@ -359,9 +636,11 @@ export default function CheckinEventoPage({
 
     return convidados.filter((c) => {
       const entrou = convidadoEntrou(c);
+      const sync = convidadoSync(c);
 
       if (statusFiltro === "pendentes" && entrou) return false;
       if (statusFiltro === "entrou" && !entrou) return false;
+      if (statusFiltro === "sync" && !sync) return false;
 
       if (!q) return true;
 
@@ -375,206 +654,679 @@ export default function CheckinEventoPage({
     });
   }, [convidados, busca, statusFiltro]);
 
+  const ultimo = logs[0];
+
   return (
-    <main className="min-h-screen bg-[#f6f8fb] text-slate-950">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
-        <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="mb-2 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm">
-              OmniStage Check-in
+    <div className="checkin-page">
+      <style>{`
+        .checkin-page {
+          --purple: #6d28d9;
+          --purple2: #8b5cf6;
+          --green: #16a34a;
+          --red: #e11d48;
+          --amber: #d97706;
+          color: var(--text);
+        }
+
+        .checkin-hero {
+          display: grid;
+          grid-template-columns: 1.2fr auto;
+          gap: 18px;
+          align-items: end;
+          margin-bottom: 20px;
+        }
+
+        .eyebrow {
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 950;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .title {
+          margin: 0;
+          font-size: clamp(34px, 6vw, 64px);
+          line-height: .95;
+          letter-spacing: -.06em;
+          font-weight: 950;
+        }
+
+        .subtitle {
+          margin: 14px 0 0;
+          color: var(--muted);
+          font-size: 17px;
+          font-weight: 650;
+        }
+
+        .actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .btn {
+          border: 1px solid var(--line);
+          background: var(--card);
+          color: var(--text);
+          border-radius: 14px;
+          padding: 12px 16px;
+          font-weight: 900;
+          cursor: pointer;
+          transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+        }
+
+        .btn:hover {
+          transform: translateY(-1px);
+        }
+
+        .btn.primary {
+          background: linear-gradient(135deg, var(--purple), var(--purple2));
+          color: white;
+          border-color: transparent;
+          box-shadow: 0 14px 36px rgba(109,40,217,.22);
+        }
+
+        .btn.success {
+          background: #dcfce7;
+          color: #166534;
+          border-color: #bbf7d0;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 22px;
+          padding: 18px;
+          box-shadow: 0 12px 34px rgba(15,23,42,.05);
+        }
+
+        .stat-label {
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 850;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+        }
+
+        .stat-value {
+          font-size: 34px;
+          line-height: 1;
+          font-weight: 950;
+          margin-top: 8px;
+        }
+
+        .main-grid {
+          display: grid;
+          grid-template-columns: 430px minmax(0, 1fr);
+          gap: 18px;
+          align-items: start;
+        }
+
+        .panel {
+          background: var(--card);
+          border: 1px solid var(--line);
+          border-radius: 26px;
+          padding: 18px;
+          box-shadow: 0 14px 42px rgba(15,23,42,.06);
+        }
+
+        .reader-box {
+          overflow: hidden;
+          border-radius: 22px;
+          background: #020617;
+          border: 1px solid rgba(255,255,255,.12);
+          aspect-ratio: 1 / 1;
+          display: grid;
+          place-items: center;
+        }
+
+        #qr-reader {
+          width: 100%;
+          min-height: 100%;
+        }
+
+        #qr-reader video,
+        #qr-reader canvas {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+        }
+
+        .result-card {
+          border-radius: 24px;
+          padding: 20px;
+          margin-bottom: 14px;
+          border: 1px solid var(--line);
+          background: rgba(248,250,252,.76);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .result-card.ok {
+          background: linear-gradient(135deg, rgba(22,163,74,.12), rgba(255,255,255,.88));
+          border-color: rgba(22,163,74,.28);
+        }
+
+        .result-card.usado,
+        .result-card.sync {
+          background: linear-gradient(135deg, rgba(217,119,6,.14), rgba(255,255,255,.88));
+          border-color: rgba(217,119,6,.28);
+        }
+
+        .result-card.erro {
+          background: linear-gradient(135deg, rgba(225,29,72,.13), rgba(255,255,255,.88));
+          border-color: rgba(225,29,72,.28);
+        }
+
+        .result-kicker {
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 950;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+
+        .result-title {
+          margin: 8px 0 0;
+          font-size: 28px;
+          line-height: 1;
+          font-weight: 950;
+          letter-spacing: -.04em;
+        }
+
+        .result-name {
+          margin-top: 10px;
+          font-size: 22px;
+          font-weight: 950;
+        }
+
+        .result-msg {
+          margin: 10px 0 0;
+          color: var(--muted);
+          font-size: 14px;
+          line-height: 1.45;
+        }
+
+        .helper {
+          margin-top: 14px;
+          border-radius: 18px;
+          padding: 13px;
+          background: rgba(248,250,252,.86);
+          border: 1px solid var(--line);
+          color: var(--muted);
+          font-weight: 750;
+          font-size: 13px;
+        }
+
+        .input,
+        .select {
+          width: 100%;
+          border: 1px solid var(--line);
+          background: rgba(248,250,252,.86);
+          color: var(--text);
+          border-radius: 16px;
+          padding: 13px 14px;
+          font-weight: 750;
+          outline: none;
+        }
+
+        .control-row {
+          display: grid;
+          grid-template-columns: 1fr 170px;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .guest-list {
+          display: grid;
+          gap: 12px;
+          max-height: 74vh;
+          overflow: auto;
+          padding-right: 4px;
+        }
+
+        .guest-card {
+          border: 1px solid var(--line);
+          background: rgba(255,255,255,.78);
+          border-radius: 22px;
+          padding: 16px;
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 14px;
+          align-items: center;
+          transition: transform .16s ease, box-shadow .16s ease, border .16s ease;
+        }
+
+        .guest-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 34px rgba(15,23,42,.07);
+        }
+
+        .guest-card.entered {
+          background: rgba(240,253,244,.86);
+          border-color: rgba(22,163,74,.24);
+        }
+
+        .guest-card.sync {
+          background: rgba(255,251,235,.9);
+          border-color: rgba(217,119,6,.28);
+        }
+
+        .guest-name {
+          font-size: 18px;
+          font-weight: 950;
+          letter-spacing: -.02em;
+        }
+
+        .guest-sub {
+          margin-top: 4px;
+          color: var(--muted);
+          font-size: 13px;
+          font-weight: 750;
+        }
+
+        .token {
+          margin-top: 8px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 12px;
+          color: #64748b;
+        }
+
+        .chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 10px;
+        }
+
+        .chip {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 6px 9px;
+          font-size: 11px;
+          font-weight: 950;
+          text-transform: uppercase;
+        }
+
+        .chip.ok { background: #dcfce7; color: #166534; }
+        .chip.pending { background: #f1f5f9; color: #475569; }
+        .chip.sync { background: #fef3c7; color: #92400e; }
+        .chip.info { background: #ede9fe; color: #6d28d9; }
+
+        .history {
+          margin-top: 14px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .history-item {
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          padding: 11px 12px;
+          background: rgba(248,250,252,.76);
+        }
+
+        .history-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 850;
+        }
+
+        .history-name {
+          margin-top: 4px;
+          font-weight: 950;
+          font-size: 13px;
+        }
+
+        .flash {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          z-index: 9997;
+          animation: flashFade .65s ease forwards;
+        }
+
+        .flash.ok {
+          background: radial-gradient(circle, rgba(22,163,74,.18), rgba(22,163,74,.07) 35%, transparent 70%);
+        }
+
+        .flash.usado,
+        .flash.sync {
+          background: radial-gradient(circle, rgba(217,119,6,.18), rgba(217,119,6,.07) 35%, transparent 70%);
+        }
+
+        .flash.erro {
+          background: radial-gradient(circle, rgba(225,29,72,.18), rgba(225,29,72,.07) 35%, transparent 70%);
+        }
+
+        @keyframes flashFade {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        .premium-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9998;
+          pointer-events: none;
+          display: grid;
+          place-items: center;
+          background: rgba(15,23,42,.16);
+          backdrop-filter: blur(2px);
+          animation: overlayFade 1.5s ease forwards;
+        }
+
+        .premium-card {
+          width: min(520px, calc(100vw - 40px));
+          border-radius: 30px;
+          padding: 30px 26px;
+          text-align: center;
+          background: rgba(255,255,255,.94);
+          border: 1px solid var(--line);
+          box-shadow: 0 30px 90px rgba(15,23,42,.22);
+          transform: scale(.96) translateY(8px);
+          animation: premiumPop .45s cubic-bezier(.2,.9,.2,1.1) forwards;
+        }
+
+        .premium-icon {
+          width: 76px;
+          height: 76px;
+          border-radius: 999px;
+          margin: 0 auto 16px;
+          display: grid;
+          place-items: center;
+          font-size: 38px;
+          font-weight: 950;
+        }
+
+        .premium-icon.ok { background: #dcfce7; color: #166534; }
+        .premium-icon.usado,
+        .premium-icon.sync { background: #fef3c7; color: #92400e; }
+        .premium-icon.erro { background: #ffe4e6; color: #be123c; }
+
+        .premium-title {
+          margin: 0;
+          font-size: 30px;
+          font-weight: 950;
+          letter-spacing: -.04em;
+        }
+
+        .premium-name {
+          margin-top: 8px;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .premium-msg {
+          margin-top: 8px;
+          color: #64748b;
+          font-weight: 700;
+        }
+
+        @keyframes premiumPop {
+          to { transform: scale(1) translateY(0); }
+        }
+
+        @keyframes overlayFade {
+          0% { opacity: 0; }
+          10% { opacity: 1; }
+          78% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        @media (max-width: 1180px) {
+          .checkin-hero,
+          .main-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            justify-content: flex-start;
+          }
+
+          .stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .guest-list {
+            max-height: none;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .stats {
+            grid-template-columns: 1fr;
+          }
+
+          .control-row,
+          .guest-card {
+            grid-template-columns: 1fr;
+          }
+
+          .btn {
+            width: 100%;
+          }
+
+          .reader-box {
+            aspect-ratio: 1 / 1;
+          }
+        }
+      `}</style>
+
+      {flash && flash !== "idle" && <div className={`flash ${flash}`} />}
+
+      {overlay && overlay.tipo !== "idle" && (
+        <div className="premium-overlay">
+          <div className="premium-card">
+            <div className={`premium-icon ${overlay.tipo}`}>
+              {overlay.tipo === "ok"
+                ? "✓"
+                : overlay.tipo === "usado"
+                ? "!"
+                : overlay.tipo === "sync"
+                ? "↻"
+                : "×"}
             </div>
+            <h2 className="premium-title">{overlay.titulo}</h2>
+            {overlay.nome && <div className="premium-name">{overlay.nome}</div>}
+            <div className="premium-msg">{overlay.mensagem}</div>
+          </div>
+        </div>
+      )}
 
-            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-              Portaria do evento
-            </h1>
+      <header className="checkin-hero">
+        <div>
+          <div className="eyebrow">OmniStage Check-in</div>
+          <h1 className="title">Portaria do evento</h1>
+          <p className="subtitle">
+            QR code, leitor físico, busca manual e controle híbrido de entrada.
+          </p>
+        </div>
 
-            <p className="mt-1 text-sm text-slate-500">
-              QR code, leitor físico, busca manual e controle híbrido de entrada.
-            </p>
+        <div className="actions">
+          <button className="btn" onClick={carregarConvidados}>
+            Atualizar
+          </button>
+
+          <button
+            className={qrAtivo ? "btn success" : "btn primary"}
+            onClick={qrAtivo ? pararQr : iniciarQr}
+          >
+            {qrAtivo ? "QR ativo" : "Ativar QR"}
+          </button>
+
+          <button className="btn" onClick={trocarCamera}>
+            Trocar câmera
+          </button>
+
+          <button className="btn" onClick={sincronizarPendentes}>
+            Sincronizar
+          </button>
+        </div>
+      </header>
+
+      <section className="stats">
+        <Metric label="Confirmados" value={resumo.total} />
+        <Metric label="Check-in" value={resumo.entrou} />
+        <Metric label="Pendentes" value={resumo.pendentes} />
+        <Metric label="Sync pendente" value={resumo.sync} />
+      </section>
+
+      <section className="main-grid">
+        <aside className="panel">
+          <div className={`result-card ${resultado.tipo}`}>
+            <div className="result-kicker">Status da leitura</div>
+            <h2 className="result-title">{resultado.titulo}</h2>
+            {resultado.nome && <div className="result-name">{resultado.nome}</div>}
+            <p className="result-msg">{resultado.mensagem}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={carregarConvidados}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold shadow-sm hover:bg-slate-50"
-            >
-              Atualizar
-            </button>
-
-            <button
-              onClick={qrAtivo ? pararQr : iniciarQr}
-              className={`rounded-2xl px-4 py-3 text-sm font-bold shadow-sm ${
-                qrAtivo
-                  ? "bg-slate-950 text-white"
-                  : "border border-slate-200 bg-white text-slate-950"
-              }`}
-            >
-              {qrAtivo ? "Desativar QR" : "Ativar QR"}
-            </button>
+          <div className="reader-box">
+            <div id="qr-reader" />
           </div>
-        </header>
 
-        <section className="mb-6 grid gap-4 md:grid-cols-4">
-          <Metric title="Confirmados" value={resumo.total} />
-          <Metric title="Entraram" value={resumo.entrou} />
-          <Metric title="Pendentes" value={resumo.pendentes} />
-          <Metric title="Sync pendente" value={resumo.sync} />
-        </section>
+          <div className="helper">
+            {qrAtivo
+              ? `QR ativo${cameraAtual ? ` • ${cameraAtual}` : ""}`
+              : scannerPronto
+              ? "Ative o QR para usar celular, tablet ou notebook."
+              : "Carregando leitor de QR code..."}
+            <br />
+            Status: {online ? "Online" : "Offline"}
+          </div>
 
-        <section className="grid gap-5 lg:grid-cols-[420px_1fr]">
-          <aside className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-            <div
-              className={`mb-4 rounded-[24px] border p-5 ${
-                resultado.tipo === "ok"
-                  ? "border-emerald-200 bg-emerald-50"
-                  : resultado.tipo === "usado"
-                  ? "border-amber-200 bg-amber-50"
-                  : resultado.tipo === "erro"
-                  ? "border-rose-200 bg-rose-50"
-                  : "border-slate-200 bg-slate-50"
-              }`}
-            >
-              <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                Status da leitura
-              </div>
+          <div style={{ marginTop: 12 }}>
+            <input
+              className="input"
+              placeholder="Leitor físico / token + Enter"
+              autoComplete="off"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const input = e.target as HTMLInputElement;
+                  processarToken(input.value, "manual");
+                  input.value = "";
+                }
+              }}
+            />
+          </div>
 
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                {resultado.titulo}
-              </h2>
-
-              {resultado.nome && (
-                <div className="mt-2 text-xl font-bold">{resultado.nome}</div>
-              )}
-
-              <p className="mt-2 text-sm text-slate-600">{resultado.mensagem}</p>
+          <div className="history">
+            <div className="eyebrow" style={{ marginTop: 8 }}>
+              Histórico recente
             </div>
 
-            <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-950">
-              <div id="qr-reader" className="min-h-[320px] w-full" />
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-              {qrAtivo
-                ? "QR ativo. Aponte a câmera para o cartão do convidado."
-                : scannerPronto
-                ? "Ative o QR para usar celular, tablet ou notebook."
-                : "Carregando leitor de QR code..."}
-            </div>
-
-            <div className="mt-4">
-              <input
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const input = e.target as HTMLInputElement;
-                    processarToken(input.value);
-                    input.value = "";
-                  }
-                }}
-                placeholder="Leitor físico / token + Enter"
-                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none focus:border-slate-400"
-              />
-            </div>
-          </aside>
-
-          <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px]">
-              <input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por nome, grupo, telefone, email ou token"
-                className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-slate-400"
-              />
-
-              <select
-                value={statusFiltro}
-                onChange={(e) => setStatusFiltro(e.target.value as any)}
-                className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-slate-400"
-              >
-                <option value="todos">Todos</option>
-                <option value="pendentes">Pendentes</option>
-                <option value="entrou">Entrou</option>
-              </select>
-            </div>
-
-            {loading ? (
-              <div className="rounded-2xl bg-slate-50 p-6 text-sm text-slate-500">
-                Carregando convidados...
-              </div>
+            {!logs.length ? (
+              <div className="helper">Nenhuma leitura nesta sessão.</div>
             ) : (
-              <div className="grid gap-3">
-                {filtrados.map((c) => {
-                  const entrou = convidadoEntrou(c);
-                  const sync = normalizar(c.status_checkin) === "SYNC_PENDENTE";
-
-                  return (
-                    <div
-                      key={c.id}
-                      className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_auto] md:items-center"
-                    >
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold">{c.nome}</h3>
-
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                              entrou
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {entrou ? "ENTROU" : "PENDENTE"}
-                          </span>
-
-                          {sync && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
-                              SYNC PENDENTE
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-1 text-sm text-slate-500">
-                          {c.grupo || "Individual"} · {c.telefone || "sem telefone"}
-                        </div>
-
-                        <div className="mt-2 font-mono text-xs text-slate-400">
-                          {c.token || "sem token"}
-                        </div>
-                      </div>
-
-                      <button
-                        disabled={entrou || processando}
-                        onClick={() => liberarConvidado(c)}
-                        className={`h-12 rounded-2xl px-5 text-sm font-bold ${
-                          entrou
-                            ? "bg-slate-100 text-slate-400"
-                            : "bg-slate-950 text-white hover:bg-slate-800"
-                        }`}
-                      >
-                        {entrou ? "Liberado" : "Liberar entrada"}
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {!filtrados.length && (
-                  <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-                    Nenhum convidado encontrado.
+              logs.map((log) => (
+                <div className="history-item" key={log.id}>
+                  <div className="history-top">
+                    <span>{log.horario}</span>
+                    <span>{log.tipo.toUpperCase()}</span>
                   </div>
-                )}
-              </div>
+                  <div className="history-name">{log.nome}</div>
+                  <div className="token">{log.token}</div>
+                </div>
+              ))
             )}
-          </section>
+          </div>
+        </aside>
+
+        <section className="panel">
+          <div className="control-row">
+            <input
+              className="input"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome, grupo, telefone, email ou token"
+            />
+
+            <select
+              className="select"
+              value={statusFiltro}
+              onChange={(e) => setStatusFiltro(e.target.value as StatusFiltro)}
+            >
+              <option value="todos">Todos</option>
+              <option value="pendentes">Pendentes</option>
+              <option value="entrou">Entrou</option>
+              <option value="sync">Sync pendente</option>
+            </select>
+          </div>
+
+          {loading ? (
+            <div className="helper">Carregando convidados...</div>
+          ) : (
+            <div className="guest-list">
+              {filtrados.map((c) => {
+                const entrou = convidadoEntrou(c);
+                const sync = convidadoSync(c);
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`guest-card ${
+                      sync ? "sync" : entrou ? "entered" : ""
+                    }`}
+                  >
+                    <div>
+                      <div className="guest-name">{c.nome}</div>
+                      <div className="guest-sub">
+                        {c.grupo || "Individual"} • {c.telefone || "sem telefone"}
+                      </div>
+                      <div className="token">{c.token}</div>
+
+                      <div className="chips">
+                        <span className="chip info">
+                          {c.tipo_convite || "individual"}
+                        </span>
+                        <span className={entrou ? "chip ok" : "chip pending"}>
+                          {entrou ? "entrou" : "pendente"}
+                        </span>
+                        {sync && <span className="chip sync">sync pendente</span>}
+                      </div>
+                    </div>
+
+                    <button
+                      className={entrou ? "btn" : "btn primary"}
+                      disabled={entrou}
+                      onClick={() => liberarConvidado(c, "manual")}
+                    >
+                      {entrou ? "Liberado" : "Liberar entrada"}
+                    </button>
+                  </div>
+                );
+              })}
+
+              {!filtrados.length && (
+                <div className="helper">Nenhum convidado encontrado.</div>
+              )}
+            </div>
+          )}
         </section>
-      </div>
-    </main>
+      </section>
+    </div>
   );
 }
 
-function Metric({ title, value }: { title: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-sm font-medium text-slate-500">{title}</div>
-      <div className="mt-2 text-4xl font-semibold tracking-tight">{value}</div>
+    <div className="stat">
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value}</div>
     </div>
   );
 }
