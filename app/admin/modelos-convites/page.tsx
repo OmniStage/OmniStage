@@ -850,8 +850,8 @@ const modelsSection: CSSProperties = {
 
 const modelsGrid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(430px, 1fr))",
-  gap: 20,
+  gridTemplateColumns: "repeat(auto-fill, minmax(520px, 1fr))",
+  gap: 24,
 };
 
 const modelCard: CSSProperties = {
@@ -900,24 +900,27 @@ const modelInfo: CSSProperties = {
 
 const miniPhoneShell: CSSProperties = {
   width: "100%",
-  height: 440,
-  overflow: "auto",
+  height: 620,
+  overflow: "hidden",
   marginTop: 14,
-  borderRadius: 20,
+  borderRadius: 22,
   border: "1px solid #dbe3ef",
   background: "#020617",
+  position: "relative",
 };
 
 const miniFrame: CSSProperties = {
   width: "430px",
   minWidth: "430px",
-  height: "760px",
+  height: "920px",
   border: "none",
   display: "block",
-  margin: "0 auto",
   background: "#020617",
+  transform: "scale(0.82)",
+  transformOrigin: "top center",
+  marginLeft: "50%",
+  translate: "-50% 0",
 };
-
 const miniImage: CSSProperties = {
   width: "100%",
   minHeight: 440,
