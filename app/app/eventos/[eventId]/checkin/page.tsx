@@ -245,6 +245,32 @@ export default function CheckinEventoPage({
     tocarArquivo("error", 1);
   }
 
+  function tocarSomSincronizado(
+    tipo: "ok" | "erro" | "usado" | "sync" | "tick",
+    delay = 70,
+  ) {
+    // Sincroniza áudio com o próximo frame visual do React.
+    // Primeiro o card/overlay entra na tela; depois o som toca.
+    requestAnimationFrame(() => {
+      window.setTimeout(() => tocarSom(tipo), delay);
+    });
+  }
+
+  function feedbackSincronizado(
+    cardId: string | null,
+    resultado: Resultado,
+    som: "ok" | "erro" | "usado" | "sync" | "tick",
+    vibracao?: "ok" | "erro",
+  ) {
+    if (cardId) piscarCard(cardId);
+    atualizarResultado(resultado);
+    tocarSomSincronizado(som);
+
+    if (vibracao) {
+      window.setTimeout(() => vibrar(vibracao), 70);
+    }
+  }
+
   function tocarClick() {
     tocarSom("tick");
   }
@@ -510,7 +536,7 @@ export default function CheckinEventoPage({
         titulo: "Câmera indisponível",
         mensagem: error?.message || "Não foi possível iniciar o QR code.",
       });
-      tocarSom("erro");
+      tocarSomSincronizado("erro", 50);
     }
   }
 
@@ -582,28 +608,34 @@ export default function CheckinEventoPage({
     );
 
     if (!convidado) {
-      atualizarResultado({
-        tipo: "erro",
-        titulo: "Token não localizado",
-        mensagem: `Token não encontrado: ${token}`,
-        token,
-      });
-      tocarSom("erro");
+      feedbackSincronizado(
+        null,
+        {
+          tipo: "erro",
+          titulo: "Token não localizado",
+          mensagem: `Token não encontrado: ${token}`,
+          token,
+        },
+        "erro",
+        "erro",
+      );
       busyRef.current = false;
       return;
     }
 
     if (convidadoEntrou(convidado)) {
-      piscarCard(convidado.id);
-      atualizarResultado({
-        tipo: "usado",
-        titulo: "Cartão já utilizado",
-        nome: convidado.nome,
-        mensagem: "Este convidado já teve a entrada registrada.",
-        token: convidado.token,
-      });
-      tocarSom("usado");
-      vibrar("erro");
+      feedbackSincronizado(
+        convidado.id,
+        {
+          tipo: "usado",
+          titulo: "Cartão já utilizado",
+          nome: convidado.nome,
+          mensagem: "Este convidado já teve a entrada registrada.",
+          token: convidado.token,
+        },
+        "usado",
+        "erro",
+      );
       busyRef.current = false;
       return;
     }
@@ -622,16 +654,18 @@ export default function CheckinEventoPage({
 
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
-      piscarCard(convidado.id);
-      atualizarResultado({
-        tipo: "usado",
-        titulo: "Cartão já utilizado",
-        nome: convidado.nome,
-        mensagem: "Este convidado já teve a entrada registrada.",
-        token: convidado.token,
-      });
-      tocarSom("usado");
-      vibrar("erro");
+      feedbackSincronizado(
+        convidado.id,
+        {
+          tipo: "usado",
+          titulo: "Cartão já utilizado",
+          nome: convidado.nome,
+          mensagem: "Este convidado já teve a entrada registrada.",
+          token: convidado.token,
+        },
+        "usado",
+        "erro",
+      );
       return;
     }
 
@@ -667,16 +701,18 @@ export default function CheckinEventoPage({
         ),
       );
 
-      piscarCard(convidado.id);
-      atualizarResultado({
-        tipo: "sync",
-        titulo: "Entrada salva localmente",
-        nome: convidado.nome,
-        mensagem: "Sem conexão com o banco. Ficou como sync pendente.",
-        token: convidado.token,
-      });
-      tocarSom("usado");
-      vibrar("erro");
+      feedbackSincronizado(
+        convidado.id,
+        {
+          tipo: "sync",
+          titulo: "Entrada salva localmente",
+          nome: convidado.nome,
+          mensagem: "Sem conexão com o banco. Ficou como sync pendente.",
+          token: convidado.token,
+        },
+        "sync",
+        "erro",
+      );
       return;
     }
 
@@ -695,16 +731,18 @@ export default function CheckinEventoPage({
         ),
       );
 
-      piscarCard(convidado.id);
-      atualizarResultado({
-        tipo: "usado",
-        titulo: "Cartão já utilizado",
-        nome: convidado.nome,
-        mensagem: "Este convidado já teve a entrada registrada.",
-        token: convidado.token,
-      });
-      tocarSom("usado");
-      vibrar("erro");
+      feedbackSincronizado(
+        convidado.id,
+        {
+          tipo: "usado",
+          titulo: "Cartão já utilizado",
+          nome: convidado.nome,
+          mensagem: "Este convidado já teve a entrada registrada.",
+          token: convidado.token,
+        },
+        "usado",
+        "erro",
+      );
       return;
     }
 
@@ -723,16 +761,18 @@ export default function CheckinEventoPage({
       ),
     );
 
-    piscarCard(convidado.id);
-    atualizarResultado({
-      tipo: "ok",
-      titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
-      nome: convidado.nome,
-      mensagem: "Check-in registrado com sucesso.",
-      token: convidado.token,
-    });
-    tocarSom("ok");
-    vibrar("ok");
+    feedbackSincronizado(
+      convidado.id,
+      {
+        tipo: "ok",
+        titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
+        nome: convidado.nome,
+        mensagem: "Check-in registrado com sucesso.",
+        token: convidado.token,
+      },
+      "ok",
+      "ok",
+    );
   }
 
   async function liberarGrupoInteiro(membros: Convidado[]) {
@@ -743,21 +783,25 @@ export default function CheckinEventoPage({
       membros.forEach((m, idx) =>
         setTimeout(() => piscarCard(m.id), idx * 120),
       );
-      tocarSom("usado");
-      atualizarResultado({
-        tipo: "usado",
-        titulo: "Grupo já liberado",
-        mensagem: "Todos os integrantes deste grupo já entraram.",
-      });
+      feedbackSincronizado(
+        null,
+        {
+          tipo: "usado",
+          titulo: "Grupo já liberado",
+          mensagem: "Todos os integrantes deste grupo já entraram.",
+        },
+        "usado",
+        "erro",
+      );
       return;
     }
 
     for (let i = 0; i < pendentes.length; i++) {
       const convidado = pendentes[i];
       await liberarConvidado(convidado, "manual");
-      tocarSom(i === 0 ? "ok" : "tick");
-      piscarCard(convidado.id);
-      await new Promise((resolve) => setTimeout(resolve, 340));
+      // liberarConvidado já dispara o card e o áudio sincronizados.
+      // Mantemos apenas um intervalo para a sequência do grupo ficar limpa.
+      await new Promise((resolve) => setTimeout(resolve, 420));
     }
   }
 
@@ -804,7 +848,7 @@ export default function CheckinEventoPage({
       titulo: "Sincronização concluída",
       mensagem: "Pendências sincronizadas com o banco.",
     });
-    tocarSom("ok");
+    tocarSomSincronizado("ok", 70);
   }
 
   const resumo = useMemo(() => {
@@ -1196,7 +1240,6 @@ export default function CheckinEventoPage({
                             className="btn group"
                             disabled={todosEntraram}
                             onClick={() => {
-                              tocarClick();
                               liberarGrupoInteiro(grupo.membros);
                             }}
                           >
@@ -1250,7 +1293,6 @@ export default function CheckinEventoPage({
                               className={entrou ? "btn" : "btn primary"}
                               disabled={entrou}
                               onClick={() => {
-                                tocarClick();
                                 liberarConvidado(c, "manual");
                               }}
                             >
