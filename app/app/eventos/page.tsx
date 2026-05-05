@@ -3,12 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-type ProgramacaoItem = {
-  hora: string;
-  titulo: string;
-  descricao: string;
-};
-
 type Tenant = {
   id: string;
   nome: string;
@@ -51,8 +45,6 @@ type Evento = {
   mostrar_mapa?: boolean | null;
   mapa_url?: string | null;
 
-  programacao?: ProgramacaoItem[] | null;
-
   logo_url?: string | null;
   background_url?: string | null;
   musica_url?: string | null;
@@ -83,10 +75,8 @@ const emptyForm = {
   complemento: "",
   bairro: "",
   estado: "",
-  mostrar_mapa: false,
+  mostrar_mapa: true,
   mapa_url: "",
-
-  programacao: [] as ProgramacaoItem[],
 
   logo_url: "",
   background_url: "",
@@ -112,6 +102,8 @@ export default function AppEventosPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState("");
   const [formAberto, setFormAberto] = useState(false);
   const [toast, setToast] = useState("");
   const [modo, setModo] = useState<"criar" | "editar">("criar");
@@ -123,6 +115,8 @@ export default function AppEventosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const mapaAutomatico = useMemo(() => gerarLinkMaps(form), [form]);
+
   function showToast(message: string) {
     setToast(message);
     setTimeout(() => setToast(""), 3500);
@@ -132,7 +126,9 @@ export default function AppEventosPage() {
     setModo("criar");
     setEventoEditandoId(null);
     setForm(emptyForm);
+    setErroCep("");
     setFormAberto(true);
+
     setTimeout(() => {
       document.getElementById("form-evento")?.scrollIntoView({
         behavior: "smooth",
@@ -144,6 +140,7 @@ export default function AppEventosPage() {
   function abrirEdicao(evento: Evento) {
     setModo("editar");
     setEventoEditandoId(evento.id);
+    setErroCep("");
 
     setForm({
       nome: evento.nome || "",
@@ -158,17 +155,15 @@ export default function AppEventosPage() {
       tipo_local: evento.tipo_local || "novo",
       endereco: evento.endereco || "",
       nome_local: evento.nome_local || evento.local || "",
-      cep: evento.cep || "",
+      cep: formatarCep(evento.cep || ""),
       rua: evento.rua || "",
       numero: evento.numero || "",
       complemento: evento.complemento || "",
       bairro: evento.bairro || "",
       cidade: evento.cidade || "",
       estado: evento.estado || "",
-      mostrar_mapa: Boolean(evento.mostrar_mapa),
+      mostrar_mapa: evento.mostrar_mapa ?? true,
       mapa_url: evento.mapa_url || "",
-
-      programacao: Array.isArray(evento.programacao) ? evento.programacao : [],
 
       logo_url: evento.logo_url || "",
       background_url: evento.background_url || "",
@@ -181,6 +176,7 @@ export default function AppEventosPage() {
     });
 
     setFormAberto(true);
+
     setTimeout(() => {
       document.getElementById("form-evento")?.scrollIntoView({
         behavior: "smooth",
@@ -193,6 +189,7 @@ export default function AppEventosPage() {
     setModo("criar");
     setEventoEditandoId(null);
     setForm(emptyForm);
+    setErroCep("");
     setFormAberto(false);
   }
 
@@ -278,7 +275,6 @@ export default function AppEventosPage() {
         estado,
         mostrar_mapa,
         mapa_url,
-        programacao,
         logo_url,
         background_url,
         musica_url,
@@ -303,6 +299,52 @@ export default function AppEventosPage() {
     if (id) await carregarEventos(id);
   }
 
+  async function buscarCep(cepDigitado: string) {
+    const cepLimpo = somenteNumeros(cepDigitado);
+
+    setErroCep("");
+
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+
+      if (!response.ok) {
+        setErroCep("Não foi possível consultar o CEP.");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.erro) {
+        setErroCep("CEP não encontrado.");
+        return;
+      }
+
+      setForm((f) => {
+        const atualizado = {
+          ...f,
+          cep: formatarCep(cepLimpo),
+          rua: data.logradouro || f.rua,
+          bairro: data.bairro || f.bairro,
+          cidade: data.localidade || f.cidade,
+          estado: data.uf || f.estado,
+        };
+
+        return {
+          ...atualizado,
+          mapa_url: gerarLinkMaps(atualizado),
+        };
+      });
+    } catch {
+      setErroCep("Erro ao buscar o CEP. Tente novamente.");
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
+
   async function salvarEvento() {
     if (!tenantId) {
       alert("Nenhum tenant ativo encontrado para este usuário.");
@@ -314,7 +356,25 @@ export default function AppEventosPage() {
       return;
     }
 
+    if (!form.data_inicio) {
+      alert("Informe a data de início do evento.");
+      return;
+    }
+
+    if (!form.nome_local.trim()) {
+      alert("Informe o nome do local.");
+      return;
+    }
+
+    if (!form.cidade.trim()) {
+      alert("Informe a cidade.");
+      return;
+    }
+
     setSalvando(true);
+
+    const enderecoFinal = montarEndereco(form);
+    const mapaFinal = form.mapa_url || gerarLinkMaps(form);
 
     const payload = {
       nome: form.nome.trim(),
@@ -329,18 +389,16 @@ export default function AppEventosPage() {
       hora_termino: form.hora_termino || null,
 
       tipo_local: form.tipo_local || null,
-      endereco: montarEndereco(form),
+      endereco: enderecoFinal || null,
       nome_local: form.nome_local || null,
-      cep: form.cep || null,
+      cep: somenteNumeros(form.cep) || null,
       rua: form.rua || null,
       numero: form.numero || null,
       complemento: form.complemento || null,
       bairro: form.bairro || null,
       estado: form.estado || null,
       mostrar_mapa: form.mostrar_mapa,
-      mapa_url: form.mapa_url || null,
-
-      programacao: form.programacao,
+      mapa_url: mapaFinal || null,
 
       logo_url: form.logo_url || null,
       background_url: form.background_url || null,
@@ -455,43 +513,6 @@ export default function AppEventosPage() {
     showToast("Arquivo enviado com sucesso.");
   }
 
-  function adicionarProgramacao() {
-    setForm((f) => ({
-      ...f,
-      programacao: [
-        ...f.programacao,
-        {
-          hora: "",
-          titulo: "",
-          descricao: "",
-        },
-      ],
-    }));
-  }
-
-  function removerProgramacao(index: number) {
-    setForm((f) => {
-      const nova = [...f.programacao];
-      nova.splice(index, 1);
-      return { ...f, programacao: nova };
-    });
-  }
-
-  function atualizarProgramacao(
-    index: number,
-    campo: keyof ProgramacaoItem,
-    valor: string
-  ) {
-    setForm((f) => {
-      const nova = [...f.programacao];
-      nova[index] = {
-        ...nova[index],
-        [campo]: valor,
-      };
-      return { ...f, programacao: nova };
-    });
-  }
-
   const eventosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
@@ -541,7 +562,7 @@ export default function AppEventosPage() {
         }
 
         .eyebrow {
-          color: #7c3aed;
+          color: #64748b;
           font-weight: 950;
           font-size: 12px;
           text-transform: uppercase;
@@ -592,8 +613,8 @@ export default function AppEventosPage() {
         }
 
         .purple {
-          background: linear-gradient(135deg,#7c3aed,#5b21b6);
-          box-shadow: 0 16px 34px rgba(124,58,237,.26);
+          background: #0f172a;
+          box-shadow: 0 16px 34px rgba(15,23,42,.18);
         }
 
         .secondary {
@@ -696,10 +717,6 @@ export default function AppEventosPage() {
           color: #0f172a;
         }
 
-        .section-title.blue {
-          color: #0ea5e9;
-        }
-
         .section-desc {
           margin: 0 0 20px;
           color: #64748b;
@@ -759,8 +776,52 @@ export default function AppEventosPage() {
         .input:focus,
         .textarea:focus,
         .select:focus {
-          border-color: rgba(124,58,237,.45);
-          box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+          border-color: rgba(15,23,42,.35);
+          box-shadow: 0 0 0 4px rgba(15,23,42,.08);
+        }
+
+        .field-help {
+          margin-top: 8px;
+          color: #64748b;
+          font-size: 13px;
+          font-weight: 750;
+        }
+
+        .field-error {
+          margin-top: 8px;
+          color: #dc2626;
+          font-size: 13px;
+          font-weight: 850;
+        }
+
+        .map-card {
+          overflow: hidden;
+          border-radius: 22px;
+          border: 1px solid rgba(226,232,240,.95);
+          background: #f8fafc;
+        }
+
+        .map-preview {
+          width: 100%;
+          height: 280px;
+          border: 0;
+          display: block;
+        }
+
+        .map-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 14px;
+          flex-wrap: wrap;
+        }
+
+        .map-url {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 750;
+          word-break: break-all;
         }
 
         .filters {
@@ -795,7 +856,7 @@ export default function AppEventosPage() {
         .event-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 18px 42px rgba(15,23,42,.08);
-          border-color: rgba(124,58,237,.22);
+          border-color: rgba(15,23,42,.18);
         }
 
         .item-title {
@@ -867,22 +928,6 @@ export default function AppEventosPage() {
           color: #334155;
           font-weight: 850;
           margin-top: 4px;
-        }
-
-        .programacao-list {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-
-        .programacao-item {
-          padding: 18px;
-          border-radius: 22px;
-          background: #f8fafc;
-          border: 1px solid rgba(226,232,240,.95);
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
         }
 
         .upload-grid {
@@ -1151,7 +1196,7 @@ export default function AppEventosPage() {
           </div>
 
           <div className="section">
-            <h3 className="section-title blue">2. Data e horário</h3>
+            <h3 className="section-title">2. Data e horário</h3>
             <p className="section-desc">
               Informe aos participantes quando seu evento vai acontecer.
             </p>
@@ -1172,9 +1217,7 @@ export default function AppEventosPage() {
               </label>
 
               <label>
-                <span className="field-label">
-                  Hora de início <span className="required">*</span>
-                </span>
+                <span className="field-label">Hora de início</span>
                 <input
                   type="time"
                   value={form.hora_inicio}
@@ -1212,7 +1255,7 @@ export default function AppEventosPage() {
           </div>
 
           <div className="section">
-            <h3 className="section-title blue">
+            <h3 className="section-title">
               3. Onde o seu evento vai acontecer?
             </h3>
             <p className="section-desc">
@@ -1238,12 +1281,19 @@ export default function AppEventosPage() {
                 <span className="field-label">CEP</span>
                 <input
                   value={form.cep}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, cep: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const cep = formatarCep(e.target.value);
+                    setForm((f) => ({ ...f, cep }));
+                    buscarCep(cep);
+                  }}
                   placeholder="Ex: 27900-000"
                   className="input"
+                  maxLength={9}
                 />
+                {buscandoCep && (
+                  <div className="field-help">Buscando endereço...</div>
+                )}
+                {erroCep && <div className="field-error">{erroCep}</div>}
               </label>
 
               <label>
@@ -1317,10 +1367,14 @@ export default function AppEventosPage() {
                 <input
                   value={form.estado}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, estado: e.target.value }))
+                    setForm((f) => ({
+                      ...f,
+                      estado: e.target.value.toUpperCase().slice(0, 2),
+                    }))
                   }
                   placeholder="RJ"
                   className="input"
+                  maxLength={2}
                 />
               </label>
 
@@ -1341,97 +1395,49 @@ export default function AppEventosPage() {
               <label className="full">
                 <span className="field-label">Link do Google Maps</span>
                 <input
-                  value={form.mapa_url}
+                  value={form.mapa_url || mapaAutomatico}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, mapa_url: e.target.value }))
                   }
-                  placeholder="Cole aqui o link do Google Maps"
+                  placeholder="Gerado automaticamente pelo endereço"
                   className="input"
                 />
+                <div className="field-help">
+                  Se deixar em branco, o sistema usa o endereço digitado para
+                  gerar o mapa automaticamente.
+                </div>
               </label>
-            </div>
-          </div>
 
-          <div className="section">
-            <h3 className="section-title blue">4. Programação do evento</h3>
-            <p className="section-desc">
-              Adicione os horários importantes que poderão aparecer no convite
-              digital.
-            </p>
+              {form.mostrar_mapa && mapaAutomatico && (
+                <div className="full map-card">
+                  <iframe
+                    title="Preview do mapa"
+                    className="map-preview"
+                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                      montarEndereco(form)
+                    )}&output=embed`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
 
-            <div className="programacao-list">
-              {form.programacao.length === 0 && (
-                <div className="empty">
-                  Nenhum horário cadastrado. Adicione a programação do evento.
+                  <div className="map-actions">
+                    <div className="map-url">{form.mapa_url || mapaAutomatico}</div>
+                    <a
+                      className="secondary"
+                      href={form.mapa_url || mapaAutomatico}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir no Google Maps
+                    </a>
+                  </div>
                 </div>
               )}
-
-              {form.programacao.map((item, index) => (
-                <div key={index} className="programacao-item">
-                  <div className="form-grid">
-                    <label>
-                      <span className="field-label">Horário</span>
-                      <input
-                        type="time"
-                        value={item.hora}
-                        onChange={(e) =>
-                          atualizarProgramacao(index, "hora", e.target.value)
-                        }
-                        className="input"
-                      />
-                    </label>
-
-                    <label>
-                      <span className="field-label">Título</span>
-                      <input
-                        value={item.titulo}
-                        onChange={(e) =>
-                          atualizarProgramacao(index, "titulo", e.target.value)
-                        }
-                        placeholder="Ex: Recepção"
-                        className="input"
-                      />
-                    </label>
-
-                    <label className="full">
-                      <span className="field-label">Descrição</span>
-                      <input
-                        value={item.descricao}
-                        onChange={(e) =>
-                          atualizarProgramacao(
-                            index,
-                            "descricao",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Detalhe da programação"
-                        className="input"
-                      />
-                    </label>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => removerProgramacao(index)}
-                  >
-                    Remover horário
-                  </button>
-                </div>
-              ))}
-
-              <button
-                type="button"
-                className="secondary soft"
-                onClick={adicionarProgramacao}
-              >
-                + Adicionar horário
-              </button>
             </div>
           </div>
 
           <div className="section">
-            <h3 className="section-title blue">5. Identidade visual</h3>
+            <h3 className="section-title">4. Identidade visual</h3>
             <p className="section-desc">
               Arquivos que poderão ser usados no convite digital e nas telas do
               evento.
@@ -1462,7 +1468,7 @@ export default function AppEventosPage() {
           </div>
 
           <div className="section">
-            <h3 className="section-title blue">6. Informações do convite</h3>
+            <h3 className="section-title">5. Informações do convite</h3>
             <p className="section-desc">
               Textos base que serão aproveitados na aba Convite Digital.
             </p>
@@ -1634,6 +1640,26 @@ function montarEndereco(form: FormEvento) {
   ]
     .filter(Boolean)
     .join(", ");
+}
+
+function gerarLinkMaps(form: FormEvento) {
+  const endereco = montarEndereco(form);
+  if (!endereco) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    endereco
+  )}`;
+}
+
+function somenteNumeros(valor: string) {
+  return valor.replace(/\D/g, "");
+}
+
+function formatarCep(valor: string) {
+  const numeros = somenteNumeros(valor).slice(0, 8);
+
+  if (numeros.length <= 5) return numeros;
+
+  return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
 }
 
 function labelStatus(status: string | null) {
