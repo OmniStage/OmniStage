@@ -1,0 +1,170 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+export default function CheckinPage() {
+  // =========================
+  // 🎯 ESTADO CHECK-IN (FIX ANIMAÇÃO)
+  // =========================
+  const [feedback, setFeedback] = useState<{
+    nome: string;
+    id: number;
+  } | null>(null);
+
+  // =========================
+  // 🔊 ÁUDIO PROFISSIONAL
+  // =========================
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio("/sounds/checkin.mp3");
+    audioRef.current.volume = 1;
+  }, []);
+
+  function unlockAudio() {
+    if (!audioRef.current) return;
+
+    audioRef.current
+      .play()
+      .then(() => {
+        audioRef.current?.pause();
+        audioRef.current!.currentTime = 0;
+      })
+      .catch(() => {});
+  }
+
+  function playSound() {
+    if (!audioRef.current) return;
+
+    audioRef.current.currentTime = 0;
+
+    audioRef.current.play().catch(() => {
+      console.log("Som bloqueado");
+    });
+  }
+
+  // =========================
+  // 🚀 CHECK-IN HANDLER
+  // =========================
+  function handleCheckin(nome: string) {
+    // 🔊 SOM
+    playSound();
+
+    // 📳 VIBRAÇÃO
+    navigator.vibrate?.(200);
+
+    // 🎯 ANIMAÇÃO GARANTIDA
+    setFeedback({
+      nome,
+      id: Date.now(),
+    });
+
+    // 💥 FLASH GLOBAL
+    document.body.classList.add("flash-success");
+
+    setTimeout(() => {
+      document.body.classList.remove("flash-success");
+    }, 300);
+  }
+
+  return (
+    <div style={{ padding: 40 }}>
+      {/* BOTÃO PARA LIBERAR ÁUDIO (OBRIGATÓRIO iOS) */}
+      <button
+        onClick={unlockAudio}
+        style={{
+          marginBottom: 20,
+          padding: "10px 16px",
+          borderRadius: 8,
+          background: "#111",
+          color: "#fff",
+        }}
+      >
+        Iniciar sistema
+      </button>
+
+      {/* SIMULAÇÃO CHECK-IN */}
+      <button
+        onClick={() => handleCheckin("FELIPE ATHAYDE")}
+        style={{
+          padding: "14px 20px",
+          borderRadius: 10,
+          background: "#7c3aed",
+          color: "#fff",
+          fontWeight: 600,
+        }}
+      >
+        Fazer Check-in
+      </button>
+
+      {/* ========================= */}
+      {/* 🎯 FEEDBACK VISUAL */}
+      {/* ========================= */}
+      {feedback && (
+        <div
+          key={feedback.id}
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "white",
+            padding: "40px 60px",
+            borderRadius: 20,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            textAlign: "center",
+            animation: "popIn 0.4s ease",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 40,
+              color: "#22c55e",
+              marginBottom: 10,
+            }}
+          >
+            ✔
+          </div>
+
+          <h2 style={{ fontSize: 24, fontWeight: 700 }}>
+            Entrada liberada
+          </h2>
+
+          <p style={{ marginTop: 10, fontWeight: 500 }}>
+            {feedback.nome}
+          </p>
+        </div>
+      )}
+
+      {/* ========================= */}
+      {/* 🎨 ANIMAÇÕES */}
+      {/* ========================= */}
+      <style jsx global>{`
+        @keyframes popIn {
+          0% {
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+          }
+        }
+
+        .flash-success {
+          animation: flashBg 0.3s;
+        }
+
+        @keyframes flashBg {
+          0% {
+            background: #22c55e;
+          }
+          100% {
+            background: transparent;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
