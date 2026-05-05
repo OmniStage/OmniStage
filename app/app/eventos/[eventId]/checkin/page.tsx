@@ -155,115 +155,102 @@ export default function CheckinEventoPage({
         audioCtxRef.current = new AudioContextClass();
       }
 
-      const ctx = audioCtxRef.current;
+      const ctxAtual = audioCtxRef.current;
+      if (!ctxAtual) return null;
 
-      if (ctx.state === "suspended") {
-        void ctx.resume();
+      if (ctxAtual.state === "suspended") {
+        void ctxAtual.resume();
       }
 
-      return ctx;
+      return ctxAtual;
     } catch {
       return null;
     }
   }
 
-  function tocarBipDesbloqueio(ctx: AudioContext) {
-    try {
-      const now = ctx.currentTime + 0.03;
+  function tocarSequencia(
+    ctxParam: AudioContext,
+    tons: Array<{
+      freq: number;
+      gain: number;
+      duration: number;
+      wave: OscillatorType;
+      delay?: number;
+    }>,
+  ) {
+    const ctx: AudioContext = ctxParam;
+    const now = ctx.currentTime + 0.035;
 
-      function bip(freq: number, delay: number, gainValue = 0.18) {
+    for (const tom of tons) {
+      try {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        const start = now + delay;
-        const end = start + 0.13;
+        const start = now + (tom.delay || 0);
+        const end = start + tom.duration;
 
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(freq, start);
+        osc.type = tom.wave;
+        osc.frequency.setValueAtTime(tom.freq, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(tom.gain, start + 0.018);
         gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
-        osc.connect(gain).connect(ctx.destination);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
         osc.start(start);
-        osc.stop(end + 0.03);
-      }
-
-      bip(660, 0, 0.2);
-      bip(880, 0.1, 0.16);
-    } catch {}
+        osc.stop(end + 0.04);
+      } catch {}
+    }
   }
 
   function desbloquearAudio() {
     const ctx = obterAudioContext();
     if (!ctx) return;
 
-    try {
-      if (!audioReadyRef.current) {
-        tocarBipDesbloqueio(ctx);
-        audioReadyRef.current = true;
-      }
+    audioReadyRef.current = true;
+    setSomAtivo(true);
 
-      setSomAtivo(true);
-    } catch {}
+    tocarSequencia(ctx, [
+      { freq: 660, gain: 0.2, duration: 0.13, wave: "triangle", delay: 0 },
+      { freq: 880, gain: 0.16, duration: 0.13, wave: "triangle", delay: 0.1 },
+    ]);
   }
 
   function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
     const ctx = obterAudioContext();
     if (!ctx) return;
 
-    try {
-      if (!audioReadyRef.current) {
-        audioReadyRef.current = true;
-        setSomAtivo(true);
-      }
+    audioReadyRef.current = true;
+    setSomAtivo(true);
 
-      if (ctx.state === "suspended") {
-        void ctx.resume();
-      }
+    if (tipo === "ok") {
+      tocarSequencia(ctx, [
+        { freq: 247, gain: 0.24, duration: 0.22, wave: "triangle", delay: 0 },
+        { freq: 392, gain: 0.2, duration: 0.22, wave: "sine", delay: 0.08 },
+        { freq: 659, gain: 0.18, duration: 0.28, wave: "sine", delay: 0.16 },
+        { freq: 988, gain: 0.12, duration: 0.22, wave: "triangle", delay: 0.28 },
+      ]);
+      return;
+    }
 
-      const now = ctx.currentTime + 0.035;
+    if (tipo === "tick") {
+      tocarSequencia(ctx, [
+        { freq: 1175, gain: 0.18, duration: 0.1, wave: "triangle", delay: 0 },
+        { freq: 1568, gain: 0.11, duration: 0.08, wave: "sine", delay: 0.07 },
+      ]);
+      return;
+    }
 
-      function tone(
-        freq: number,
-        gainValue: number,
-        duration: number,
-        wave: OscillatorType,
-        delay = 0,
-      ) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const start = now + delay;
-        const end = start + duration;
+    if (tipo === "usado" || tipo === "erro") {
+      tocarSequencia(ctx, [
+        { freq: 880, gain: 0.2, duration: 0.09, wave: "square", delay: 0 },
+        { freq: 220, gain: 0.22, duration: 0.18, wave: "sawtooth", delay: 0.1 },
+        { freq: 120, gain: 0.18, duration: 0.28, wave: "square", delay: 0.26 },
+      ]);
+    }
+  }
 
-        osc.type = wave;
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.018);
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(start);
-        osc.stop(end + 0.04);
-      }
-
-      if (tipo === "ok") {
-        tone(247, 0.24, 0.22, "triangle", 0);
-        tone(392, 0.2, 0.22, "sine", 0.08);
-        tone(659, 0.18, 0.28, "sine", 0.16);
-        tone(988, 0.12, 0.22, "triangle", 0.28);
-      }
-
-      if (tipo === "tick") {
-        tone(1175, 0.18, 0.1, "triangle", 0);
-        tone(1568, 0.11, 0.08, "sine", 0.07);
-      }
-
-      if (tipo === "usado" || tipo === "erro") {
-        tone(880, 0.2, 0.09, "square", 0);
-        tone(220, 0.22, 0.18, "sawtooth", 0.1);
-        tone(120, 0.18, 0.28, "square", 0.26);
-      }
-    } catch {}
+  function tocarClick() {
+    tocarSom("tick");
   }
 
   function vibrar(tipo: "ok" | "erro") {
@@ -1005,7 +992,7 @@ export default function CheckinEventoPage({
           <button
             className="btn"
             onClick={() => {
-              desbloquearAudio();
+              tocarClick();
               carregarConvidados();
             }}
           >
@@ -1015,7 +1002,7 @@ export default function CheckinEventoPage({
           <button
             className={qrAtivo ? "btn success" : "btn primary"}
             onClick={() => {
-              desbloquearAudio();
+              tocarClick();
               qrAtivo ? pararQr() : iniciarQr();
             }}
           >
@@ -1025,7 +1012,7 @@ export default function CheckinEventoPage({
           <button
             className="btn"
             onClick={() => {
-              desbloquearAudio();
+              tocarClick();
               trocarCamera();
             }}
           >
@@ -1035,7 +1022,7 @@ export default function CheckinEventoPage({
           <button
             className="btn"
             onClick={() => {
-              desbloquearAudio();
+              tocarClick();
               sincronizarPendentes();
             }}
           >
@@ -1200,7 +1187,7 @@ export default function CheckinEventoPage({
                             className="btn group"
                             disabled={todosEntraram}
                             onClick={() => {
-                              desbloquearAudio();
+                              tocarClick();
                               liberarGrupoInteiro(grupo.membros);
                             }}
                           >
@@ -1254,7 +1241,7 @@ export default function CheckinEventoPage({
                               className={entrou ? "btn" : "btn primary"}
                               disabled={entrou}
                               onClick={() => {
-                                desbloquearAudio();
+                                tocarClick();
                                 liberarConvidado(c, "manual");
                               }}
                             >
