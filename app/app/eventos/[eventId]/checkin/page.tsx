@@ -73,7 +73,9 @@ export default function CheckinEventoPage({
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [flash, setFlash] = useState<Resultado["tipo"] | null>(null);
   const [overlay, setOverlay] = useState<Resultado | null>(null);
-  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>({});
+  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>(
+    {},
+  );
   const [somAtivo, setSomAtivo] = useState(false);
 
   const [resultado, setResultado] = useState<Resultado>({
@@ -88,6 +90,7 @@ export default function CheckinEventoPage({
   const camerasRef = useRef<any[]>([]);
   const cameraIndexRef = useRef(-1);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioReadyRef = useRef(false);
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
 
@@ -142,68 +145,90 @@ export default function CheckinEventoPage({
     return normalizar(c.status_checkin) === "SYNC_PENDENTE";
   }
 
-  async function obterAudioContext() {
+  function obterAudioContext(): AudioContext | null {
     try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return null;
 
       if (!audioCtxRef.current) {
         audioCtxRef.current = new AudioContextClass();
       }
 
-      if (audioCtxRef.current.state === "suspended") {
-        await audioCtxRef.current.resume();
+      const ctx = audioCtxRef.current;
+
+      if (ctx.state === "suspended") {
+        void ctx.resume();
       }
 
-      return audioCtxRef.current;
+      return ctx;
     } catch {
       return null;
     }
   }
 
-  async function tocarBipDesbloqueio(ctx: AudioContext) {
-    const now = ctx.currentTime + 0.01;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+  function tocarBipDesbloqueio(ctx: AudioContext) {
+    try {
+      const now = ctx.currentTime + 0.03;
 
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(880, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      function bip(freq: number, delay: number, gainValue = 0.18) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const start = now + delay;
+        const end = start + 0.13;
 
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.22);
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(end + 0.03);
+      }
+
+      bip(660, 0, 0.2);
+      bip(880, 0.1, 0.16);
+    } catch {}
   }
 
-  async function desbloquearAudio() {
-    const ctx = await obterAudioContext();
+  function desbloquearAudio() {
+    const ctx = obterAudioContext();
     if (!ctx) return;
 
     try {
-      await tocarBipDesbloqueio(ctx);
+      if (!audioReadyRef.current) {
+        tocarBipDesbloqueio(ctx);
+        audioReadyRef.current = true;
+      }
+
       setSomAtivo(true);
     } catch {}
   }
 
-  async function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
-    const audio = await obterAudioContext();
-    if (!audio) return;
-
-    // A partir daqui o TypeScript sabe que não é null.
-    const ctx: AudioContext = audio;
+  function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
+    const ctx = obterAudioContext();
+    if (!ctx) return;
 
     try {
-      setSomAtivo(true);
-      const now = ctx.currentTime + 0.01;
+      if (!audioReadyRef.current) {
+        audioReadyRef.current = true;
+        setSomAtivo(true);
+      }
+
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+
+      const now = ctx.currentTime + 0.035;
 
       function tone(
         freq: number,
         gainValue: number,
         duration: number,
         wave: OscillatorType,
-        delay = 0
+        delay = 0,
       ) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -213,29 +238,30 @@ export default function CheckinEventoPage({
         osc.type = wave;
         osc.frequency.setValueAtTime(freq, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.018);
         gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
         osc.connect(gain).connect(ctx.destination);
         osc.start(start);
-        osc.stop(end + 0.05);
+        osc.stop(end + 0.04);
       }
 
       if (tipo === "ok") {
-        tone(220, 0.22, 0.24, "triangle");
-        tone(392, 0.18, 0.24, "sine", 0.08);
-        tone(659, 0.16, 0.3, "sine", 0.16);
-        tone(988, 0.11, 0.25, "triangle", 0.29);
+        tone(247, 0.24, 0.22, "triangle", 0);
+        tone(392, 0.2, 0.22, "sine", 0.08);
+        tone(659, 0.18, 0.28, "sine", 0.16);
+        tone(988, 0.12, 0.22, "triangle", 0.28);
       }
 
       if (tipo === "tick") {
-        tone(1244, 0.16, 0.14, "triangle");
+        tone(1175, 0.18, 0.1, "triangle", 0);
+        tone(1568, 0.11, 0.08, "sine", 0.07);
       }
 
       if (tipo === "usado" || tipo === "erro") {
-        tone(880, 0.16, 0.09, "square");
-        tone(220, 0.18, 0.18, "sawtooth", 0.10);
-        tone(120, 0.16, 0.26, "square", 0.26);
+        tone(880, 0.2, 0.09, "square", 0);
+        tone(220, 0.22, 0.18, "sawtooth", 0.1);
+        tone(120, 0.18, 0.28, "square", 0.26);
       }
     } catch {}
   }
@@ -259,7 +285,10 @@ export default function CheckinEventoPage({
     }, 1100);
   }
 
-  function lerPendentes(): Record<string, { nome: string; data_checkin: string }> {
+  function lerPendentes(): Record<
+    string,
+    { nome: string; data_checkin: string }
+  > {
     try {
       return JSON.parse(localStorage.getItem(localKey) || "{}");
     } catch {
@@ -284,7 +313,10 @@ export default function CheckinEventoPage({
     const local = pendentes[c.token];
     if (!local) return c;
 
-    if (c.checkin_realizado === true || normalizar(c.status_checkin) === "ENTROU") {
+    if (
+      c.checkin_realizado === true ||
+      normalizar(c.status_checkin) === "ENTROU"
+    ) {
       removerPendente(c.token);
       return c;
     }
@@ -303,7 +335,7 @@ export default function CheckinEventoPage({
     const { data, error } = await supabase
       .from("convidados")
       .select(
-        "id, evento_id, tenant_id, grupo_id, nome, telefone, email, token, status_rsvp, checkin_realizado, data_checkin, status_checkin, grupo, tipo_convite"
+        "id, evento_id, tenant_id, grupo_id, nome, telefone, email, token, status_rsvp, checkin_realizado, data_checkin, status_checkin, grupo, tipo_convite",
       )
       .eq("evento_id", eventoId)
       .ilike("status_rsvp", "confirmado")
@@ -331,7 +363,9 @@ export default function CheckinEventoPage({
       return;
     }
 
-    const scriptExistente = document.querySelector('script[src*="html5-qrcode"]');
+    const scriptExistente = document.querySelector(
+      'script[src*="html5-qrcode"]',
+    );
     if (scriptExistente) {
       scriptExistente.addEventListener("load", () => setScannerPronto(true));
       return;
@@ -367,7 +401,7 @@ export default function CheckinEventoPage({
           url.searchParams.get("token") ||
             url.searchParams.get("TOKEN_CHECKIN") ||
             url.searchParams.get("id") ||
-            ""
+            "",
         ).trim();
       }
     } catch {}
@@ -398,7 +432,7 @@ export default function CheckinEventoPage({
             mensagem: next.mensagem,
           },
           ...prev,
-        ].slice(0, 8)
+        ].slice(0, 8),
       );
     }
 
@@ -426,7 +460,7 @@ export default function CheckinEventoPage({
 
       if (camerasRef.current.length && cameraIndexRef.current < 0) {
         const traseira = camerasRef.current.findIndex((camera) =>
-          /back|rear|traseira|environment/i.test(camera.label || "")
+          /back|rear|traseira|environment/i.test(camera.label || ""),
         );
         cameraIndexRef.current = traseira >= 0 ? traseira : 0;
       }
@@ -457,13 +491,15 @@ export default function CheckinEventoPage({
             const base = Math.min(w || 320, h || 320);
             const tela = window.innerWidth || 360;
             const factor = tela <= 768 ? 0.76 : tela <= 1180 ? 0.78 : 0.72;
-            const size = Math.floor(Math.max(240, Math.min(base * factor, 520)));
+            const size = Math.floor(
+              Math.max(240, Math.min(base * factor, 520)),
+            );
             return { width: size, height: size };
           },
         },
         async (decodedText: string) => {
           await processarToken(decodedText, "qr");
-        }
+        },
       );
 
       setQrAtivo(true);
@@ -509,7 +545,7 @@ export default function CheckinEventoPage({
 
       setCameraAtual(
         camerasRef.current[cameraIndexRef.current].label ||
-          `Câmera ${cameraIndexRef.current + 1}`
+          `Câmera ${cameraIndexRef.current + 1}`,
       );
     }
 
@@ -532,7 +568,10 @@ export default function CheckinEventoPage({
     return false;
   }
 
-  async function processarToken(raw: string, origem: "qr" | "manual" = "manual") {
+  async function processarToken(
+    raw: string,
+    origem: "qr" | "manual" = "manual",
+  ) {
     desbloquearAudio();
 
     const token = extrairToken(raw);
@@ -543,7 +582,7 @@ export default function CheckinEventoPage({
     busyRef.current = true;
 
     const convidado = convidados.find(
-      (c) => normalizar(c.token) === normalizar(token)
+      (c) => normalizar(c.token) === normalizar(token),
     );
 
     if (!convidado) {
@@ -581,9 +620,9 @@ export default function CheckinEventoPage({
 
   async function liberarConvidado(
     convidado: Convidado,
-    origem: "qr" | "manual" = "manual"
+    origem: "qr" | "manual" = "manual",
   ) {
-    await desbloquearAudio();
+    desbloquearAudio();
 
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
@@ -595,7 +634,7 @@ export default function CheckinEventoPage({
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      await tocarSom("erro");
+      tocarSom("erro");
       vibrar("erro");
       return;
     }
@@ -628,8 +667,8 @@ export default function CheckinEventoPage({
                 status_checkin: "sync_pendente",
                 data_checkin: agora,
               }
-            : c
-        )
+            : c,
+        ),
       );
 
       piscarCard(convidado.id);
@@ -640,7 +679,7 @@ export default function CheckinEventoPage({
         mensagem: "Sem conexão com o banco. Ficou como sync pendente.",
         token: convidado.token,
       });
-      await tocarSom("erro");
+      tocarSom("erro");
       vibrar("erro");
       return;
     }
@@ -656,8 +695,8 @@ export default function CheckinEventoPage({
                 status_checkin: "entrou",
                 data_checkin: c.data_checkin || agora,
               }
-            : c
-        )
+            : c,
+        ),
       );
 
       piscarCard(convidado.id);
@@ -668,7 +707,7 @@ export default function CheckinEventoPage({
         mensagem: "Este convidado já teve a entrada registrada.",
         token: convidado.token,
       });
-      await tocarSom("erro");
+      tocarSom("erro");
       vibrar("erro");
       return;
     }
@@ -684,8 +723,8 @@ export default function CheckinEventoPage({
               status_checkin: "entrou",
               data_checkin: agora,
             }
-          : c
-      )
+          : c,
+      ),
     );
 
     piscarCard(convidado.id);
@@ -696,7 +735,7 @@ export default function CheckinEventoPage({
       mensagem: "Check-in registrado com sucesso.",
       token: convidado.token,
     });
-    await tocarSom("ok");
+    tocarSom("ok");
     vibrar("ok");
   }
 
@@ -705,7 +744,9 @@ export default function CheckinEventoPage({
     const pendentes = membros.filter((m) => !convidadoEntrou(m));
 
     if (!pendentes.length) {
-      membros.forEach((m, idx) => setTimeout(() => piscarCard(m.id), idx * 120));
+      membros.forEach((m, idx) =>
+        setTimeout(() => piscarCard(m.id), idx * 120),
+      );
       tocarSom("erro");
       atualizarResultado({
         tipo: "erro",
@@ -731,7 +772,7 @@ export default function CheckinEventoPage({
 
     for (const token of tokens) {
       const convidado = convidados.find(
-        (c) => normalizar(c.token) === normalizar(token)
+        (c) => normalizar(c.token) === normalizar(token),
       );
 
       if (!convidado) {
@@ -755,8 +796,8 @@ export default function CheckinEventoPage({
           prev.map((c) =>
             c.id === convidado.id
               ? { ...c, status_checkin: "entrou", checkin_realizado: true }
-              : c
-          )
+              : c,
+          ),
         );
         piscarCard(convidado.id);
       }
@@ -778,57 +819,65 @@ export default function CheckinEventoPage({
     return { total, entrou, pendentes, sync };
   }, [convidados]);
 
-  const gruposRender = useMemo<GrupoRender[]>((() => {
-    const q = normalizar(busca);
-    const mapa = new Map<string, Convidado[]>();
+  const gruposRender = useMemo<GrupoRender[]>(
+    (() => {
+      const q = normalizar(busca);
+      const mapa = new Map<string, Convidado[]>();
 
-    for (const convidado of convidados) {
-      const chave = isGrupoReal(convidado)
-        ? `grupo:${normalizar(convidado.grupo)}`
-        : `individual:${convidado.id}`;
+      for (const convidado of convidados) {
+        const chave = isGrupoReal(convidado)
+          ? `grupo:${normalizar(convidado.grupo)}`
+          : `individual:${convidado.id}`;
 
-      if (!mapa.has(chave)) mapa.set(chave, []);
-      mapa.get(chave)!.push(convidado);
-    }
+        if (!mapa.has(chave)) mapa.set(chave, []);
+        mapa.get(chave)!.push(convidado);
+      }
 
-    return Array.from(mapa.entries())
-      .map(([key, membros]) => {
-        const isGrupo = key.startsWith("grupo:") && membros.length >= 1;
-        const nomeGrupo = isGrupo
-          ? membros[0]?.grupo || key.replace(/^grupo:/, "")
-          : membros[0]?.nome || "Individual";
+      return Array.from(mapa.entries())
+        .map(([key, membros]) => {
+          const isGrupo = key.startsWith("grupo:") && membros.length >= 1;
+          const nomeGrupo = isGrupo
+            ? membros[0]?.grupo || key.replace(/^grupo:/, "")
+            : membros[0]?.nome || "Individual";
 
-        return {
-          key,
-          nome: nomeGrupo,
-          membros: [...membros].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
-          isGrupo,
-        };
-      })
-      .filter((grupo) => {
-        if (tipoFiltro === "grupo" && !grupo.isGrupo) return false;
-        if (tipoFiltro === "individual" && grupo.isGrupo) return false;
+          return {
+            key,
+            nome: nomeGrupo,
+            membros: [...membros].sort((a, b) =>
+              a.nome.localeCompare(b.nome, "pt-BR"),
+            ),
+            isGrupo,
+          };
+        })
+        .filter((grupo) => {
+          if (tipoFiltro === "grupo" && !grupo.isGrupo) return false;
+          if (tipoFiltro === "individual" && grupo.isGrupo) return false;
 
-        const grupoTemPendente = grupo.membros.some((m) => !convidadoEntrou(m));
-        const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
-        const grupoTemSync = grupo.membros.some(convidadoSync);
+          const grupoTemPendente = grupo.membros.some(
+            (m) => !convidadoEntrou(m),
+          );
+          const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
+          const grupoTemSync = grupo.membros.some(convidadoSync);
 
-        if (statusFiltro === "pendentes" && !grupoTemPendente) return false;
-        if (statusFiltro === "entrou" && !grupoTemEntrou) return false;
-        if (statusFiltro === "sync" && !grupoTemSync) return false;
+          if (statusFiltro === "pendentes" && !grupoTemPendente) return false;
+          if (statusFiltro === "entrou" && !grupoTemEntrou) return false;
+          if (statusFiltro === "sync" && !grupoTemSync) return false;
 
-        if (!q) return true;
+          if (!q) return true;
 
-        return grupo.membros.some((m) =>
-          normalizar(m.nome).includes(q) ||
-          normalizar(m.grupo).includes(q) ||
-          normalizar(m.telefone).includes(q) ||
-          normalizar(m.email).includes(q) ||
-          normalizar(m.token).includes(q)
-        );
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }) as any, [convidados, busca, statusFiltro, tipoFiltro]);
+          return grupo.membros.some(
+            (m) =>
+              normalizar(m.nome).includes(q) ||
+              normalizar(m.grupo).includes(q) ||
+              normalizar(m.telefone).includes(q) ||
+              normalizar(m.email).includes(q) ||
+              normalizar(m.token).includes(q),
+          );
+        });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }) as any,
+    [convidados, busca, statusFiltro, tipoFiltro],
+  );
 
   return (
     <div className="checkin-page">
@@ -930,10 +979,10 @@ export default function CheckinEventoPage({
               {overlay.tipo === "ok"
                 ? "✓"
                 : overlay.tipo === "usado"
-                ? "!"
-                : overlay.tipo === "sync"
-                ? "↻"
-                : "×"}
+                  ? "!"
+                  : overlay.tipo === "sync"
+                    ? "↻"
+                    : "×"}
             </div>
             <h2 className="premium-title">{overlay.titulo}</h2>
             {overlay.nome && <div className="premium-name">{overlay.nome}</div>}
@@ -947,31 +996,56 @@ export default function CheckinEventoPage({
           <div className="eyebrow">OmniStage Check-in</div>
           <h1 className="title">Portaria do evento</h1>
           <p className="subtitle">
-            QR code, leitor físico, grupos, busca manual e controle híbrido de entrada.
+            QR code, leitor físico, grupos, busca manual e controle híbrido de
+            entrada.
           </p>
         </div>
 
         <div className="actions">
-          <button className="btn" onClick={() => { desbloquearAudio(); carregarConvidados(); }}>
+          <button
+            className="btn"
+            onClick={() => {
+              desbloquearAudio();
+              carregarConvidados();
+            }}
+          >
             Atualizar
           </button>
 
           <button
             className={qrAtivo ? "btn success" : "btn primary"}
-            onClick={() => { desbloquearAudio(); qrAtivo ? pararQr() : iniciarQr(); }}
+            onClick={() => {
+              desbloquearAudio();
+              qrAtivo ? pararQr() : iniciarQr();
+            }}
           >
             {qrAtivo ? "QR ativo" : "Ativar QR"}
           </button>
 
-          <button className="btn" onClick={() => { desbloquearAudio(); trocarCamera(); }}>
+          <button
+            className="btn"
+            onClick={() => {
+              desbloquearAudio();
+              trocarCamera();
+            }}
+          >
             Trocar câmera
           </button>
 
-          <button className="btn" onClick={() => { desbloquearAudio(); sincronizarPendentes(); }}>
+          <button
+            className="btn"
+            onClick={() => {
+              desbloquearAudio();
+              sincronizarPendentes();
+            }}
+          >
             Sincronizar
           </button>
 
-          <button className={somAtivo ? "btn success" : "btn"} onClick={desbloquearAudio}>
+          <button
+            className={somAtivo ? "btn success" : "btn"}
+            onClick={desbloquearAudio}
+          >
             {somAtivo ? "Som ativo" : "Ativar som"}
           </button>
         </div>
@@ -989,7 +1063,9 @@ export default function CheckinEventoPage({
           <div className={`result-card ${resultado.tipo}`}>
             <div className="result-kicker">Status da leitura</div>
             <h2 className="result-title">{resultado.titulo}</h2>
-            {resultado.nome && <div className="result-name">{resultado.nome}</div>}
+            {resultado.nome && (
+              <div className="result-name">{resultado.nome}</div>
+            )}
             <p className="result-msg">{resultado.mensagem}</p>
           </div>
 
@@ -1001,10 +1077,11 @@ export default function CheckinEventoPage({
             {qrAtivo
               ? `QR ativo${cameraAtual ? ` • ${cameraAtual}` : ""}`
               : scannerPronto
-              ? "Ative o QR para usar celular, tablet ou notebook."
-              : "Carregando leitor de QR code..."}
+                ? "Ative o QR para usar celular, tablet ou notebook."
+                : "Carregando leitor de QR code..."}
             <br />
-            Status: {online ? "Online" : "Offline"} • Som: {somAtivo ? "Ativo" : "Clique em Ativar som"}
+            Status: {online ? "Online" : "Offline"} • Som:{" "}
+            {somAtivo ? "Ativo" : "Clique em Ativar som"}
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -1033,7 +1110,10 @@ export default function CheckinEventoPage({
             ) : (
               logs.map((log) => (
                 <div className="history-item" key={log.id}>
-                  <div className="history-top"><span>{log.horario}</span><span>{log.tipo.toUpperCase()}</span></div>
+                  <div className="history-top">
+                    <span>{log.horario}</span>
+                    <span>{log.tipo.toUpperCase()}</span>
+                  </div>
                   <div className="history-name">{log.nome}</div>
                   <div className="token">{log.token}</div>
                 </div>
@@ -1079,7 +1159,9 @@ export default function CheckinEventoPage({
           ) : (
             <div className="guest-list">
               {gruposRender.map((grupo) => {
-                const pendentes = grupo.membros.filter((m) => !convidadoEntrou(m));
+                const pendentes = grupo.membros.filter(
+                  (m) => !convidadoEntrou(m),
+                );
                 const todosEntraram = pendentes.length === 0;
                 const algumSync = grupo.membros.some(convidadoSync);
 
@@ -1088,7 +1170,9 @@ export default function CheckinEventoPage({
                     <div className="group-head">
                       <div>
                         <div className="group-title">
-                          {grupo.isGrupo ? "Grupo encontrado" : "Convidado encontrado"}
+                          {grupo.isGrupo
+                            ? "Grupo encontrado"
+                            : "Convidado encontrado"}
                         </div>
                         <div className="group-sub">
                           {grupo.isGrupo
@@ -1098,9 +1182,19 @@ export default function CheckinEventoPage({
                       </div>
 
                       <div className="group-meta">
-                        <span className={grupo.isGrupo ? "chip group" : "chip info"}>{grupo.isGrupo ? "grupo" : "individual"}</span>
-                        <span className={todosEntraram ? "chip ok" : "chip pending"}>{todosEntraram ? "entrou" : "pendente"}</span>
-                        {algumSync && <span className="chip sync">sync pendente</span>}
+                        <span
+                          className={grupo.isGrupo ? "chip group" : "chip info"}
+                        >
+                          {grupo.isGrupo ? "grupo" : "individual"}
+                        </span>
+                        <span
+                          className={todosEntraram ? "chip ok" : "chip pending"}
+                        >
+                          {todosEntraram ? "entrou" : "pendente"}
+                        </span>
+                        {algumSync && (
+                          <span className="chip sync">sync pendente</span>
+                        )}
                         {grupo.isGrupo && (
                           <button
                             className="btn group"
@@ -1110,7 +1204,9 @@ export default function CheckinEventoPage({
                               liberarGrupoInteiro(grupo.membros);
                             }}
                           >
-                            {todosEntraram ? "Grupo liberado" : "Liberar grupo inteiro"}
+                            {todosEntraram
+                              ? "Grupo liberado"
+                              : "Liberar grupo inteiro"}
                           </button>
                         )}
                       </div>
@@ -1127,12 +1223,31 @@ export default function CheckinEventoPage({
                           >
                             <div>
                               <div className="guest-name">{c.nome}</div>
-                              <div className="guest-sub">{c.grupo || "Individual"} • {c.telefone || "sem telefone"}</div>
+                              <div className="guest-sub">
+                                {c.grupo || "Individual"} •{" "}
+                                {c.telefone || "sem telefone"}
+                              </div>
                               <div className="token">{c.token}</div>
                               <div className="chips">
-                                <span className={grupo.isGrupo ? "chip group" : "chip info"}>{grupo.isGrupo ? "grupo" : "individual"}</span>
-                                <span className={entrou ? "chip ok" : "chip pending"}>{entrou ? "entrou" : "pendente"}</span>
-                                {sync && <span className="chip sync">sync pendente</span>}
+                                <span
+                                  className={
+                                    grupo.isGrupo ? "chip group" : "chip info"
+                                  }
+                                >
+                                  {grupo.isGrupo ? "grupo" : "individual"}
+                                </span>
+                                <span
+                                  className={
+                                    entrou ? "chip ok" : "chip pending"
+                                  }
+                                >
+                                  {entrou ? "entrou" : "pendente"}
+                                </span>
+                                {sync && (
+                                  <span className="chip sync">
+                                    sync pendente
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <button
@@ -1153,7 +1268,9 @@ export default function CheckinEventoPage({
                 );
               })}
 
-              {!gruposRender.length && <div className="helper">Nenhum convidado encontrado.</div>}
+              {!gruposRender.length && (
+                <div className="helper">Nenhum convidado encontrado.</div>
+              )}
             </div>
           )}
         </section>
