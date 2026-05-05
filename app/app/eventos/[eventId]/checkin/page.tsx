@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 
 declare global {
@@ -53,12 +53,31 @@ type GrupoRender = {
   isGrupo: boolean;
 };
 
+
+type EventoCheckin = {
+  nome: string | null;
+  logo_url: string | null;
+  logo_image: string | null;
+  background_url: string | null;
+  background_image: string | null;
+  musica_url: string | null;
+  music_file: string | null;
+  tipo_evento: string | null;
+  categoria_evento: string | null;
+};
+
 export default function CheckinEventoPage({
   params,
 }: {
   params: { eventId: string };
 }) {
   const eventoId = params.eventId;
+
+  const [evento, setEvento] = useState<EventoCheckin | null>(null);
+  const [usarTemaEvento, setUsarTemaEvento] = useState(true);
+  const [musicaAmbienteAtiva, setMusicaAmbienteAtiva] = useState(false);
+  const [modoNoturnoAuto, setModoNoturnoAuto] = useState(true);
+  const [modoNoturno, setModoNoturno] = useState(false);
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [busca, setBusca] = useState("");
@@ -114,6 +133,7 @@ export default function CheckinEventoPage({
   });
   const audioPoolIndexRef = useRef({ success: 0, already: 0, error: 0 });
   const audioUnlockedRef = useRef(false);
+  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
   const [efeitoId, setEfeitoId] = useState(0);
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
@@ -121,7 +141,11 @@ export default function CheckinEventoPage({
   useEffect(() => {
     setOnline(navigator.onLine !== false);
     carregarScriptQr();
+    carregarEvento();
     carregarConvidados();
+
+    const horaAtual = new Date().getHours();
+    setModoNoturno(horaAtual >= 18 || horaAtual < 7);
 
     const onOnline = () => {
       setOnline(true);
@@ -164,6 +188,33 @@ export default function CheckinEventoPage({
       criarAudio("/sounds/error.mp3"),
     );
   }, []);
+
+  useEffect(() => {
+    const src = evento?.musica_url || evento?.music_file || "";
+
+    if (!src || !musicaAmbienteAtiva) {
+      if (ambientAudioRef.current) {
+        ambientAudioRef.current.pause();
+        ambientAudioRef.current.currentTime = 0;
+      }
+      return;
+    }
+
+    const audio = new Audio(src);
+    audio.loop = true;
+    audio.volume = 0.18;
+    audio.preload = "auto";
+    ambientAudioRef.current = audio;
+
+    void audio.play().catch(() => {
+      setMusicaAmbienteAtiva(false);
+    });
+
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, [evento?.musica_url, evento?.music_file, musicaAmbienteAtiva]);
 
   function normalizar(texto: string | null | undefined) {
     return String(texto || "")
@@ -392,6 +443,18 @@ export default function CheckinEventoPage({
       status_checkin: "sync_pendente",
       data_checkin: local.data_checkin || c.data_checkin,
     };
+  }
+
+  async function carregarEvento() {
+    const { data } = await supabase
+      .from("eventos")
+      .select(
+        "nome, logo_url, logo_image, background_url, background_image, musica_url, music_file, tipo_evento, categoria_evento",
+      )
+      .eq("id", eventoId)
+      .single();
+
+    if (data) setEvento(data as EventoCheckin);
   }
 
   async function carregarConvidados() {
@@ -999,14 +1062,40 @@ export default function CheckinEventoPage({
     [convidados, busca, statusFiltro, tipoFiltro, cardsPiscando],
   );
 
+  const logoEvento = evento?.logo_url || evento?.logo_image || "";
+  const backgroundEvento = evento?.background_url || evento?.background_image || "";
+  const musicaEvento = evento?.musica_url || evento?.music_file || "";
+  const usarModoEscuro = modoNoturnoAuto && modoNoturno;
+
   return (
-    <div className="checkin-page">
+    <div
+      className={`checkin-page ${usarModoEscuro ? "dark-mode" : ""}`}
+      style={
+        usarTemaEvento && backgroundEvento
+          ? ({
+              backgroundImage: `linear-gradient(120deg, rgba(248,250,252,.94), rgba(248,250,252,.88)), url(${backgroundEvento})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundAttachment: "fixed",
+            } as CSSProperties)
+          : undefined
+      }
+    >
       <style>{`
-        .checkin-page { --purple:#6d28d9; --purple2:#8b5cf6; --green:#16a34a; --red:#e11d48; --amber:#d97706; color:var(--text); }
-        .checkin-hero { display:grid; grid-template-columns:1.2fr auto; gap:18px; align-items:end; margin-bottom:20px; }
+        .checkin-page { --purple:#6d28d9; --purple2:#8b5cf6; --green:#16a34a; --red:#e11d48; --amber:#d97706; --text:#0f172a; --muted:#64748b; --card:rgba(255,255,255,.88); --line:#dbe3ef; min-height:100vh; padding:28px; color:var(--text); background-color:#f5f8fc; }
+        .checkin-page.dark-mode { --text:#f8fafc; --muted:#cbd5e1; --card:rgba(15,23,42,.82); --line:rgba(148,163,184,.26); background-color:#07111f; }
+        .checkin-page.dark-mode .panel, .checkin-page.dark-mode .stat, .checkin-page.dark-mode .checkin-hero { background:rgba(15,23,42,.78); }
+        .checkin-page.dark-mode .input, .checkin-page.dark-mode .select, .checkin-page.dark-mode .helper { background:rgba(2,6,23,.62); color:#f8fafc; }
+        .checkin-hero { display:grid; grid-template-columns:1.2fr auto; gap:22px; align-items:center; margin-bottom:20px; padding:26px; border:1px solid var(--line); border-radius:32px; background:var(--card); box-shadow:0 18px 52px rgba(15,23,42,.07); backdrop-filter:blur(16px); }
         .eyebrow { color:var(--muted); font-size:12px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
         .title { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
         .subtitle { margin:14px 0 0; color:var(--muted); font-size:17px; font-weight:650; }
+        .hero-brand { display:flex; align-items:center; gap:18px; min-width:0; }
+        .event-logo { width:76px; height:76px; border-radius:22px; object-fit:cover; border:1px solid var(--line); box-shadow:0 16px 36px rgba(15,23,42,.14); background:white; }
+        .event-logo-fallback { width:76px; height:76px; border-radius:22px; display:grid; place-items:center; background:linear-gradient(135deg,var(--purple),var(--purple2)); color:white; font-size:22px; font-weight:950; box-shadow:0 16px 36px rgba(109,40,217,.2); }
+        .saas-toggles { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px; }
+        .mini-toggle { border:1px solid var(--line); border-radius:999px; padding:9px 12px; background:rgba(255,255,255,.7); color:var(--text); font-weight:900; font-size:12px; cursor:pointer; }
+        .mini-toggle.active { background:#dcfce7; border-color:#bbf7d0; color:#166534; }
         .actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
         .btn { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:14px; padding:12px 16px; font-weight:900; cursor:pointer; transition:transform .16s ease, box-shadow .16s ease, background .16s ease; }
         .btn:hover { transform:translateY(-1px); }
@@ -1100,8 +1189,8 @@ export default function CheckinEventoPage({
         .premium-msg { margin-top:8px; color:#64748b; font-weight:700; }
         @keyframes premiumPop { to{transform:scale(1) translateY(0)} }
         @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
-        @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr 170px} }
-        @media (max-width:640px){ .stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
+        @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr 170px} }
+        @media (max-width:640px){ .checkin-page{padding:16px}.hero-brand{align-items:flex-start}.event-logo,.event-logo-fallback{width:58px;height:58px;border-radius:18px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
 
       {flash && flash !== "idle" && <div className={`flash ${flash}`} />}
@@ -1126,70 +1215,96 @@ export default function CheckinEventoPage({
       )}
 
       <header className="checkin-hero">
-        <div>
-          <div className="eyebrow">OmniStage Check-in</div>
-          <h1 className="title">Portaria do evento</h1>
-          <p className="subtitle">
-            QR code, leitor físico, grupos, busca manual e controle híbrido de
-            entrada.
-          </p>
+        <div className="hero-brand">
+          {logoEvento ? (
+            <img className="event-logo" src={logoEvento} alt="Logo do evento" />
+          ) : (
+            <div className="event-logo-fallback">OS</div>
+          )}
+
+          <div>
+            <div className="eyebrow">OmniStage Check-in</div>
+            <h1 className="title">{evento?.nome || "Portaria do evento"}</h1>
+            <p className="subtitle">
+              QR code, leitor físico, grupos, busca manual e controle híbrido de
+              entrada.
+            </p>
+          </div>
         </div>
 
-        <div className="actions">
-          <button
-            className="btn"
-            onClick={() => {
-              carregarConvidados();
-            }}
-          >
-            Atualizar
-          </button>
+        <div>
+          <div className="actions">
+            <button className="btn" onClick={carregarConvidados}>
+              Atualizar
+            </button>
 
-          <button
-            className={qrAtivo ? "btn success" : "btn primary"}
-            onClick={async () => {
-              if (qrAtivo) {
-                await pararQr();
-                return;
-              }
+            <button
+              className={qrAtivo ? "btn success" : "btn primary"}
+              onClick={async () => {
+                if (qrAtivo) {
+                  await pararQr();
+                  return;
+                }
 
-              await iniciarQr();
-            }}
-          >
-            {qrAtivo ? "QR ativo" : "Ativar QR"}
-          </button>
+                await iniciarQr();
+              }}
+            >
+              {qrAtivo ? "QR ativo" : "Ativar QR"}
+            </button>
 
-          <button
-            className="btn"
-            onClick={() => {
-              trocarCamera();
-            }}
-          >
-            Trocar câmera
-          </button>
+            <button className="btn" onClick={trocarCamera}>
+              Trocar câmera
+            </button>
 
-          <button
-            className="btn"
-            onClick={() => {
-              sincronizarPendentes();
-            }}
-          >
-            Sincronizar
-          </button>
+            <button className="btn" onClick={sincronizarPendentes}>
+              Sincronizar
+            </button>
 
-          <button
-            className={somAtivo ? "btn success" : "btn"}
-            onClick={() => {
-              if (somAtivo) {
-                definirSomAtivo(false);
-                return;
-              }
+            <button
+              className={somAtivo ? "btn success" : "btn"}
+              onClick={() => {
+                if (somAtivo) {
+                  definirSomAtivo(false);
+                  return;
+                }
 
-              desbloquearAudio();
-            }}
-          >
-            {somAtivo ? "Som ativo" : "Ativar som"}
-          </button>
+                desbloquearAudio();
+              }}
+            >
+              {somAtivo ? "Som ativo" : "Ativar som"}
+            </button>
+          </div>
+
+          <div className="saas-toggles">
+            <button
+              className={usarTemaEvento ? "mini-toggle active" : "mini-toggle"}
+              onClick={() => setUsarTemaEvento((prev) => !prev)}
+              disabled={!backgroundEvento}
+              title={!backgroundEvento ? "Este evento ainda não tem background" : "Usar background do evento"}
+            >
+              Tema do evento
+            </button>
+
+            <button
+              className={musicaAmbienteAtiva ? "mini-toggle active" : "mini-toggle"}
+              onClick={async () => {
+                if (!musicaEvento) return;
+                if (!somAtivoRef.current) await desbloquearAudio();
+                setMusicaAmbienteAtiva((prev) => !prev);
+              }}
+              disabled={!musicaEvento}
+              title={!musicaEvento ? "Este evento ainda não tem música ambiente" : "Ativar música ambiente"}
+            >
+              Música ambiente
+            </button>
+
+            <button
+              className={modoNoturnoAuto ? "mini-toggle active" : "mini-toggle"}
+              onClick={() => setModoNoturnoAuto((prev) => !prev)}
+            >
+              Modo noturno auto
+            </button>
+          </div>
         </div>
       </header>
 
