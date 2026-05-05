@@ -86,7 +86,7 @@ export default async function CheckinPage() {
         {eventos?.map((evento: Evento) => (
           <Link
             key={evento.id}
-            href={`/app/checkin/${evento.id}`}
+            href={`/app/eventos/${evento.id}/checkin`}
             style={{
               display: "block",
               padding: 20,
