@@ -5,76 +5,121 @@ type Evento = {
   id: string;
   nome: string | null;
   status: string | null;
-  created_at: string | null;
 };
 
 export default async function CheckinPage() {
-  const { data: eventos, error } = await supabase
+  const { data: eventos } = await supabase
     .from("eventos")
-    .select("id, nome, status, created_at")
+    .select("id, nome, status")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return (
-      <main className="min-h-screen bg-[#f6f8fb] p-8 text-slate-950">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
-          <h1 className="text-3xl font-bold">Erro ao carregar eventos</h1>
-          <p className="mt-3 text-slate-500">{error.message}</p>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-[#f6f8fb] p-6 text-slate-950 md:p-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8">
-          <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm">
-            OmniStage Check-in
-          </div>
-
-          <h1 className="text-4xl font-semibold tracking-tight">
-            Escolha o evento
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Selecione o evento para abrir a portaria, QR code e check-in manual.
-          </p>
+    <div>
+      <div style={{ marginBottom: 28 }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--muted)",
+            marginBottom: 8,
+          }}
+        >
+          OmniStage Check-in
         </div>
 
-        {!eventos?.length ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-slate-500 shadow-sm">
-            Nenhum evento encontrado.
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {(eventos as Evento[]).map((evento) => (
-              <Link
-                key={evento.id}
-                href={`/app/eventos/${evento.id}/checkin`}
-                className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-              >
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold tracking-tight">
-                      {evento.nome || "Evento sem nome"}
-                    </h2>
+        <h1
+          style={{
+            fontSize: 48,
+            fontWeight: 900,
+            letterSpacing: "-0.04em",
+            margin: 0,
+          }}
+        >
+          Escolha o evento
+        </h1>
 
-                    <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-500">
-                      <span>ID: {evento.id}</span>
-                      {evento.status && <span>• Status: {evento.status}</span>}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition group-hover:bg-slate-800">
-                    Abrir check-in
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        <p
+          style={{
+            marginTop: 10,
+            color: "var(--muted)",
+            fontSize: 16,
+          }}
+        >
+          Selecione o evento para abrir a portaria e iniciar o check-in.
+        </p>
       </div>
-    </main>
+
+      {!eventos?.length && (
+        <div
+          style={{
+            padding: 20,
+            border: "1px solid var(--line)",
+            borderRadius: 16,
+            background: "var(--card)",
+          }}
+        >
+          Nenhum evento encontrado.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 16 }}>
+        {eventos?.map((evento) => (
+          <Link
+            key={evento.id}
+            href={`/app/eventos/${evento.id}/checkin`}
+            style={{
+              display: "block",
+              padding: 20,
+              borderRadius: 18,
+              border: "1px solid var(--line)",
+              background: "var(--card)",
+              textDecoration: "none",
+              color: "var(--text)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 900,
+                  }}
+                >
+                  {evento.nome || "Evento sem nome"}
+                </h2>
+
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 13,
+                    color: "var(--muted)",
+                  }}
+                >
+                  ID: {evento.id}
+                  {evento.status && ` • ${evento.status}`}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  alignSelf: "center",
+                  background: "#6d28d9",
+                  color: "#fff",
+                  padding: "10px 16px",
+                  borderRadius: 12,
+                  fontWeight: 900,
+                }}
+              >
+                Abrir
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
