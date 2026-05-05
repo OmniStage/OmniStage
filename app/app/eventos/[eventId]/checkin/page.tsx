@@ -776,19 +776,8 @@ export default function CheckinEventoPage({
 
     removerPendente(convidado.token);
 
-    setConvidados((prev) =>
-      prev.map((c) =>
-        c.id === convidado.id
-          ? {
-              ...c,
-              checkin_realizado: true,
-              status_checkin: "entrou",
-              data_checkin: agora,
-            }
-          : c,
-      ),
-    );
-
+    // Primeiro dispara o feedback no card ainda visível; depois atualiza o estado.
+    // Assim o individual não desaparece antes da animação quando o filtro está em "pendentes".
     feedbackSincronizado(
       convidado.id,
       {
@@ -801,6 +790,19 @@ export default function CheckinEventoPage({
       },
       "ok",
       "ok",
+    );
+
+    setConvidados((prev) =>
+      prev.map((c) =>
+        c.id === convidado.id
+          ? {
+              ...c,
+              checkin_realizado: true,
+              status_checkin: "entrou",
+              data_checkin: agora,
+            }
+          : c,
+      ),
     );
   }
 
@@ -925,10 +927,27 @@ export default function CheckinEventoPage({
           );
           const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
           const grupoTemSync = grupo.membros.some(convidadoSync);
+          const grupoTemEfeitoAtivo = grupo.membros.some(
+            (m) => Boolean(cardsPiscando[m.id]),
+          );
 
-          if (statusFiltro === "pendentes" && !grupoTemPendente) return false;
-          if (statusFiltro === "entrou" && !grupoTemEntrou) return false;
-          if (statusFiltro === "sync" && !grupoTemSync) return false;
+          // Mantém o card visível enquanto a animação está rodando.
+          // Isso resolve principalmente os individuais no filtro "pendentes",
+          // que antes sumiam da lista no mesmo render em que recebiam o check-in.
+          if (
+            statusFiltro === "pendentes" &&
+            !grupoTemPendente &&
+            !grupoTemEfeitoAtivo
+          )
+            return false;
+          if (
+            statusFiltro === "entrou" &&
+            !grupoTemEntrou &&
+            !grupoTemEfeitoAtivo
+          )
+            return false;
+          if (statusFiltro === "sync" && !grupoTemSync && !grupoTemEfeitoAtivo)
+            return false;
 
           if (!q) return true;
 
@@ -943,7 +962,7 @@ export default function CheckinEventoPage({
         });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }) as any,
-    [convidados, busca, statusFiltro, tipoFiltro],
+    [convidados, busca, statusFiltro, tipoFiltro, cardsPiscando],
   );
 
   return (
@@ -999,17 +1018,22 @@ export default function CheckinEventoPage({
         .guest-card:hover { transform:translateY(-1px); box-shadow:0 12px 34px rgba(15,23,42,.07); }
         .guest-card.entered { background:rgba(240,253,244,.86); border-color:rgba(22,163,74,.24); }
         .guest-card.sync { background:rgba(255,251,235,.9); border-color:rgba(217,119,6,.28); }
-        .guest-card.led-flash { animation:ledFlash 1.05s ease; }
+        .guest-card.led-flash { animation:ledFlash 1.05s ease; transform-origin:center; }
         .guest-card.led-ok { box-shadow:0 0 0 2px rgba(34,197,94,.55),0 0 38px rgba(34,197,94,.46),inset 0 0 30px rgba(34,197,94,.14); border-color:rgba(34,197,94,.72); }
         .guest-card.led-usado, .guest-card.led-erro { box-shadow:0 0 0 2px rgba(225,29,72,.5),0 0 38px rgba(225,29,72,.38),inset 0 0 30px rgba(225,29,72,.12); border-color:rgba(225,29,72,.62); }
         .guest-card.led-sync { box-shadow:0 0 0 2px rgba(217,119,6,.5),0 0 38px rgba(217,119,6,.36),inset 0 0 30px rgba(217,119,6,.12); border-color:rgba(217,119,6,.62); }
         .guest-pulse-layer { position:absolute; inset:0; border-radius:22px; pointer-events:none; z-index:0; animation:cardPulseLayer 1.05s ease forwards; }
+        .guest-card.led-flash::after { content:""; position:absolute; inset:0; border-radius:22px; pointer-events:none; z-index:0; animation:cardRing 1.05s ease forwards; }
+        .guest-card.led-ok::after { border:2px solid rgba(34,197,94,.75); }
+        .guest-card.led-usado::after, .guest-card.led-erro::after { border:2px solid rgba(225,29,72,.72); }
+        .guest-card.led-sync::after { border:2px solid rgba(217,119,6,.72); }
         .guest-pulse-layer.ok { background:radial-gradient(circle at center,rgba(34,197,94,.28),transparent 62%); }
         .guest-pulse-layer.usado, .guest-pulse-layer.erro { background:radial-gradient(circle at center,rgba(225,29,72,.24),transparent 62%); }
         .guest-pulse-layer.sync { background:radial-gradient(circle at center,rgba(217,119,6,.24),transparent 62%); }
         .guest-card > div:not(.guest-pulse-layer), .guest-card > button { position:relative; z-index:1; }
         @keyframes ledFlash { 0%{transform:scale(.992);filter:brightness(1)} 28%{transform:scale(1.018);filter:brightness(1.16)} 100%{transform:scale(1);filter:brightness(1)} }
         @keyframes cardPulseLayer { 0%{opacity:0;transform:scale(.92)} 18%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.08)} }
+        @keyframes cardRing { 0%{opacity:0;transform:scale(.985)} 18%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.035)} }
         .guest-name { font-size:18px; font-weight:950; letter-spacing:-.02em; }
         .guest-sub { margin-top:4px; color:var(--muted); font-size:13px; font-weight:750; }
         .token { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#64748b; }
