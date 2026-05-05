@@ -73,6 +73,7 @@ export default function CheckinEventoPage({
 }) {
   const eventoId = params.eventId;
 
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [evento, setEvento] = useState<EventoCheckin | null>(null);
   const [usarTemaEvento, setUsarTemaEvento] = useState(true);
   const [musicaAmbienteAtiva, setMusicaAmbienteAtiva] = useState(false);
@@ -141,8 +142,7 @@ export default function CheckinEventoPage({
   useEffect(() => {
     setOnline(navigator.onLine !== false);
     carregarScriptQr();
-    carregarEvento();
-    carregarConvidados();
+    iniciarPagina();
 
     const horaAtual = new Date().getHours();
     setModoNoturno(horaAtual >= 18 || horaAtual < 7);
@@ -445,20 +445,89 @@ export default function CheckinEventoPage({
     };
   }
 
-  async function carregarEvento() {
-    const { data } = await supabase
+  async function buscarTenantDoUsuario() {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+
+    if (authError || !userId) {
+      atualizarResultado({
+        tipo: "erro",
+        titulo: "Login necessário",
+        mensagem: "Entre novamente para acessar o check-in deste cliente.",
+      });
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", userId)
+      .eq("status", "ativo")
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.tenant_id) {
+      atualizarResultado({
+        tipo: "erro",
+        titulo: "Cliente não vinculado",
+        mensagem: "Seu usuário ainda não está vinculado a uma empresa ativa.",
+      });
+      return null;
+    }
+
+    setTenantId(data.tenant_id);
+    return data.tenant_id as string;
+  }
+
+  async function iniciarPagina() {
+    const idTenant = await buscarTenantDoUsuario();
+    if (!idTenant) {
+      setLoading(false);
+      return;
+    }
+
+    await carregarEvento(idTenant);
+    await carregarConvidados(idTenant);
+  }
+
+  async function carregarEvento(idTenant = tenantId) {
+    if (!idTenant) return;
+
+    const { data, error } = await supabase
       .from("eventos")
       .select(
         "nome, logo_url, logo_image, background_url, background_image, musica_url, music_file, tipo_evento, categoria_evento",
       )
       .eq("id", eventoId)
-      .single();
+      .eq("tenant_id", idTenant)
+      .maybeSingle();
 
-    if (data) setEvento(data as EventoCheckin);
+    if (error || !data) {
+      setEvento(null);
+      atualizarResultado({
+        tipo: "erro",
+        titulo: "Evento não autorizado",
+        mensagem: "Este evento não pertence ao cliente logado ou não existe.",
+      });
+      return;
+    }
+
+    setEvento(data as EventoCheckin);
   }
 
-  async function carregarConvidados() {
+  async function carregarConvidados(idTenant = tenantId) {
     setLoading(true);
+
+    if (!idTenant) {
+      setConvidados([]);
+      setLoading(false);
+      atualizarResultado({
+        tipo: "erro",
+        titulo: "Cliente não identificado",
+        mensagem: "Não foi possível identificar o tenant do usuário logado.",
+      });
+      return;
+    }
 
     const { data, error } = await supabase
       .from("convidados")
@@ -466,6 +535,7 @@ export default function CheckinEventoPage({
         "id, evento_id, tenant_id, grupo_id, nome, telefone, email, token, status_rsvp, checkin_realizado, data_checkin, status_checkin, grupo, tipo_convite",
       )
       .eq("evento_id", eventoId)
+      .eq("tenant_id", idTenant)
       .ilike("status_rsvp", "confirmado")
       .order("nome", { ascending: true });
 
@@ -807,6 +877,7 @@ export default function CheckinEventoPage({
       })
       .eq("id", convidado.id)
       .eq("evento_id", eventoId)
+      .eq("tenant_id", convidado.tenant_id || tenantId)
       .or("checkin_realizado.is.false,checkin_realizado.is.null")
       .select("id");
 
@@ -955,7 +1026,8 @@ export default function CheckinEventoPage({
           data_checkin: pendentesLocais[token].data_checkin,
         })
         .eq("id", convidado.id)
-        .eq("evento_id", eventoId);
+        .eq("evento_id", eventoId)
+        .eq("tenant_id", convidado.tenant_id || tenantId);
 
       if (!error) {
         removerPendente(token);
@@ -1237,7 +1309,7 @@ export default function CheckinEventoPage({
 
         <div>
           <div className="actions">
-            <button className="btn" onClick={carregarConvidados}>
+            <button className="btn" onClick={() => carregarConvidados(tenantId)}>
               Atualizar
             </button>
 
