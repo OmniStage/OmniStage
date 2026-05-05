@@ -54,6 +54,17 @@ type VcfContact = {
   grupo: string | null;
 };
 
+type MappedRow = {
+  legacy_id: string;
+  grupo: string;
+  nome: string;
+  telefone: string;
+  status_rsvp: string;
+  status_envio: string;
+  data_hora_rsvp: string;
+  data_hora_envio: string;
+};
+
 const initialMapping: SheetMapping = {
   legacy_id: "",
   grupo: "",
@@ -217,6 +228,7 @@ export default function AdminImportacaoPage() {
   function parseVCF(vcfText: string): VcfContact[] {
     const contacts: VcfContact[] = [];
     const normalizedText = vcfText.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+
     const blocks = normalizedText
       .split(/END:VCARD/i)
       .map((block) => block.trim())
@@ -298,17 +310,14 @@ export default function AdminImportacaoPage() {
         return;
       }
 
-      const textoConvertido = contacts
-        .map((contact) =>
+      const textoVisual = contacts
+        .map((contact, index) =>
           [
-            "",
-            contact.grupo || "",
+            index + 1,
+            contact.grupo || "sem grupo",
             contact.nome,
-            contact.telefone || "",
+            contact.telefone || "sem telefone",
             "pendente",
-            "",
-            "",
-            "",
           ].join("    ")
         )
         .join("\n");
@@ -316,7 +325,7 @@ export default function AdminImportacaoPage() {
       setActiveMode("vcf");
       setVcfFileName(file.name);
       setVcfContacts(contacts);
-      setTexto(textoConvertido);
+      setTexto(textoVisual);
       setSheetHeaders([]);
       setSheetRows([]);
       setMapping(initialMapping);
@@ -379,7 +388,7 @@ export default function AdminImportacaoPage() {
     return textoMapeado;
   }
 
-  function montarMappedRows() {
+  function montarMappedRows(): MappedRow[] {
     return sheetRows
       .map((row) => ({
         legacy_id: getColumnValue(row, mapping.legacy_id),
@@ -390,6 +399,21 @@ export default function AdminImportacaoPage() {
         status_envio: getColumnValue(row, mapping.status_envio),
         data_hora_rsvp: getColumnValue(row, mapping.data_hora_rsvp),
         data_hora_envio: getColumnValue(row, mapping.data_hora_envio),
+      }))
+      .filter((row) => row.nome && row.nome.trim().length > 0);
+  }
+
+  function montarMappedRowsVcf(): MappedRow[] {
+    return vcfContacts
+      .map((contact) => ({
+        legacy_id: "",
+        grupo: contact.grupo || "",
+        nome: contact.nome,
+        telefone: contact.telefone || "",
+        status_rsvp: "pendente",
+        status_envio: "",
+        data_hora_rsvp: "",
+        data_hora_envio: "",
       }))
       .filter((row) => row.nome && row.nome.trim().length > 0);
   }
@@ -508,7 +532,12 @@ export default function AdminImportacaoPage() {
       return;
     }
 
-    if (!hasSheetLoaded && !texto.trim()) {
+    if (activeMode === "vcf" && vcfContacts.length === 0) {
+      alert("Envie um arquivo .vcf antes de gerar a prévia.");
+      return;
+    }
+
+    if (!hasSheetLoaded && activeMode !== "vcf" && !texto.trim()) {
       alert("Cole os convidados da planilha antiga, carregue uma planilha ou envie um arquivo .vcf.");
       return;
     }
@@ -517,7 +546,7 @@ export default function AdminImportacaoPage() {
       action: string;
       tenantId: string;
       eventoId: string;
-      mappedRows?: ReturnType<typeof montarMappedRows>;
+      mappedRows?: MappedRow[];
       text?: string;
     } = {
       action: "preview",
@@ -535,6 +564,15 @@ export default function AdminImportacaoPage() {
 
       payload.mappedRows = mappedRows;
       setTexto(montarTextoMapeado(false));
+    } else if (activeMode === "vcf") {
+      const mappedRows = montarMappedRowsVcf();
+
+      if (mappedRows.length === 0) {
+        alert("Nenhum contato válido encontrado no arquivo .vcf.");
+        return;
+      }
+
+      payload.mappedRows = mappedRows;
     } else {
       payload.text = texto;
     }
@@ -759,7 +797,7 @@ export default function AdminImportacaoPage() {
             </p>
           </article>
 
-          <article style={{ ...methodCardStyle, ...highlightMethodStyle }}>
+          <article style={methodCardStyle}>
             <div style={methodIconStyle}>📱</div>
             <strong>Contatos do celular (.vcf)</strong>
             <p style={methodTextStyle}>
@@ -802,8 +840,8 @@ export default function AdminImportacaoPage() {
 
         <div style={vcfBoxStyle}>
           <div>
-            <strong style={{ fontSize: 18 }}>Importar contatos .vcf</strong>
-            <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+            <strong style={{ fontSize: 18, color: "#0f172a" }}>Importar contatos .vcf</strong>
+            <p style={{ color: "#64748b", margin: "6px 0 0" }}>
               Ideal para o cliente exportar contatos do celular e enviar em arquivo.
             </p>
           </div>
@@ -824,13 +862,13 @@ export default function AdminImportacaoPage() {
           <div style={vcfSummaryStyle}>
             <div>
               <strong>{vcfFileName || "Arquivo .vcf carregado"}</strong>
-              <p style={{ color: "#94a3b8", margin: "6px 0 0" }}>
+              <p style={{ color: "#64748b", margin: "6px 0 0" }}>
                 {vcfContacts.length} contato(s) encontrados · {contatosComTelefone} com telefone ·{" "}
                 {contatosSemTelefone} sem telefone
               </p>
             </div>
 
-            <button onClick={limparVcf} disabled={loading} style={ghostButtonStyle}>
+            <button onClick={limparVcf} disabled={loading} style={cleanGhostButtonStyle}>
               Remover VCF
             </button>
           </div>
@@ -874,13 +912,23 @@ export default function AdminImportacaoPage() {
 
         <div style={blockStyle}>
           <label style={fieldStyle}>
-            <span>Colar dados ou revisar texto convertido</span>
+            <span>
+              {activeMode === "vcf"
+                ? "Prévia visual do arquivo .vcf"
+                : "Colar dados ou revisar texto convertido"}
+            </span>
             <textarea
               value={texto}
               onChange={(event) => {
                 setTexto(event.target.value);
                 setActiveMode("texto");
+                setVcfContacts([]);
+                setVcfFileName(null);
                 limparPreview();
+
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
               }}
               placeholder={`3    FAMILIA_ANDREZZA    ANDREZZA FERRAZ    5522999787402    confirmado    02/05/2026    enviado    02/05/2026 18:40`}
               style={{
@@ -1239,11 +1287,6 @@ const methodCardStyle: CSSProperties = {
   border: "1px solid rgba(255,255,255,0.08)",
 };
 
-const highlightMethodStyle: CSSProperties = {
-  background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(124,58,237,0.08))",
-  border: "1px solid rgba(34,197,94,0.34)",
-};
-
 const methodIconStyle: CSSProperties = {
   width: 38,
   height: 38,
@@ -1299,8 +1342,9 @@ const vcfBoxStyle: CSSProperties = {
   gap: 18,
   padding: 18,
   borderRadius: 18,
-  background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(124,58,237,0.08))",
-  border: "1px solid rgba(34,197,94,0.34)",
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.08)",
 };
 
 const vcfSummaryStyle: CSSProperties = {
@@ -1311,19 +1355,30 @@ const vcfSummaryStyle: CSSProperties = {
   gap: 16,
   padding: 16,
   borderRadius: 16,
-  background: "rgba(34,197,94,0.08)",
-  border: "1px solid rgba(34,197,94,0.25)",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  color: "#0f172a",
 };
 
 const uploadButtonStyle: CSSProperties = {
   padding: "14px 18px",
   borderRadius: 14,
-  border: "1px solid rgba(34,197,94,0.42)",
-  background: "rgba(34,197,94,0.14)",
-  color: "#bbf7d0",
+  border: "1px solid #cbd5e1",
+  background: "#f8fafc",
+  color: "#0f172a",
   fontWeight: 900,
   cursor: "pointer",
   whiteSpace: "nowrap",
+};
+
+const cleanGhostButtonStyle: CSSProperties = {
+  padding: "12px 16px",
+  borderRadius: 14,
+  background: "#ffffff",
+  border: "1px solid #cbd5e1",
+  color: "#0f172a",
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const mappingGridStyle: CSSProperties = {
