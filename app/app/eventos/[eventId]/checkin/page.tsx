@@ -83,6 +83,8 @@ export default function CheckinEventoPage({
   const ultimoTokenRef = useRef({ token: "", at: 0 });
   const camerasRef = useRef<any[]>([]);
   const cameraIndexRef = useRef(-1);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>({});
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
 
@@ -107,6 +109,48 @@ export default function CheckinEventoPage({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function obterAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContextClass();
+    }
+
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
+    return audioCtxRef.current;
+  }
+
+  function desbloquearAudio() {
+    try {
+      const ctx = obterAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.01);
+    } catch {}
+  }
+
+  function piscarCard(id: string) {
+    setCardsPiscando((prev) => ({ ...prev, [id]: true }));
+
+    setTimeout(() => {
+      setCardsPiscando((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }, 950);
+  }
 
   async function carregarConvidados() {
     setLoading(true);
@@ -287,6 +331,7 @@ export default function CheckinEventoPage({
   }
 
   async function iniciarQr() {
+    desbloquearAudio();
     if (!scannerPronto || !window.Html5Qrcode || qrAtivo) return;
 
     try {
@@ -363,6 +408,7 @@ export default function CheckinEventoPage({
   }
 
   async function trocarCamera() {
+    desbloquearAudio();
     const rodando = qrAtivo;
     if (rodando) await pararQr();
 
@@ -510,6 +556,7 @@ export default function CheckinEventoPage({
   }
 
   async function liberarGrupoInteiro(membros: Convidado[]) {
+    desbloquearAudio();
     const pendentes = membros.filter((m) => !convidadoEntrou(m));
     if (!pendentes.length) {
       atualizarResultado({
@@ -580,8 +627,8 @@ export default function CheckinEventoPage({
 
   function tocarSom(tipo: "ok" | "erro" | "usado") {
     try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioContextClass();
+      const ctx = obterAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
 
       function tone(freq: number, gainValue: number, duration: number, wave: OscillatorType, delay = 0) {
@@ -616,8 +663,8 @@ export default function CheckinEventoPage({
 
   function tocarTickGrupo() {
     try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioContextClass();
+      const ctx = obterAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -647,32 +694,11 @@ export default function CheckinEventoPage({
     return { total, entrou, pendentes, sync };
   }, [convidados]);
 
-  const filtrados = useMemo(() => {
-    const q = normalizar(busca);
-
-    return convidados.filter((c) => {
-      const entrou = convidadoEntrou(c);
-      const sync = convidadoSync(c);
-
-      if (statusFiltro === "pendentes" && entrou) return false;
-      if (statusFiltro === "entrou" && !entrou) return false;
-      if (statusFiltro === "sync" && !sync) return false;
-      if (!q) return true;
-
-      return (
-        normalizar(c.nome).includes(q) ||
-        normalizar(c.grupo).includes(q) ||
-        normalizar(c.telefone).includes(q) ||
-        normalizar(c.email).includes(q) ||
-        normalizar(c.token).includes(q)
-      );
-    });
-  }, [convidados, busca, statusFiltro]);
-
   const gruposRender = useMemo<GrupoRender[]>(() => {
+    const q = normalizar(busca);
     const mapa = new Map<string, Convidado[]>();
 
-    for (const convidado of filtrados) {
+    for (const convidado of convidados) {
       const grupoNormalizado = String(convidado.grupo || "").trim();
       const tipo = normalizar(convidado.tipo_convite);
       const temGrupoReal = grupoNormalizado && tipo !== "INDIVIDUAL";
@@ -682,16 +708,36 @@ export default function CheckinEventoPage({
       mapa.get(chave)!.push(convidado);
     }
 
-    return Array.from(mapa.entries()).map(([key, membros]) => {
-      const isGrupo = membros.length > 1 || key.startsWith("grupo:");
-      return {
-        key,
-        nome: isGrupo ? key.replace(/^grupo:/, "") : membros[0]?.nome || "Individual",
-        membros,
-        isGrupo,
-      };
-    });
-  }, [filtrados]);
+    return Array.from(mapa.entries())
+      .map(([key, membros]) => {
+        const isGrupo = membros.length > 1 || key.startsWith("grupo:");
+        return {
+          key,
+          nome: isGrupo ? key.replace(/^grupo:/, "") : membros[0]?.nome || "Individual",
+          membros: [...membros].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+          isGrupo,
+        };
+      })
+      .filter((grupo) => {
+        const grupoTemPendente = grupo.membros.some((m) => !convidadoEntrou(m));
+        const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
+        const grupoTemSync = grupo.membros.some(convidadoSync);
+
+        if (statusFiltro === "pendentes" && !grupoTemPendente) return false;
+        if (statusFiltro === "entrou" && !grupoTemEntrou) return false;
+        if (statusFiltro === "sync" && !grupoTemSync) return false;
+
+        if (!q) return true;
+
+        return grupo.membros.some((m) =>
+          normalizar(m.nome).includes(q) ||
+          normalizar(m.grupo).includes(q) ||
+          normalizar(m.telefone).includes(q) ||
+          normalizar(m.email).includes(q) ||
+          normalizar(m.token).includes(q)
+        );
+      });
+  }, [convidados, busca, statusFiltro]);
 
   return (
     <div className="checkin-page">
@@ -735,10 +781,14 @@ export default function CheckinEventoPage({
         .group-sub { color:var(--muted); margin-top:6px; font-weight:750; font-size:13px; line-height:1.35; }
         .group-meta { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .group-members { display:grid; gap:10px; }
-        .guest-card { border:1px solid var(--line); background:rgba(255,255,255,.78); border-radius:22px; padding:16px; display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; transition:transform .16s ease, box-shadow .16s ease, border .16s ease; }
+        .guest-card { border:1px solid var(--line); background:rgba(255,255,255,.78); border-radius:22px; padding:16px; display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; transition:transform .16s ease, box-shadow .16s ease, border .16s ease; position:relative; overflow:hidden; }
         .guest-card:hover { transform:translateY(-1px); box-shadow:0 12px 34px rgba(15,23,42,.07); }
         .guest-card.entered { background:rgba(240,253,244,.86); border-color:rgba(22,163,74,.24); }
         .guest-card.sync { background:rgba(255,251,235,.9); border-color:rgba(217,119,6,.28); }
+        .guest-card.led-flash { animation:ledFlash .95s ease; box-shadow:0 0 0 2px rgba(34,197,94,.45), 0 0 34px rgba(34,197,94,.45), inset 0 0 28px rgba(34,197,94,.12); }
+        .guest-card.led-flash::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(34,197,94,.18),transparent); animation:ledSweep .95s ease; pointer-events:none; }
+        @keyframes ledFlash { 0%{transform:scale(.99); filter:brightness(1)} 35%{transform:scale(1.015); filter:brightness(1.18)} 100%{transform:scale(1); filter:brightness(1)} }
+        @keyframes ledSweep { 0%{transform:translateX(-110%); opacity:0} 18%{opacity:1} 100%{transform:translateX(110%); opacity:0} }
         .guest-name { font-size:18px; font-weight:950; letter-spacing:-.02em; }
         .guest-sub { margin-top:4px; color:var(--muted); font-size:13px; font-weight:750; }
         .token { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#64748b; }
@@ -789,12 +839,12 @@ export default function CheckinEventoPage({
         </div>
 
         <div className="actions">
-          <button className="btn" onClick={carregarConvidados}>Atualizar</button>
-          <button className={qrAtivo ? "btn success" : "btn primary"} onClick={qrAtivo ? pararQr : iniciarQr}>
+          <button className="btn" onClick={() => { desbloquearAudio(); carregarConvidados(); }}>Atualizar</button>
+          <button className={qrAtivo ? "btn success" : "btn primary"} onClick={() => { desbloquearAudio(); qrAtivo ? pararQr() : iniciarQr(); }}>
             {qrAtivo ? "QR ativo" : "Ativar QR"}
           </button>
-          <button className="btn" onClick={trocarCamera}>Trocar câmera</button>
-          <button className="btn" onClick={sincronizarPendentes}>Sincronizar</button>
+          <button className="btn" onClick={() => { desbloquearAudio(); trocarCamera(); }}>Trocar câmera</button>
+          <button className="btn" onClick={() => { desbloquearAudio(); sincronizarPendentes(); }}>Sincronizar</button>
         </div>
       </header>
 
@@ -829,6 +879,7 @@ export default function CheckinEventoPage({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   const input = e.target as HTMLInputElement;
+                  desbloquearAudio();
                   processarToken(input.value, "manual");
                   input.value = "";
                 }
@@ -887,7 +938,7 @@ export default function CheckinEventoPage({
                         <span className={todosEntraram ? "chip ok" : "chip pending"}>{todosEntraram ? "entrou" : "pendente"}</span>
                         {algumSync && <span className="chip sync">sync pendente</span>}
                         {grupo.isGrupo && (
-                          <button className="btn group" disabled={todosEntraram} onClick={() => liberarGrupoInteiro(grupo.membros)}>
+                          <button className="btn group" disabled={todosEntraram} onClick={() => { desbloquearAudio(); liberarGrupoInteiro(grupo.membros); }}>
                             {todosEntraram ? "Grupo liberado" : "Liberar grupo inteiro"}
                           </button>
                         )}
@@ -899,7 +950,7 @@ export default function CheckinEventoPage({
                         const entrou = convidadoEntrou(c);
                         const sync = convidadoSync(c);
                         return (
-                          <div key={c.id} className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""}`}>
+                          <div key={c.id} className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? "led-flash" : ""}`}>
                             <div>
                               <div className="guest-name">{c.nome}</div>
                               <div className="guest-sub">{c.grupo || "Individual"} • {c.telefone || "sem telefone"}</div>
@@ -910,7 +961,7 @@ export default function CheckinEventoPage({
                                 {sync && <span className="chip sync">sync pendente</span>}
                               </div>
                             </div>
-                            <button className={entrou ? "btn" : "btn primary"} disabled={entrou} onClick={() => liberarConvidado(c, "manual")}>
+                            <button className={entrou ? "btn" : "btn primary"} disabled={entrou} onClick={() => { desbloquearAudio(); liberarConvidado(c, "manual"); }}>
                               {entrou ? "Liberado" : "Liberar entrada"}
                             </button>
                           </div>
