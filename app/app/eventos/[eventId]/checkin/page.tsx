@@ -1334,7 +1334,7 @@ export default function CheckinEventoPage({
 
         <div>
           <div className="actions">
-            <button className="btn" onClick={carregarConvidados}>
+            <button className="btn" onClick={() => carregarConvidados()}>
               Atualizar
             </button>
 
