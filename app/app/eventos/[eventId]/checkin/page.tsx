@@ -45,6 +45,7 @@ type LogItem = {
 };
 
 type StatusFiltro = "todos" | "pendentes" | "entrou" | "sync";
+type TipoFiltro = "todos" | "individual" | "grupo";
 
 type GrupoRender = {
   key: string;
@@ -63,6 +64,7 @@ export default function CheckinEventoPage({
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>("todos");
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("todos");
   const [loading, setLoading] = useState(true);
   const [qrAtivo, setQrAtivo] = useState(false);
   const [scannerPronto, setScannerPronto] = useState(false);
@@ -71,6 +73,8 @@ export default function CheckinEventoPage({
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [flash, setFlash] = useState<Resultado["tipo"] | null>(null);
   const [overlay, setOverlay] = useState<Resultado | null>(null);
+  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>({});
+  const [somAtivo, setSomAtivo] = useState(false);
 
   const [resultado, setResultado] = useState<Resultado>({
     tipo: "idle",
@@ -84,7 +88,6 @@ export default function CheckinEventoPage({
   const camerasRef = useRef<any[]>([]);
   const cameraIndexRef = useRef(-1);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>({});
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
 
@@ -110,6 +113,35 @@ export default function CheckinEventoPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function normalizar(texto: string | null | undefined) {
+    return String(texto || "")
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+  }
+
+  function isGrupoReal(c: Convidado) {
+    const grupo = normalizar(c.grupo);
+    const tipo = normalizar(c.tipo_convite);
+    if (!grupo) return false;
+    if (tipo === "INDIVIDUAL") return false;
+    if (grupo.startsWith("INDIVIDUAL")) return false;
+    return true;
+  }
+
+  function convidadoEntrou(c: Convidado) {
+    return (
+      c.checkin_realizado === true ||
+      normalizar(c.status_checkin) === "ENTROU" ||
+      normalizar(c.status_checkin) === "SYNC_PENDENTE"
+    );
+  }
+
+  function convidadoSync(c: Convidado) {
+    return normalizar(c.status_checkin) === "SYNC_PENDENTE";
+  }
+
   function obterAudioContext() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return null;
@@ -132,11 +164,71 @@ export default function CheckinEventoPage({
 
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-
       gain.gain.setValueAtTime(0.0001, ctx.currentTime);
       osc.connect(gain).connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.01);
+      osc.stop(ctx.currentTime + 0.02);
+      setSomAtivo(true);
+    } catch {}
+  }
+
+  function tocarSom(tipo: "ok" | "erro" | "usado" | "tick") {
+    try {
+      const ctx = obterAudioContext();
+      if (!ctx) return;
+      setSomAtivo(true);
+
+      const audio: AudioContext = ctx;
+      const now = audio.currentTime;
+
+      function tone(
+        freq: number,
+        gainValue: number,
+        duration: number,
+        wave: OscillatorType,
+        delay = 0
+      ) {
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+
+        osc.type = wave;
+        osc.frequency.setValueAtTime(freq, now + delay);
+        gain.gain.setValueAtTime(0.0001, now + delay);
+        gain.gain.exponentialRampToValueAtTime(gainValue, now + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
+        osc.connect(gain).connect(audio.destination);
+        osc.start(now + delay);
+        osc.stop(now + delay + duration + 0.05);
+      }
+
+      if (tipo === "ok") {
+        tone(220, 0.16, 0.24, "triangle");
+        tone(392, 0.13, 0.24, "sine", 0.07);
+        tone(659, 0.11, 0.3, "sine", 0.15);
+        tone(988, 0.08, 0.25, "triangle", 0.26);
+      }
+
+      if (tipo === "tick") {
+        tone(1244, 0.08, 0.14, "triangle");
+      }
+
+      if (tipo === "usado") {
+        tone(260, 0.18, 0.12, "square");
+        tone(150, 0.2, 0.24, "sawtooth", 0.12);
+        tone(95, 0.16, 0.28, "square", 0.28);
+      }
+
+      if (tipo === "erro") {
+        tone(800, 0.12, 0.08, "square");
+        tone(180, 0.14, 0.24, "sawtooth", 0.1);
+      }
+    } catch {}
+  }
+
+  function vibrar(tipo: "ok" | "erro") {
+    try {
+      if (!navigator.vibrate) return;
+      navigator.vibrate(tipo === "ok" ? [90, 40, 120] : [160, 60, 160]);
     } catch {}
   }
 
@@ -149,35 +241,7 @@ export default function CheckinEventoPage({
         delete next[id];
         return next;
       });
-    }, 950);
-  }
-
-  async function carregarConvidados() {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("convidados")
-      .select(
-        "id, evento_id, tenant_id, grupo_id, nome, telefone, email, token, status_rsvp, checkin_realizado, data_checkin, status_checkin, grupo, tipo_convite"
-      )
-      .eq("evento_id", eventoId)
-      .ilike("status_rsvp", "confirmado")
-      .order("nome", { ascending: true });
-
-    if (error) {
-      atualizarResultado({
-        tipo: "erro",
-        titulo: "Erro ao carregar convidados",
-        mensagem: error.message,
-      });
-      setConvidados([]);
-      setLoading(false);
-      return;
-    }
-
-    const lista = ((data || []) as Convidado[]).map(aplicarEstadoLocal);
-    setConvidados(lista);
-    setLoading(false);
+    }, 1100);
   }
 
   function lerPendentes(): Record<string, { nome: string; data_checkin: string }> {
@@ -218,6 +282,34 @@ export default function CheckinEventoPage({
     };
   }
 
+  async function carregarConvidados() {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("convidados")
+      .select(
+        "id, evento_id, tenant_id, grupo_id, nome, telefone, email, token, status_rsvp, checkin_realizado, data_checkin, status_checkin, grupo, tipo_convite"
+      )
+      .eq("evento_id", eventoId)
+      .ilike("status_rsvp", "confirmado")
+      .order("nome", { ascending: true });
+
+    if (error) {
+      atualizarResultado({
+        tipo: "erro",
+        titulo: "Erro ao carregar convidados",
+        mensagem: error.message,
+      });
+      setConvidados([]);
+      setLoading(false);
+      return;
+    }
+
+    const lista = ((data || []) as Convidado[]).map(aplicarEstadoLocal);
+    setConvidados(lista);
+    setLoading(false);
+  }
+
   function carregarScriptQr() {
     if (window.Html5Qrcode) {
       setScannerPronto(true);
@@ -242,14 +334,6 @@ export default function CheckinEventoPage({
       });
 
     document.body.appendChild(script);
-  }
-
-  function normalizar(texto: string | null | undefined) {
-    return String(texto || "")
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toUpperCase();
   }
 
   function extrairToken(raw: string) {
@@ -277,23 +361,11 @@ export default function CheckinEventoPage({
     return match ? match[0].trim() : text;
   }
 
-  function convidadoSync(c: Convidado) {
-    return normalizar(c.status_checkin) === "SYNC_PENDENTE";
-  }
-
-  function convidadoEntrou(c: Convidado) {
-    return (
-      c.checkin_realizado === true ||
-      normalizar(c.status_checkin) === "ENTROU" ||
-      convidadoSync(c)
-    );
-  }
-
   function atualizarResultado(next: Resultado) {
     setResultado(next);
     setOverlay(next);
     setFlash(next.tipo);
-    setTimeout(() => setFlash(null), 680);
+    setTimeout(() => setFlash(null), 700);
 
     if (next.tipo !== "idle") {
       setLogs((prev) =>
@@ -315,7 +387,7 @@ export default function CheckinEventoPage({
       );
     }
 
-    setTimeout(() => setOverlay(null), 1500);
+    setTimeout(() => setOverlay(null), 1350);
   }
 
   async function carregarCameras() {
@@ -432,6 +504,7 @@ export default function CheckinEventoPage({
   function leituraDuplicada(token: string) {
     const t = normalizar(token);
     const now = Date.now();
+
     if (
       t &&
       t === normalizar(ultimoTokenRef.current.token) &&
@@ -439,17 +512,24 @@ export default function CheckinEventoPage({
     ) {
       return true;
     }
+
     ultimoTokenRef.current = { token, at: now };
     return false;
   }
 
   async function processarToken(raw: string, origem: "qr" | "manual" = "manual") {
+    desbloquearAudio();
+
     const token = extrairToken(raw);
-    if (!token || leituraDuplicada(token) || busyRef.current) return;
+    if (!token) return;
+    if (leituraDuplicada(token)) return;
+    if (busyRef.current) return;
 
     busyRef.current = true;
 
-    const convidado = convidados.find((c) => normalizar(c.token) === normalizar(token));
+    const convidado = convidados.find(
+      (c) => normalizar(c.token) === normalizar(token)
+    );
 
     if (!convidado) {
       atualizarResultado({
@@ -464,6 +544,7 @@ export default function CheckinEventoPage({
     }
 
     if (convidadoEntrou(convidado)) {
+      piscarCard(convidado.id);
       atualizarResultado({
         tipo: "usado",
         titulo: "Cartão já utilizado",
@@ -485,17 +566,26 @@ export default function CheckinEventoPage({
 
   async function liberarConvidado(
     convidado: Convidado,
-    origem: "qr" | "manual" | "grupo" = "manual",
-    silencioso = false
+    origem: "qr" | "manual" = "manual"
   ) {
-    if (convidadoEntrou(convidado)) return;
+    desbloquearAudio();
+    if (convidadoEntrou(convidado)) {
+      piscarCard(convidado.id);
+      tocarSom("usado");
+      return;
+    }
 
     const agora = new Date().toISOString();
 
     setConvidados((prev) =>
       prev.map((c) =>
         c.id === convidado.id
-          ? { ...c, checkin_realizado: true, status_checkin: "entrou", data_checkin: agora }
+          ? {
+              ...c,
+              checkin_realizado: true,
+              status_checkin: "entrou",
+              data_checkin: agora,
+            }
           : c
       )
     );
@@ -512,14 +602,21 @@ export default function CheckinEventoPage({
 
     if (error) {
       salvarPendente(convidado, agora);
+
       setConvidados((prev) =>
         prev.map((c) =>
           c.id === convidado.id
-            ? { ...c, checkin_realizado: true, status_checkin: "sync_pendente", data_checkin: agora }
+            ? {
+                ...c,
+                checkin_realizado: true,
+                status_checkin: "sync_pendente",
+                data_checkin: agora,
+              }
             : c
         )
       );
 
+      piscarCard(convidado.id);
       atualizarResultado({
         tipo: "sync",
         titulo: "Entrada salva localmente",
@@ -533,55 +630,39 @@ export default function CheckinEventoPage({
     }
 
     removerPendente(convidado.token);
-
+    piscarCard(convidado.id);
     atualizarResultado({
       tipo: "ok",
-      titulo:
-        origem === "qr"
-          ? "Entrada liberada pelo QR"
-          : origem === "grupo"
-          ? "Grupo liberado"
-          : "Entrada liberada",
+      titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
       nome: convidado.nome,
       mensagem: "Check-in registrado com sucesso.",
       token: convidado.token,
     });
-
-    if (!silencioso) {
-      tocarSom("ok");
-      vibrar("ok");
-    } else {
-      tocarTickGrupo();
-    }
+    tocarSom("ok");
+    vibrar("ok");
   }
 
   async function liberarGrupoInteiro(membros: Convidado[]) {
     desbloquearAudio();
     const pendentes = membros.filter((m) => !convidadoEntrou(m));
+
     if (!pendentes.length) {
+      membros.forEach((m, idx) => setTimeout(() => piscarCard(m.id), idx * 120));
+      tocarSom("usado");
       atualizarResultado({
         tipo: "usado",
         titulo: "Grupo já liberado",
-        nome: membros.map((m) => m.nome).join(" • "),
         mensagem: "Todos os integrantes deste grupo já entraram.",
       });
-      tocarSom("usado");
       return;
     }
 
-    atualizarResultado({
-      tipo: "ok",
-      titulo: "Liberando grupo",
-      nome: pendentes.map((m) => m.nome).join(" • "),
-      mensagem: `${pendentes.length} integrante(s) em sequência.`,
-      token: pendentes.map((m) => m.token).join(", "),
-    });
-    tocarSom("ok");
-    vibrar("ok");
-
-    for (const convidado of pendentes) {
-      await liberarConvidado(convidado, "grupo", true);
-      await new Promise((resolve) => setTimeout(resolve, 240));
+    for (let i = 0; i < pendentes.length; i++) {
+      const convidado = pendentes[i];
+      await liberarConvidado(convidado, "manual");
+      tocarSom(i === 0 ? "ok" : "tick");
+      piscarCard(convidado.id);
+      await new Promise((resolve) => setTimeout(resolve, 340));
     }
   }
 
@@ -591,7 +672,10 @@ export default function CheckinEventoPage({
     if (!tokens.length) return;
 
     for (const token of tokens) {
-      const convidado = convidados.find((c) => normalizar(c.token) === normalizar(token));
+      const convidado = convidados.find(
+        (c) => normalizar(c.token) === normalizar(token)
+      );
+
       if (!convidado) {
         removerPendente(token);
         continue;
@@ -611,9 +695,12 @@ export default function CheckinEventoPage({
         removerPendente(token);
         setConvidados((prev) =>
           prev.map((c) =>
-            c.id === convidado.id ? { ...c, status_checkin: "entrou", checkin_realizado: true } : c
+            c.id === convidado.id
+              ? { ...c, status_checkin: "entrou", checkin_realizado: true }
+              : c
           )
         );
+        piscarCard(convidado.id);
       }
     }
 
@@ -625,70 +712,6 @@ export default function CheckinEventoPage({
     tocarSom("ok");
   }
 
-  function tocarSom(tipo: "ok" | "erro" | "usado") {
-    try {
-      const ctx = obterAudioContext();
-      if (!ctx) return;
-
-      // Garante para o TypeScript que o contexto não é nulo dentro da função tone.
-      const audio: AudioContext = ctx;
-      const now = audio.currentTime;
-
-      function tone(freq: number, gainValue: number, duration: number, wave: OscillatorType, delay = 0) {
-        const osc = audio.createOscillator();
-        const gain = audio.createGain();
-        osc.type = wave;
-        osc.frequency.setValueAtTime(freq, now + delay);
-        gain.gain.setValueAtTime(0.0001, now + delay);
-        gain.gain.exponentialRampToValueAtTime(gainValue, now + delay + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
-        osc.connect(gain).connect(audio.destination);
-        osc.start(now + delay);
-        osc.stop(now + delay + duration + 0.05);
-      }
-
-      if (tipo === "ok") {
-        tone(200, 0.14, 0.25, "triangle");
-        tone(350, 0.11, 0.25, "sine", 0.08);
-        tone(520, 0.1, 0.3, "sine", 0.16);
-      }
-      if (tipo === "usado") {
-        tone(260, 0.18, 0.12, "square");
-        tone(150, 0.2, 0.24, "sawtooth", 0.12);
-        tone(95, 0.16, 0.28, "square", 0.28);
-      }
-      if (tipo === "erro") {
-        tone(800, 0.12, 0.08, "square");
-        tone(180, 0.14, 0.24, "sawtooth", 0.1);
-      }
-    } catch {}
-  }
-
-  function tocarTickGrupo() {
-    try {
-      const ctx = obterAudioContext();
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(1244, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.16);
-    } catch {}
-  }
-
-  function vibrar(tipo: "ok" | "erro") {
-    try {
-      if (!navigator.vibrate) return;
-      navigator.vibrate(tipo === "ok" ? [90, 40, 120] : [160, 60, 160]);
-    } catch {}
-  }
-
   const resumo = useMemo(() => {
     const total = convidados.length;
     const sync = convidados.filter(convidadoSync).length;
@@ -697,15 +720,14 @@ export default function CheckinEventoPage({
     return { total, entrou, pendentes, sync };
   }, [convidados]);
 
-  const gruposRender = useMemo<GrupoRender[]>(() => {
+  const gruposRender = useMemo<GrupoRender[]>((() => {
     const q = normalizar(busca);
     const mapa = new Map<string, Convidado[]>();
 
     for (const convidado of convidados) {
-      const grupoNormalizado = String(convidado.grupo || "").trim();
-      const tipo = normalizar(convidado.tipo_convite);
-      const temGrupoReal = grupoNormalizado && tipo !== "INDIVIDUAL";
-      const chave = temGrupoReal ? `grupo:${grupoNormalizado}` : `individual:${convidado.id}`;
+      const chave = isGrupoReal(convidado)
+        ? `grupo:${normalizar(convidado.grupo)}`
+        : `individual:${convidado.id}`;
 
       if (!mapa.has(chave)) mapa.set(chave, []);
       mapa.get(chave)!.push(convidado);
@@ -713,15 +735,22 @@ export default function CheckinEventoPage({
 
     return Array.from(mapa.entries())
       .map(([key, membros]) => {
-        const isGrupo = membros.length > 1 || key.startsWith("grupo:");
+        const isGrupo = key.startsWith("grupo:") && membros.length >= 1;
+        const nomeGrupo = isGrupo
+          ? membros[0]?.grupo || key.replace(/^grupo:/, "")
+          : membros[0]?.nome || "Individual";
+
         return {
           key,
-          nome: isGrupo ? key.replace(/^grupo:/, "") : membros[0]?.nome || "Individual",
+          nome: nomeGrupo,
           membros: [...membros].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
           isGrupo,
         };
       })
       .filter((grupo) => {
+        if (tipoFiltro === "grupo" && !grupo.isGrupo) return false;
+        if (tipoFiltro === "individual" && grupo.isGrupo) return false;
+
         const grupoTemPendente = grupo.membros.some((m) => !convidadoEntrou(m));
         const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
         const grupoTemSync = grupo.membros.some(convidadoSync);
@@ -740,7 +769,8 @@ export default function CheckinEventoPage({
           normalizar(m.token).includes(q)
         );
       });
-  }, [convidados, busca, statusFiltro]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }) as any, [convidados, busca, statusFiltro, tipoFiltro]);
 
   return (
     <div className="checkin-page">
@@ -751,7 +781,7 @@ export default function CheckinEventoPage({
         .title { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
         .subtitle { margin:14px 0 0; color:var(--muted); font-size:17px; font-weight:650; }
         .actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
-        .btn { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:14px; padding:12px 16px; font-weight:900; cursor:pointer; transition:transform .16s ease, box-shadow .16s ease; }
+        .btn { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:14px; padding:12px 16px; font-weight:900; cursor:pointer; transition:transform .16s ease, box-shadow .16s ease, background .16s ease; }
         .btn:hover { transform:translateY(-1px); }
         .btn.primary { background:linear-gradient(135deg,var(--purple),var(--purple2)); color:white; border-color:transparent; box-shadow:0 14px 36px rgba(109,40,217,.22); }
         .btn.success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
@@ -765,7 +795,7 @@ export default function CheckinEventoPage({
         .panel { background:var(--card); border:1px solid var(--line); border-radius:26px; padding:18px; box-shadow:0 14px 42px rgba(15,23,42,.06); }
         .reader-box { overflow:hidden; border-radius:22px; background:#020617; border:1px solid rgba(255,255,255,.12); aspect-ratio:1/1; display:grid; place-items:center; }
         #qr-reader { width:100%; min-height:100%; }
-        #qr-reader video, #qr-reader canvas { width:100% !important; height:100% !important; object-fit:cover !important; }
+        #qr-reader video, #qr-reader canvas { width:100%!important; height:100%!important; object-fit:cover!important; }
         .result-card { border-radius:24px; padding:20px; margin-bottom:14px; border:1px solid var(--line); background:rgba(248,250,252,.76); position:relative; overflow:hidden; }
         .result-card.ok { background:linear-gradient(135deg,rgba(22,163,74,.12),rgba(255,255,255,.88)); border-color:rgba(22,163,74,.28); }
         .result-card.usado, .result-card.sync { background:linear-gradient(135deg,rgba(217,119,6,.14),rgba(255,255,255,.88)); border-color:rgba(217,119,6,.28); }
@@ -775,48 +805,54 @@ export default function CheckinEventoPage({
         .result-name { margin-top:10px; font-size:22px; font-weight:950; }
         .result-msg { margin:10px 0 0; color:var(--muted); font-size:14px; line-height:1.45; }
         .helper { margin-top:14px; border-radius:18px; padding:13px; background:rgba(248,250,252,.86); border:1px solid var(--line); color:var(--muted); font-weight:750; font-size:13px; }
-        .input,.select { width:100%; border:1px solid var(--line); background:rgba(248,250,252,.86); color:var(--text); border-radius:16px; padding:13px 14px; font-weight:750; outline:none; }
-        .control-row { display:grid; grid-template-columns:1fr 170px; gap:10px; margin-bottom:14px; }
+        .input, .select { width:100%; border:1px solid var(--line); background:rgba(248,250,252,.86); color:var(--text); border-radius:16px; padding:13px 14px; font-weight:750; outline:none; }
+        .input:focus, .select:focus { border-color:var(--purple); box-shadow:0 0 0 3px rgba(109,40,217,.12); }
+        .control-row { display:grid; grid-template-columns:1fr 170px 210px; gap:10px; margin-bottom:14px; }
         .guest-list { display:grid; gap:14px; max-height:74vh; overflow:auto; padding-right:4px; }
-        .group-card { border:1px solid var(--line); border-radius:26px; padding:16px; background:linear-gradient(135deg,rgba(15,23,42,.035),rgba(255,255,255,.84)); box-shadow:0 12px 34px rgba(15,23,42,.045); }
-        .group-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:12px; }
-        .group-title { font-size:16px; font-weight:950; letter-spacing:-.02em; }
-        .group-sub { color:var(--muted); margin-top:6px; font-weight:750; font-size:13px; line-height:1.35; }
-        .group-meta { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+        .group-card { border:1px solid var(--line); border-radius:26px; padding:16px; background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(248,250,252,.9)); box-shadow:0 12px 34px rgba(15,23,42,.045); }
+        .group-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
+        .group-title { font-size:20px; font-weight:950; letter-spacing:-.03em; }
+        .group-sub { color:var(--muted); font-weight:800; margin-top:6px; line-height:1.35; }
+        .group-meta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
         .group-members { display:grid; gap:10px; }
-        .guest-card { border:1px solid var(--line); background:rgba(255,255,255,.78); border-radius:22px; padding:16px; display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; transition:transform .16s ease, box-shadow .16s ease, border .16s ease; position:relative; overflow:hidden; }
+        .guest-card { border:1px solid var(--line); background:rgba(255,255,255,.78); border-radius:22px; padding:16px; display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; transition:transform .16s ease, box-shadow .16s ease, border .16s ease, filter .16s ease; }
         .guest-card:hover { transform:translateY(-1px); box-shadow:0 12px 34px rgba(15,23,42,.07); }
         .guest-card.entered { background:rgba(240,253,244,.86); border-color:rgba(22,163,74,.24); }
         .guest-card.sync { background:rgba(255,251,235,.9); border-color:rgba(217,119,6,.28); }
-        .guest-card.led-flash { animation:ledFlash .95s ease; box-shadow:0 0 0 2px rgba(34,197,94,.45), 0 0 34px rgba(34,197,94,.45), inset 0 0 28px rgba(34,197,94,.12); }
-        .guest-card.led-flash::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(34,197,94,.18),transparent); animation:ledSweep .95s ease; pointer-events:none; }
-        @keyframes ledFlash { 0%{transform:scale(.99); filter:brightness(1)} 35%{transform:scale(1.015); filter:brightness(1.18)} 100%{transform:scale(1); filter:brightness(1)} }
-        @keyframes ledSweep { 0%{transform:translateX(-110%); opacity:0} 18%{opacity:1} 100%{transform:translateX(110%); opacity:0} }
+        .guest-card.led-flash { animation:ledFlash 1.05s ease; box-shadow:0 0 0 2px rgba(34,197,94,.45),0 0 34px rgba(34,197,94,.45),inset 0 0 28px rgba(34,197,94,.12); }
+        @keyframes ledFlash { 0%{transform:scale(.99);filter:brightness(1)} 35%{transform:scale(1.015);filter:brightness(1.2)} 100%{transform:scale(1);filter:brightness(1)} }
         .guest-name { font-size:18px; font-weight:950; letter-spacing:-.02em; }
         .guest-sub { margin-top:4px; color:var(--muted); font-size:13px; font-weight:750; }
         .token { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#64748b; }
         .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
         .chip { display:inline-flex; align-items:center; border-radius:999px; padding:6px 9px; font-size:11px; font-weight:950; text-transform:uppercase; }
-        .chip.ok { background:#dcfce7; color:#166534; } .chip.pending { background:#f1f5f9; color:#475569; } .chip.sync { background:#fef3c7; color:#92400e; } .chip.info { background:#ede9fe; color:#6d28d9; } .chip.group { background:#fef3c7; color:#92400e; }
+        .chip.ok { background:#dcfce7; color:#166534; }
+        .chip.pending { background:#f1f5f9; color:#475569; }
+        .chip.sync { background:#fef3c7; color:#92400e; }
+        .chip.info { background:#ede9fe; color:#6d28d9; }
+        .chip.group { background:#fef3c7; color:#92400e; }
         .history { margin-top:14px; display:grid; gap:8px; }
         .history-item { border:1px solid var(--line); border-radius:16px; padding:11px 12px; background:rgba(248,250,252,.76); }
         .history-top { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:11px; font-weight:850; }
         .history-name { margin-top:4px; font-weight:950; font-size:13px; }
-        .flash { position:fixed; inset:0; pointer-events:none; z-index:9997; animation:flashFade .68s ease forwards; }
-        .flash.ok { background:radial-gradient(circle,rgba(22,163,74,.18),rgba(22,163,74,.07) 35%,transparent 70%); }
-        .flash.usado,.flash.sync { background:radial-gradient(circle,rgba(217,119,6,.18),rgba(217,119,6,.07) 35%,transparent 70%); }
-        .flash.erro { background:radial-gradient(circle,rgba(225,29,72,.18),rgba(225,29,72,.07) 35%,transparent 70%); }
+        .flash { position:fixed; inset:0; pointer-events:none; z-index:9997; animation:flashFade .7s ease forwards; }
+        .flash.ok { background:radial-gradient(circle,rgba(22,163,74,.2),rgba(22,163,74,.08) 35%,transparent 70%); }
+        .flash.usado,.flash.sync { background:radial-gradient(circle,rgba(217,119,6,.2),rgba(217,119,6,.08) 35%,transparent 70%); }
+        .flash.erro { background:radial-gradient(circle,rgba(225,29,72,.2),rgba(225,29,72,.08) 35%,transparent 70%); }
         @keyframes flashFade { 0%{opacity:1} 100%{opacity:0} }
-        .premium-overlay { position:fixed; inset:0; z-index:9998; pointer-events:none; display:grid; place-items:center; background:rgba(15,23,42,.16); backdrop-filter:blur(2px); animation:overlayFade 1.5s ease forwards; }
-        .premium-card { width:min(520px,calc(100vw - 40px)); border-radius:30px; padding:30px 26px; text-align:center; background:rgba(255,255,255,.94); border:1px solid var(--line); box-shadow:0 30px 90px rgba(15,23,42,.22); transform:scale(.96) translateY(8px); animation:premiumPop .45s cubic-bezier(.2,.9,.2,1.1) forwards; }
+        .premium-overlay { position:fixed; inset:0; z-index:9998; pointer-events:none; display:grid; place-items:center; background:rgba(15,23,42,.18); backdrop-filter:blur(2px); animation:overlayFade 1.35s ease forwards; }
+        .premium-card { width:min(520px,calc(100vw - 40px)); border-radius:30px; padding:30px 26px; text-align:center; background:rgba(255,255,255,.96); border:1px solid var(--line); box-shadow:0 30px 90px rgba(15,23,42,.24); transform:scale(.96) translateY(8px); animation:premiumPop .45s cubic-bezier(.2,.9,.2,1.1) forwards; }
         .premium-icon { width:76px; height:76px; border-radius:999px; margin:0 auto 16px; display:grid; place-items:center; font-size:38px; font-weight:950; }
-        .premium-icon.ok { background:#dcfce7; color:#166534; } .premium-icon.usado,.premium-icon.sync { background:#fef3c7; color:#92400e; } .premium-icon.erro { background:#ffe4e6; color:#be123c; }
+        .premium-icon.ok { background:#dcfce7; color:#166534; }
+        .premium-icon.usado,.premium-icon.sync { background:#fef3c7; color:#92400e; }
+        .premium-icon.erro { background:#ffe4e6; color:#be123c; }
         .premium-title { margin:0; font-size:30px; font-weight:950; letter-spacing:-.04em; }
         .premium-name { margin-top:8px; font-size:18px; font-weight:900; }
         .premium-msg { margin-top:8px; color:#64748b; font-weight:700; }
-        @keyframes premiumPop { to{transform:scale(1) translateY(0)} } @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
-        @media(max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none} }
-        @media(max-width:640px){ .stats{grid-template-columns:1fr}.control-row,.guest-card,.group-head{grid-template-columns:1fr; display:grid}.btn{width:100%}.reader-box{aspect-ratio:1/1}.group-meta{justify-content:flex-start} }
+        @keyframes premiumPop { to{transform:scale(1) translateY(0)} }
+        @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
+        @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr 170px} }
+        @media (max-width:640px){ .stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
 
       {flash && flash !== "idle" && <div className={`flash ${flash}`} />}
@@ -825,7 +861,13 @@ export default function CheckinEventoPage({
         <div className="premium-overlay">
           <div className="premium-card">
             <div className={`premium-icon ${overlay.tipo}`}>
-              {overlay.tipo === "ok" ? "✓" : overlay.tipo === "usado" ? "!" : overlay.tipo === "sync" ? "↻" : "×"}
+              {overlay.tipo === "ok"
+                ? "✓"
+                : overlay.tipo === "usado"
+                ? "!"
+                : overlay.tipo === "sync"
+                ? "↻"
+                : "×"}
             </div>
             <h2 className="premium-title">{overlay.titulo}</h2>
             {overlay.nome && <div className="premium-name">{overlay.nome}</div>}
@@ -838,16 +880,34 @@ export default function CheckinEventoPage({
         <div>
           <div className="eyebrow">OmniStage Check-in</div>
           <h1 className="title">Portaria do evento</h1>
-          <p className="subtitle">QR code, leitor físico, busca manual e controle híbrido de entrada.</p>
+          <p className="subtitle">
+            QR code, leitor físico, grupos, busca manual e controle híbrido de entrada.
+          </p>
         </div>
 
         <div className="actions">
-          <button className="btn" onClick={() => { desbloquearAudio(); carregarConvidados(); }}>Atualizar</button>
-          <button className={qrAtivo ? "btn success" : "btn primary"} onClick={() => { desbloquearAudio(); qrAtivo ? pararQr() : iniciarQr(); }}>
+          <button className="btn" onClick={() => { desbloquearAudio(); carregarConvidados(); }}>
+            Atualizar
+          </button>
+
+          <button
+            className={qrAtivo ? "btn success" : "btn primary"}
+            onClick={() => { desbloquearAudio(); qrAtivo ? pararQr() : iniciarQr(); }}
+          >
             {qrAtivo ? "QR ativo" : "Ativar QR"}
           </button>
-          <button className="btn" onClick={() => { desbloquearAudio(); trocarCamera(); }}>Trocar câmera</button>
-          <button className="btn" onClick={() => { desbloquearAudio(); sincronizarPendentes(); }}>Sincronizar</button>
+
+          <button className="btn" onClick={() => { desbloquearAudio(); trocarCamera(); }}>
+            Trocar câmera
+          </button>
+
+          <button className="btn" onClick={() => { desbloquearAudio(); sincronizarPendentes(); }}>
+            Sincronizar
+          </button>
+
+          <button className={somAtivo ? "btn success" : "btn"} onClick={desbloquearAudio}>
+            {somAtivo ? "Som ativo" : "Ativar som"}
+          </button>
         </div>
       </header>
 
@@ -867,11 +927,18 @@ export default function CheckinEventoPage({
             <p className="result-msg">{resultado.mensagem}</p>
           </div>
 
-          <div className="reader-box"><div id="qr-reader" /></div>
+          <div className="reader-box">
+            <div id="qr-reader" />
+          </div>
 
           <div className="helper">
-            {qrAtivo ? `QR ativo${cameraAtual ? ` • ${cameraAtual}` : ""}` : scannerPronto ? "Ative o QR para usar celular, tablet ou notebook." : "Carregando leitor de QR code..."}
-            <br />Status: {online ? "Online" : "Offline"}
+            {qrAtivo
+              ? `QR ativo${cameraAtual ? ` • ${cameraAtual}` : ""}`
+              : scannerPronto
+              ? "Ative o QR para usar celular, tablet ou notebook."
+              : "Carregando leitor de QR code..."}
+            <br />
+            Status: {online ? "Online" : "Offline"} • Som: {somAtivo ? "Ativo" : "Clique em Ativar som"}
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -879,10 +946,10 @@ export default function CheckinEventoPage({
               className="input"
               placeholder="Leitor físico / token + Enter"
               autoComplete="off"
+              onFocus={desbloquearAudio}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   const input = e.target as HTMLInputElement;
-                  desbloquearAudio();
                   processarToken(input.value, "manual");
                   input.value = "";
                 }
@@ -891,7 +958,10 @@ export default function CheckinEventoPage({
           </div>
 
           <div className="history">
-            <div className="eyebrow" style={{ marginTop: 8 }}>Histórico recente</div>
+            <div className="eyebrow" style={{ marginTop: 8 }}>
+              Histórico recente
+            </div>
+
             {!logs.length ? (
               <div className="helper">Nenhuma leitura nesta sessão.</div>
             ) : (
@@ -908,12 +978,33 @@ export default function CheckinEventoPage({
 
         <section className="panel">
           <div className="control-row">
-            <input className="input" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, grupo, telefone, email ou token" />
-            <select className="select" value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value as StatusFiltro)}>
+            <input
+              className="input"
+              value={busca}
+              onFocus={desbloquearAudio}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome, grupo, telefone, email ou token"
+            />
+
+            <select
+              className="select"
+              value={statusFiltro}
+              onChange={(e) => setStatusFiltro(e.target.value as StatusFiltro)}
+            >
               <option value="todos">Todos</option>
-              <option value="pendentes">Pendentes</option>
-              <option value="entrou">Entrou</option>
-              <option value="sync">Sync pendente</option>
+              <option value="pendentes">Somente pendentes</option>
+              <option value="entrou">Somente entrou</option>
+              <option value="sync">Somente sync pendente</option>
+            </select>
+
+            <select
+              className="select"
+              value={tipoFiltro}
+              onChange={(e) => setTipoFiltro(e.target.value as TipoFiltro)}
+            >
+              <option value="todos">Individual e grupo</option>
+              <option value="individual">Somente individual</option>
+              <option value="grupo">Somente grupo</option>
             </select>
           </div>
 
@@ -930,9 +1021,13 @@ export default function CheckinEventoPage({
                   <div key={grupo.key} className="group-card">
                     <div className="group-head">
                       <div>
-                        <div className="group-title">{grupo.isGrupo ? "Grupo encontrado" : "Convidado encontrado"}</div>
+                        <div className="group-title">
+                          {grupo.isGrupo ? "Grupo encontrado" : "Convidado encontrado"}
+                        </div>
                         <div className="group-sub">
-                          {grupo.isGrupo ? `Integrantes: ${grupo.membros.map((m) => m.nome).join(" • ")}` : "Liberação individual"}
+                          {grupo.isGrupo
+                            ? `Integrantes: ${grupo.membros.map((m) => m.nome).join(" • ")}`
+                            : "Liberação individual"}
                         </div>
                       </div>
 
@@ -941,7 +1036,14 @@ export default function CheckinEventoPage({
                         <span className={todosEntraram ? "chip ok" : "chip pending"}>{todosEntraram ? "entrou" : "pendente"}</span>
                         {algumSync && <span className="chip sync">sync pendente</span>}
                         {grupo.isGrupo && (
-                          <button className="btn group" disabled={todosEntraram} onClick={() => { desbloquearAudio(); liberarGrupoInteiro(grupo.membros); }}>
+                          <button
+                            className="btn group"
+                            disabled={todosEntraram}
+                            onClick={() => {
+                              desbloquearAudio();
+                              liberarGrupoInteiro(grupo.membros);
+                            }}
+                          >
                             {todosEntraram ? "Grupo liberado" : "Liberar grupo inteiro"}
                           </button>
                         )}
@@ -953,7 +1055,10 @@ export default function CheckinEventoPage({
                         const entrou = convidadoEntrou(c);
                         const sync = convidadoSync(c);
                         return (
-                          <div key={c.id} className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? "led-flash" : ""}`}>
+                          <div
+                            key={c.id}
+                            className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? "led-flash" : ""}`}
+                          >
                             <div>
                               <div className="guest-name">{c.nome}</div>
                               <div className="guest-sub">{c.grupo || "Individual"} • {c.telefone || "sem telefone"}</div>
@@ -964,7 +1069,14 @@ export default function CheckinEventoPage({
                                 {sync && <span className="chip sync">sync pendente</span>}
                               </div>
                             </div>
-                            <button className={entrou ? "btn" : "btn primary"} disabled={entrou} onClick={() => { desbloquearAudio(); liberarConvidado(c, "manual"); }}>
+                            <button
+                              className={entrou ? "btn" : "btn primary"}
+                              disabled={entrou}
+                              onClick={() => {
+                                desbloquearAudio();
+                                liberarConvidado(c, "manual");
+                              }}
+                            >
                               {entrou ? "Liberado" : "Liberar entrada"}
                             </button>
                           </div>
