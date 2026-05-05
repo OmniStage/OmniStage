@@ -72,9 +72,9 @@ export default function CheckinEventoPage({
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [flash, setFlash] = useState<Resultado["tipo"] | null>(null);
   const [overlay, setOverlay] = useState<Resultado | null>(null);
-  const [cardsPiscando, setCardsPiscando] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [cardsPiscando, setCardsPiscando] = useState<
+    Record<string, { id: number; tipo: Exclude<Resultado["tipo"], "idle"> }>
+  >({});
   const [somAtivo, setSomAtivo] = useState(false);
   const somAtivoRef = useRef(false);
 
@@ -103,6 +103,16 @@ export default function CheckinEventoPage({
     already: null,
     error: null,
   });
+  const audioPoolRefs = useRef<{
+    success: HTMLAudioElement[];
+    already: HTMLAudioElement[];
+    error: HTMLAudioElement[];
+  }>({
+    success: [],
+    already: [],
+    error: [],
+  });
+  const audioPoolIndexRef = useRef({ success: 0, already: 0, error: 0 });
   const audioUnlockedRef = useRef(false);
   const [efeitoId, setEfeitoId] = useState(0);
 
@@ -131,16 +141,28 @@ export default function CheckinEventoPage({
   }, []);
 
   useEffect(() => {
-    audioRefs.current.success = new Audio("/sounds/success.mp3");
-    audioRefs.current.already = new Audio("/sounds/already.mp3");
-    audioRefs.current.error = new Audio("/sounds/error.mp3");
-
-    Object.values(audioRefs.current).forEach((audio) => {
-      if (!audio) return;
+    const criarAudio = (src: string) => {
+      const audio = new Audio(src);
       audio.preload = "auto";
       audio.volume = 1;
       audio.load();
-    });
+      return audio;
+    };
+
+    audioRefs.current.success = criarAudio("/sounds/success.mp3");
+    audioRefs.current.already = criarAudio("/sounds/already.mp3");
+    audioRefs.current.error = criarAudio("/sounds/error.mp3");
+
+    // Pool evita atraso causado por cloneNode no momento do check-in.
+    audioPoolRefs.current.success = Array.from({ length: 4 }, () =>
+      criarAudio("/sounds/success.mp3"),
+    );
+    audioPoolRefs.current.already = Array.from({ length: 3 }, () =>
+      criarAudio("/sounds/already.mp3"),
+    );
+    audioPoolRefs.current.error = Array.from({ length: 3 }, () =>
+      criarAudio("/sounds/error.mp3"),
+    );
   }, []);
 
   function normalizar(texto: string | null | undefined) {
@@ -173,9 +195,12 @@ export default function CheckinEventoPage({
   }
 
   async function desbloquearAudio() {
-    const audios = Object.values(audioRefs.current).filter(
-      Boolean,
-    ) as HTMLAudioElement[];
+    const audios = [
+      ...Object.values(audioRefs.current),
+      ...audioPoolRefs.current.success,
+      ...audioPoolRefs.current.already,
+      ...audioPoolRefs.current.error,
+    ].filter(Boolean) as HTMLAudioElement[];
 
     if (!audios.length) return;
 
@@ -202,17 +227,19 @@ export default function CheckinEventoPage({
     }
   }
 
-  function tocarArquivo(
-    tipo: "success" | "already" | "error",
-    volume = 1,
-  ) {
-    const baseAudio = audioRefs.current[tipo];
-    if (!baseAudio) return;
+  function tocarArquivo(tipo: "success" | "already" | "error", volume = 1) {
+    const pool = audioPoolRefs.current[tipo];
+    const fallback = audioRefs.current[tipo];
+    const audio = pool.length
+      ? pool[audioPoolIndexRef.current[tipo]++ % pool.length]
+      : fallback;
+
+    if (!audio) return;
 
     try {
-      const audio = baseAudio.cloneNode(true) as HTMLAudioElement;
-      audio.volume = volume;
+      audio.pause();
       audio.currentTime = 0;
+      audio.volume = volume;
 
       void audio
         .play()
@@ -257,13 +284,15 @@ export default function CheckinEventoPage({
 
   function tocarSomSincronizado(
     tipo: "ok" | "erro" | "usado" | "sync" | "tick",
-    delay = 70,
+    delay = 0,
   ) {
-    // Sincroniza áudio com o próximo frame visual do React.
-    // Primeiro o card/overlay entra na tela; depois o som toca.
-    requestAnimationFrame(() => {
-      window.setTimeout(() => tocarSom(tipo), delay);
-    });
+    // Sem delay perceptível: o som sai junto do feedback visual.
+    if (delay <= 0) {
+      tocarSom(tipo);
+      return;
+    }
+
+    window.setTimeout(() => tocarSom(tipo), delay);
   }
 
   function feedbackSincronizado(
@@ -272,13 +301,12 @@ export default function CheckinEventoPage({
     som: "ok" | "erro" | "usado" | "sync" | "tick",
     vibracao?: "ok" | "erro",
   ) {
-    if (cardId) piscarCard(cardId);
+    if (cardId)
+      piscarCard(cardId, resultado.tipo === "idle" ? "ok" : resultado.tipo);
     atualizarResultado(resultado);
-    tocarSomSincronizado(som);
+    tocarSomSincronizado(som, 0);
 
-    if (vibracao) {
-      window.setTimeout(() => vibrar(vibracao), 70);
-    }
+    if (vibracao) vibrar(vibracao);
   }
 
   function tocarClick() {
@@ -292,28 +320,24 @@ export default function CheckinEventoPage({
     } catch {}
   }
 
-  function piscarCard(id: string) {
-    // Remove e reaplica a classe para a animação reiniciar SEMPRE,
-    // inclusive quando o mesmo cartão recebe outro feedback rapidamente.
-    setCardsPiscando((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  function piscarCard(
+    id: string,
+    tipo: Exclude<Resultado["tipo"], "idle"> = "ok",
+  ) {
+    const efeito = { id: Date.now() + Math.random(), tipo };
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setCardsPiscando((prev) => ({ ...prev, [id]: true }));
-      });
-    });
+    // Atualização direta com ID único: funciona em card individual, grupo,
+    // leitura por QR e liberação manual, sem depender da classe reiniciar sozinha.
+    setCardsPiscando((prev) => ({ ...prev, [id]: efeito }));
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setCardsPiscando((prev) => {
+        if (prev[id]?.id !== efeito.id) return prev;
         const next = { ...prev };
         delete next[id];
         return next;
       });
-    }, 1100);
+    }, 1250);
   }
 
   function lerPendentes(): Record<
@@ -602,7 +626,6 @@ export default function CheckinEventoPage({
     raw: string,
     origem: "qr" | "manual" = "manual",
   ) {
-
     const token = extrairToken(raw);
     if (!token) return;
     if (leituraDuplicada(token)) return;
@@ -657,7 +680,6 @@ export default function CheckinEventoPage({
     convidado: Convidado,
     origem: "qr" | "manual" = "manual",
   ) {
-
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
       feedbackSincronizado(
@@ -771,7 +793,8 @@ export default function CheckinEventoPage({
       convidado.id,
       {
         tipo: "ok",
-        titulo: origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
+        titulo:
+          origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
         nome: convidado.nome,
         mensagem: "Check-in registrado com sucesso.",
         token: convidado.token,
@@ -786,7 +809,7 @@ export default function CheckinEventoPage({
 
     if (!pendentes.length) {
       membros.forEach((m, idx) =>
-        setTimeout(() => piscarCard(m.id), idx * 120),
+        setTimeout(() => piscarCard(m.id, "usado"), idx * 120),
       );
       feedbackSincronizado(
         null,
@@ -844,7 +867,7 @@ export default function CheckinEventoPage({
               : c,
           ),
         );
-        piscarCard(convidado.id);
+        piscarCard(convidado.id, "ok");
       }
     }
 
@@ -972,12 +995,21 @@ export default function CheckinEventoPage({
         .group-sub { color:var(--muted); font-weight:800; margin-top:6px; line-height:1.35; }
         .group-meta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
         .group-members { display:grid; gap:10px; }
-        .guest-card { border:1px solid var(--line); background:rgba(255,255,255,.78); border-radius:22px; padding:16px; display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; transition:transform .16s ease, box-shadow .16s ease, border .16s ease, filter .16s ease; }
+        .guest-card { position:relative; overflow:hidden; border:1px solid var(--line); background:rgba(255,255,255,.78); border-radius:22px; padding:16px; display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; transition:transform .16s ease, box-shadow .16s ease, border .16s ease, filter .16s ease; }
         .guest-card:hover { transform:translateY(-1px); box-shadow:0 12px 34px rgba(15,23,42,.07); }
         .guest-card.entered { background:rgba(240,253,244,.86); border-color:rgba(22,163,74,.24); }
         .guest-card.sync { background:rgba(255,251,235,.9); border-color:rgba(217,119,6,.28); }
-        .guest-card.led-flash { animation:ledFlash 1.05s ease; box-shadow:0 0 0 2px rgba(34,197,94,.45),0 0 34px rgba(34,197,94,.45),inset 0 0 28px rgba(34,197,94,.12); }
-        @keyframes ledFlash { 0%{transform:scale(.99);filter:brightness(1)} 35%{transform:scale(1.015);filter:brightness(1.2)} 100%{transform:scale(1);filter:brightness(1)} }
+        .guest-card.led-flash { animation:ledFlash 1.05s ease; }
+        .guest-card.led-ok { box-shadow:0 0 0 2px rgba(34,197,94,.55),0 0 38px rgba(34,197,94,.46),inset 0 0 30px rgba(34,197,94,.14); border-color:rgba(34,197,94,.72); }
+        .guest-card.led-usado, .guest-card.led-erro { box-shadow:0 0 0 2px rgba(225,29,72,.5),0 0 38px rgba(225,29,72,.38),inset 0 0 30px rgba(225,29,72,.12); border-color:rgba(225,29,72,.62); }
+        .guest-card.led-sync { box-shadow:0 0 0 2px rgba(217,119,6,.5),0 0 38px rgba(217,119,6,.36),inset 0 0 30px rgba(217,119,6,.12); border-color:rgba(217,119,6,.62); }
+        .guest-pulse-layer { position:absolute; inset:0; border-radius:22px; pointer-events:none; z-index:0; animation:cardPulseLayer 1.05s ease forwards; }
+        .guest-pulse-layer.ok { background:radial-gradient(circle at center,rgba(34,197,94,.28),transparent 62%); }
+        .guest-pulse-layer.usado, .guest-pulse-layer.erro { background:radial-gradient(circle at center,rgba(225,29,72,.24),transparent 62%); }
+        .guest-pulse-layer.sync { background:radial-gradient(circle at center,rgba(217,119,6,.24),transparent 62%); }
+        .guest-card > div:not(.guest-pulse-layer), .guest-card > button { position:relative; z-index:1; }
+        @keyframes ledFlash { 0%{transform:scale(.992);filter:brightness(1)} 28%{transform:scale(1.018);filter:brightness(1.16)} 100%{transform:scale(1);filter:brightness(1)} }
+        @keyframes cardPulseLayer { 0%{opacity:0;transform:scale(.92)} 18%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1.08)} }
         .guest-name { font-size:18px; font-weight:950; letter-spacing:-.02em; }
         .guest-sub { margin-top:4px; color:var(--muted); font-size:13px; font-weight:750; }
         .token { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#64748b; }
@@ -1263,8 +1295,14 @@ export default function CheckinEventoPage({
                         return (
                           <div
                             key={c.id}
-                            className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? "led-flash" : ""}`}
+                            className={`guest-card ${sync ? "sync" : entrou ? "entered" : ""} ${cardsPiscando[c.id] ? `led-flash led-${cardsPiscando[c.id].tipo}` : ""}`}
                           >
+                            {cardsPiscando[c.id] && (
+                              <div
+                                key={cardsPiscando[c.id].id}
+                                className={`guest-pulse-layer ${cardsPiscando[c.id].tipo}`}
+                              />
+                            )}
                             <div>
                               <div className="guest-name">{c.nome}</div>
                               <div className="guest-sub">
