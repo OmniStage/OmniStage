@@ -562,7 +562,7 @@ export default function AppEventosPage() {
         }
 
         .eyebrow {
-          color: #64748b;
+          color: #7c3aed;
           font-weight: 950;
           font-size: 12px;
           text-transform: uppercase;
@@ -613,8 +613,8 @@ export default function AppEventosPage() {
         }
 
         .purple {
-          background: #0f172a;
-          box-shadow: 0 16px 34px rgba(15,23,42,.18);
+          background: linear-gradient(135deg,#7c3aed,#5b21b6);
+          box-shadow: 0 16px 34px rgba(124,58,237,.26);
         }
 
         .secondary {
@@ -672,6 +672,10 @@ export default function AppEventosPage() {
         .event-form-panel {
           border-radius: 28px;
           padding: 32px;
+          background:
+            radial-gradient(circle at 10% 0%, rgba(124,58,237,.08), transparent 34%),
+            radial-gradient(circle at 95% 8%, rgba(34,197,94,.08), transparent 30%),
+            linear-gradient(180deg,#ffffff,#f8fafc);
           animation: formIn .28s cubic-bezier(.16,1,.3,1) both;
         }
 
@@ -680,48 +684,61 @@ export default function AppEventosPage() {
           justify-content: space-between;
           align-items: flex-start;
           gap: 20px;
-          margin-bottom: 28px;
+          margin-bottom: 24px;
         }
 
         .form-title {
           margin: 0;
           color: #0f172a;
-          font-size: 30px;
+          font-size: 34px;
           font-weight: 950;
-          letter-spacing: -.04em;
+          letter-spacing: -.05em;
         }
 
         .form-subtitle {
           margin: 8px 0 0;
           color: #64748b;
-          font-size: 15px;
-          font-weight: 700;
+          font-size: 16px;
+          font-weight: 750;
+          line-height: 1.45;
         }
 
         .section {
-          padding-top: 24px;
-          margin-top: 24px;
-          border-top: 1px solid rgba(226,232,240,.9);
+          margin-top: 20px;
+          padding: 24px;
+          border-radius: 26px;
+          background: rgba(255,255,255,.92);
+          border: 1px solid rgba(226,232,240,.95);
+          box-shadow: 0 18px 48px rgba(15,23,42,.06);
         }
 
         .section:first-of-type {
-          padding-top: 0;
           margin-top: 0;
-          border-top: none;
         }
 
         .section-title {
-          margin: 0 0 8px;
-          font-size: 22px;
+          margin: 0 0 6px;
+          font-size: 24px;
           font-weight: 950;
           color: #0f172a;
+          letter-spacing: -.035em;
+        }
+
+        .section-title::after {
+          content: "";
+          display: block;
+          width: 44px;
+          height: 4px;
+          border-radius: 999px;
+          background: linear-gradient(90deg,#7c3aed,#22c55e);
+          margin-top: 10px;
         }
 
         .section-desc {
-          margin: 0 0 20px;
+          margin: 14px 0 22px;
           color: #64748b;
           font-size: 15px;
-          font-weight: 700;
+          font-weight: 750;
         }
 
         .form-grid {
@@ -743,7 +760,7 @@ export default function AppEventosPage() {
         .field-label {
           display: block;
           color: #334155;
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 950;
           margin-bottom: 10px;
         }
@@ -776,8 +793,8 @@ export default function AppEventosPage() {
         .input:focus,
         .textarea:focus,
         .select:focus {
-          border-color: rgba(15,23,42,.35);
-          box-shadow: 0 0 0 4px rgba(15,23,42,.08);
+          border-color: rgba(124,58,237,.45);
+          box-shadow: 0 0 0 4px rgba(124,58,237,.10);
         }
 
         .field-help {
@@ -856,7 +873,7 @@ export default function AppEventosPage() {
         .event-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 18px 42px rgba(15,23,42,.08);
-          border-color: rgba(15,23,42,.18);
+          border-color: rgba(124,58,237,.22);
         }
 
         .item-title {
@@ -1043,6 +1060,14 @@ export default function AppEventosPage() {
 
           .form-title {
             font-size: 26px;
+          }
+
+          .section {
+            padding: 20px;
+          }
+
+          .section-title {
+            font-size: 21px;
           }
 
           .field-label {
@@ -1255,9 +1280,7 @@ export default function AppEventosPage() {
           </div>
 
           <div className="section">
-            <h3 className="section-title">
-              3. Onde o seu evento vai acontecer?
-            </h3>
+            <h3 className="section-title">3. Local do evento</h3>
             <p className="section-desc">
               Cadastre o local completo para usar no convite e no mapa.
             </p>
