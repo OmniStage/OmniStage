@@ -520,6 +520,11 @@ export default function CheckinEventoPage({
   async function iniciarQr() {
     if (!scannerPronto || !window.Html5Qrcode || qrAtivo) return;
 
+    // Primeiro abre a área visual do QR. O html5-qrcode precisa que o elemento
+    // #qr-reader exista no DOM antes de iniciar a câmera.
+    setQrAtivo(true);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
     try {
       await carregarCameras();
 
@@ -567,13 +572,21 @@ export default function CheckinEventoPage({
         },
       );
 
-      setQrAtivo(true);
       atualizarResultado({
         tipo: "idle",
         titulo: "QR code ativo",
         mensagem: `Aproxime o cartão do convidado da câmera. ${nomeCamera}`,
       });
     } catch (error: any) {
+      try {
+        if (qrRef.current) {
+          await qrRef.current.stop();
+          await qrRef.current.clear();
+        }
+      } catch {}
+
+      qrRef.current = null;
+      setQrAtivo(false);
       atualizarResultado({
         tipo: "erro",
         titulo: "Câmera indisponível",
@@ -937,8 +950,8 @@ export default function CheckinEventoPage({
           );
           const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
           const grupoTemSync = grupo.membros.some(convidadoSync);
-          const grupoTemEfeitoAtivo = grupo.membros.some(
-            (m) => Boolean(cardsPiscando[m.id]),
+          const grupoTemEfeitoAtivo = grupo.membros.some((m) =>
+            Boolean(cardsPiscando[m.id]),
           );
 
           // Mantém o card visível enquanto a animação está rodando.
@@ -1123,8 +1136,12 @@ export default function CheckinEventoPage({
 
           <button
             className={qrAtivo ? "btn success" : "btn primary"}
-            onClick={() => {
-              qrAtivo ? pararQr() : iniciarQr();
+            onClick={async () => {
+              if (qrAtivo) {
+                await pararQr();
+              } else {
+                await iniciarQr();
+              }
             }}
           >
             {qrAtivo ? "QR ativo" : "Ativar QR"}
@@ -1182,9 +1199,28 @@ export default function CheckinEventoPage({
             <p className="result-msg">{resultado.mensagem}</p>
           </div>
 
-          <div className="reader-box">
-            <div id="qr-reader" />
-          </div>
+          {qrAtivo ? (
+            <div className="reader-box">
+              <div id="qr-reader" />
+            </div>
+          ) : (
+            <div
+              className="reader-box"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                padding: 24,
+                color: "#94a3b8",
+                fontWeight: 900,
+                letterSpacing: ".04em",
+                textTransform: "uppercase",
+              }}
+            >
+              QR Code desativado
+            </div>
+          )}
 
           <div className="helper">
             {qrAtivo
