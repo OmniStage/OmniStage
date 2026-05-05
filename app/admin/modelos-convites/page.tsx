@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function ModelosConvitePage() {
@@ -17,6 +17,14 @@ export default function ModelosConvitePage() {
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+
+  const totalModelos = templates.length;
+  const modelosAtivos = templates.filter((t) => t.active).length;
+  const modelosInativos = templates.filter((t) => !t.active).length;
+
+  const categoriaSelecionada = useMemo(() => {
+    return categorias.find((c) => c.id === categoriaId);
+  }, [categorias, categoriaId]);
 
   function gerarSlug(text: string) {
     return text
@@ -234,15 +242,53 @@ export default function ModelosConvitePage() {
   }, []);
 
   return (
-    <main style={{ color: "#fff" }}>
-      <h1 style={{ fontSize: 36 }}>Modelos de Convite</h1>
+    <main style={page}>
+      <section style={hero}>
+        <div>
+          <div style={eyebrow}>Admin OmniStage</div>
+          <h1 style={h1}>Modelos de Convite</h1>
+          <p style={subtitle}>
+            Crie, edite e organize templates HTML reutilizáveis para eventos,
+            clientes e experiências digitais.
+          </p>
+        </div>
 
-      <div style={sectionCard}>
-        <h2 style={{ fontSize: 22, marginBottom: 10 }}>
-          Categorias de Convite
-        </h2>
+        <button onClick={limparFormulario} style={btnPrimary}>
+          + Novo modelo
+        </button>
+      </section>
 
-        <div style={{ display: "flex", gap: 10 }}>
+      <section style={statsGrid}>
+        <div style={statCard}>
+          <span style={statLabel}>Total de modelos</span>
+          <strong style={statValue}>{totalModelos}</strong>
+        </div>
+
+        <div style={statCard}>
+          <span style={statLabel}>Ativos</span>
+          <strong style={statValue}>{modelosAtivos}</strong>
+        </div>
+
+        <div style={statCard}>
+          <span style={statLabel}>Inativos</span>
+          <strong style={statValue}>{modelosInativos}</strong>
+        </div>
+
+        <div style={statCard}>
+          <span style={statLabel}>Categorias</span>
+          <strong style={statValue}>{categorias.length}</strong>
+        </div>
+      </section>
+
+      <section style={card}>
+        <div style={sectionHeader}>
+          <div>
+            <h2 style={h2}>Categorias</h2>
+            <p style={smallText}>Organize os modelos por tipo de evento.</p>
+          </div>
+        </div>
+
+        <div style={categoryRow}>
           <input
             placeholder="Nova categoria: 15 anos, Casamento, Infantil..."
             value={novaCategoria}
@@ -252,18 +298,16 @@ export default function ModelosConvitePage() {
 
           <button
             onClick={criarCategoria}
-            style={btn}
+            style={btnGreen}
             disabled={salvandoCategoria}
           >
             {salvandoCategoria ? "Criando..." : "Criar categoria"}
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+        <div style={chips}>
           {categorias.length === 0 && (
-            <span style={{ color: "#94a3b8" }}>
-              Nenhuma categoria cadastrada.
-            </span>
+            <span style={emptyText}>Nenhuma categoria cadastrada.</span>
           )}
 
           {categorias.map((c) => (
@@ -272,253 +316,643 @@ export default function ModelosConvitePage() {
             </span>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div style={{ marginTop: 20, maxWidth: 760 }}>
-        <input
-          placeholder="Nome do modelo"
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          style={input}
-        />
+      <section style={editorGrid}>
+        <div style={card}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={h2}>
+                {editandoId ? "Editar modelo" : "Novo modelo"}
+              </h2>
+              <p style={smallText}>
+                Cadastre o HTML principal que será usado no convite.
+              </p>
+            </div>
 
-        <select
-          value={categoriaId}
-          onChange={(e) => setCategoriaId(e.target.value)}
-          style={input}
-        >
-          <option value="">Selecione a categoria</option>
-          {categorias.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nome}
-            </option>
-          ))}
-        </select>
+            {editandoId && <span style={editBadge}>Editando</span>}
+          </div>
 
-        <input
-          placeholder="Slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
-          style={input}
-        />
+          <div style={formGrid}>
+            <label style={field}>
+              <span style={label}>Nome do modelo</span>
+              <input
+                placeholder="Ex: Convite Luxo 15 anos"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                style={input}
+              />
+            </label>
 
-        <input
-          placeholder="Preview (URL da imagem)"
-          value={preview}
-          onChange={(e) => setPreview(e.target.value)}
-          style={input}
-        />
-
-        <textarea
-          placeholder="Cole aqui o código HTML do modelo..."
-          value={htmlTemplate}
-          onChange={(e) => setHtmlTemplate(e.target.value)}
-          style={textarea}
-        />
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={editandoId ? salvarEdicao : criarTemplate}
-            style={btn}
-            disabled={loading}
-          >
-            {loading
-              ? "Salvando..."
-              : editandoId
-              ? "Salvar alteração"
-              : "Criar modelo"}
-          </button>
-
-          {editandoId && (
-            <button
-              onClick={limparFormulario}
-              style={{ ...btn, background: "#475569" }}
-            >
-              Cancelar edição
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div style={{ marginTop: 40 }}>
-        <h2>Modelos criados</h2>
-
-        <div style={{ display: "grid", gap: 20, marginTop: 20 }}>
-          {templates.map((t) => (
-            <div key={t.id} style={card}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 20,
-                }}
+            <label style={field}>
+              <span style={label}>Categoria</span>
+              <select
+                value={categoriaId}
+                onChange={(e) => setCategoriaId(e.target.value)}
+                style={input}
               >
+                <option value="">Selecione a categoria</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={field}>
+              <span style={label}>Slug</span>
+              <input
+                placeholder="convite-luxo-15-anos"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                style={input}
+              />
+            </label>
+
+            <label style={field}>
+              <span style={label}>Preview URL</span>
+              <input
+                placeholder="https://..."
+                value={preview}
+                onChange={(e) => setPreview(e.target.value)}
+                style={input}
+              />
+            </label>
+          </div>
+
+          <label style={field}>
+            <span style={label}>Código HTML</span>
+            <textarea
+              placeholder="Cole aqui o código HTML do modelo..."
+              value={htmlTemplate}
+              onChange={(e) => setHtmlTemplate(e.target.value)}
+              style={textarea}
+            />
+          </label>
+
+          <div style={actionsBar}>
+            <button
+              onClick={editandoId ? salvarEdicao : criarTemplate}
+              style={btnPrimary}
+              disabled={loading}
+            >
+              {loading
+                ? "Salvando..."
+                : editandoId
+                ? "Salvar alteração"
+                : "Criar modelo"}
+            </button>
+
+            <button onClick={limparFormulario} style={btnGhost}>
+              Limpar
+            </button>
+          </div>
+        </div>
+
+        <aside style={previewCard}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={h2}>Preview ao vivo</h2>
+              <p style={smallText}>
+                Veja como o HTML renderiza antes de salvar.
+              </p>
+            </div>
+          </div>
+
+          <div style={previewMeta}>
+            <span style={previewName}>{nome || "Modelo sem nome"}</span>
+            <span style={previewCategory}>
+              {categoriaSelecionada?.nome || "Sem categoria"}
+            </span>
+          </div>
+
+          {preview && !htmlTemplate ? (
+            <img src={preview} alt="Preview do modelo" style={previewImage} />
+          ) : htmlTemplate ? (
+            <iframe
+              title="Preview do modelo"
+              srcDoc={htmlTemplate}
+              style={iframePreview}
+            />
+          ) : (
+            <div style={emptyPreview}>
+              <div style={emptyIcon}>✦</div>
+              <strong>Preview vazio</strong>
+              <span>Cole um HTML ou informe uma imagem de preview.</span>
+            </div>
+          )}
+        </aside>
+      </section>
+
+      <section style={modelsSection}>
+        <div style={sectionHeader}>
+          <div>
+            <h2 style={h2}>Modelos cadastrados</h2>
+            <p style={smallText}>
+              Gerencie status, edição, duplicação e exclusão dos templates.
+            </p>
+          </div>
+        </div>
+
+        <div style={modelsGrid}>
+          {templates.length === 0 && (
+            <div style={emptyList}>Nenhum modelo cadastrado ainda.</div>
+          )}
+
+          {templates.map((t) => (
+            <article key={t.id} style={modelCard}>
+              <div style={modelTop}>
                 <div>
-                  <strong>{t.nome || t.name}</strong>
-
-                  <div style={{ opacity: 0.6, marginTop: 5 }}>
-                    /{t.slug}
-                  </div>
-
-                  <div style={{ marginTop: 6, color: "#c4b5fd" }}>
-                    Categoria: {t.categoria?.nome || "Sem categoria"}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 8,
-                      color: t.active ? "#22c55e" : "#ef4444",
-                    }}
-                  >
-                    {t.active ? "Ativo" : "Inativo"}
-                  </div>
-
-                  <div style={{ marginTop: 8, opacity: 0.7 }}>
-                    HTML: {t.html_template ? "cadastrado" : "não cadastrado"}
-                  </div>
+                  <strong style={modelTitle}>{t.nome || t.name}</strong>
+                  <div style={modelSlug}>/{t.slug}</div>
                 </div>
 
-                <div
+                <span
                   style={{
-                    display: "flex",
-                    gap: 10,
-                    flexWrap: "wrap",
-                    justifyContent: "flex-end",
+                    ...statusBadge,
+                    background: t.active ? "#dcfce7" : "#fee2e2",
+                    color: t.active ? "#166534" : "#991b1b",
                   }}
                 >
-                  <button
-                    onClick={() => editarTemplate(t)}
-                    style={{ ...btnSmall, background: "#2563eb" }}
-                  >
-                    Editar
-                  </button>
+                  {t.active ? "Ativo" : "Inativo"}
+                </span>
+              </div>
 
-                  <button
-                    onClick={() => duplicarTemplate(t)}
-                    style={{ ...btnSmall, background: "#7c3aed" }}
-                  >
-                    Duplicar
-                  </button>
-
-                  <button
-                    onClick={() => alternarStatus(t.id, t.active)}
-                    style={{
-                      ...btnSmall,
-                      background: t.active ? "#ef4444" : "#22c55e",
-                    }}
-                  >
-                    {t.active ? "Desativar" : "Ativar"}
-                  </button>
-
-                  <button
-                    onClick={() => deletarTemplate(t.id)}
-                    style={{ ...btnSmall, background: "#991b1b" }}
-                  >
-                    Excluir
-                  </button>
-                </div>
+              <div style={modelInfo}>
+                <span>{t.categoria?.nome || "Sem categoria"}</span>
+                <span>{t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
               </div>
 
               {t.preview_image ? (
                 <img
                   src={t.preview_image}
                   alt={t.nome || t.name || "Preview do modelo"}
-                  style={{
-                    width: "100%",
-                    maxHeight: 280,
-                    objectFit: "cover",
-                    marginTop: 14,
-                    borderRadius: 10,
-                    opacity: 0.9,
-                  }}
+                  style={modelImage}
                 />
               ) : t.html_template ? (
                 <iframe
                   title={`Preview ${t.nome || t.name}`}
                   srcDoc={t.html_template}
-                  style={{
-                    width: "100%",
-                    height: 720,
-                    marginTop: 18,
-                    borderRadius: 16,
-                    border: "1px solid #334155",
-                    background: "#020617",
-                  }}
+                  style={miniFrame}
                 />
-              ) : null}
-            </div>
+              ) : (
+                <div style={miniEmpty}>Sem preview</div>
+              )}
+
+              <div style={modelActions}>
+                <button onClick={() => editarTemplate(t)} style={btnBlue}>
+                  Editar
+                </button>
+
+                <button onClick={() => duplicarTemplate(t)} style={btnPurple}>
+                  Duplicar
+                </button>
+
+                <button
+                  onClick={() => alternarStatus(t.id, t.active)}
+                  style={btnSoft}
+                >
+                  {t.active ? "Desativar" : "Ativar"}
+                </button>
+
+                <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>
+                  Excluir
+                </button>
+              </div>
+            </article>
           ))}
         </div>
-      </div>
+      </section>
     </main>
   );
 }
 
+const page: React.CSSProperties = {
+  maxWidth: 1320,
+  margin: "0 auto",
+  padding: "34px 34px 60px",
+  color: "#0f172a",
+};
+
+const hero: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 24,
+  marginBottom: 22,
+};
+
+const eyebrow: React.CSSProperties = {
+  display: "inline-flex",
+  padding: "6px 10px",
+  borderRadius: 999,
+  background: "#f5f3ff",
+  color: "#7c3aed",
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10,
+};
+
+const h1: React.CSSProperties = {
+  margin: 0,
+  fontSize: 42,
+  lineHeight: 1.05,
+  letterSpacing: "-0.04em",
+};
+
+const subtitle: React.CSSProperties = {
+  maxWidth: 680,
+  marginTop: 10,
+  color: "#64748b",
+  fontSize: 16,
+  lineHeight: 1.6,
+};
+
+const statsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 14,
+  marginBottom: 18,
+};
+
+const statCard: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: "0 12px 34px rgba(15, 23, 42, 0.06)",
+};
+
+const statLabel: React.CSSProperties = {
+  display: "block",
+  color: "#64748b",
+  fontSize: 13,
+  marginBottom: 8,
+};
+
+const statValue: React.CSSProperties = {
+  display: "block",
+  fontSize: 28,
+  letterSpacing: "-0.04em",
+};
+
+const card: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 22,
+  padding: 22,
+  boxShadow: "0 18px 50px rgba(15, 23, 42, 0.07)",
+};
+
+const sectionHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 16,
+};
+
+const h2: React.CSSProperties = {
+  margin: 0,
+  fontSize: 20,
+  letterSpacing: "-0.02em",
+};
+
+const smallText: React.CSSProperties = {
+  margin: "6px 0 0",
+  color: "#64748b",
+  fontSize: 14,
+};
+
+const categoryRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr auto",
+  gap: 10,
+};
+
+const chips: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 14,
+};
+
+const pill: React.CSSProperties = {
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "#f5f3ff",
+  color: "#6d28d9",
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const emptyText: React.CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 14,
+};
+
+const editorGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.05fr 0.95fr",
+  gap: 18,
+  marginTop: 18,
+  alignItems: "start",
+};
+
+const formGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 14,
+};
+
+const field: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 7,
+};
+
+const label: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 800,
+  color: "#334155",
+};
+
 const input: React.CSSProperties = {
   width: "100%",
-  padding: 12,
-  marginTop: 10,
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "#fff",
+  minHeight: 46,
+  padding: "0 13px",
+  borderRadius: 12,
+  border: "1px solid #dbe3ef",
+  background: "#ffffff",
+  color: "#0f172a",
+  outline: "none",
+  fontSize: 14,
 };
 
 const textarea: React.CSSProperties = {
   width: "100%",
-  minHeight: 260,
-  padding: 12,
-  marginTop: 10,
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "#fff",
-  fontFamily: "monospace",
+  minHeight: 280,
+  padding: 14,
+  marginTop: 14,
+  borderRadius: 14,
+  border: "1px solid #dbe3ef",
+  background: "#0b1020",
+  color: "#e5e7eb",
+  fontFamily:
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  fontSize: 13,
+  lineHeight: 1.6,
   resize: "vertical",
+  outline: "none",
 };
 
-const btn: React.CSSProperties = {
-  marginTop: 10,
-  padding: "12px 16px",
-  borderRadius: 10,
-  background: "#22c55e",
+const actionsBar: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  marginTop: 16,
+  flexWrap: "wrap",
+};
+
+const btnPrimary: React.CSSProperties = {
+  minHeight: 44,
+  padding: "0 18px",
+  borderRadius: 12,
+  background: "linear-gradient(135deg, #7c3aed, #5b21b6)",
   border: "none",
-  color: "#fff",
-  fontWeight: "bold",
+  color: "#ffffff",
+  fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "0 12px 26px rgba(124, 58, 237, 0.24)",
   whiteSpace: "nowrap",
 };
 
-const btnSmall: React.CSSProperties = {
-  padding: "10px 14px",
+const btnGreen: React.CSSProperties = {
+  ...btnPrimary,
+  background: "linear-gradient(135deg, #22c55e, #16a34a)",
+  boxShadow: "0 12px 26px rgba(34, 197, 94, 0.22)",
+};
+
+const btnGhost: React.CSSProperties = {
+  minHeight: 44,
+  padding: "0 18px",
+  borderRadius: 12,
+  background: "#f1f5f9",
+  border: "1px solid #e2e8f0",
+  color: "#334155",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const editBadge: React.CSSProperties = {
+  padding: "7px 10px",
+  borderRadius: 999,
+  background: "#fff7ed",
+  color: "#c2410c",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
+const previewCard: React.CSSProperties = {
+  ...card,
+  position: "sticky",
+  top: 20,
+};
+
+const previewMeta: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  alignItems: "center",
+  padding: "12px 14px",
+  borderRadius: 14,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  marginBottom: 14,
+};
+
+const previewName: React.CSSProperties = {
+  fontWeight: 900,
+  color: "#0f172a",
+};
+
+const previewCategory: React.CSSProperties = {
+  color: "#7c3aed",
+  fontWeight: 800,
+  fontSize: 12,
+};
+
+const iframePreview: React.CSSProperties = {
+  width: "100%",
+  height: 560,
+  borderRadius: 18,
+  border: "1px solid #e2e8f0",
+  background: "#020617",
+};
+
+const previewImage: React.CSSProperties = {
+  width: "100%",
+  height: 560,
+  objectFit: "cover",
+  borderRadius: 18,
+  border: "1px solid #e2e8f0",
+};
+
+const emptyPreview: React.CSSProperties = {
+  height: 560,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  color: "#94a3b8",
+  background:
+    "radial-gradient(circle at 50% 0%, #f5f3ff 0, #ffffff 45%, #f8fafc 100%)",
+  border: "1px dashed #cbd5e1",
+  borderRadius: 18,
+  textAlign: "center",
+};
+
+const emptyIcon: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 14,
+  display: "grid",
+  placeItems: "center",
+  background: "#f5f3ff",
+  color: "#7c3aed",
+  fontSize: 22,
+};
+
+const modelsSection: React.CSSProperties = {
+  marginTop: 24,
+};
+
+const modelsGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+  gap: 16,
+};
+
+const modelCard: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 20,
+  padding: 16,
+  boxShadow: "0 14px 36px rgba(15, 23, 42, 0.06)",
+};
+
+const modelTop: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  alignItems: "flex-start",
+};
+
+const modelTitle: React.CSSProperties = {
+  display: "block",
+  fontSize: 16,
+  color: "#0f172a",
+};
+
+const modelSlug: React.CSSProperties = {
+  marginTop: 4,
+  fontSize: 13,
+  color: "#64748b",
+};
+
+const statusBadge: React.CSSProperties = {
+  padding: "6px 9px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const modelInfo: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  marginTop: 14,
+  color: "#64748b",
+  fontSize: 13,
+};
+
+const modelImage: React.CSSProperties = {
+  width: "100%",
+  height: 190,
+  objectFit: "cover",
+  marginTop: 14,
+  borderRadius: 16,
+  border: "1px solid #e2e8f0",
+};
+
+const miniFrame: React.CSSProperties = {
+  width: "100%",
+  height: 190,
+  marginTop: 14,
+  borderRadius: 16,
+  border: "1px solid #e2e8f0",
+  background: "#020617",
+};
+
+const miniEmpty: React.CSSProperties = {
+  height: 190,
+  marginTop: 14,
+  borderRadius: 16,
+  display: "grid",
+  placeItems: "center",
+  color: "#94a3b8",
+  border: "1px dashed #cbd5e1",
+  background: "#f8fafc",
+};
+
+const modelActions: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 14,
+};
+
+const btnBaseSmall: React.CSSProperties = {
+  minHeight: 36,
+  padding: "0 11px",
   borderRadius: 10,
   border: "none",
-  color: "#fff",
-  fontWeight: "bold",
+  fontWeight: 800,
   cursor: "pointer",
-  height: 42,
 };
 
-const card: React.CSSProperties = {
-  border: "1px solid #334155",
-  borderRadius: 12,
-  padding: 15,
-  background: "#020617",
+const btnBlue: React.CSSProperties = {
+  ...btnBaseSmall,
+  background: "#2563eb",
+  color: "#fff",
 };
 
-const sectionCard: React.CSSProperties = {
-  marginTop: 20,
-  maxWidth: 760,
-  padding: 16,
-  borderRadius: 14,
-  border: "1px solid #334155",
-  background: "#020617",
+const btnPurple: React.CSSProperties = {
+  ...btnBaseSmall,
+  background: "#7c3aed",
+  color: "#fff",
 };
 
-const pill: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "#1e293b",
-  color: "#c4b5fd",
-  fontSize: 13,
+const btnSoft: React.CSSProperties = {
+  ...btnBaseSmall,
+  background: "#f1f5f9",
+  color: "#334155",
+};
+
+const btnDanger: React.CSSProperties = {
+  ...btnBaseSmall,
+  background: "#fee2e2",
+  color: "#991b1b",
+};
+
+const emptyList: React.CSSProperties = {
+  gridColumn: "1 / -1",
+  padding: 24,
+  borderRadius: 18,
+  background: "#ffffff",
+  border: "1px dashed #cbd5e1",
+  color: "#94a3b8",
+  textAlign: "center",
 };
