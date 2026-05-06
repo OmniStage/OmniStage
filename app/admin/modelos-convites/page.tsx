@@ -666,6 +666,15 @@ export default function ModelosConvitePage() {
               </div>
 
               <div style={modelActions}>
+                <button
+                  onClick={() => {
+                    window.location.href = `/admin/modelos-convites/${t.id}/editor`;
+                  }}
+                  style={btnPurple}
+                >
+                  Editor Visual
+                </button>
+
                 <button onClick={() => editarTemplate(t)} style={btnBlue}>
                   Editar
                 </button>
