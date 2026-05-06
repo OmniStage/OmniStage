@@ -53,6 +53,9 @@ type VisualBlock = {
   visible: boolean;
 };
 
+const CANVAS_W = 430;
+const CANVAS_H = 920;
+
 export default function ConvitePublicoPage() {
   const params = useParams();
   const token = String(params.token || "");
@@ -62,6 +65,7 @@ export default function ConvitePublicoPage() {
 
   useEffect(() => {
     if (token) carregarConvite(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   async function carregarConvite(tokenUrl: string) {
@@ -134,7 +138,7 @@ export default function ConvitePublicoPage() {
       return;
     }
 
-    let nomesDoConvite = [convidado.nome];
+    let nomesDoConvite = [convidado.nome].filter(Boolean);
 
     if (convidado.grupo && convidado.tipo_convite === "grupo") {
       const { data: convidadosGrupo } = await supabase
@@ -145,17 +149,20 @@ export default function ConvitePublicoPage() {
         .order("nome");
 
       if (convidadosGrupo?.length) {
-        nomesDoConvite = convidadosGrupo.map((item) => item.nome);
+        nomesDoConvite = convidadosGrupo
+          .map((item) => item.nome)
+          .filter(Boolean);
       }
     }
 
+    if (!nomesDoConvite.length) {
+      nomesDoConvite = [convidado.nome || "Convidado"];
+    }
+
     let htmlDoEvento = "";
-
-    const htmlTemplate = template.html_template?.trim() || "";
     const isVisual = template.editor_mode === "visual";
-    const deveTentarVisual = isVisual || !htmlTemplate;
 
-    if (deveTentarVisual) {
+    if (isVisual) {
       const { data: blocksData, error: blocksError } = await supabase
         .from("invite_template_blocks")
         .select("*")
@@ -168,29 +175,22 @@ export default function ConvitePublicoPage() {
         return;
       }
 
-      const blocks = (blocksData || []) as VisualBlock[];
+      htmlDoEvento = renderizarConviteVisual(
+        template as Template,
+        evento as Evento,
+        (blocksData || []) as VisualBlock[],
+        nomesDoConvite,
+      );
+    } else if (template.html_template?.trim()) {
+      htmlDoEvento = preencherTemplate(
+        template.html_template,
+        evento as Evento,
+      );
 
-      if (blocks.length > 0) {
-        htmlDoEvento = renderizarConviteVisual(
-          template as Template,
-          evento as Evento,
-          blocks,
-          nomesDoConvite,
-        );
-      } else if (htmlTemplate) {
-        htmlDoEvento = preencherTemplate(htmlTemplate, evento as Evento);
-        htmlDoEvento = injetarConvidadosNoConvite(
-          htmlDoEvento,
-          nomesDoConvite,
-        );
-      } else {
-        setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
-        setLoading(false);
-        return;
-      }
-    } else if (htmlTemplate) {
-      htmlDoEvento = preencherTemplate(htmlTemplate, evento as Evento);
-      htmlDoEvento = injetarConvidadosNoConvite(htmlDoEvento, nomesDoConvite);
+      htmlDoEvento = injetarConvidadosNoConvite(
+        htmlDoEvento,
+        nomesDoConvite,
+      );
     } else {
       setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
       setLoading(false);
@@ -271,63 +271,86 @@ function renderizarConviteVisual(
     (block) => block.type === "guest_picker",
   );
 
+  const hasButtonBlock = blocksVisiveis.some((block) => block.type === "button");
+
   const blocksHtml = blocksVisiveis
     .map((block) => renderBlockVisual(block, evento, logo, nomesDoConvite))
     .join("");
 
-  const nomesHtml = nomesDoConvite
-    .map(
-      (nome) => `
-        <label class="name-option selected">
-          <input type="checkbox" checked name="guest-confirmation" />
-          <span>${escapeHtml(nome)}</span>
-        </label>
-      `,
-    )
-    .join("");
+  const nomesHtml = renderNomesHtml(nomesDoConvite);
 
   return `
     <!doctype html>
     <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <title>${escapeHtml(evento.nome || "Convite digital")}</title>
 
         <style>
           * { box-sizing: border-box; }
+
+          :root {
+            --scale: 1;
+            --canvas-w: ${CANVAS_W}px;
+            --canvas-h: ${CANVAS_H}px;
+            --viewport-padding-bottom: env(safe-area-inset-bottom, 0px);
+          }
 
           html, body {
             margin: 0;
             min-height: 100%;
             background: #020617;
             font-family: Arial, sans-serif;
-          }
-
-          body {
-            display: grid;
-            place-items: center;
             overflow-x: hidden;
           }
 
-          .phone-wrap {
-            width: min(100vw, 430px);
+          body {
+            display: block;
+            color: #ffffff;
+          }
+
+          .page-shell {
+            width: 100%;
             min-height: 100vh;
+            min-height: 100svh;
             display: flex;
             justify-content: center;
             align-items: flex-start;
             background: #020617;
+            overflow-x: hidden;
+            padding-bottom: var(--viewport-padding-bottom);
+          }
+
+          .scale-shell {
+            width: min(100vw, var(--canvas-w));
+            height: calc(var(--canvas-h) * var(--scale));
+            position: relative;
+            overflow: visible;
+            background: #020617;
+          }
+
+          .scale-stage {
+            width: var(--canvas-w);
+            height: var(--canvas-h);
+            transform: scale(var(--scale));
+            transform-origin: top center;
+            position: absolute;
+            left: 50%;
+            top: 0;
+            margin-left: calc(var(--canvas-w) / -2);
           }
 
           .invite-card {
             position: relative;
-            width: 430px;
-            min-height: 920px;
+            width: var(--canvas-w);
+            min-height: var(--canvas-h);
             overflow: hidden;
             background:
               radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%),
               linear-gradient(180deg,#0b1530,#211f63);
             color: #ffffff;
+            isolation: isolate;
           }
 
           .invite-bg {
@@ -411,29 +434,60 @@ function renderizarConviteVisual(
             position: absolute;
             left: 28px;
             right: 28px;
-            bottom: 82px;
+            bottom: ${hasButtonBlock ? "42px" : "96px"};
             z-index: 999;
+            min-height: 72px;
+            max-height: 230px;
             padding: 18px 20px;
             border-radius: 22px;
             background: rgba(15,23,42,.56);
             border: 1px solid rgba(255,255,255,.18);
             backdrop-filter: blur(10px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .guest-picker-block {
+            overflow: visible;
+          }
+
+          .guest-picker-inner {
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 10px;
+            padding: 8px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
           }
 
           .name-option {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: #ffffff;
+            color: inherit;
             font-weight: 900;
-            font-size: 20px;
-            margin: 10px 0;
+            font-size: inherit;
+            margin: 0;
+            line-height: 1.15;
+            min-height: 34px;
           }
 
           .name-option input {
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
             accent-color: #f7d477;
+          }
+
+          .name-option span {
+            display: block;
+            overflow-wrap: anywhere;
           }
 
           .hint-text {
@@ -453,7 +507,7 @@ function renderizarConviteVisual(
             left: 58px;
             right: 58px;
             bottom: 14px;
-            z-index: 999;
+            z-index: 1000;
             height: 46px;
             border: 0;
             border-radius: 999px;
@@ -461,49 +515,81 @@ function renderizarConviteVisual(
             color: #ffffff;
             font-weight: 950;
             font-size: 15px;
+            box-shadow: 0 18px 34px rgba(22, 163, 74, .32);
+          }
+
+          .confirm-btn:active {
+            transform: translateY(1px);
+          }
+
+          @media (max-width: 430px) {
+            .guest-box {
+              left: 22px;
+              right: 22px;
+            }
           }
         </style>
       </head>
 
       <body>
-        <div class="phone-wrap">
-          <main class="invite-card" data-convite-card>
-            ${background ? `<div class="invite-bg"></div>` : ""}
-            <div class="invite-glass"></div>
+        <div class="page-shell">
+          <div class="scale-shell">
+            <div class="scale-stage">
+              <main class="invite-card" data-convite-card>
+                ${background ? `<div class="invite-bg"></div>` : ""}
+                <div class="invite-glass"></div>
 
-            ${blocksHtml}
+                ${blocksHtml}
 
-            ${
-              hasGuestPicker
-                ? ""
-                : `
-                  <section class="guest-box" id="namePicker">
-                    ${nomesHtml}
-                  </section>
+                ${
+                  hasGuestPicker
+                    ? ""
+                    : `
+                      <section class="guest-box" id="namePicker">
+                        <div class="guest-picker-inner">
+                          ${nomesHtml}
+                        </div>
+                      </section>
 
-                  <div class="hint-text" id="hintText">
-                    Selecione os nomes para confirmar presença
-                  </div>
-                `
-            }
+                      <div class="hint-text" id="hintText">
+                        Selecione os nomes para confirmar presença
+                      </div>
+                    `
+                }
 
-            <button class="confirm-btn" id="confirmBtn">
-              CONFIRMAR PRESENÇA
-            </button>
+                ${
+                  hasButtonBlock
+                    ? ""
+                    : `
+                      <button class="confirm-btn" id="confirmBtn">
+                        CONFIRMAR PRESENÇA
+                      </button>
+                    `
+                }
 
-            ${
-              musica
-                ? `<audio id="bgMusic" loop preload="auto"><source src="${escapeAttr(
-                    musica,
-                  )}" /></audio>`
-                : ""
-            }
-          </main>
+                ${
+                  musica
+                    ? `<audio id="bgMusic" loop preload="auto"><source src="${escapeAttr(
+                        musica,
+                      )}" /></audio>`
+                    : ""
+                }
+              </main>
+            </div>
+          </div>
         </div>
 
         <script>
           window.__OMNISTAGE_EVENT_DATE__ = ${JSON.stringify(dataEvento)};
           window.__OMNISTAGE_EVENT_TIME__ = ${JSON.stringify(horarioEvento)};
+
+          function setResponsiveScale() {
+            var baseWidth = ${CANVAS_W};
+            var viewportWidth = Math.max(280, window.innerWidth || baseWidth);
+            var scale = Math.min(1, viewportWidth / baseWidth);
+
+            document.documentElement.style.setProperty("--scale", String(scale));
+          }
 
           function normalizarHorario(horario) {
             var value = String(horario || "00:00")
@@ -560,7 +646,14 @@ function renderizarConviteVisual(
             });
           }
 
+          setResponsiveScale();
           updateCountdown();
+
+          window.addEventListener("resize", setResponsiveScale);
+          window.addEventListener("orientationchange", function () {
+            setTimeout(setResponsiveScale, 250);
+          });
+
           setInterval(updateCountdown, 1000);
         </script>
       </body>
@@ -646,23 +739,20 @@ function renderBlockVisual(
   }
 
   if (block.type === "guest_picker") {
-    const nomesHtml = nomesDoConvite
-      .map(
-        (nome) => `
-          <label class="name-option selected">
-            <input type="checkbox" checked name="guest-confirmation" />
-            <span>${escapeHtml(nome)}</span>
-          </label>
-        `,
-      )
-      .join("");
-
     return `
       <div class="visual-block guest-picker-block" id="namePicker" style="${style}">
-        <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;padding:10px;box-sizing:border-box;">
-          ${nomesHtml}
+        <div class="guest-picker-inner">
+          ${renderNomesHtml(nomesDoConvite)}
         </div>
       </div>
+    `;
+  }
+
+  if (block.type === "button") {
+    return `
+      <button class="visual-block confirm-btn" id="confirmBtn" style="${style};border:0;cursor:pointer;">
+        ${escapeHtml(preencherTextoBloco(block.content || "CONFIRMAR PRESENÇA", evento))}
+      </button>
     `;
   }
 
@@ -683,6 +773,19 @@ function renderBlockVisual(
       ${escapeHtml(preencherTextoBloco(block.content || "", evento))}
     </div>
   `;
+}
+
+function renderNomesHtml(nomesDoConvite: string[]) {
+  return nomesDoConvite
+    .map(
+      (nome) => `
+        <label class="name-option selected">
+          <input type="checkbox" checked name="guest-confirmation" />
+          <span>${escapeHtml(nome)}</span>
+        </label>
+      `,
+    )
+    .join("");
 }
 
 function preencherTextoBloco(content: string, evento: Evento) {
