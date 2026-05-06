@@ -85,6 +85,94 @@ function createLocalId() {
   return `${Date.now()}-${Math.random()}`;
 }
 
+function renderDynamicContent(content: string | null) {
+  return String(content || "")
+    .replaceAll("{{nome_evento}}", "Valentina XV")
+    .replaceAll("{{nome_convidado}}", "Ursula Tavares")
+    .replaceAll("{{data_evento}}", "16/05/2026")
+    .replaceAll("{{hora_evento}}", "21h")
+    .replaceAll("{{local_evento}}", "Guerrah Hall")
+    .replaceAll("{{endereco_evento}}", "Macaé/RJ")
+    .replaceAll("{{link_rsvp}}", "Confirmar presença")
+    .replaceAll("{{qr_code}}", "QR")
+    .replaceAll("{{logo_evento}}", "Logo Evento");
+}
+
+function renderPreviewBlock(block: ConviteBlock) {
+  const shared: CSSProperties = {
+    position: "absolute",
+    left: block.x,
+    top: block.y,
+    width: block.width,
+    height: block.height,
+    zIndex: block.z_index,
+    boxSizing: "border-box",
+    borderRadius: block.border_radius,
+    color: block.color,
+    background: block.background || "transparent",
+    fontFamily: block.font_family,
+    fontSize: block.font_size,
+    fontWeight: 900,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    lineHeight: 1.12,
+    padding: block.type === "divider" ? 0 : 8,
+    overflow: "hidden",
+    whiteSpace: "pre-wrap",
+  };
+
+  if (block.type === "logo") {
+    return (
+      <div key={block.id} style={shared}>
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+            borderRadius: block.border_radius,
+            background:
+              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+          }}
+        >
+          <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
+            LOGO<br />EVENTO
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === "qr") {
+    return (
+      <div key={block.id} style={shared}>
+        <div
+          style={{
+            width: "78%",
+            height: "78%",
+            borderRadius: 8,
+            background:
+              "linear-gradient(90deg,#111 10px,transparent 10px) 0 0/22px 22px, linear-gradient(#111 10px,transparent 10px) 0 0/22px 22px, #fff",
+            opacity: 0.92,
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (block.type === "divider") {
+    return <div key={block.id} style={shared} />;
+  }
+
+  return (
+    <div key={block.id} style={shared}>
+      {renderDynamicContent(block.content)}
+    </div>
+  );
+}
+
 function defaultBlock(
   templateId: string,
   type: BlockType,
@@ -316,6 +404,7 @@ export default function EditorModeloConvitePage({
   const [template, setTemplate] = useState<TemplateData | null>(null);
   const [blocks, setBlocks] = useState<ConviteBlock[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewAoVivo, setPreviewAoVivo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -512,6 +601,13 @@ export default function EditorModeloConvitePage({
             }}
           >
             Voltar
+          </button>
+
+          <button
+            style={previewAoVivo ? primaryButton : buttonBase}
+            onClick={() => setPreviewAoVivo((prev) => !prev)}
+          >
+            {previewAoVivo ? "Editar layout" : "Preview ao vivo"}
           </button>
 
           <button style={primaryButton} onClick={salvarBlocos} disabled={saving}>
@@ -772,49 +868,60 @@ export default function EditorModeloConvitePage({
           ) : (
             <div style={phoneFrame}>
               <div style={canvas}>
-                {blocks
-                  .filter((b) => b.visible)
-                  .sort((a, b) => a.z_index - b.z_index)
-                  .map((block) => {
-                    const selected = selectedId === block.id;
+                {previewAoVivo ? (
+                  <>
+                    {blocks
+                      .filter((b) => b.visible)
+                      .sort((a, b) => a.z_index - b.z_index)
+                      .map((block) => renderPreviewBlock(block))}
+                  </>
+                ) : (
+                  <>
+                    {blocks
+                      .filter((b) => b.visible)
+                      .sort((a, b) => a.z_index - b.z_index)
+                      .map((block) => {
+                        const selected = selectedId === block.id;
 
-                    return (
-                      <Rnd
-                        key={block.id}
-                        size={{
-                          width: block.width,
-                          height: block.height,
-                        }}
-                        position={{
-                          x: block.x,
-                          y: block.y,
-                        }}
-                        bounds="parent"
-                        onMouseDown={() => setSelectedId(block.id)}
-                        onDragStop={(_, d) => {
-                          updateBlock(block.id, {
-                            x: Math.round(d.x),
-                            y: Math.round(d.y),
-                          });
-                        }}
-                        onResizeStop={(_, __, ref, ___, position) => {
-                          updateBlock(block.id, {
-                            width: Math.round(ref.offsetWidth),
-                            height: Math.round(ref.offsetHeight),
-                            x: Math.round(position.x),
-                            y: Math.round(position.y),
-                          });
-                        }}
-                        style={{
-                          zIndex: block.z_index,
-                        }}
-                      >
-                        {renderBlock(block, selected, (content) =>
-                          updateBlock(block.id, { content }),
-                        )}
-                      </Rnd>
-                    );
-                  })}
+                        return (
+                          <Rnd
+                            key={block.id}
+                            size={{
+                              width: block.width,
+                              height: block.height,
+                            }}
+                            position={{
+                              x: block.x,
+                              y: block.y,
+                            }}
+                            bounds="parent"
+                            onMouseDown={() => setSelectedId(block.id)}
+                            onDragStop={(_, d) => {
+                              updateBlock(block.id, {
+                                x: Math.round(d.x),
+                                y: Math.round(d.y),
+                              });
+                            }}
+                            onResizeStop={(_, __, ref, ___, position) => {
+                              updateBlock(block.id, {
+                                width: Math.round(ref.offsetWidth),
+                                height: Math.round(ref.offsetHeight),
+                                x: Math.round(position.x),
+                                y: Math.round(position.y),
+                              });
+                            }}
+                            style={{
+                              zIndex: block.z_index,
+                            }}
+                          >
+                            {renderBlock(block, selected, (content) =>
+                              updateBlock(block.id, { content }),
+                            )}
+                          </Rnd>
+                        );
+                      })}
+                  </>
+                )}
               </div>
             </div>
           )}
