@@ -257,7 +257,7 @@ function renderizarConviteVisual(
   );
 
   const blocksHtml = blocksVisiveis
-    .map((block) => renderBlockVisual(block, evento, logo, nomesDoConvite))
+    .map((block) => renderBlockVisual(block, evento, logo))
     .join("");
 
   const nomesHtml = nomesDoConvite
