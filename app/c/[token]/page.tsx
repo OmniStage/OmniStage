@@ -248,10 +248,16 @@ function renderizarConviteVisual(
   const dataEvento = evento.data_evento || "";
   const horarioEvento = evento.horario || "00:00";
 
-  const blocksHtml = blocks
+  const blocksVisiveis = blocks
     .filter((block) => block.visible !== false)
-    .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
-    .map((block) => renderBlockVisual(block, evento, logo))
+    .sort((a, b) => (a.z_index || 1) - (b.z_index || 1));
+
+  const hasGuestPicker = blocksVisiveis.some(
+    (block) => block.type === "guest_picker",
+  );
+
+  const blocksHtml = blocksVisiveis
+    .map((block) => renderBlockVisual(block, evento, logo, nomesDoConvite))
     .join("");
 
   const nomesHtml = nomesDoConvite
@@ -452,13 +458,19 @@ function renderizarConviteVisual(
 
             ${blocksHtml}
 
-            <section class="guest-box" id="namePicker">
-              ${nomesHtml}
-            </section>
+            ${
+              hasGuestPicker
+                ? ""
+                : `
+                  <section class="guest-box" id="namePicker">
+                    ${nomesHtml}
+                  </section>
 
-            <div class="hint-text" id="hintText">
-              Selecione os nomes para confirmar presença
-            </div>
+                  <div class="hint-text" id="hintText">
+                    Selecione os nomes para confirmar presença
+                  </div>
+                `
+            }
 
             <button class="confirm-btn" id="confirmBtn">
               CONFIRMAR PRESENÇA
@@ -612,6 +624,27 @@ function renderBlockVisual(
             )};">00</strong>
             <span class="countdown-label" style="font-size:${labelSize}px;">SEG</span>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (block.type === "guest_picker") {
+    const nomesHtml = nomesDoConvite
+      .map(
+        (nome) => `
+          <label class="name-option selected">
+            <input type="checkbox" checked name="guest-confirmation" />
+            <span>${escapeHtml(nome)}</span>
+          </label>
+        `,
+      )
+      .join("");
+
+    return `
+      <div class="visual-block guest-picker-block" id="namePicker" style="${style}">
+        <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;padding:10px;box-sizing:border-box;">
+          ${nomesHtml}
         </div>
       </div>
     `;
