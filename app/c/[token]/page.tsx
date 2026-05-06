@@ -187,10 +187,7 @@ export default function ConvitePublicoPage() {
         evento as Evento,
       );
 
-      htmlDoEvento = injetarConvidadosNoConvite(
-        htmlDoEvento,
-        nomesDoConvite,
-      );
+      htmlDoEvento = injetarConvidadosNoConvite(htmlDoEvento, nomesDoConvite);
     } else {
       setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
       setLoading(false);
@@ -232,6 +229,19 @@ export default function ConvitePublicoPage() {
   );
 }
 
+function getBlockEffect(visualConfig: any, blockId: string) {
+  const effect = visualConfig?.blockEffects?.[blockId];
+  return ["glow", "float", "pulse", "shine"].includes(effect) ? effect : "none";
+}
+
+function getEffectClass(effect: string) {
+  if (effect === "glow") return " fx-glow";
+  if (effect === "float") return " fx-float";
+  if (effect === "pulse") return " fx-pulse";
+  if (effect === "shine") return " fx-shine";
+  return "";
+}
+
 function renderizarConviteVisual(
   template: Template,
   evento: Evento,
@@ -262,6 +272,11 @@ function renderizarConviteVisual(
 
   const dataEvento = evento.data_evento || "";
   const horarioEvento = evento.horario || "00:00";
+  const backgroundEffect =
+    visualConfig.backgroundEffect === "cinema_zoom" ||
+    visualConfig.backgroundEffect === "parallax"
+      ? visualConfig.backgroundEffect
+      : "none";
 
   const blocksVisiveis = blocks
     .filter((block) => block.visible !== false)
@@ -271,10 +286,14 @@ function renderizarConviteVisual(
     (block) => block.type === "guest_picker",
   );
 
-  const hasButtonBlock = blocksVisiveis.some((block) => block.type === "button");
+  const hasButtonBlock = blocksVisiveis.some(
+    (block) => block.type === "button",
+  );
 
   const blocksHtml = blocksVisiveis
-    .map((block) => renderBlockVisual(block, evento, logo, nomesDoConvite))
+    .map((block) =>
+      renderBlockVisual(block, evento, logo, nomesDoConvite, visualConfig),
+    )
     .join("");
 
   const nomesHtml = renderNomesHtml(nomesDoConvite);
@@ -286,6 +305,8 @@ function renderizarConviteVisual(
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <title>${escapeHtml(evento.nome || "Convite digital")}</title>
+        ${background ? `<link rel="preload" as="image" href="${escapeAttr(background)}" />` : ""}
+        ${logo ? `<link rel="preload" as="image" href="${escapeAttr(logo)}" />` : ""}
 
         <style>
           * { box-sizing: border-box; }
@@ -346,21 +367,37 @@ function renderizarConviteVisual(
             width: var(--canvas-w);
             min-height: var(--canvas-h);
             overflow: hidden;
-            background:
-              radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%),
-              linear-gradient(180deg,#0b1530,#211f63);
+            background: #020617;
             color: #ffffff;
             isolation: isolate;
+            opacity: 0;
+            transition: opacity 260ms ease;
+          }
+
+          body.ready .invite-card {
+            opacity: 1;
+          }
+
+          .invite-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.06), transparent 32%), #020617;
           }
 
           .invite-bg {
             position: absolute;
             inset: 0;
             z-index: 0;
-            background-image: url("${safeCssUrl(background)}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+            overflow: hidden;
+          }
+
+          .invite-bg img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
             opacity: ${Number(visualConfig.backgroundOpacity ?? 1)};
             transform:
               translate(${Number(visualConfig.backgroundX || 0)}px, ${Number(
@@ -368,6 +405,19 @@ function renderizarConviteVisual(
               )}px)
               scale(${Number(visualConfig.backgroundScale || 1)});
             transform-origin: center;
+            will-change: transform;
+          }
+
+          .invite-bg.fx-bg-zoom img {
+            animation: bgCinemaZoom 18s ease-in-out infinite alternate;
+          }
+
+          .invite-bg.fx-bg-parallax img {
+            transform:
+              translate(calc(${Number(visualConfig.backgroundX || 0)}px + var(--parallax-x, 0px)), calc(${Number(
+                visualConfig.backgroundY || 0,
+              )}px + var(--parallax-y, 0px)))
+              scale(${Number(visualConfig.backgroundScale || 1) + 0.03});
           }
 
           .invite-glass {
@@ -522,6 +572,72 @@ function renderizarConviteVisual(
             transform: translateY(1px);
           }
 
+          .fx-glow {
+            animation: fxGlow 2.8s ease-in-out infinite;
+          }
+
+          .fx-float {
+            animation: fxFloat 4.2s ease-in-out infinite;
+          }
+
+          .fx-pulse {
+            animation: fxPulse 2.4s ease-in-out infinite;
+          }
+
+          .fx-shine {
+            position: absolute;
+          }
+
+          .fx-shine::after {
+            content: "";
+            position: absolute;
+            inset: -35%;
+            background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,.22) 48%, transparent 58%);
+            transform: translateX(-75%) rotate(8deg);
+            animation: fxShine 3.8s ease-in-out infinite;
+            pointer-events: none;
+          }
+
+          @keyframes fxGlow {
+            0%, 100% { filter: drop-shadow(0 0 6px rgba(247,212,119,.28)); }
+            50% { filter: drop-shadow(0 0 18px rgba(247,212,119,.68)); }
+          }
+
+          @keyframes fxFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-7px); }
+          }
+
+          @keyframes fxPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.025); }
+          }
+
+          @keyframes fxShine {
+            0%, 55% { transform: translateX(-75%) rotate(8deg); opacity: 0; }
+            65% { opacity: 1; }
+            100% { transform: translateX(75%) rotate(8deg); opacity: 0; }
+          }
+
+          @keyframes bgCinemaZoom {
+            0% { transform: translate(${Number(visualConfig.backgroundX || 0)}px, ${Number(
+              visualConfig.backgroundY || 0,
+            )}px) scale(${Number(visualConfig.backgroundScale || 1)}); }
+            100% { transform: translate(${Number(visualConfig.backgroundX || 0)}px, ${Number(
+              visualConfig.backgroundY || 0,
+            )}px) scale(${Number(visualConfig.backgroundScale || 1) + 0.08}); }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .fx-glow,
+            .fx-float,
+            .fx-pulse,
+            .fx-shine::after,
+            .invite-bg.fx-bg-zoom img {
+              animation: none !important;
+            }
+          }
+
           @media (max-width: 430px) {
             .guest-box {
               left: 22px;
@@ -536,7 +652,7 @@ function renderizarConviteVisual(
           <div class="scale-shell">
             <div class="scale-stage">
               <main class="invite-card" data-convite-card>
-                ${background ? `<div class="invite-bg"></div>` : ""}
+                ${background ? `<div class="invite-bg ${backgroundEffect === "cinema_zoom" ? "fx-bg-zoom" : backgroundEffect === "parallax" ? "fx-bg-parallax" : ""}"><img src="${escapeAttr(background)}" alt="" /></div>` : ""}
                 <div class="invite-glass"></div>
 
                 ${blocksHtml}
@@ -646,8 +762,46 @@ function renderizarConviteVisual(
             });
           }
 
+          function markReadyWhenAssetsLoad() {
+            var bg = document.querySelector(".invite-bg img");
+            if (!bg) {
+              document.body.classList.add("ready");
+              return;
+            }
+
+            if (bg.complete) {
+              document.body.classList.add("ready");
+              return;
+            }
+
+            bg.addEventListener("load", function () {
+              document.body.classList.add("ready");
+            }, { once: true });
+
+            bg.addEventListener("error", function () {
+              document.body.classList.add("ready");
+            }, { once: true });
+
+            setTimeout(function () {
+              document.body.classList.add("ready");
+            }, 1200);
+          }
+
+          function setupParallax() {
+            if (${JSON.stringify(backgroundEffect)} !== "parallax") return;
+
+            window.addEventListener("mousemove", function (event) {
+              var x = ((event.clientX / Math.max(1, window.innerWidth)) - 0.5) * 10;
+              var y = ((event.clientY / Math.max(1, window.innerHeight)) - 0.5) * 10;
+              document.documentElement.style.setProperty("--parallax-x", x.toFixed(2) + "px");
+              document.documentElement.style.setProperty("--parallax-y", y.toFixed(2) + "px");
+            });
+          }
+
           setResponsiveScale();
           updateCountdown();
+          markReadyWhenAssetsLoad();
+          setupParallax();
 
           window.addEventListener("resize", setResponsiveScale);
           window.addEventListener("orientationchange", function () {
@@ -666,7 +820,9 @@ function renderBlockVisual(
   evento: Evento,
   logoEvento: string,
   nomesDoConvite: string[],
+  visualConfig: any,
 ) {
+  const effectClass = getEffectClass(getBlockEffect(visualConfig, block.id));
   const style = `
     left:${Number(block.x || 0)}px;
     top:${Number(block.y || 0)}px;
@@ -689,7 +845,7 @@ function renderBlockVisual(
 
   if (block.type === "logo") {
     return `
-      <div class="visual-block" style="${style}">
+      <div class="visual-block${effectClass}" style="${style}">
         ${
           logoEvento
             ? `<img src="${escapeAttr(logoEvento)}" alt="Logo do evento" style="width:100%;height:100%;object-fit:contain;display:block;" />`
@@ -704,7 +860,7 @@ function renderBlockVisual(
     const labelSize = Math.max(8, Math.round(numberSize * 0.28));
 
     return `
-      <div class="visual-block" style="${style}">
+      <div class="visual-block${effectClass}" style="${style}">
         <div class="countdown-grid">
           <div class="countdown-item">
             <strong class="countdown-number" data-countdown-dias style="font-size:${numberSize}px;color:${escapeCssValue(
@@ -740,7 +896,7 @@ function renderBlockVisual(
 
   if (block.type === "guest_picker") {
     return `
-      <div class="visual-block guest-picker-block" id="namePicker" style="${style}">
+      <div class="visual-block guest-picker-block${effectClass}" id="namePicker" style="${style}">
         <div class="guest-picker-inner">
           ${renderNomesHtml(nomesDoConvite)}
         </div>
@@ -750,7 +906,7 @@ function renderBlockVisual(
 
   if (block.type === "button") {
     return `
-      <button class="visual-block confirm-btn" id="confirmBtn" style="${style};border:0;cursor:pointer;">
+      <button class="visual-block confirm-btn${effectClass}" id="confirmBtn" style="${style};border:0;cursor:pointer;">
         ${escapeHtml(preencherTextoBloco(block.content || "CONFIRMAR PRESENÇA", evento))}
       </button>
     `;
@@ -758,18 +914,18 @@ function renderBlockVisual(
 
   if (block.type === "qr") {
     return `
-      <div class="visual-block" style="${style}">
+      <div class="visual-block${effectClass}" style="${style}">
         <div style="width:78%;height:78%;border-radius:8px;background:#fff;"></div>
       </div>
     `;
   }
 
   if (block.type === "divider") {
-    return `<div class="visual-block" style="${style}"></div>`;
+    return `<div class="visual-block${effectClass}" style="${style}"></div>`;
   }
 
   return `
-    <div class="visual-block" style="${style}">
+    <div class="visual-block${effectClass}" style="${style}">
       ${escapeHtml(preencherTextoBloco(block.content || "", evento))}
     </div>
   `;
@@ -861,3 +1017,4 @@ function escapeCssValue(value: string) {
 function safeCssUrl(value: string) {
   return String(value || "").replace(/["'()<>]/g, "");
 }
+
