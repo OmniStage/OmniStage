@@ -64,27 +64,6 @@ function criarEventoDemo(t?: any) {
   };
 }
 
-async function gerarPreviewAutomatico(templateId: string, html: string) {
-  const response = await fetch("/api/admin/render-template-preview", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      templateId,
-      html,
-    }),
-  });
-
-  const result = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(result?.error || "Erro ao gerar preview automático.");
-  }
-
-  return result?.preview_image || null;
-}
-
 function escapeHtmlString(value: string | null | undefined) {
   return String(value || "")
     .replaceAll("&", "&amp;")
