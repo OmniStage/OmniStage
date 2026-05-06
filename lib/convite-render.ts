@@ -11,8 +11,11 @@ export type EventoConvite = {
   endereco?: string | null;
   mapa_url?: string | null;
   background_image?: string | null;
+  background_url?: string | null;
   logo_image?: string | null;
+  logo_url?: string | null;
   music_file?: string | null;
+  musica_url?: string | null;
 };
 
 export function formatarData(data: string | null) {
@@ -90,16 +93,22 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     ENDERECO_EVENTO: evento.endereco || "",
     mapa_url: evento.mapa_url || "",
     MAPA_URL: evento.mapa_url || "",
-    background_image: evento.background_image || "",
-    BACKGROUND_IMAGE: evento.background_image || "",
-    logo_image: evento.logo_image || "",
-    LOGO_IMAGE: evento.logo_image || "",
-    logo_evento: evento.logo_image || "",
-    LOGO_EVENTO: evento.logo_image || "",
-    music_file: evento.music_file || "",
-    MUSIC_FILE: evento.music_file || "",
-    musica_evento: evento.music_file || "",
-    MUSICA_EVENTO: evento.music_file || "",
+    background_image: evento.background_url || evento.background_image || "",
+    BACKGROUND_IMAGE: evento.background_url || evento.background_image || "",
+    background_url: evento.background_url || evento.background_image || "",
+    BACKGROUND_URL: evento.background_url || evento.background_image || "",
+    logo_image: evento.logo_url || evento.logo_image || "",
+    LOGO_IMAGE: evento.logo_url || evento.logo_image || "",
+    logo_url: evento.logo_url || evento.logo_image || "",
+    LOGO_URL: evento.logo_url || evento.logo_image || "",
+    logo_evento: evento.logo_url || evento.logo_image || "",
+    LOGO_EVENTO: evento.logo_url || evento.logo_image || "",
+    music_file: evento.musica_url || evento.music_file || "",
+    MUSIC_FILE: evento.musica_url || evento.music_file || "",
+    musica_url: evento.musica_url || evento.music_file || "",
+    MUSICA_URL: evento.musica_url || evento.music_file || "",
+    musica_evento: evento.musica_url || evento.music_file || "",
+    MUSICA_EVENTO: evento.musica_url || evento.music_file || "",
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
@@ -152,9 +161,9 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
         horario: horarioFormatado,
         local,
         mapa: evento.mapa_url || "",
-        logo: evento.logo_image || "",
-        fundo: evento.background_image || "",
-        musica: evento.music_file || "",
+        logo: evento.logo_url || evento.logo_image || "",
+        fundo: evento.background_url || evento.background_image || "",
+        musica: evento.musica_url || evento.music_file || "",
         timestamp: eventTimestamp,
       })};
 
@@ -239,12 +248,45 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           logo.style.objectFit = "contain";
           logo.style.margin = "20px auto";
 
+          // 1) Preferência: slot oficial do template.
           if (slotLogo) {
             slotLogo.innerHTML = "";
             slotLogo.appendChild(logo);
             return;
           }
 
+          // 2) Substitui o título principal do evento pela logomarca.
+          var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
+          var candidatos = Array.from(
+            document.querySelectorAll("h1,h2,h3,.title,.event-title,.main-title")
+          );
+
+          var tituloEncontrado = candidatos.find(function (el) {
+            if (el.querySelector("[data-logo-evento]")) return false;
+            if (el.getAttribute("data-slot") === "logo") return false;
+
+            var texto = (el.textContent || "")
+              .trim()
+              .replace(/\s+/g, " ")
+              .toLowerCase();
+
+            if (!texto) return false;
+
+            return (
+              (nomeEvento && (texto === nomeEvento || texto.includes(nomeEvento))) ||
+              texto.includes("valentina") ||
+              texto.includes("theo") ||
+              texto.includes("anos")
+            );
+          });
+
+          if (tituloEncontrado) {
+            tituloEncontrado.innerHTML = "";
+            tituloEncontrado.appendChild(logo);
+            return;
+          }
+
+          // 3) Fallback: remove títulos duplicados e injeta no início do card.
           removerTitulosDuplicados();
 
           if (card) {
