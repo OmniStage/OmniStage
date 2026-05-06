@@ -577,6 +577,49 @@ export default function EditorModeloConvitePage({
     updateBlock(selectedBlock.id, { z_index: nextZ });
   }
 
+
+  async function uploadPreviewAsset(
+    file: File,
+    tipo: "background" | "logo" | "musica",
+  ) {
+    const ext = file.name.split(".").pop() || "asset";
+    const safeName = file.name
+      .replace(/\.[^/.]+$/, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9-_]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
+
+    const filePath = `${templateId}/${tipo}/${Date.now()}-${safeName}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from("invite-assets")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (error) {
+      alert(`Erro ao subir ${tipo}: ${error.message}`);
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("invite-assets")
+      .getPublicUrl(filePath);
+
+    const publicUrl = data.publicUrl;
+
+    if (tipo === "background") setBackgroundPreviewUrl(publicUrl);
+    if (tipo === "logo") setLogoPreviewUrl(publicUrl);
+    if (tipo === "musica") {
+      setMusicaPreviewUrl(publicUrl);
+      setMusicaTocando(false);
+    }
+  }
+
   async function salvarBlocos() {
     setSaving(true);
 
@@ -708,36 +751,84 @@ export default function EditorModeloConvitePage({
           <h2 style={panelTitle}>Arquivos do preview</h2>
           <div style={editStack}>
             <label style={field}>
-              <span style={label}>Background do convite URL</span>
+              <span style={label}>Background do convite</span>
               <input
-                value={backgroundPreviewUrl}
-                placeholder="https://.../background.png"
-                onChange={(e) => setBackgroundPreviewUrl(e.target.value)}
-                style={input}
-              />
-            </label>
-
-            <label style={field}>
-              <span style={label}>Logomarca do evento URL</span>
-              <input
-                value={logoPreviewUrl}
-                placeholder="https://.../logo.png"
-                onChange={(e) => setLogoPreviewUrl(e.target.value)}
-                style={input}
-              />
-            </label>
-
-            <label style={field}>
-              <span style={label}>Música do convite URL</span>
-              <input
-                value={musicaPreviewUrl}
-                placeholder="https://.../musica.mp3"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 onChange={(e) => {
-                  setMusicaPreviewUrl(e.target.value);
-                  setMusicaTocando(false);
+                  const file = e.target.files?.[0];
+                  if (file) uploadPreviewAsset(file, "background");
+                  e.currentTarget.value = "";
                 }}
-                style={input}
+                style={fileInput}
               />
+              {backgroundPreviewUrl && (
+                <div style={assetPreviewLine}>
+                  <span>Background carregado</span>
+                  <button
+                    type="button"
+                    style={linkButton}
+                    onClick={() => setBackgroundPreviewUrl("")}
+                  >
+                    remover
+                  </button>
+                </div>
+              )}
+            </label>
+
+            <label style={field}>
+              <span style={label}>Logomarca do evento</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadPreviewAsset(file, "logo");
+                  e.currentTarget.value = "";
+                }}
+                style={fileInput}
+              />
+              {logoPreviewUrl && (
+                <div style={assetPreviewLine}>
+                  <span>Logo carregada</span>
+                  <button
+                    type="button"
+                    style={linkButton}
+                    onClick={() => setLogoPreviewUrl("")}
+                  >
+                    remover
+                  </button>
+                </div>
+              )}
+            </label>
+
+            <label style={field}>
+              <span style={label}>Música do convite</span>
+              <input
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/mp4"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadPreviewAsset(file, "musica");
+                  e.currentTarget.value = "";
+                }}
+                style={fileInput}
+              />
+              {musicaPreviewUrl && (
+                <div style={assetPreviewLine}>
+                  <span>Música carregada</span>
+                  <button
+                    type="button"
+                    style={linkButton}
+                    onClick={() => {
+                      setMusicaPreviewUrl("");
+                      setMusicaTocando(false);
+                    }}
+                  >
+                    remover
+                  </button>
+                </div>
+              )}
             </label>
 
             {musicaPreviewUrl && (
@@ -1182,6 +1273,40 @@ const textarea: CSSProperties = {
   padding: 10,
   boxSizing: "border-box",
   resize: "vertical",
+};
+
+const fileInput: CSSProperties = {
+  width: "100%",
+  minHeight: 42,
+  border: "1px solid #dbe3ef",
+  borderRadius: 10,
+  padding: 9,
+  boxSizing: "border-box",
+  background: "#ffffff",
+  cursor: "pointer",
+};
+
+const assetPreviewLine: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  padding: "8px 10px",
+  borderRadius: 10,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  color: "#475569",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const linkButton: CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "#7c3aed",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
 };
 
 const colorInput: CSSProperties = {
