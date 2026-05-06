@@ -235,12 +235,26 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           if (!eventData.logo) return;
 
           var card = buscarCardPrincipal();
+          var logoUrlNormalizada = String(eventData.logo || "").trim();
+          var slotLogo = document.querySelector('[data-slot="logo"]');
 
+          // Remove logos antigas injetadas por renderizações anteriores.
           document.querySelectorAll("[data-logo-evento]").forEach(function (el) {
             el.remove();
           });
 
-          var slotLogo = document.querySelector('[data-slot="logo"]');
+          // Remove imagens duplicadas do próprio template que estejam usando a mesma logo do evento.
+          // Isso evita que a logo apareça uma vez no slot antigo e outra no lugar do título.
+          document.querySelectorAll("img").forEach(function (img) {
+            if (slotLogo && slotLogo.contains(img)) return;
+
+            var src = String(img.getAttribute("src") || img.src || "").trim();
+            if (!src) return;
+
+            if (src === logoUrlNormalizada || src.includes(logoUrlNormalizada)) {
+              img.remove();
+            }
+          });
 
           var logo = document.createElement("img");
           logo.src = eventData.logo;
@@ -255,12 +269,14 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           logo.style.objectFit = "contain";
           logo.style.margin = "20px auto";
 
+          // 1) Preferência: slot oficial do template.
           if (slotLogo) {
             slotLogo.innerHTML = "";
             slotLogo.appendChild(logo);
             return;
           }
 
+          // 2) Substitui o título principal do evento pela logomarca.
           var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
           var candidatos = Array.from(
             document.querySelectorAll("h1,h2,h3,.title,.event-title,.main-title")
@@ -272,7 +288,7 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
 
             var texto = (el.textContent || "")
               .trim()
-              .replace(/\\s+/g, " ")
+              .replace(/\s+/g, " ")
               .toLowerCase();
 
             if (!texto) return false;
@@ -291,6 +307,7 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
             return;
           }
 
+          // 3) Fallback seguro: remove título duplicado e injeta no início do card.
           removerTitulosDuplicados();
 
           if (card) {
