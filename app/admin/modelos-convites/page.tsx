@@ -171,6 +171,11 @@ function MiniVisualPreview({
   template?: any;
   maxHeight?: number;
 }) {
+  const baseWidth = 430;
+  const baseHeight = 920;
+  const [scale, setScale] = useState(0.42);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+
   const visualConfig = (template?.visual_config || {}) as any;
   const backgroundUrl =
     visualConfig.backgroundPreviewUrl ||
@@ -185,10 +190,6 @@ function MiniVisualPreview({
   const glassOpacity = toNumber(visualConfig.glassOpacity, 0.18);
   const glassBlur = toNumber(visualConfig.glassBlur, 0);
   const glassTone = visualConfig.glassTone === "light" ? "light" : "dark";
-  const baseWidth = 430;
-  const baseHeight = 920;
-  const [scale, setScale] = useState(0.42);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!container) return;
@@ -394,6 +395,7 @@ function MiniVisualPreview({
   );
 }
 
+
 export default function ModelosConvitePage() {
   const viewport = useViewportWidth();
 
@@ -405,6 +407,7 @@ export default function ModelosConvitePage() {
   const [categoriaId, setCategoriaId] = useState("");
   const [preview, setPreview] = useState("");
   const [htmlTemplate, setHtmlTemplate] = useState("");
+  const [editorMode, setEditorMode] = useState<"html" | "visual">("html");
 
   const [novaCategoria, setNovaCategoria] = useState("");
   const [salvandoCategoria, setSalvandoCategoria] = useState(false);
@@ -495,11 +498,17 @@ export default function ModelosConvitePage() {
       return;
     }
 
-    const { data: blocksData } = await supabase
+    const { data: blocksData, error: blocksError } = await supabase
       .from("invite_template_blocks")
       .select("*")
       .in("template_id", visualIds)
       .order("z_index", { ascending: true });
+
+    if (blocksError) {
+      console.error("Erro ao carregar blocos visuais:", blocksError);
+      setTemplateBlocks({});
+      return;
+    }
 
     const grouped: Record<string, VisualBlock[]> = {};
 
@@ -536,28 +545,41 @@ export default function ModelosConvitePage() {
     setCategoriaId("");
     setPreview("");
     setHtmlTemplate("");
+    setEditorMode("html");
     setEditandoId(null);
   }
 
   async function criarTemplate() {
     if (!nome.trim()) return alert("Digite o nome do modelo");
-    if (!htmlTemplate.trim()) return alert("Cole o código HTML do modelo");
+    if (editorMode === "html" && !htmlTemplate.trim()) {
+      return alert("Cole o código HTML do modelo ou selecione o modo Editor Visual");
+    }
 
     setLoading(true);
 
-    const { error } = await supabase.from("invite_templates").insert({
-      nome: nome.trim(),
-      name: nome.trim(),
-      slug,
-      categoria_id: categoriaId || null,
-      preview_image: preview.trim() || null,
-      html_template: htmlTemplate.trim(),
-      active: true,
-    });
+    const { data, error } = await supabase
+      .from("invite_templates")
+      .insert({
+        nome: nome.trim(),
+        name: nome.trim(),
+        slug,
+        categoria_id: categoriaId || null,
+        preview_image: preview.trim() || null,
+        html_template: editorMode === "html" ? htmlTemplate.trim() : "",
+        editor_mode: editorMode,
+        active: true,
+      })
+      .select("id")
+      .single();
 
     setLoading(false);
 
     if (error) return alert("Erro: " + error.message);
+
+    if (editorMode === "visual" && data?.id) {
+      window.location.href = `/admin/modelos-convites/${data.id}/editor`;
+      return;
+    }
 
     limparFormulario();
     await carregarTemplates();
@@ -571,13 +593,16 @@ export default function ModelosConvitePage() {
     setCategoriaId(t.categoria_id || "");
     setPreview(t.preview_image || "");
     setHtmlTemplate(t.html_template || "");
+    setEditorMode(t.editor_mode === "visual" ? "visual" : "html");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function salvarEdicao() {
     if (!editandoId) return;
     if (!nome.trim()) return alert("Digite o nome do modelo");
-    if (!htmlTemplate.trim()) return alert("Cole o código HTML do modelo");
+    if (editorMode === "html" && !htmlTemplate.trim()) {
+      return alert("Cole o código HTML do modelo ou altere para Editor Visual");
+    }
 
     setLoading(true);
 
@@ -589,13 +614,19 @@ export default function ModelosConvitePage() {
         slug,
         categoria_id: categoriaId || null,
         preview_image: preview.trim() || null,
-        html_template: htmlTemplate.trim(),
+        html_template: editorMode === "html" ? htmlTemplate.trim() : htmlTemplate.trim(),
+        editor_mode: editorMode,
       })
       .eq("id", editandoId);
 
     setLoading(false);
 
     if (error) return alert("Erro ao salvar edição: " + error.message);
+
+    if (editorMode === "visual") {
+      window.location.href = `/admin/modelos-convites/${editandoId}/editor`;
+      return;
+    }
 
     limparFormulario();
     await carregarTemplates();
@@ -623,6 +654,7 @@ export default function ModelosConvitePage() {
       categoria_id: template.categoria_id || null,
       preview_image: template.preview_image || null,
       html_template: template.html_template || "",
+      editor_mode: template.editor_mode || "html",
       active: false,
     });
 
@@ -805,6 +837,24 @@ export default function ModelosConvitePage() {
             {editandoId && <span style={editBadge}>Editando</span>}
           </div>
 
+          <div style={modeBox}>
+            <button
+              type="button"
+              onClick={() => setEditorMode("html")}
+              style={editorMode === "html" ? modeBtnActive : modeBtn}
+            >
+              HTML avançado
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEditorMode("visual")}
+              style={editorMode === "visual" ? modeBtnActive : modeBtn}
+            >
+              Editor Visual
+            </button>
+          </div>
+
           <div style={formGridStyle}>
             <label style={field}>
               <span style={label}>Nome do modelo</span>
@@ -853,15 +903,22 @@ export default function ModelosConvitePage() {
             </label>
           </div>
 
-          <label style={field}>
-            <span style={label}>Código HTML</span>
-            <textarea
-              placeholder="Cole aqui o código HTML do modelo..."
-              value={htmlTemplate}
-              onChange={(e) => setHtmlTemplate(e.target.value)}
-              style={textarea}
-            />
-          </label>
+          {editorMode === "html" ? (
+            <label style={field}>
+              <span style={label}>Código HTML</span>
+              <textarea
+                placeholder="Cole aqui o código HTML do modelo..."
+                value={htmlTemplate}
+                onChange={(e) => setHtmlTemplate(e.target.value)}
+                style={textarea}
+              />
+            </label>
+          ) : (
+            <div style={visualNotice}>
+              <strong>Editor Visual selecionado</strong>
+              <span>Ao criar ou salvar, o modelo será aberto no editor visual para montar os blocos arrastáveis.</span>
+            </div>
+          )}
 
           <div style={actionsBar}>
             <button
@@ -872,7 +929,11 @@ export default function ModelosConvitePage() {
               {loading
                 ? "Salvando..."
                 : editandoId
-                ? "Salvar alteração"
+                ? editorMode === "visual"
+                  ? "Salvar e abrir editor"
+                  : "Salvar alteração"
+                : editorMode === "visual"
+                ? "Criar e abrir editor"
                 : "Criar modelo"}
             </button>
 
@@ -902,7 +963,13 @@ export default function ModelosConvitePage() {
             </span>
           </div>
 
-          {preview && !htmlTemplate ? (
+          {editorMode === "visual" ? (
+            <div style={emptyPreview}>
+              <div style={emptyIcon}>✦</div>
+              <strong>Modo Editor Visual</strong>
+              <span>Crie o modelo e monte o convite arrastando blocos no editor visual.</span>
+            </div>
+          ) : preview && !htmlTemplate ? (
             <AutoScaledImage
               src={preview}
               alt="Preview do modelo"
@@ -982,8 +1049,6 @@ export default function ModelosConvitePage() {
                     title={`Preview ${t.nome || t.name}`}
                     maxHeight={isMobile ? 360 : 420}
                   />
-                ) : t.editor_mode === "visual" ? (
-                  <div style={miniEmpty}>Editor visual sem blocos salvos</div>
                 ) : (
                   <div style={miniEmpty}>Sem preview</div>
                 )}
@@ -1199,6 +1264,48 @@ const textarea: CSSProperties = {
   lineHeight: 1.6,
   resize: "vertical",
   outline: "none",
+  boxSizing: "border-box",
+};
+
+const modeBox: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginBottom: 16,
+};
+
+const modeBtn: CSSProperties = {
+  minHeight: 48,
+  borderRadius: 14,
+  border: "1px solid #dbe3ef",
+  background: "#ffffff",
+  color: "#334155",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const modeBtnActive: CSSProperties = {
+  ...modeBtn,
+  border: "1px solid #7c3aed",
+  background: "#f5f3ff",
+  color: "#6d28d9",
+  boxShadow: "0 10px 24px rgba(124, 58, 237, 0.14)",
+};
+
+const visualNotice: CSSProperties = {
+  marginTop: 14,
+  minHeight: 180,
+  borderRadius: 16,
+  border: "1px dashed #c4b5fd",
+  background: "#f5f3ff",
+  color: "#5b21b6",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: 8,
+  textAlign: "center",
+  padding: 18,
   boxSizing: "border-box",
 };
 
