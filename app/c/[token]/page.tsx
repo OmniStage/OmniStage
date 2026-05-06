@@ -151,7 +151,11 @@ export default function ConvitePublicoPage() {
 
     let htmlDoEvento = "";
 
-    if (template.editor_mode === "visual") {
+    const htmlTemplate = template.html_template?.trim() || "";
+    const isVisual = template.editor_mode === "visual";
+    const deveTentarVisual = isVisual || !htmlTemplate;
+
+    if (deveTentarVisual) {
       const { data: blocksData, error: blocksError } = await supabase
         .from("invite_template_blocks")
         .select("*")
@@ -164,17 +168,28 @@ export default function ConvitePublicoPage() {
         return;
       }
 
-      htmlDoEvento = renderizarConviteVisual(
-        template as Template,
-        evento as Evento,
-        (blocksData || []) as VisualBlock[],
-        nomesDoConvite,
-      );
-    } else if (template.html_template) {
-      htmlDoEvento = preencherTemplate(
-        template.html_template,
-        evento as Evento,
-      );
+      const blocks = (blocksData || []) as VisualBlock[];
+
+      if (blocks.length > 0) {
+        htmlDoEvento = renderizarConviteVisual(
+          template as Template,
+          evento as Evento,
+          blocks,
+          nomesDoConvite,
+        );
+      } else if (htmlTemplate) {
+        htmlDoEvento = preencherTemplate(htmlTemplate, evento as Evento);
+        htmlDoEvento = injetarConvidadosNoConvite(
+          htmlDoEvento,
+          nomesDoConvite,
+        );
+      } else {
+        setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
+        setLoading(false);
+        return;
+      }
+    } else if (htmlTemplate) {
+      htmlDoEvento = preencherTemplate(htmlTemplate, evento as Evento);
       htmlDoEvento = injetarConvidadosNoConvite(htmlDoEvento, nomesDoConvite);
     } else {
       setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
