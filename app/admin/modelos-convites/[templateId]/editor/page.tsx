@@ -14,7 +14,8 @@ type BlockType =
   | "logo"
   | "button"
   | "divider"
-  | "qr";
+  | "qr"
+  | "guest_picker";
 
 type ConviteBlock = {
   id: string;
@@ -257,6 +258,55 @@ function renderCountdownContent(block: ConviteBlock) {
   );
 }
 
+function renderGuestPickerContent(block: ConviteBlock) {
+  const nomesDemo = ["URSULA JOSÉ", "VITOR JOSÉ"];
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        justifyContent: "flex-start",
+        gap: 14,
+        padding: 10,
+        boxSizing: "border-box",
+      }}
+    >
+      {nomesDemo.map((nome) => (
+        <label
+          key={nome}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            color: block.color || "#ffffff",
+            fontFamily: block.font_family || "Inter",
+            fontSize: block.font_size,
+            fontWeight: 900,
+            lineHeight: 1.15,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked
+            readOnly
+            style={{
+              width: Math.max(18, Math.round(block.font_size * 1.15)),
+              height: Math.max(18, Math.round(block.font_size * 1.15)),
+              accentColor: "#f7d477",
+              flexShrink: 0,
+            }}
+          />
+          <span>{nome}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
   const shared: CSSProperties = {
     position: "absolute",
@@ -346,6 +396,22 @@ function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
             opacity: 0.92,
           }}
         />
+      </div>
+    );
+  }
+
+  if (block.type === "guest_picker") {
+    return (
+      <div
+        key={block.id}
+        style={{
+          ...shared,
+          alignItems: "stretch",
+          justifyContent: "flex-start",
+          padding: 8,
+        }}
+      >
+        {renderGuestPickerContent(block)}
       </div>
     );
   }
@@ -501,6 +567,22 @@ function defaultBlock(
     };
   }
 
+  if (type === "guest_picker") {
+    return {
+      ...base,
+      label: "Lista confirmação",
+      content: "Selecione os nomes para confirmar presença",
+      x: 28,
+      y: 690,
+      width: 374,
+      height: 130,
+      font_size: 18,
+      color: "#ffffff",
+      background: "rgba(15,23,42,.56)",
+      border_radius: 22,
+    };
+  }
+
   if (type === "qr") {
     return {
       ...base,
@@ -611,6 +693,21 @@ function renderBlock(
             opacity: 0.92,
           }}
         />
+      </div>
+    );
+  }
+
+  if (block.type === "guest_picker") {
+    return (
+      <div
+        style={{
+          ...shared,
+          alignItems: "stretch",
+          justifyContent: "flex-start",
+          padding: 8,
+        }}
+      >
+        {renderGuestPickerContent(block)}
       </div>
     );
   }
@@ -1064,6 +1161,9 @@ export default function EditorModeloConvitePage({
             </button>
             <button style={smallButton} onClick={() => addBlock("qr")}>
               + QR
+            </button>
+            <button style={smallButton} onClick={() => addBlock("guest_picker")}>
+              + Lista confirmação
             </button>
           </div>
 
