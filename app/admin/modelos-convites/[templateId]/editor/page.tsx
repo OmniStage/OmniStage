@@ -10,6 +10,7 @@ type BlockType =
   | "guest_name"
   | "date_time"
   | "location"
+  | "countdown"
   | "logo"
   | "button"
   | "divider"
@@ -85,17 +86,128 @@ function createLocalId() {
   return `${Date.now()}-${Math.random()}`;
 }
 
+function normalizarDataISO(dataEvento: string) {
+  const value = String(dataEvento || "").trim();
+
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const brMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const [, dia, mes, ano] = brMatch;
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  return value.slice(0, 10);
+}
+
+function normalizarHorario(horarioEvento?: string | null) {
+  const value = String(horarioEvento || "00:00")
+    .trim()
+    .toLowerCase()
+    .replace("h", ":")
+    .replace(/\s/g, "");
+
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  if (/^\d{1}:\d{2}$/.test(value)) return `0${value}`;
+  if (/^\d{2}$/.test(value)) return `${value}:00`;
+  if (/^\d{1}$/.test(value)) return `0${value}:00`;
+
+  return "00:00";
+}
+
+function getDiasRestantesBrasil(
+  dataEvento?: string | null,
+  horarioEvento?: string | null,
+) {
+  const dataISO = normalizarDataISO(String(dataEvento || ""));
+  const horario = normalizarHorario(horarioEvento);
+
+  if (!dataISO) return 0;
+
+  const target = new Date(`${dataISO}T${horario}:00-03:00`);
+  const now = new Date();
+
+  if (Number.isNaN(target.getTime())) return 0;
+
+  const diff = target.getTime() - now.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+  return Math.max(0, days);
+}
+
+const DEMO_EVENTO = {
+  nome_evento: "Valentina XV",
+  nome_convidado: "Ursula Tavares",
+  data_evento_iso: "2026-05-16",
+  data_evento: "16/05/2026",
+  hora_evento: "21h",
+  horario_evento: "21:00",
+  local_evento: "Guerrah Hall",
+  endereco_evento: "Macaé/RJ",
+};
+
 function renderDynamicContent(content: string | null) {
+  const diasParaEvento = getDiasRestantesBrasil(
+    DEMO_EVENTO.data_evento_iso,
+    DEMO_EVENTO.horario_evento,
+  );
+
   return String(content || "")
-    .replaceAll("{{nome_evento}}", "Valentina XV")
-    .replaceAll("{{nome_convidado}}", "Ursula Tavares")
-    .replaceAll("{{data_evento}}", "16/05/2026")
-    .replaceAll("{{hora_evento}}", "21h")
-    .replaceAll("{{local_evento}}", "Guerrah Hall")
-    .replaceAll("{{endereco_evento}}", "Macaé/RJ")
+    .replaceAll("{{nome_evento}}", DEMO_EVENTO.nome_evento)
+    .replaceAll("{{nome_convidado}}", DEMO_EVENTO.nome_convidado)
+    .replaceAll("{{data_evento}}", DEMO_EVENTO.data_evento)
+    .replaceAll("{{hora_evento}}", DEMO_EVENTO.hora_evento)
+    .replaceAll("{{horario_evento}}", DEMO_EVENTO.hora_evento)
+    .replaceAll("{{local_evento}}", DEMO_EVENTO.local_evento)
+    .replaceAll("{{endereco_evento}}", DEMO_EVENTO.endereco_evento)
+    .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
     .replaceAll("{{qr_code}}", "QR")
     .replaceAll("{{logo_evento}}", "Logo Evento");
+}
+
+function renderCountdownContent(block: ConviteBlock) {
+  const diasParaEvento = getDiasRestantesBrasil(
+    DEMO_EVENTO.data_evento_iso,
+    DEMO_EVENTO.horario_evento,
+  );
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      <strong
+        style={{
+          display: "block",
+          fontSize: Math.max(block.font_size, 28),
+          lineHeight: 1,
+        }}
+      >
+        {diasParaEvento}
+      </strong>
+      <span
+        style={{
+          display: "block",
+          fontSize: Math.max(10, Math.round(block.font_size * 0.42)),
+          fontWeight: 900,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          opacity: 0.9,
+        }}
+      >
+        {diasParaEvento === 1 ? "dia para o evento" : "dias para o evento"}
+      </span>
+    </div>
+  );
 }
 
 function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
@@ -122,6 +234,14 @@ function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
     overflow: "hidden",
     whiteSpace: "pre-wrap",
   };
+
+  if (block.type === "countdown") {
+    return (
+      <div key={block.id} style={shared}>
+        {renderCountdownContent(block)}
+      </div>
+    );
+  }
 
   if (block.type === "logo") {
     return (
@@ -150,8 +270,15 @@ function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
                 "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
             }}
           >
-            <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
-              LOGO<br />EVENTO
+            <div
+              style={{
+                fontSize: Math.max(12, block.font_size),
+                opacity: 0.92,
+              }}
+            >
+              LOGO
+              <br />
+              EVENTO
             </div>
           </div>
         )}
@@ -264,6 +391,22 @@ function defaultBlock(
     };
   }
 
+  if (type === "countdown") {
+    return {
+      ...base,
+      label: "Contador de dias",
+      content: "{{dias_para_evento}}",
+      x: 95,
+      y: 500,
+      width: 240,
+      height: 110,
+      font_size: 46,
+      color: "#f7d477",
+      background: "rgba(15,23,42,.28)",
+      border_radius: 24,
+    };
+  }
+
   if (type === "logo") {
     return {
       ...base,
@@ -330,7 +473,12 @@ function defaultBlock(
   return base;
 }
 
-function renderBlock(block: ConviteBlock, selected: boolean, updateContent: (content: string) => void, logoPreviewUrl: string) {
+function renderBlock(
+  block: ConviteBlock,
+  selected: boolean,
+  updateContent: (content: string) => void,
+  logoPreviewUrl: string,
+) {
   const shared: CSSProperties = {
     width: "100%",
     height: "100%",
@@ -347,11 +495,17 @@ function renderBlock(block: ConviteBlock, selected: boolean, updateContent: (con
     textAlign: "center",
     lineHeight: 1.12,
     padding: block.type === "divider" ? 0 : 8,
-    outline: selected ? "2px solid #a78bfa" : "1px dashed rgba(255,255,255,.36)",
+    outline: selected
+      ? "2px solid #a78bfa"
+      : "1px dashed rgba(255,255,255,.36)",
     boxShadow: selected ? "0 0 0 4px rgba(124,58,237,.18)" : "none",
     overflow: "hidden",
     userSelect: "none",
   };
+
+  if (block.type === "countdown") {
+    return <div style={shared}>{renderCountdownContent(block)}</div>;
+  }
 
   if (block.type === "logo") {
     return (
@@ -381,8 +535,15 @@ function renderBlock(block: ConviteBlock, selected: boolean, updateContent: (con
                 "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
             }}
           >
-            <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
-              LOGO<br />EVENTO
+            <div
+              style={{
+                fontSize: Math.max(12, block.font_size),
+                opacity: 0.92,
+              }}
+            >
+              LOGO
+              <br />
+              EVENTO
             </div>
           </div>
         )}
@@ -483,7 +644,8 @@ export default function EditorModeloConvitePage({
 
     try {
       const savedAssets = JSON.parse(
-        localStorage.getItem(`omnistage_invite_editor_assets_${templateId}`) || "{}",
+        localStorage.getItem(`omnistage_invite_editor_assets_${templateId}`) ||
+          "{}",
       );
       setBackgroundPreviewUrl(savedAssets.backgroundPreviewUrl || "");
       setBackgroundX(Number(savedAssets.backgroundX || 0));
@@ -537,7 +699,11 @@ export default function EditorModeloConvitePage({
               y: 310,
             },
             {
-              ...defaultBlock(templateId, "button", 4),
+              ...defaultBlock(templateId, "countdown", 4),
+              y: 460,
+            },
+            {
+              ...defaultBlock(templateId, "button", 5),
               y: 640,
             },
           ],
@@ -595,8 +761,14 @@ export default function EditorModeloConvitePage({
     if (!selectedBlock) return;
 
     updateBlock(selectedBlock.id, {
-      x: Math.max(0, Math.min(CANVAS_W - selectedBlock.width, selectedBlock.x + dx)),
-      y: Math.max(0, Math.min(CANVAS_H - selectedBlock.height, selectedBlock.y + dy)),
+      x: Math.max(
+        0,
+        Math.min(CANVAS_W - selectedBlock.width, selectedBlock.x + dx),
+      ),
+      y: Math.max(
+        0,
+        Math.min(CANVAS_H - selectedBlock.height, selectedBlock.y + dy),
+      ),
     });
   }
 
@@ -609,15 +781,13 @@ export default function EditorModeloConvitePage({
     });
   }
 
-
-
-
   async function salvarConfiguracaoVisual(overrides?: {
     backgroundPreviewUrl?: string;
     logoPreviewUrl?: string;
     musicaPreviewUrl?: string;
   }) {
-    const nextBackground = overrides?.backgroundPreviewUrl ?? backgroundPreviewUrl;
+    const nextBackground =
+      overrides?.backgroundPreviewUrl ?? backgroundPreviewUrl;
     const nextLogo = overrides?.logoPreviewUrl ?? logoPreviewUrl;
     const nextMusica = overrides?.musicaPreviewUrl ?? musicaPreviewUrl;
 
@@ -704,7 +874,6 @@ export default function EditorModeloConvitePage({
     }
   }
 
-
   async function salvarBlocos() {
     setSaving(true);
 
@@ -737,7 +906,9 @@ export default function EditorModeloConvitePage({
       visible: b.visible,
     }));
 
-    const { error } = await supabase.from("invite_template_blocks").insert(payload);
+    const { error } = await supabase
+      .from("invite_template_blocks")
+      .insert(payload);
 
     setSaving(false);
 
@@ -780,7 +951,8 @@ export default function EditorModeloConvitePage({
             {template?.nome || template?.name || "Editor de Convite"}
           </h1>
           <p style={subtitle}>
-            Arraste, redimensione, altere fonte e posicione os elementos do convite.
+            Arraste, redimensione, altere fonte e posicione os elementos do
+            convite.
           </p>
         </div>
 
@@ -831,6 +1003,9 @@ export default function EditorModeloConvitePage({
             <button style={smallButton} onClick={() => addBlock("location")}>
               + Local
             </button>
+            <button style={smallButton} onClick={() => addBlock("countdown")}>
+              + Contador
+            </button>
             <button style={smallButton} onClick={() => addBlock("logo")}>
               + Logo evento
             </button>
@@ -859,11 +1034,17 @@ export default function EditorModeloConvitePage({
                   <button
                     key={block.id}
                     type="button"
-                    style={selectedId === block.id ? blockListItemActive : blockListItem}
+                    style={
+                      selectedId === block.id
+                        ? blockListItemActive
+                        : blockListItem
+                    }
                     onClick={() => setSelectedId(block.id)}
                   >
                     <span>{block.label || block.type}</span>
-                    <small>{Math.round(block.x)}, {Math.round(block.y)}</small>
+                    <small>
+                      {Math.round(block.x)}, {Math.round(block.y)}
+                    </small>
                   </button>
                 ))
             )}
@@ -945,7 +1126,9 @@ export default function EditorModeloConvitePage({
                     max={1}
                     step={0.01}
                     value={backgroundOpacity}
-                    onChange={(e) => setBackgroundOpacity(Number(e.target.value))}
+                    onChange={(e) =>
+                      setBackgroundOpacity(Number(e.target.value))
+                    }
                   />
                 </label>
               </div>
@@ -964,7 +1147,9 @@ export default function EditorModeloConvitePage({
                 </button>
                 <button
                   type="button"
-                  style={glassTone === "light" ? smallButtonActive : smallButton}
+                  style={
+                    glassTone === "light" ? smallButtonActive : smallButton
+                  }
                   onClick={() => setGlassTone("light")}
                 >
                   Clarear
@@ -1098,7 +1283,8 @@ export default function EditorModeloConvitePage({
 
           {!selectedBlock ? (
             <div style={emptyBox}>
-              Clique em qualquer bloco no convite para editar, mover ou redimensionar.
+              Clique em qualquer bloco no convite para editar, mover ou
+              redimensionar.
               <br />
               <br />
               Componentes criam blocos novos. Variáveis entram dentro de textos.
@@ -1107,16 +1293,49 @@ export default function EditorModeloConvitePage({
             <div style={editStack}>
               <div style={selectedSummary}>
                 <strong>{selectedBlock.label || selectedBlock.type}</strong>
-                <span>{Math.round(selectedBlock.width)}×{Math.round(selectedBlock.height)} px</span>
+                <span>
+                  {Math.round(selectedBlock.width)}×
+                  {Math.round(selectedBlock.height)} px
+                </span>
               </div>
 
               <div style={quickControls}>
-                <button style={quickButton} onClick={() => moverSelecionado(0, -10)}>↑</button>
-                <button style={quickButton} onClick={() => moverSelecionado(-10, 0)}>←</button>
-                <button style={quickButton} onClick={() => moverSelecionado(10, 0)}>→</button>
-                <button style={quickButton} onClick={() => moverSelecionado(0, 10)}>↓</button>
-                <button style={quickButton} onClick={() => redimensionarSelecionado(-10)}>Tamanho -</button>
-                <button style={quickButton} onClick={() => redimensionarSelecionado(10)}>Tamanho +</button>
+                <button
+                  style={quickButton}
+                  onClick={() => moverSelecionado(0, -10)}
+                >
+                  ↑
+                </button>
+                <button
+                  style={quickButton}
+                  onClick={() => moverSelecionado(-10, 0)}
+                >
+                  ←
+                </button>
+                <button
+                  style={quickButton}
+                  onClick={() => moverSelecionado(10, 0)}
+                >
+                  →
+                </button>
+                <button
+                  style={quickButton}
+                  onClick={() => moverSelecionado(0, 10)}
+                >
+                  ↓
+                </button>
+                <button
+                  style={quickButton}
+                  onClick={() => redimensionarSelecionado(-10)}
+                >
+                  Tamanho -
+                </button>
+                <button
+                  style={quickButton}
+                  onClick={() => redimensionarSelecionado(10)}
+                >
+                  Tamanho +
+                </button>
               </div>
 
               <label style={field}>
@@ -1225,7 +1444,9 @@ export default function EditorModeloConvitePage({
                     type="number"
                     value={selectedBlock.x}
                     onChange={(e) =>
-                      updateBlock(selectedBlock.id, { x: Number(e.target.value) })
+                      updateBlock(selectedBlock.id, {
+                        x: Number(e.target.value),
+                      })
                     }
                     style={input}
                   />
@@ -1237,7 +1458,9 @@ export default function EditorModeloConvitePage({
                     type="number"
                     value={selectedBlock.y}
                     onChange={(e) =>
-                      updateBlock(selectedBlock.id, { y: Number(e.target.value) })
+                      updateBlock(selectedBlock.id, {
+                        y: Number(e.target.value),
+                      })
                     }
                     style={input}
                   />
@@ -1296,7 +1519,8 @@ export default function EditorModeloConvitePage({
 
           <h2 style={panelTitle}>Variáveis dinâmicas</h2>
           <div style={componentHint}>
-            Variáveis = textos automáticos que o sistema troca pelos dados reais do evento/convidado.
+            Variáveis = textos automáticos que o sistema troca pelos dados reais
+            do evento/convidado.
           </div>
           <div style={variables}>
             {[
@@ -1304,6 +1528,7 @@ export default function EditorModeloConvitePage({
               "{{nome_convidado}}",
               "{{data_evento}}",
               "{{hora_evento}}",
+              "{{dias_para_evento}}",
               "{{local_evento}}",
               "{{endereco_evento}}",
               "{{logo_evento}}",
@@ -1377,6 +1602,7 @@ export default function EditorModeloConvitePage({
                     {musicaTocando ? "♪ Música tocando" : "♪ Música disponível"}
                   </div>
                 )}
+
                 {previewAoVivo ? (
                   <>
                     {blocks
