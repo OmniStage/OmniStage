@@ -64,6 +64,64 @@ function criarEventoDemo(t?: any) {
   };
 }
 
+function normalizarDataISO(dataEvento: string) {
+  const value = String(dataEvento || "").trim();
+
+  if (!value) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const brMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const [, dia, mes, ano] = brMatch;
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  return value.slice(0, 10);
+}
+
+function normalizarHorario(horarioEvento?: string | null) {
+  const value = String(horarioEvento || "00:00")
+    .trim()
+    .toLowerCase()
+    .replace("h", ":")
+    .replace(/\s/g, "");
+
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  if (/^\d{1}:\d{2}$/.test(value)) return `0${value}`;
+  if (/^\d{2}$/.test(value)) return `${value}:00`;
+  if (/^\d{1}$/.test(value)) return `0${value}:00`;
+
+  return "00:00";
+}
+
+function getDiasRestantesBrasil(dataEvento?: string | null, horarioEvento?: string | null) {
+  const dataISO = normalizarDataISO(String(dataEvento || ""));
+  const horario = normalizarHorario(horarioEvento);
+
+  if (!dataISO) return 0;
+
+  const target = new Date(`${dataISO}T${horario}:00-03:00`);
+  const now = new Date();
+
+  if (Number.isNaN(target.getTime())) return 0;
+
+  const diff = target.getTime() - now.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+  return Math.max(0, days);
+}
+
+function preencherPreviewHtml(html: string, template?: any) {
+  const evento = criarEventoDemo(template);
+  const dias = getDiasRestantesBrasil(evento.data_evento, evento.horario);
+
+  return preencherTemplate(html, evento).replaceAll(
+    "{{dias_para_evento}}",
+    String(dias)
+  );
+}
+
 function AutoScaledIframe({
   html,
   title = "Preview",
@@ -198,7 +256,13 @@ function toNumber(value: unknown, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function renderDemoContent(content: string | null) {
+function renderDemoContent(content: string | null, evento?: any) {
+  const eventData = evento || criarEventoDemo();
+  const diasParaEvento = getDiasRestantesBrasil(
+    eventData.data_evento,
+    eventData.horario
+  );
+
   return String(content || "")
     .replaceAll("{{nome_evento}}", "Nome do Evento")
     .replaceAll("{{nome_convidado}}", "Nome do Convidado")
@@ -209,7 +273,8 @@ function renderDemoContent(content: string | null) {
     .replaceAll("{{endereco_evento}}", "Endereço do Evento")
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
     .replaceAll("{{qr_code}}", "QR")
-    .replaceAll("{{logo_evento}}", "Logo Evento");
+    .replaceAll("{{logo_evento}}", "Logo Evento")
+    .replaceAll("{{dias_para_evento}}", String(diasParaEvento));
 }
 
 function MiniVisualPreview({
@@ -225,6 +290,12 @@ function MiniVisualPreview({
   const baseHeight = 920;
   const [scale, setScale] = useState(0.42);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
+
+  const eventoDemo = criarEventoDemo(template);
+  const diasParaEvento = getDiasRestantesBrasil(
+    eventoDemo.data_evento,
+    eventoDemo.horario
+  );
 
   const visualConfig = (template?.visual_config || {}) as any;
   const backgroundUrl =
@@ -275,6 +346,7 @@ function MiniVisualPreview({
     const isLogo = block.type === "logo";
     const isQr = block.type === "qr";
     const isDivider = block.type === "divider";
+    const isCountdown = block.type === "countdown";
 
     const shared: CSSProperties = {
       position: "absolute",
@@ -360,11 +432,46 @@ function MiniVisualPreview({
       );
     }
 
+    if (isCountdown) {
+      return (
+        <div
+          key={block.id}
+          style={{
+            ...shared,
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              fontSize: Math.max(block.font_size, 28),
+              lineHeight: 1,
+            }}
+          >
+            {diasParaEvento}
+          </strong>
+          <span
+            style={{
+              display: "block",
+              fontSize: Math.max(10, Math.round(block.font_size * 0.42)),
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              opacity: 0.9,
+            }}
+          >
+            {diasParaEvento === 1 ? "dia para o evento" : "dias para o evento"}
+          </span>
+        </div>
+      );
+    }
+
     if (isDivider) return <div key={block.id} style={shared} />;
 
     return (
       <div key={block.id} style={shared}>
-        {renderDemoContent(block.content)}
+        {renderDemoContent(block.content, eventoDemo)}
       </div>
     );
   }
@@ -983,6 +1090,11 @@ export default function ModelosConvitePage() {
                 Ao criar ou salvar, o modelo será aberto no editor visual para
                 montar os blocos arrastáveis.
               </span>
+              <span>
+                Para contador de dias, use um bloco do tipo{" "}
+                <strong>countdown</strong> ou o texto{" "}
+                <strong>{"{{dias_para_evento}}"}</strong>.
+              </span>
             </div>
           )}
 
@@ -1037,6 +1149,9 @@ export default function ModelosConvitePage() {
                 Crie o modelo e monte o convite arrastando blocos no editor
                 visual.
               </span>
+              <span>
+                Contador: <strong>{"{{dias_para_evento}}"}</strong>
+              </span>
             </div>
           ) : preview && !htmlTemplate ? (
             <AutoScaledImage
@@ -1046,7 +1161,7 @@ export default function ModelosConvitePage() {
             />
           ) : htmlTemplate ? (
             <AutoScaledIframe
-              html={preencherTemplate(htmlTemplate, criarEventoDemo())}
+              html={preencherPreviewHtml(htmlTemplate)}
               title="Preview do modelo"
               maxHeight={isMobile ? 560 : 720}
             />
@@ -1114,7 +1229,7 @@ export default function ModelosConvitePage() {
                   />
                 ) : t.html_template ? (
                   <AutoScaledIframe
-                    html={preencherTemplate(t.html_template, criarEventoDemo(t))}
+                    html={preencherPreviewHtml(t.html_template, t)}
                     title={`Preview ${t.nome || t.name}`}
                     maxHeight={isMobile ? 360 : 420}
                   />
