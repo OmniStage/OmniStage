@@ -10,6 +10,7 @@ export type EventoConvite = {
   horario?: string | null;
   endereco?: string | null;
   mapa_url?: string | null;
+
   background_image?: string | null;
   background_url?: string | null;
   logo_image?: string | null;
@@ -68,8 +69,11 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
   const local = evento.local || evento.endereco || "";
   const eventoDataIso = dataEvento?.toISOString() || "";
 
-  const backgroundEvento = evento.background_url || evento.background_image || "";
+  const backgroundEvento =
+    evento.background_url || evento.background_image || "";
+
   const logoEvento = evento.logo_url || evento.logo_image || "";
+
   const musicaEvento = evento.musica_url || evento.music_file || "";
 
   const valores: Record<string, string> = {
@@ -79,40 +83,56 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     NOME_EVENTO: evento.nome || "",
     nome: evento.nome || "",
     NOME: evento.nome || "",
+
     data_evento: dataFormatada,
     DATA_EVENTO: dataFormatada,
     data: dataFormatada,
     DATA: dataFormatada,
+
     horario_evento: horarioFormatado,
     HORARIO_EVENTO: horarioFormatado,
     horario: horarioFormatado,
     HORARIO: horarioFormatado,
-    data_horario_evento: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
-    DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado].filter(Boolean).join(" • "),
+
+    data_horario_evento: [dataFormatada, horarioFormatado]
+      .filter(Boolean)
+      .join(" • "),
+    DATA_HORARIO_EVENTO: [dataFormatada, horarioFormatado]
+      .filter(Boolean)
+      .join(" • "),
+
     local_evento: local,
     LOCAL_EVENTO: local,
     local,
     LOCAL: local,
+
     endereco_evento: evento.endereco || "",
     ENDERECO_EVENTO: evento.endereco || "",
+
     mapa_url: evento.mapa_url || "",
     MAPA_URL: evento.mapa_url || "",
+
     background_image: backgroundEvento,
     BACKGROUND_IMAGE: backgroundEvento,
     background_url: backgroundEvento,
     BACKGROUND_URL: backgroundEvento,
+    background_evento: backgroundEvento,
+    BACKGROUND_EVENTO: backgroundEvento,
+
     logo_image: logoEvento,
     LOGO_IMAGE: logoEvento,
     logo_url: logoEvento,
     LOGO_URL: logoEvento,
     logo_evento: logoEvento,
     LOGO_EVENTO: logoEvento,
+
     music_file: musicaEvento,
     MUSIC_FILE: musicaEvento,
     musica_url: musicaEvento,
     MUSICA_URL: musicaEvento,
     musica_evento: musicaEvento,
     MUSICA_EVENTO: musicaEvento,
+
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
@@ -143,7 +163,9 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     .replace(
       /const EVENT_END = new Date\(["'].*?["']\);/g,
       `const EVENT_END = new Date(${JSON.stringify(
-        dataEvento ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString() : ""
+        dataEvento
+          ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString()
+          : ""
       )});`
     );
 
@@ -156,8 +178,10 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
   const horarioFormatado = formatarHorario(evento.horario);
   const local = evento.local || evento.endereco || "";
   const eventTimestamp = dataEvento?.getTime() || 0;
+
   const logoEvento = evento.logo_url || evento.logo_image || "";
-  const backgroundEvento = evento.background_url || evento.background_image || "";
+  const backgroundEvento =
+    evento.background_url || evento.background_image || "";
   const musicaEvento = evento.musica_url || evento.music_file || "";
 
   const script = `
@@ -179,10 +203,11 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
 
         function buscarCardPrincipal() {
           return (
-            document.querySelector(".card") ||
+            document.querySelector("[data-convite-card]") ||
             document.querySelector(".invite-card") ||
             document.querySelector(".convite-card") ||
-            document.querySelector("[data-convite-card]") ||
+            document.querySelector(".card") ||
+            document.querySelector("main") ||
             document.body
           );
         }
@@ -190,17 +215,22 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
         function aplicarFundo() {
           var card = buscarCardPrincipal();
 
+          document.documentElement.style.margin = "0";
           document.documentElement.style.background = "#020617";
+          document.body.style.margin = "0";
           document.body.style.background = "#020617";
+          document.body.style.overflowX = "hidden";
 
-          document.querySelectorAll(".card-bg-motion, .background-motion, .bg-motion").forEach(function (el) {
-            el.remove();
-          });
+          document
+            .querySelectorAll(".card-bg-motion, .background-motion, .bg-motion, [data-bg-evento]")
+            .forEach(function (el) {
+              el.remove();
+            });
 
           if (!eventData.fundo || !card) return;
 
           card.style.backgroundImage =
-            "linear-gradient(180deg, rgba(12,28,60,0.65), rgba(6,14,36,0.95)), url('" +
+            "linear-gradient(180deg, rgba(12,28,60,0.50), rgba(6,14,36,0.88)), url('" +
             eventData.fundo +
             "')";
 
@@ -210,22 +240,32 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           card.style.overflow = "hidden";
         }
 
+        function normalizarTexto(value) {
+          return String(value || "")
+            .trim()
+            .replace(/\\s+/g, " ")
+            .toLowerCase();
+        }
+
         function removerTitulosDuplicados() {
-          var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
+          var nomeEvento = normalizarTexto(eventData.nome);
           if (!nomeEvento) return;
 
-          var elementos = Array.from(document.querySelectorAll("h1,h2,h3,p,span,div"));
+          var elementos = Array.from(
+            document.querySelectorAll("h1,h2,h3,.title,.event-title,.main-title")
+          );
 
           elementos.forEach(function (el) {
             if (el.querySelector("[data-logo-evento]")) return;
             if (el.getAttribute("data-slot") === "logo") return;
 
-            var texto = (el.textContent || "")
-              .trim()
-              .replace(/\\s+/g, " ")
-              .toLowerCase();
+            var texto = normalizarTexto(el.textContent);
 
-            if (texto === nomeEvento || texto === nomeEvento.toUpperCase().toLowerCase()) {
+            if (
+              texto === nomeEvento ||
+              texto.includes(nomeEvento) ||
+              nomeEvento.includes(texto)
+            ) {
               el.remove();
             }
           });
@@ -235,25 +275,10 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           if (!eventData.logo) return;
 
           var card = buscarCardPrincipal();
-          var logoUrlNormalizada = String(eventData.logo || "").trim();
           var slotLogo = document.querySelector('[data-slot="logo"]');
 
-          // Remove logos antigas injetadas por renderizações anteriores.
           document.querySelectorAll("[data-logo-evento]").forEach(function (el) {
             el.remove();
-          });
-
-          // Remove imagens duplicadas do próprio template que estejam usando a mesma logo do evento.
-          // Isso evita que a logo apareça uma vez no slot antigo e outra no lugar do título.
-          document.querySelectorAll("img").forEach(function (img) {
-            if (slotLogo && slotLogo.contains(img)) return;
-
-            var src = String(img.getAttribute("src") || img.src || "").trim();
-            if (!src) return;
-
-            if (src === logoUrlNormalizada || src.includes(logoUrlNormalizada)) {
-              img.remove();
-            }
           });
 
           var logo = document.createElement("img");
@@ -262,22 +287,22 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           logo.setAttribute("data-logo-evento", "true");
 
           logo.style.display = "block";
-          logo.style.width = "70%";
+          logo.style.width = "72%";
           logo.style.maxWidth = "420px";
           logo.style.height = "auto";
           logo.style.maxHeight = "170px";
           logo.style.objectFit = "contain";
-          logo.style.margin = "20px auto";
+          logo.style.margin = "18px auto";
+          logo.style.position = "relative";
+          logo.style.zIndex = "20";
 
-          // 1) Preferência: slot oficial do template.
           if (slotLogo) {
             slotLogo.innerHTML = "";
             slotLogo.appendChild(logo);
             return;
           }
 
-          // 2) Substitui o título principal do evento pela logomarca.
-          var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
+          var nomeEvento = normalizarTexto(eventData.nome);
           var candidatos = Array.from(
             document.querySelectorAll("h1,h2,h3,.title,.event-title,.main-title")
           );
@@ -286,18 +311,16 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
             if (el.querySelector("[data-logo-evento]")) return false;
             if (el.getAttribute("data-slot") === "logo") return false;
 
-            var texto = (el.textContent || "")
-              .trim()
-              .replace(/\s+/g, " ")
-              .toLowerCase();
-
+            var texto = normalizarTexto(el.textContent);
             if (!texto) return false;
 
             return (
-              (nomeEvento && (texto === nomeEvento || texto.includes(nomeEvento))) ||
+              texto === nomeEvento ||
+              texto.includes(nomeEvento) ||
               texto.includes("valentina") ||
               texto.includes("theo") ||
-              texto.includes("anos")
+              texto.includes("anos") ||
+              texto.includes("convite")
             );
           });
 
@@ -307,7 +330,6 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
             return;
           }
 
-          // 3) Fallback seguro: remove título duplicado e injeta no início do card.
           removerTitulosDuplicados();
 
           if (card) {
@@ -364,7 +386,10 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
   return `${html}${script}`;
 }
 
-export function injetarConvidadosNoConvite(html: string, nomesDoConvite: string[]) {
+export function injetarConvidadosNoConvite(
+  html: string,
+  nomesDoConvite: string[]
+) {
   const nomesHtml = nomesDoConvite
     .map(
       (nome) => `
