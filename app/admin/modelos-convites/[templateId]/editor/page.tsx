@@ -98,7 +98,7 @@ function renderDynamicContent(content: string | null) {
     .replaceAll("{{logo_evento}}", "Logo Evento");
 }
 
-function renderPreviewBlock(block: ConviteBlock) {
+function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
   const shared: CSSProperties = {
     position: "absolute",
     left: block.x,
@@ -126,21 +126,35 @@ function renderPreviewBlock(block: ConviteBlock) {
   if (block.type === "logo") {
     return (
       <div key={block.id} style={shared}>
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "grid",
-            placeItems: "center",
-            borderRadius: block.border_radius,
-            background:
-              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
-          }}
-        >
-          <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
-            LOGO<br />EVENTO
+        {logoPreviewUrl ? (
+          <img
+            src={logoPreviewUrl}
+            alt="Logo do evento"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+              borderRadius: block.border_radius,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: block.border_radius,
+              background:
+                "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+            }}
+          >
+            <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
+              LOGO<br />EVENTO
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -316,7 +330,7 @@ function defaultBlock(
   return base;
 }
 
-function renderBlock(block: ConviteBlock, selected: boolean, updateContent: (content: string) => void) {
+function renderBlock(block: ConviteBlock, selected: boolean, updateContent: (content: string) => void, logoPreviewUrl: string) {
   const shared: CSSProperties = {
     width: "100%",
     height: "100%",
@@ -342,21 +356,36 @@ function renderBlock(block: ConviteBlock, selected: boolean, updateContent: (con
   if (block.type === "logo") {
     return (
       <div style={shared}>
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "grid",
-            placeItems: "center",
-            borderRadius: block.border_radius,
-            background:
-              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
-          }}
-        >
-          <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
-            LOGO<br />EVENTO
+        {logoPreviewUrl ? (
+          <img
+            src={logoPreviewUrl}
+            alt="Logo do evento"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+              borderRadius: block.border_radius,
+              pointerEvents: "none",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: block.border_radius,
+              background:
+                "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+            }}
+          >
+            <div style={{ fontSize: Math.max(12, block.font_size), opacity: 0.92 }}>
+              LOGO<br />EVENTO
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -405,6 +434,10 @@ export default function EditorModeloConvitePage({
   const [blocks, setBlocks] = useState<ConviteBlock[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewAoVivo, setPreviewAoVivo] = useState(false);
+  const [backgroundPreviewUrl, setBackgroundPreviewUrl] = useState("");
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  const [musicaPreviewUrl, setMusicaPreviewUrl] = useState("");
+  const [musicaTocando, setMusicaTocando] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -440,6 +473,15 @@ export default function EditorModeloConvitePage({
       ]);
 
     if (templateData) setTemplate(templateData as TemplateData);
+
+    try {
+      const savedAssets = JSON.parse(
+        localStorage.getItem(`omnistage_invite_editor_assets_${templateId}`) || "{}",
+      );
+      setBackgroundPreviewUrl(savedAssets.backgroundPreviewUrl || "");
+      setLogoPreviewUrl(savedAssets.logoPreviewUrl || "");
+      setMusicaPreviewUrl(savedAssets.musicaPreviewUrl || "");
+    } catch {}
 
     if (blocksError) {
       alert(
@@ -576,6 +618,17 @@ export default function EditorModeloConvitePage({
       return;
     }
 
+    try {
+      localStorage.setItem(
+        `omnistage_invite_editor_assets_${templateId}`,
+        JSON.stringify({
+          backgroundPreviewUrl,
+          logoPreviewUrl,
+          musicaPreviewUrl,
+        }),
+      );
+    } catch {}
+
     alert("Layout salvo!");
     await carregarTudo();
   }
@@ -647,6 +700,67 @@ export default function EditorModeloConvitePage({
             </button>
             <button style={smallButton} onClick={() => addBlock("qr")}>
               + QR
+            </button>
+          </div>
+
+          <div style={divider} />
+
+          <h2 style={panelTitle}>Arquivos do preview</h2>
+          <div style={editStack}>
+            <label style={field}>
+              <span style={label}>Background do convite URL</span>
+              <input
+                value={backgroundPreviewUrl}
+                placeholder="https://.../background.png"
+                onChange={(e) => setBackgroundPreviewUrl(e.target.value)}
+                style={input}
+              />
+            </label>
+
+            <label style={field}>
+              <span style={label}>Logomarca do evento URL</span>
+              <input
+                value={logoPreviewUrl}
+                placeholder="https://.../logo.png"
+                onChange={(e) => setLogoPreviewUrl(e.target.value)}
+                style={input}
+              />
+            </label>
+
+            <label style={field}>
+              <span style={label}>Música do convite URL</span>
+              <input
+                value={musicaPreviewUrl}
+                placeholder="https://.../musica.mp3"
+                onChange={(e) => {
+                  setMusicaPreviewUrl(e.target.value);
+                  setMusicaTocando(false);
+                }}
+                style={input}
+              />
+            </label>
+
+            {musicaPreviewUrl && (
+              <audio
+                controls
+                loop
+                src={musicaPreviewUrl}
+                style={{ width: "100%" }}
+                onPlay={() => setMusicaTocando(true)}
+                onPause={() => setMusicaTocando(false)}
+              />
+            )}
+
+            <button
+              style={smallButton}
+              onClick={() => {
+                setBackgroundPreviewUrl("");
+                setLogoPreviewUrl("");
+                setMusicaPreviewUrl("");
+                setMusicaTocando(false);
+              }}
+            >
+              Limpar arquivos
             </button>
           </div>
 
@@ -867,13 +981,27 @@ export default function EditorModeloConvitePage({
             <div style={emptyBox}>Carregando editor...</div>
           ) : (
             <div style={phoneFrame}>
-              <div style={canvas}>
+              <div
+                style={{
+                  ...canvas,
+                  background: backgroundPreviewUrl
+                    ? `linear-gradient(rgba(2,6,23,.18), rgba(2,6,23,.22)), url(${backgroundPreviewUrl})`
+                    : canvas.background,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                {previewAoVivo && musicaPreviewUrl && (
+                  <div style={musicBadge}>
+                    {musicaTocando ? "♪ Música tocando" : "♪ Música disponível"}
+                  </div>
+                )}
                 {previewAoVivo ? (
                   <>
                     {blocks
                       .filter((b) => b.visible)
                       .sort((a, b) => a.z_index - b.z_index)
-                      .map((block) => renderPreviewBlock(block))}
+                      .map((block) => renderPreviewBlock(block, logoPreviewUrl))}
                   </>
                 ) : (
                   <>
@@ -914,8 +1042,11 @@ export default function EditorModeloConvitePage({
                               zIndex: block.z_index,
                             }}
                           >
-                            {renderBlock(block, selected, (content) =>
-                              updateBlock(block.id, { content }),
+                            {renderBlock(
+                              block,
+                              selected,
+                              (content) => updateBlock(block.id, { content }),
+                              logoPreviewUrl,
                             )}
                           </Rnd>
                         );
@@ -1083,6 +1214,20 @@ const variablePill: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   cursor: "pointer",
+};
+
+const musicBadge: CSSProperties = {
+  position: "absolute",
+  top: 18,
+  right: 18,
+  zIndex: 9999,
+  borderRadius: 999,
+  padding: "8px 12px",
+  background: "rgba(15,23,42,.78)",
+  color: "#ffffff",
+  fontSize: 12,
+  fontWeight: 900,
+  boxShadow: "0 10px 24px rgba(0,0,0,.22)",
 };
 
 const canvasArea: CSSProperties = {
