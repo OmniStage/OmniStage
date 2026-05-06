@@ -164,11 +164,27 @@ function renderDemoContent(content: string | null) {
 
 function MiniVisualPreview({
   blocks,
+  template,
   maxHeight = 420,
 }: {
   blocks: VisualBlock[];
+  template?: any;
   maxHeight?: number;
 }) {
+  const visualConfig = (template?.visual_config || {}) as any;
+  const backgroundUrl =
+    visualConfig.backgroundPreviewUrl ||
+    template?.background_image ||
+    template?.preview_image ||
+    "";
+  const logoUrl = visualConfig.logoPreviewUrl || template?.logo_image || "";
+  const backgroundX = toNumber(visualConfig.backgroundX, 0);
+  const backgroundY = toNumber(visualConfig.backgroundY, 0);
+  const backgroundScale = toNumber(visualConfig.backgroundScale, 1);
+  const backgroundOpacity = toNumber(visualConfig.backgroundOpacity, 1);
+  const glassOpacity = toNumber(visualConfig.glassOpacity, 0.18);
+  const glassBlur = toNumber(visualConfig.glassBlur, 0);
+  const glassTone = visualConfig.glassTone === "light" ? "light" : "dark";
   const baseWidth = 430;
   const baseHeight = 920;
   const [scale, setScale] = useState(0.42);
@@ -208,7 +224,7 @@ function MiniVisualPreview({
       top: block.y,
       width: block.width,
       height: block.height,
-      zIndex: block.z_index || 1,
+      zIndex: (block.z_index || 1) + 10,
       boxSizing: "border-box",
       borderRadius: block.border_radius,
       color: block.color || "#ffffff",
@@ -229,26 +245,40 @@ function MiniVisualPreview({
     if (isLogo) {
       return (
         <div key={block.id} style={shared}>
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: block.border_radius,
-              background:
-                "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
-            }}
-          >
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo do evento"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+                borderRadius: block.border_radius,
+              }}
+            />
+          ) : (
             <div
               style={{
-                fontSize: Math.max(10, Math.min(block.font_size || 14, 18)),
-                opacity: 0.92,
+                width: "100%",
+                height: "100%",
+                display: "grid",
+                placeItems: "center",
+                borderRadius: block.border_radius,
+                background:
+                  "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
               }}
             >
-              LOGO<br />EVENTO
+              <div
+                style={{
+                  fontSize: Math.max(10, Math.min(block.font_size || 14, 18)),
+                  opacity: 0.92,
+                }}
+              >
+                LOGO<br />EVENTO
+              </div>
             </div>
-          </div>
+          )}
         </div>
       );
     }
@@ -322,6 +352,38 @@ function MiniVisualPreview({
               "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
           }}
         >
+          {backgroundUrl && (
+            <img
+              src={backgroundUrl}
+              alt="Background"
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: baseWidth,
+                height: baseHeight,
+                objectFit: "cover",
+                transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
+                opacity: backgroundOpacity,
+                zIndex: 0,
+              }}
+            />
+          )}
+
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 1,
+              pointerEvents: "none",
+              background:
+                glassTone === "light"
+                  ? `rgba(255,255,255,${glassOpacity})`
+                  : `rgba(2,6,23,${glassOpacity})`,
+              backdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
+            }}
+          />
+
           {blocks
             .filter((b) => b.visible !== false)
             .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
@@ -905,6 +967,7 @@ export default function ModelosConvitePage() {
                 {t.editor_mode === "visual" && templateBlocks[t.id]?.length ? (
                   <MiniVisualPreview
                     blocks={templateBlocks[t.id]}
+                    template={t}
                     maxHeight={isMobile ? 360 : 420}
                   />
                 ) : t.preview_image ? (
