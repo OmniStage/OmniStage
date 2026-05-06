@@ -610,6 +610,7 @@ export default function EditorModeloConvitePage({
   }
 
 
+
   async function uploadPreviewAsset(
     file: File,
     tipo: "background" | "logo" | "musica",
@@ -644,13 +645,23 @@ export default function EditorModeloConvitePage({
 
     const publicUrl = data.publicUrl;
 
-    if (tipo === "background") setBackgroundPreviewUrl(publicUrl);
-    if (tipo === "logo") setLogoPreviewUrl(publicUrl);
+    if (tipo === "background") {
+      setBackgroundPreviewUrl(publicUrl);
+      await salvarConfiguracaoVisual({ backgroundPreviewUrl: publicUrl });
+    }
+
+    if (tipo === "logo") {
+      setLogoPreviewUrl(publicUrl);
+      await salvarConfiguracaoVisual({ logoPreviewUrl: publicUrl });
+    }
+
     if (tipo === "musica") {
       setMusicaPreviewUrl(publicUrl);
       setMusicaTocando(false);
+      await salvarConfiguracaoVisual({ musicaPreviewUrl: publicUrl });
     }
   }
+
 
   async function salvarBlocos() {
     setSaving(true);
@@ -693,34 +704,6 @@ export default function EditorModeloConvitePage({
       return;
     }
 
-    const visualConfig = {
-      backgroundPreviewUrl,
-      backgroundX,
-      backgroundY,
-      backgroundScale,
-      backgroundOpacity,
-      glassOpacity,
-      glassBlur,
-      glassTone,
-      logoPreviewUrl,
-      musicaPreviewUrl,
-    };
-
-    const { error: templateUpdateError } = await supabase
-      .from("invite_templates")
-      .update({
-        background_image: backgroundPreviewUrl || null,
-        logo_image: logoPreviewUrl || null,
-        preview_image: backgroundPreviewUrl || null,
-        visual_config: visualConfig,
-      })
-      .eq("id", templateId);
-
-    if (templateUpdateError) {
-      alert("Blocos salvos, mas houve erro ao salvar preview do modelo: " + templateUpdateError.message);
-      return;
-    }
-
     try {
       localStorage.setItem(
         `omnistage_invite_editor_assets_${templateId}`,
@@ -738,6 +721,9 @@ export default function EditorModeloConvitePage({
         }),
       );
     } catch {}
+
+    const configOk = await salvarConfiguracaoVisual();
+    if (!configOk) return;
 
     alert("Layout salvo!");
     await carregarTudo();
@@ -1033,6 +1019,16 @@ export default function EditorModeloConvitePage({
                 onPause={() => setMusicaTocando(false)}
               />
             )}
+
+            <button
+              style={smallButton}
+              onClick={async () => {
+                const ok = await salvarConfiguracaoVisual();
+                if (ok) alert("Arquivos e visual salvos no modelo.");
+              }}
+            >
+              Salvar arquivos no modelo
+            </button>
 
             <button
               style={smallButton}
