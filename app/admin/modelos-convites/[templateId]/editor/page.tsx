@@ -611,6 +611,48 @@ export default function EditorModeloConvitePage({
 
 
 
+
+  async function salvarConfiguracaoVisual(overrides?: {
+    backgroundPreviewUrl?: string;
+    logoPreviewUrl?: string;
+    musicaPreviewUrl?: string;
+  }) {
+    const nextBackground = overrides?.backgroundPreviewUrl ?? backgroundPreviewUrl;
+    const nextLogo = overrides?.logoPreviewUrl ?? logoPreviewUrl;
+    const nextMusica = overrides?.musicaPreviewUrl ?? musicaPreviewUrl;
+
+    const visualConfig = {
+      backgroundPreviewUrl: nextBackground || "",
+      backgroundX,
+      backgroundY,
+      backgroundScale,
+      backgroundOpacity,
+      glassOpacity,
+      glassBlur,
+      glassTone,
+      logoPreviewUrl: nextLogo || "",
+      musicaPreviewUrl: nextMusica || "",
+    };
+
+    const { error } = await supabase
+      .from("invite_templates")
+      .update({
+        editor_mode: "visual",
+        preview_image: nextBackground || nextLogo || null,
+        background_image: nextBackground || null,
+        logo_image: nextLogo || null,
+        visual_config: visualConfig,
+      })
+      .eq("id", templateId);
+
+    if (error) {
+      alert("Erro ao salvar configuração visual no modelo: " + error.message);
+      return false;
+    }
+
+    return true;
+  }
+
   async function uploadPreviewAsset(
     file: File,
     tipo: "background" | "logo" | "musica",
