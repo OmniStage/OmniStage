@@ -68,6 +68,10 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
   const local = evento.local || evento.endereco || "";
   const eventoDataIso = dataEvento?.toISOString() || "";
 
+  const backgroundEvento = evento.background_url || evento.background_image || "";
+  const logoEvento = evento.logo_url || evento.logo_image || "";
+  const musicaEvento = evento.musica_url || evento.music_file || "";
+
   const valores: Record<string, string> = {
     evento_nome: evento.nome || "",
     EVENTO_NOME: evento.nome || "",
@@ -93,22 +97,22 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     ENDERECO_EVENTO: evento.endereco || "",
     mapa_url: evento.mapa_url || "",
     MAPA_URL: evento.mapa_url || "",
-    background_image: evento.background_url || evento.background_image || "",
-    BACKGROUND_IMAGE: evento.background_url || evento.background_image || "",
-    background_url: evento.background_url || evento.background_image || "",
-    BACKGROUND_URL: evento.background_url || evento.background_image || "",
-    logo_image: evento.logo_url || evento.logo_image || "",
-    LOGO_IMAGE: evento.logo_url || evento.logo_image || "",
-    logo_url: evento.logo_url || evento.logo_image || "",
-    LOGO_URL: evento.logo_url || evento.logo_image || "",
-    logo_evento: evento.logo_url || evento.logo_image || "",
-    LOGO_EVENTO: evento.logo_url || evento.logo_image || "",
-    music_file: evento.musica_url || evento.music_file || "",
-    MUSIC_FILE: evento.musica_url || evento.music_file || "",
-    musica_url: evento.musica_url || evento.music_file || "",
-    MUSICA_URL: evento.musica_url || evento.music_file || "",
-    musica_evento: evento.musica_url || evento.music_file || "",
-    MUSICA_EVENTO: evento.musica_url || evento.music_file || "",
+    background_image: backgroundEvento,
+    BACKGROUND_IMAGE: backgroundEvento,
+    background_url: backgroundEvento,
+    BACKGROUND_URL: backgroundEvento,
+    logo_image: logoEvento,
+    LOGO_IMAGE: logoEvento,
+    logo_url: logoEvento,
+    LOGO_URL: logoEvento,
+    logo_evento: logoEvento,
+    LOGO_EVENTO: logoEvento,
+    music_file: musicaEvento,
+    MUSIC_FILE: musicaEvento,
+    musica_url: musicaEvento,
+    MUSICA_URL: musicaEvento,
+    musica_evento: musicaEvento,
+    MUSICA_EVENTO: musicaEvento,
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
   };
@@ -152,6 +156,9 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
   const horarioFormatado = formatarHorario(evento.horario);
   const local = evento.local || evento.endereco || "";
   const eventTimestamp = dataEvento?.getTime() || 0;
+  const logoEvento = evento.logo_url || evento.logo_image || "";
+  const backgroundEvento = evento.background_url || evento.background_image || "";
+  const musicaEvento = evento.musica_url || evento.music_file || "";
 
   const script = `
     <script>
@@ -161,9 +168,9 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
         horario: horarioFormatado,
         local,
         mapa: evento.mapa_url || "",
-        logo: evento.logo_url || evento.logo_image || "",
-        fundo: evento.background_url || evento.background_image || "",
-        musica: evento.musica_url || evento.music_file || "",
+        logo: logoEvento,
+        fundo: backgroundEvento,
+        musica: musicaEvento,
         timestamp: eventTimestamp,
       })};
 
@@ -248,14 +255,12 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
           logo.style.objectFit = "contain";
           logo.style.margin = "20px auto";
 
-          // 1) Preferência: slot oficial do template.
           if (slotLogo) {
             slotLogo.innerHTML = "";
             slotLogo.appendChild(logo);
             return;
           }
 
-          // 2) Substitui o título principal do evento pela logomarca.
           var nomeEvento = String(eventData.nome || "").trim().toLowerCase();
           var candidatos = Array.from(
             document.querySelectorAll("h1,h2,h3,.title,.event-title,.main-title")
@@ -267,7 +272,7 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
 
             var texto = (el.textContent || "")
               .trim()
-              .replace(/\s+/g, " ")
+              .replace(/\\s+/g, " ")
               .toLowerCase();
 
             if (!texto) return false;
@@ -286,7 +291,6 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
             return;
           }
 
-          // 3) Fallback: remove títulos duplicados e injeta no início do card.
           removerTitulosDuplicados();
 
           if (card) {
