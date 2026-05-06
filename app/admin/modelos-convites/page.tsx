@@ -229,23 +229,33 @@ export default function ModelosConvitePage() {
 
     setLoading(true);
 
-    const { error } = await supabase.from("invite_templates").insert({
-      nome: nome.trim(),
-      name: nome.trim(),
-      slug,
-      categoria_id: categoriaId || null,
-      preview_image: preview.trim() || null,
-      html_template: htmlTemplate.trim(),
-      active: true,
-    });
+    const { data, error } = await supabase
+      .from("invite_templates")
+      .insert({
+        nome: nome.trim(),
+        name: nome.trim(),
+        slug,
+        categoria_id: categoriaId || null,
+        preview_image: preview.trim() || null,
+        html_template: htmlTemplate.trim(),
+        active: true,
+      })
+      .select("id")
+      .single();
 
     setLoading(false);
 
     if (error) return alert("Erro: " + error.message);
 
+    alert("Modelo criado! Abrindo editor visual...");
+
+    if (data?.id) {
+      window.location.href = `/admin/modelos-convites/${data.id}/editor`;
+      return;
+    }
+
     limparFormulario();
     await carregarTemplates();
-    alert("Modelo criado!");
   }
 
   function editarTemplate(t: any) {
