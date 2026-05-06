@@ -591,6 +591,24 @@ export default function EditorModeloConvitePage({
     updateBlock(selectedBlock.id, { z_index: nextZ });
   }
 
+  function moverSelecionado(dx: number, dy: number) {
+    if (!selectedBlock) return;
+
+    updateBlock(selectedBlock.id, {
+      x: Math.max(0, Math.min(CANVAS_W - selectedBlock.width, selectedBlock.x + dx)),
+      y: Math.max(0, Math.min(CANVAS_H - selectedBlock.height, selectedBlock.y + dy)),
+    });
+  }
+
+  function redimensionarSelecionado(delta: number) {
+    if (!selectedBlock) return;
+
+    updateBlock(selectedBlock.id, {
+      width: Math.max(24, Math.min(CANVAS_W, selectedBlock.width + delta)),
+      height: Math.max(12, Math.min(CANVAS_H, selectedBlock.height + delta)),
+    });
+  }
+
 
   async function uploadPreviewAsset(
     file: File,
@@ -737,6 +755,10 @@ export default function EditorModeloConvitePage({
         <aside style={panel}>
           <h2 style={panelTitle}>Componentes</h2>
 
+          <div style={componentHint}>
+            Componentes = elementos que você coloca no convite.
+          </div>
+
           <div style={componentGrid}>
             <button style={smallButton} onClick={() => addBlock("text")}>
               + Texto
@@ -765,6 +787,30 @@ export default function EditorModeloConvitePage({
             <button style={smallButton} onClick={() => addBlock("qr")}>
               + QR
             </button>
+          </div>
+
+          <div style={divider} />
+
+          <h2 style={panelTitle}>Blocos no convite</h2>
+          <div style={blockList}>
+            {blocks.length === 0 ? (
+              <div style={emptyBox}>Nenhum bloco criado.</div>
+            ) : (
+              blocks
+                .slice()
+                .sort((a, b) => a.z_index - b.z_index)
+                .map((block) => (
+                  <button
+                    key={block.id}
+                    type="button"
+                    style={selectedId === block.id ? blockListItemActive : blockListItem}
+                    onClick={() => setSelectedId(block.id)}
+                  >
+                    <span>{block.label || block.type}</span>
+                    <small>{Math.round(block.x)}, {Math.round(block.y)}</small>
+                  </button>
+                ))
+            )}
           </div>
 
           <div style={divider} />
@@ -985,9 +1031,28 @@ export default function EditorModeloConvitePage({
           <h2 style={panelTitle}>Bloco selecionado</h2>
 
           {!selectedBlock ? (
-            <div style={emptyBox}>Clique em um bloco no convite para editar.</div>
+            <div style={emptyBox}>
+              Clique em qualquer bloco no convite para editar, mover ou redimensionar.
+              <br />
+              <br />
+              Componentes criam blocos novos. Variáveis entram dentro de textos.
+            </div>
           ) : (
             <div style={editStack}>
+              <div style={selectedSummary}>
+                <strong>{selectedBlock.label || selectedBlock.type}</strong>
+                <span>{Math.round(selectedBlock.width)}×{Math.round(selectedBlock.height)} px</span>
+              </div>
+
+              <div style={quickControls}>
+                <button style={quickButton} onClick={() => moverSelecionado(0, -10)}>↑</button>
+                <button style={quickButton} onClick={() => moverSelecionado(-10, 0)}>←</button>
+                <button style={quickButton} onClick={() => moverSelecionado(10, 0)}>→</button>
+                <button style={quickButton} onClick={() => moverSelecionado(0, 10)}>↓</button>
+                <button style={quickButton} onClick={() => redimensionarSelecionado(-10)}>Tamanho -</button>
+                <button style={quickButton} onClick={() => redimensionarSelecionado(10)}>Tamanho +</button>
+              </div>
+
               <label style={field}>
                 <span style={label}>Conteúdo / variável</span>
                 <textarea
@@ -1164,6 +1229,9 @@ export default function EditorModeloConvitePage({
           <div style={divider} />
 
           <h2 style={panelTitle}>Variáveis dinâmicas</h2>
+          <div style={componentHint}>
+            Variáveis = textos automáticos que o sistema troca pelos dados reais do evento/convidado.
+          </div>
           <div style={variables}>
             {[
               "{{nome_evento}}",
@@ -1193,6 +1261,12 @@ export default function EditorModeloConvitePage({
         </aside>
 
         <section style={canvasArea}>
+          <div style={canvasTip}>
+            {previewAoVivo
+              ? "Preview ao vivo: visual limpo, sem edição."
+              : "Modo edição: clique em um bloco, arraste para mover e puxe as bordas para aumentar/diminuir."}
+          </div>
+
           {loading ? (
             <div style={emptyBox}>Carregando editor...</div>
           ) : (
@@ -1369,6 +1443,70 @@ const panelTitle: CSSProperties = {
   fontSize: 16,
 };
 
+const componentHint: CSSProperties = {
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 800,
+  margin: "-4px 0 10px",
+  lineHeight: 1.35,
+};
+
+const blockList: CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const blockListItem: CSSProperties = {
+  minHeight: 38,
+  border: "1px solid #dbe3ef",
+  background: "#ffffff",
+  color: "#0f172a",
+  borderRadius: 10,
+  padding: "0 10px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  cursor: "pointer",
+  fontWeight: 900,
+};
+
+const blockListItemActive: CSSProperties = {
+  ...blockListItem,
+  borderColor: "#7c3aed",
+  background: "#f5f3ff",
+  color: "#6d28d9",
+};
+
+const selectedSummary: CSSProperties = {
+  border: "1px solid #ddd6fe",
+  borderRadius: 14,
+  padding: 12,
+  background: "#f5f3ff",
+  color: "#4c1d95",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  fontSize: 13,
+};
+
+const quickControls: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 8,
+};
+
+const quickButton: CSSProperties = {
+  minHeight: 34,
+  border: "1px solid #dbe3ef",
+  borderRadius: 10,
+  background: "#ffffff",
+  color: "#0f172a",
+  fontWeight: 900,
+  cursor: "pointer",
+  fontSize: 12,
+};
+
 const componentGrid: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -1519,6 +1657,18 @@ const musicBadge: CSSProperties = {
   fontSize: 12,
   fontWeight: 900,
   boxShadow: "0 10px 24px rgba(0,0,0,.22)",
+};
+
+const canvasTip: CSSProperties = {
+  marginBottom: 12,
+  padding: "10px 14px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,.86)",
+  border: "1px solid #dbe3ef",
+  color: "#475569",
+  fontSize: 13,
+  fontWeight: 900,
+  boxShadow: "0 10px 24px rgba(15,23,42,.06)",
 };
 
 const canvasArea: CSSProperties = {
