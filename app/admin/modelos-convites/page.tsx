@@ -124,6 +124,189 @@ function AutoScaledImage({
   );
 }
 
+
+type VisualBlock = {
+  id: string;
+  template_id: string;
+  type: string;
+  label: string | null;
+  content: string | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  font_size: number;
+  font_family: string;
+  color: string;
+  background: string | null;
+  border_radius: number;
+  z_index: number;
+  visible: boolean;
+};
+
+function toNumber(value: unknown, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function renderDemoContent(content: string | null) {
+  return String(content || "")
+    .replaceAll("{{nome_evento}}", "Nome do Evento")
+    .replaceAll("{{nome_convidado}}", "Nome do Convidado")
+    .replaceAll("{{data_evento}}", "16/05/2026")
+    .replaceAll("{{hora_evento}}", "21h")
+    .replaceAll("{{local_evento}}", "Local do Evento")
+    .replaceAll("{{endereco_evento}}", "Endereço do Evento")
+    .replaceAll("{{link_rsvp}}", "Confirmar presença")
+    .replaceAll("{{qr_code}}", "QR")
+    .replaceAll("{{logo_evento}}", "Logo Evento");
+}
+
+function MiniVisualPreview({
+  blocks,
+  maxHeight = 420,
+}: {
+  blocks: VisualBlock[];
+  maxHeight?: number;
+}) {
+  const baseWidth = 430;
+  const baseHeight = 920;
+  const [scale, setScale] = useState(1);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!container) return;
+
+    function resize() {
+      if (!container) return;
+      const availableWidth = container.clientWidth;
+      const availableHeight = maxHeight;
+      const nextScale = Math.min(
+        availableWidth / baseWidth,
+        availableHeight / baseHeight,
+        1,
+      );
+      setScale(nextScale);
+    }
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [container, maxHeight]);
+
+  function renderBlock(block: VisualBlock) {
+    const shared: CSSProperties = {
+      position: "absolute",
+      left: block.x,
+      top: block.y,
+      width: block.width,
+      height: block.height,
+      zIndex: block.z_index || 1,
+      boxSizing: "border-box",
+      borderRadius: block.border_radius,
+      color: block.color || "#ffffff",
+      background: block.background || "transparent",
+      fontFamily: block.font_family || "Inter",
+      fontSize: block.font_size,
+      fontWeight: 900,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      lineHeight: 1.12,
+      padding: block.type === "divider" ? 0 : 8,
+      overflow: "hidden",
+      whiteSpace: "pre-wrap",
+    };
+
+    if (block.type === "logo") {
+      return (
+        <div key={block.id} style={shared}>
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: block.border_radius,
+              background:
+                "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+            }}
+          >
+            <div style={{ fontSize: Math.max(10, block.font_size), opacity: 0.92 }}>
+              LOGO<br />EVENTO
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (block.type === "qr") {
+      return (
+        <div key={block.id} style={shared}>
+          <div
+            style={{
+              width: "78%",
+              height: "78%",
+              borderRadius: 8,
+              background:
+                "linear-gradient(90deg,#111 10px,transparent 10px) 0 0/22px 22px, linear-gradient(#111 10px,transparent 10px) 0 0/22px 22px, #fff",
+              opacity: 0.92,
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (block.type === "divider") {
+      return <div key={block.id} style={shared} />;
+    }
+
+    return (
+      <div key={block.id} style={shared}>
+        {renderDemoContent(block.content)}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setContainer}
+      style={{
+        width: "100%",
+        height: maxHeight,
+        overflow: "hidden",
+        borderRadius: 18,
+        border: "1px solid #dbe3ef",
+        background: "#020617",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+      }}
+    >
+      <div
+        style={{
+          width: baseWidth,
+          height: baseHeight,
+          position: "relative",
+          overflow: "hidden",
+          flexShrink: 0,
+          transform: `scale(${scale})`,
+          transformOrigin: "top center",
+          background:
+            "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
+        }}
+      >
+        {blocks
+          .filter((b) => b.visible !== false)
+          .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
+          .map(renderBlock)}
+      </div>
+    </div>
+  );
+}
+
 export default function ModelosConvitePage() {
   const viewport = useViewportWidth();
 
@@ -135,12 +318,12 @@ export default function ModelosConvitePage() {
   const [categoriaId, setCategoriaId] = useState("");
   const [preview, setPreview] = useState("");
   const [htmlTemplate, setHtmlTemplate] = useState("");
-  const [editorMode, setEditorMode] = useState<"html" | "visual">("html");
 
   const [novaCategoria, setNovaCategoria] = useState("");
   const [salvandoCategoria, setSalvandoCategoria] = useState(false);
 
   const [templates, setTemplates] = useState<any[]>([]);
+  const [templateBlocks, setTemplateBlocks] = useState<Record<string, VisualBlock[]>>({});
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -212,7 +395,52 @@ export default function ModelosConvitePage() {
 
     if (error) return alert("Erro ao carregar modelos: " + error.message);
 
-    setTemplates(data || []);
+    const lista = data || [];
+    setTemplates(lista);
+
+    const visualIds = lista
+      .filter((t: any) => t.editor_mode === "visual")
+      .map((t: any) => t.id)
+      .filter(Boolean);
+
+    if (!visualIds.length) {
+      setTemplateBlocks({});
+      return;
+    }
+
+    const { data: blocksData } = await supabase
+      .from("invite_template_blocks")
+      .select("*")
+      .in("template_id", visualIds)
+      .order("z_index", { ascending: true });
+
+    const grouped: Record<string, VisualBlock[]> = {};
+
+    for (const raw of blocksData || []) {
+      const block: VisualBlock = {
+        id: String(raw.id),
+        template_id: String(raw.template_id),
+        type: raw.type || "text",
+        label: raw.label || null,
+        content: raw.content || "",
+        x: toNumber(raw.x, 0),
+        y: toNumber(raw.y, 0),
+        width: toNumber(raw.width, 200),
+        height: toNumber(raw.height, 60),
+        font_size: toNumber(raw.font_size, 24),
+        font_family: raw.font_family || "Inter",
+        color: raw.color || "#ffffff",
+        background: raw.background || null,
+        border_radius: toNumber(raw.border_radius, 0),
+        z_index: toNumber(raw.z_index, 1),
+        visible: raw.visible !== false,
+      };
+
+      if (!grouped[block.template_id]) grouped[block.template_id] = [];
+      grouped[block.template_id].push(block);
+    }
+
+    setTemplateBlocks(grouped);
   }
 
   function limparFormulario() {
@@ -221,41 +449,28 @@ export default function ModelosConvitePage() {
     setCategoriaId("");
     setPreview("");
     setHtmlTemplate("");
-    setEditorMode("html");
     setEditandoId(null);
   }
 
   async function criarTemplate() {
     if (!nome.trim()) return alert("Digite o nome do modelo");
-    if (editorMode === "html" && !htmlTemplate.trim()) {
-      return alert("Cole o código HTML do modelo ou selecione o modo Editor Visual");
-    }
+    if (!htmlTemplate.trim()) return alert("Cole o código HTML do modelo");
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("invite_templates")
-      .insert({
-        nome: nome.trim(),
-        name: nome.trim(),
-        slug,
-        categoria_id: categoriaId || null,
-        preview_image: preview.trim() || null,
-        html_template: editorMode === "html" ? htmlTemplate.trim() : "",
-        editor_mode: editorMode,
-        active: true,
-      })
-      .select("id")
-      .single();
+    const { error } = await supabase.from("invite_templates").insert({
+      nome: nome.trim(),
+      name: nome.trim(),
+      slug,
+      categoria_id: categoriaId || null,
+      preview_image: preview.trim() || null,
+      html_template: htmlTemplate.trim(),
+      active: true,
+    });
 
     setLoading(false);
 
     if (error) return alert("Erro: " + error.message);
-
-    if (editorMode === "visual" && data?.id) {
-      window.location.href = `/admin/modelos-convites/${data.id}/editor`;
-      return;
-    }
 
     limparFormulario();
     await carregarTemplates();
@@ -269,16 +484,13 @@ export default function ModelosConvitePage() {
     setCategoriaId(t.categoria_id || "");
     setPreview(t.preview_image || "");
     setHtmlTemplate(t.html_template || "");
-    setEditorMode(t.editor_mode === "visual" ? "visual" : "html");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function salvarEdicao() {
     if (!editandoId) return;
     if (!nome.trim()) return alert("Digite o nome do modelo");
-    if (editorMode === "html" && !htmlTemplate.trim()) {
-      return alert("Cole o código HTML do modelo ou altere para Editor Visual");
-    }
+    if (!htmlTemplate.trim()) return alert("Cole o código HTML do modelo");
 
     setLoading(true);
 
@@ -290,19 +502,13 @@ export default function ModelosConvitePage() {
         slug,
         categoria_id: categoriaId || null,
         preview_image: preview.trim() || null,
-        html_template: editorMode === "html" ? htmlTemplate.trim() : htmlTemplate.trim(),
-        editor_mode: editorMode,
+        html_template: htmlTemplate.trim(),
       })
       .eq("id", editandoId);
 
     setLoading(false);
 
     if (error) return alert("Erro ao salvar edição: " + error.message);
-
-    if (editorMode === "visual") {
-      window.location.href = `/admin/modelos-convites/${editandoId}/editor`;
-      return;
-    }
 
     limparFormulario();
     await carregarTemplates();
@@ -330,7 +536,6 @@ export default function ModelosConvitePage() {
       categoria_id: template.categoria_id || null,
       preview_image: template.preview_image || null,
       html_template: template.html_template || "",
-      editor_mode: template.editor_mode || "html",
       active: false,
     });
 
@@ -513,24 +718,6 @@ export default function ModelosConvitePage() {
             {editandoId && <span style={editBadge}>Editando</span>}
           </div>
 
-          <div style={modeBox}>
-            <button
-              type="button"
-              onClick={() => setEditorMode("html")}
-              style={editorMode === "html" ? modeBtnActive : modeBtn}
-            >
-              HTML avançado
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setEditorMode("visual")}
-              style={editorMode === "visual" ? modeBtnActive : modeBtn}
-            >
-              Editor Visual
-            </button>
-          </div>
-
           <div style={formGridStyle}>
             <label style={field}>
               <span style={label}>Nome do modelo</span>
@@ -579,22 +766,15 @@ export default function ModelosConvitePage() {
             </label>
           </div>
 
-          {editorMode === "html" ? (
-            <label style={field}>
-              <span style={label}>Código HTML</span>
-              <textarea
-                placeholder="Cole aqui o código HTML do modelo..."
-                value={htmlTemplate}
-                onChange={(e) => setHtmlTemplate(e.target.value)}
-                style={textarea}
-              />
-            </label>
-          ) : (
-            <div style={visualNotice}>
-              <strong>Editor Visual selecionado</strong>
-              <span>Ao criar ou salvar, o modelo será aberto no editor visual para montar os blocos arrastáveis.</span>
-            </div>
-          )}
+          <label style={field}>
+            <span style={label}>Código HTML</span>
+            <textarea
+              placeholder="Cole aqui o código HTML do modelo..."
+              value={htmlTemplate}
+              onChange={(e) => setHtmlTemplate(e.target.value)}
+              style={textarea}
+            />
+          </label>
 
           <div style={actionsBar}>
             <button
@@ -605,11 +785,7 @@ export default function ModelosConvitePage() {
               {loading
                 ? "Salvando..."
                 : editandoId
-                ? editorMode === "visual"
-                  ? "Salvar e abrir editor"
-                  : "Salvar alteração"
-                : editorMode === "visual"
-                ? "Criar e abrir editor"
+                ? "Salvar alteração"
                 : "Criar modelo"}
             </button>
 
@@ -639,13 +815,7 @@ export default function ModelosConvitePage() {
             </span>
           </div>
 
-          {editorMode === "visual" ? (
-            <div style={emptyPreview}>
-              <div style={emptyIcon}>✦</div>
-              <strong>Modo Editor Visual</strong>
-              <span>Crie o modelo e monte o convite arrastando blocos no editor visual.</span>
-            </div>
-          ) : preview && !htmlTemplate ? (
+          {preview && !htmlTemplate ? (
             <AutoScaledImage
               src={preview}
               alt="Preview do modelo"
@@ -703,11 +873,16 @@ export default function ModelosConvitePage() {
 
               <div style={modelInfo}>
                 <span>{t.categoria?.nome || "Sem categoria"}</span>
-                <span>{t.editor_mode === "visual" ? "Editor visual" : t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
+                <span>{t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
               </div>
 
               <div style={{ marginTop: 14 }}>
-                {t.preview_image ? (
+                {t.editor_mode === "visual" && templateBlocks[t.id]?.length ? (
+                  <MiniVisualPreview
+                    blocks={templateBlocks[t.id]}
+                    maxHeight={isMobile ? 360 : 420}
+                  />
+                ) : t.preview_image ? (
                   <AutoScaledImage
                     src={t.preview_image}
                     alt={t.nome || t.name || "Preview do modelo"}
@@ -719,6 +894,8 @@ export default function ModelosConvitePage() {
                     title={`Preview ${t.nome || t.name}`}
                     maxHeight={isMobile ? 360 : 420}
                   />
+                ) : t.editor_mode === "visual" ? (
+                  <div style={miniEmpty}>Editor visual sem blocos salvos</div>
                 ) : (
                   <div style={miniEmpty}>Sem preview</div>
                 )}
@@ -934,48 +1111,6 @@ const textarea: CSSProperties = {
   lineHeight: 1.6,
   resize: "vertical",
   outline: "none",
-  boxSizing: "border-box",
-};
-
-const modeBox: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 10,
-  marginBottom: 16,
-};
-
-const modeBtn: CSSProperties = {
-  minHeight: 48,
-  borderRadius: 14,
-  border: "1px solid #dbe3ef",
-  background: "#ffffff",
-  color: "#334155",
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const modeBtnActive: CSSProperties = {
-  ...modeBtn,
-  border: "1px solid #7c3aed",
-  background: "#f5f3ff",
-  color: "#6d28d9",
-  boxShadow: "0 10px 24px rgba(124, 58, 237, 0.14)",
-};
-
-const visualNotice: CSSProperties = {
-  marginTop: 14,
-  minHeight: 180,
-  borderRadius: 16,
-  border: "1px dashed #c4b5fd",
-  background: "#f5f3ff",
-  color: "#5b21b6",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  gap: 8,
-  textAlign: "center",
-  padding: 18,
   boxSizing: "border-box",
 };
 
