@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import { supabase } from "@/lib/supabase";
 
+type EffectType = "none" | "glow" | "float" | "pulse" | "shine";
+
+type BackgroundEffectType = "none" | "cinema_zoom" | "parallax";
+
 type BlockType =
   | "text"
   | "event_name"
@@ -42,6 +46,7 @@ type TemplateData = {
   name: string | null;
   html_template: string | null;
   preview_image: string | null;
+  visual_config?: any;
 };
 
 const CANVAS_W = 430;
@@ -167,6 +172,59 @@ const DEMO_EVENTO = {
   local_evento: "Guerrah Hall",
   endereco_evento: "Macaé/RJ",
 };
+
+const EFFECT_OPTIONS: { value: EffectType; label: string }[] = [
+  { value: "none", label: "Nenhum" },
+  { value: "glow", label: "Glow" },
+  { value: "float", label: "Flutuar" },
+  { value: "pulse", label: "Pulse" },
+  { value: "shine", label: "Shine" },
+];
+
+const BACKGROUND_EFFECT_OPTIONS: {
+  value: BackgroundEffectType;
+  label: string;
+}[] = [
+  { value: "none", label: "Nenhum" },
+  { value: "cinema_zoom", label: "Zoom cinema" },
+  { value: "parallax", label: "Parallax leve" },
+];
+
+function getEditorEffectStyle(effect: EffectType): CSSProperties {
+  if (effect === "glow") {
+    return {
+      boxShadow:
+        "0 0 22px rgba(247,212,119,.58), 0 0 48px rgba(124,58,237,.22)",
+      filter: "drop-shadow(0 0 10px rgba(247,212,119,.36))",
+    };
+  }
+
+  if (effect === "float") {
+    return {
+      transform: "translateY(-3px)",
+      boxShadow: "0 14px 32px rgba(15,23,42,.24)",
+    };
+  }
+
+  if (effect === "pulse") {
+    return {
+      transform: "scale(1.015)",
+      boxShadow: "0 0 0 5px rgba(255,255,255,.08)",
+    };
+  }
+
+  if (effect === "shine") {
+    return {
+      boxShadow:
+        "inset 0 0 0 1px rgba(255,255,255,.18), 0 14px 32px rgba(255,255,255,.10)",
+      backgroundImage:
+        "linear-gradient(110deg, transparent 0%, rgba(255,255,255,.22) 48%, transparent 56%)",
+      backgroundBlendMode: "screen",
+    };
+  }
+
+  return {};
+}
 
 function renderDynamicContent(content: string | null) {
   const diasParaEvento = getDiasRestantesBrasil(
@@ -307,7 +365,11 @@ function renderGuestPickerContent(block: ConviteBlock) {
   );
 }
 
-function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
+function renderPreviewBlock(
+  block: ConviteBlock,
+  logoPreviewUrl: string,
+  effect: EffectType = "none",
+) {
   const shared: CSSProperties = {
     position: "absolute",
     left: block.x,
@@ -330,6 +392,7 @@ function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
     padding: block.type === "divider" ? 0 : 8,
     overflow: "hidden",
     whiteSpace: "pre-wrap",
+    ...getEditorEffectStyle(effect),
   };
 
   if (block.type === "countdown") {
@@ -607,6 +670,7 @@ function renderBlock(
   selected: boolean,
   updateContent: (content: string) => void,
   logoPreviewUrl: string,
+  effect: EffectType = "none",
 ) {
   const shared: CSSProperties = {
     width: "100%",
@@ -630,6 +694,7 @@ function renderBlock(
     boxShadow: selected ? "0 0 0 4px rgba(124,58,237,.18)" : "none",
     overflow: "hidden",
     userSelect: "none",
+    ...getEditorEffectStyle(effect),
   };
 
   if (block.type === "countdown") {
@@ -747,6 +812,11 @@ export default function EditorModeloConvitePage({
   const [glassOpacity, setGlassOpacity] = useState(0.18);
   const [glassBlur, setGlassBlur] = useState(0);
   const [glassTone, setGlassTone] = useState<"light" | "dark">("dark");
+  const [backgroundEffect, setBackgroundEffect] =
+    useState<BackgroundEffectType>("none");
+  const [blockEffects, setBlockEffects] = useState<Record<string, EffectType>>(
+    {},
+  );
   const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const [musicaPreviewUrl, setMusicaPreviewUrl] = useState("");
   const [musicaTocando, setMusicaTocando] = useState(false);
@@ -774,7 +844,7 @@ export default function EditorModeloConvitePage({
       await Promise.all([
         supabase
           .from("invite_templates")
-          .select("id, nome, name, html_template, preview_image")
+          .select("id, nome, name, html_template, preview_image, visual_config")
           .eq("id", templateId)
           .single(),
         supabase
@@ -784,7 +854,17 @@ export default function EditorModeloConvitePage({
           .order("z_index", { ascending: true }),
       ]);
 
-    if (templateData) setTemplate(templateData as TemplateData);
+    if (templateData) {
+      setTemplate(templateData as TemplateData);
+      const config = (templateData as any).visual_config || {};
+      setBackgroundEffect(
+        config.backgroundEffect === "cinema_zoom" ||
+          config.backgroundEffect === "parallax"
+          ? config.backgroundEffect
+          : "none",
+      );
+      setBlockEffects(config.blockEffects || {});
+    }
 
     try {
       const savedAssets = JSON.parse(
@@ -801,6 +881,17 @@ export default function EditorModeloConvitePage({
       setGlassTone(savedAssets.glassTone === "light" ? "light" : "dark");
       setLogoPreviewUrl(savedAssets.logoPreviewUrl || "");
       setMusicaPreviewUrl(savedAssets.musicaPreviewUrl || "");
+      if (savedAssets.backgroundEffect) {
+        setBackgroundEffect(
+          savedAssets.backgroundEffect === "cinema_zoom" ||
+            savedAssets.backgroundEffect === "parallax"
+            ? savedAssets.backgroundEffect
+            : "none",
+        );
+      }
+      if (savedAssets.blockEffects) {
+        setBlockEffects(savedAssets.blockEffects || {});
+      }
     } catch {}
 
     if (blocksError) {
@@ -878,6 +969,11 @@ export default function EditorModeloConvitePage({
   function deleteSelected() {
     if (!selectedId) return;
     setBlocks((prev) => prev.filter((b) => b.id !== selectedId));
+    setBlockEffects((current) => {
+      const next = { ...current };
+      delete next[selectedId];
+      return next;
+    });
     setSelectedId(null);
   }
 
@@ -893,6 +989,10 @@ export default function EditorModeloConvitePage({
     };
 
     setBlocks((prev) => [...prev, duplicate]);
+    setBlockEffects((current) => ({
+      ...current,
+      [duplicate.id]: current[selectedBlock.id] || "none",
+    }));
     setSelectedId(duplicate.id);
   }
 
@@ -946,6 +1046,8 @@ export default function EditorModeloConvitePage({
       glassTone,
       logoPreviewUrl: nextLogo || "",
       musicaPreviewUrl: nextMusica || "",
+      backgroundEffect,
+      blockEffects,
     };
 
     const { error } = await supabase
@@ -1033,6 +1135,7 @@ export default function EditorModeloConvitePage({
     }
 
     const payload = blocks.map((b, index) => ({
+      id: b.id,
       template_id: templateId,
       type: b.type,
       label: b.label,
@@ -1075,6 +1178,8 @@ export default function EditorModeloConvitePage({
           glassTone,
           logoPreviewUrl,
           musicaPreviewUrl,
+          backgroundEffect,
+          blockEffects,
         }),
       );
     } catch {}
@@ -1117,7 +1222,11 @@ export default function EditorModeloConvitePage({
             {previewAoVivo ? "Editar layout" : "Preview ao vivo"}
           </button>
 
-          <button style={primaryButton} onClick={salvarBlocos} disabled={saving}>
+          <button
+            style={primaryButton}
+            onClick={salvarBlocos}
+            disabled={saving}
+          >
             {saving ? "Salvando..." : "Salvar layout"}
           </button>
         </div>
@@ -1162,7 +1271,10 @@ export default function EditorModeloConvitePage({
             <button style={smallButton} onClick={() => addBlock("qr")}>
               + QR
             </button>
-            <button style={smallButton} onClick={() => addBlock("guest_picker")}>
+            <button
+              style={smallButton}
+              onClick={() => addBlock("guest_picker")}
+            >
               + Lista confirmação
             </button>
           </div>
@@ -1328,6 +1440,26 @@ export default function EditorModeloConvitePage({
               </label>
             </div>
 
+            <div style={assetControlBox}>
+              <strong style={{ fontSize: 12 }}>Efeito do background</strong>
+              <label style={field}>
+                <span style={label}>Opcional e leve para abrir rápido</span>
+                <select
+                  value={backgroundEffect}
+                  onChange={(e) =>
+                    setBackgroundEffect(e.target.value as BackgroundEffectType)
+                  }
+                  style={input}
+                >
+                  {BACKGROUND_EFFECT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <label style={field}>
               <span style={label}>Logomarca do evento</span>
               <input
@@ -1418,6 +1550,8 @@ export default function EditorModeloConvitePage({
                 setLogoPreviewUrl("");
                 setMusicaPreviewUrl("");
                 setMusicaTocando(false);
+                setBackgroundEffect("none");
+                setBlockEffects({});
               }}
             >
               Limpar arquivos
@@ -1445,6 +1579,26 @@ export default function EditorModeloConvitePage({
                   {Math.round(selectedBlock.height)} px
                 </span>
               </div>
+
+              <label style={field}>
+                <span style={label}>Efeito opcional do bloco</span>
+                <select
+                  value={blockEffects[selectedBlock.id] || "none"}
+                  onChange={(e) =>
+                    setBlockEffects((current) => ({
+                      ...current,
+                      [selectedBlock.id]: e.target.value as EffectType,
+                    }))
+                  }
+                  style={input}
+                >
+                  {EFFECT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <div style={quickControls}>
                 <button
@@ -1727,6 +1881,11 @@ export default function EditorModeloConvitePage({
                       zIndex: 0,
                       pointerEvents: "none",
                       userSelect: "none",
+                      filter:
+                        backgroundEffect === "parallax"
+                          ? "saturate(1.04) contrast(1.02)"
+                          : undefined,
+                      transition: "transform 220ms ease, filter 220ms ease",
                     }}
                   />
                 )}
@@ -1756,7 +1915,13 @@ export default function EditorModeloConvitePage({
                     {blocks
                       .filter((b) => b.visible)
                       .sort((a, b) => a.z_index - b.z_index)
-                      .map((block) => renderPreviewBlock(block, logoPreviewUrl))}
+                      .map((block) =>
+                        renderPreviewBlock(
+                          block,
+                          logoPreviewUrl,
+                          blockEffects[block.id] || "none",
+                        ),
+                      )}
                   </>
                 ) : (
                   <>
@@ -1802,6 +1967,7 @@ export default function EditorModeloConvitePage({
                               selected,
                               (content) => updateBlock(block.id, { content }),
                               logoPreviewUrl,
+                              blockEffects[block.id] || "none",
                             )}
                           </Rnd>
                         );
