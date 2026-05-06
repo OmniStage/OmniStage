@@ -779,59 +779,6 @@ export default function ModelosConvitePage() {
     setTemplateBlocks(grouped);
   }
 
-  async function gerarPreviewDoTemplate(template: any) {
-    if (!template?.id) return;
-
-    try {
-      setGerandoPreviewId(template.id);
-
-      let htmlParaPreview = "";
-
-      if (template.editor_mode === "visual") {
-        const blocks = templateBlocks[template.id] || [];
-
-        if (!blocks.length) {
-          alert("Este modelo visual ainda não possui blocos para gerar preview.");
-          return;
-        }
-
-        htmlParaPreview = gerarHtmlVisualParaPreview(template, blocks);
-      } else if (template.html_template) {
-        htmlParaPreview = preencherTemplate(
-          template.html_template,
-          criarEventoDemo(template)
-        );
-      }
-
-      if (!htmlParaPreview.trim()) {
-        alert("Não existe conteúdo suficiente para gerar preview.");
-        return;
-      }
-
-      const previewUrl = await gerarPreviewAutomatico(
-        template.id,
-        htmlParaPreview
-      );
-
-      if (previewUrl) {
-        setTemplates((prev) =>
-          prev.map((item) =>
-            item.id === template.id
-              ? { ...item, preview_image: previewUrl }
-              : item
-          )
-        );
-      }
-
-      await carregarTemplates();
-      alert("Preview gerado com sucesso!");
-    } catch (error: any) {
-      alert(error?.message || "Erro ao gerar preview.");
-    } finally {
-      setGerandoPreviewId(null);
-    }
-  }
-
   function limparFormulario() {
     setNome("");
     setSlug("");
@@ -871,9 +818,6 @@ export default function ModelosConvitePage() {
       setLoading(false);
       return alert("Erro: " + error.message);
     }
-
-    if (data?.id && editorMode === "html" && htmlTemplate.trim()) {
-      try {
         await gerarPreviewAutomatico(
           data.id,
           preencherTemplate(
@@ -917,10 +861,7 @@ export default function ModelosConvitePage() {
   async function salvarEdicao() {
     if (!editandoId) return;
     if (!nome.trim()) return alert("Digite o nome do modelo");
-    if (editorMode === "html" && !htmlTemplate.trim()) {
-      return alert("Cole o código HTML do modelo ou altere para Editor Visual");
-    }
-
+    
     setLoading(true);
 
     const { error } = await supabase
@@ -1426,14 +1367,6 @@ export default function ModelosConvitePage() {
 
                 <button onClick={() => duplicarTemplate(t)} style={btnPurple}>
                   Duplicar
-                </button>
-
-                <button
-                  onClick={() => gerarPreviewDoTemplate(t)}
-                  style={btnSoft}
-                  disabled={gerandoPreviewId === t.id}
-                >
-                  {gerandoPreviewId === t.id ? "Gerando..." : "Gerar preview"}
                 </button>
 
                 <button
