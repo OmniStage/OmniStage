@@ -105,7 +105,7 @@ function renderPreviewBlock(block: ConviteBlock, logoPreviewUrl: string) {
     top: block.y,
     width: block.width,
     height: block.height,
-    zIndex: block.z_index,
+    zIndex: (block.z_index || 1) + 10,
     boxSizing: "border-box",
     borderRadius: block.border_radius,
     color: block.color,
@@ -435,6 +435,13 @@ export default function EditorModeloConvitePage({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewAoVivo, setPreviewAoVivo] = useState(false);
   const [backgroundPreviewUrl, setBackgroundPreviewUrl] = useState("");
+  const [backgroundX, setBackgroundX] = useState(0);
+  const [backgroundY, setBackgroundY] = useState(0);
+  const [backgroundScale, setBackgroundScale] = useState(1);
+  const [backgroundOpacity, setBackgroundOpacity] = useState(1);
+  const [glassOpacity, setGlassOpacity] = useState(0.18);
+  const [glassBlur, setGlassBlur] = useState(0);
+  const [glassTone, setGlassTone] = useState<"light" | "dark">("dark");
   const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const [musicaPreviewUrl, setMusicaPreviewUrl] = useState("");
   const [musicaTocando, setMusicaTocando] = useState(false);
@@ -479,6 +486,13 @@ export default function EditorModeloConvitePage({
         localStorage.getItem(`omnistage_invite_editor_assets_${templateId}`) || "{}",
       );
       setBackgroundPreviewUrl(savedAssets.backgroundPreviewUrl || "");
+      setBackgroundX(Number(savedAssets.backgroundX || 0));
+      setBackgroundY(Number(savedAssets.backgroundY || 0));
+      setBackgroundScale(Number(savedAssets.backgroundScale || 1));
+      setBackgroundOpacity(Number(savedAssets.backgroundOpacity ?? 1));
+      setGlassOpacity(Number(savedAssets.glassOpacity ?? 0.18));
+      setGlassBlur(Number(savedAssets.glassBlur || 0));
+      setGlassTone(savedAssets.glassTone === "light" ? "light" : "dark");
       setLogoPreviewUrl(savedAssets.logoPreviewUrl || "");
       setMusicaPreviewUrl(savedAssets.musicaPreviewUrl || "");
     } catch {}
@@ -666,6 +680,13 @@ export default function EditorModeloConvitePage({
         `omnistage_invite_editor_assets_${templateId}`,
         JSON.stringify({
           backgroundPreviewUrl,
+          backgroundX,
+          backgroundY,
+          backgroundScale,
+          backgroundOpacity,
+          glassOpacity,
+          glassBlur,
+          glassTone,
           logoPreviewUrl,
           musicaPreviewUrl,
         }),
@@ -776,6 +797,103 @@ export default function EditorModeloConvitePage({
               )}
             </label>
 
+            {backgroundPreviewUrl && (
+              <div style={assetControlBox}>
+                <strong style={{ fontSize: 12 }}>Ajuste do background</strong>
+
+                <label style={field}>
+                  <span style={label}>Mover horizontal</span>
+                  <input
+                    type="range"
+                    min={-220}
+                    max={220}
+                    value={backgroundX}
+                    onChange={(e) => setBackgroundX(Number(e.target.value))}
+                  />
+                </label>
+
+                <label style={field}>
+                  <span style={label}>Mover vertical</span>
+                  <input
+                    type="range"
+                    min={-420}
+                    max={420}
+                    value={backgroundY}
+                    onChange={(e) => setBackgroundY(Number(e.target.value))}
+                  />
+                </label>
+
+                <label style={field}>
+                  <span style={label}>Aumentar / diminuir</span>
+                  <input
+                    type="range"
+                    min={0.45}
+                    max={2.8}
+                    step={0.01}
+                    value={backgroundScale}
+                    onChange={(e) => setBackgroundScale(Number(e.target.value))}
+                  />
+                </label>
+
+                <label style={field}>
+                  <span style={label}>Opacidade do fundo</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={backgroundOpacity}
+                    onChange={(e) => setBackgroundOpacity(Number(e.target.value))}
+                  />
+                </label>
+              </div>
+            )}
+
+            <div style={assetControlBox}>
+              <strong style={{ fontSize: 12 }}>Camada tipo vidro</strong>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  style={glassTone === "dark" ? smallButtonActive : smallButton}
+                  onClick={() => setGlassTone("dark")}
+                >
+                  Escurecer
+                </button>
+                <button
+                  type="button"
+                  style={glassTone === "light" ? smallButtonActive : smallButton}
+                  onClick={() => setGlassTone("light")}
+                >
+                  Clarear
+                </button>
+              </div>
+
+              <label style={field}>
+                <span style={label}>Intensidade da camada</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={0.85}
+                  step={0.01}
+                  value={glassOpacity}
+                  onChange={(e) => setGlassOpacity(Number(e.target.value))}
+                />
+              </label>
+
+              <label style={field}>
+                <span style={label}>Blur / vidro</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={18}
+                  step={1}
+                  value={glassBlur}
+                  onChange={(e) => setGlassBlur(Number(e.target.value))}
+                />
+              </label>
+            </div>
+
             <label style={field}>
               <span style={label}>Logomarca do evento</span>
               <input
@@ -846,6 +964,13 @@ export default function EditorModeloConvitePage({
               style={smallButton}
               onClick={() => {
                 setBackgroundPreviewUrl("");
+                setBackgroundX(0);
+                setBackgroundY(0);
+                setBackgroundScale(1);
+                setBackgroundOpacity(1);
+                setGlassOpacity(0.18);
+                setGlassBlur(0);
+                setGlassTone("dark");
                 setLogoPreviewUrl("");
                 setMusicaPreviewUrl("");
                 setMusicaTocando(false);
@@ -1072,16 +1197,41 @@ export default function EditorModeloConvitePage({
             <div style={emptyBox}>Carregando editor...</div>
           ) : (
             <div style={phoneFrame}>
-              <div
-                style={{
-                  ...canvas,
-                  background: backgroundPreviewUrl
-                    ? `linear-gradient(rgba(2,6,23,.18), rgba(2,6,23,.22)), url(${backgroundPreviewUrl})`
-                    : canvas.background,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              >
+              <div style={canvas}>
+                {backgroundPreviewUrl && (
+                  <img
+                    src={backgroundPreviewUrl}
+                    alt="Background do convite"
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: "50%",
+                      width: CANVAS_W,
+                      height: CANVAS_H,
+                      objectFit: "cover",
+                      transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
+                      opacity: backgroundOpacity,
+                      zIndex: 0,
+                      pointerEvents: "none",
+                      userSelect: "none",
+                    }}
+                  />
+                )}
+
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 1,
+                    pointerEvents: "none",
+                    background:
+                      glassTone === "light"
+                        ? `rgba(255,255,255,${glassOpacity})`
+                        : `rgba(2,6,23,${glassOpacity})`,
+                    backdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
+                  }}
+                />
+
                 {previewAoVivo && musicaPreviewUrl && (
                   <div style={musicBadge}>
                     {musicaTocando ? "♪ Música tocando" : "♪ Música disponível"}
@@ -1273,6 +1423,22 @@ const textarea: CSSProperties = {
   padding: 10,
   boxSizing: "border-box",
   resize: "vertical",
+};
+
+const assetControlBox: CSSProperties = {
+  display: "grid",
+  gap: 10,
+  padding: 12,
+  borderRadius: 14,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
+const smallButtonActive: CSSProperties = {
+  ...smallButton,
+  background: "#7c3aed",
+  color: "#ffffff",
+  borderColor: "#7c3aed",
 };
 
 const fileInput: CSSProperties = {
