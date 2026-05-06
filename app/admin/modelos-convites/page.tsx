@@ -64,185 +64,6 @@ function criarEventoDemo(t?: any) {
   };
 }
 
-function escapeHtmlString(value: string | null | undefined) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function gerarHtmlVisualParaPreview(template: any, blocks: VisualBlock[]) {
-  const baseWidth = 430;
-  const baseHeight = 920;
-
-  const visualConfig = (template?.visual_config || {}) as any;
-
-  const backgroundUrl =
-    visualConfig.backgroundPreviewUrl ||
-    template?.background_image ||
-    template?.background_url ||
-    template?.preview_image ||
-    "";
-
-  const logoUrl =
-    visualConfig.logoPreviewUrl ||
-    template?.logo_image ||
-    template?.logo_url ||
-    "";
-
-  const backgroundX = toNumber(visualConfig.backgroundX, 0);
-  const backgroundY = toNumber(visualConfig.backgroundY, 0);
-  const backgroundScale = toNumber(visualConfig.backgroundScale, 1);
-  const backgroundOpacity = toNumber(visualConfig.backgroundOpacity, 1);
-  const glassOpacity = toNumber(visualConfig.glassOpacity, 0.18);
-  const glassBlur = toNumber(visualConfig.glassBlur, 0);
-  const glassTone = visualConfig.glassTone === "light" ? "light" : "dark";
-
-  const blocosHtml = blocks
-    .filter((b) => b.visible !== false)
-    .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
-    .map((block) => {
-      const isLogo = block.type === "logo";
-      const isQr = block.type === "qr";
-      const isDivider = block.type === "divider";
-
-      const style = `
-        position:absolute;
-        left:${block.x}px;
-        top:${block.y}px;
-        width:${block.width}px;
-        height:${block.height}px;
-        z-index:${(block.z_index || 1) + 10};
-        box-sizing:border-box;
-        border-radius:${block.border_radius}px;
-        color:${block.color || "#ffffff"};
-        background:${block.background || "transparent"};
-        font-family:${block.font_family || "Inter"}, Arial, sans-serif;
-        font-size:${block.font_size}px;
-        font-weight:900;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        text-align:center;
-        line-height:1.12;
-        padding:${isDivider ? 0 : 8}px;
-        overflow:hidden;
-        white-space:pre-wrap;
-      `;
-
-      if (isLogo) {
-        if (logoUrl) {
-          return `
-            <div style="${style}">
-              <img src="${escapeHtmlString(logoUrl)}" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:${block.border_radius}px;" />
-            </div>
-          `;
-        }
-
-        return `
-          <div style="${style}">
-            <div style="width:100%;height:100%;display:grid;place-items:center;border-radius:${block.border_radius}px;background:radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08));">
-              <div style="font-size:12px;opacity:.92;">LOGO<br/>EVENTO</div>
-            </div>
-          </div>
-        `;
-      }
-
-      if (isQr) {
-        return `
-          <div style="${style}">
-            <div style="width:78%;height:78%;border-radius:8px;background:linear-gradient(90deg,#111 10px,transparent 10px) 0 0/22px 22px,linear-gradient(#111 10px,transparent 10px) 0 0/22px 22px,#fff;opacity:.92;"></div>
-          </div>
-        `;
-      }
-
-      if (isDivider) {
-        return `<div style="${style}"></div>`;
-      }
-
-      return `
-        <div style="${style}">
-          ${escapeHtmlString(renderDemoContent(block.content))}
-        </div>
-      `;
-    })
-    .join("");
-
-  return `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=${baseWidth}, initial-scale=1" />
-        <style>
-          * { box-sizing: border-box; }
-          html, body {
-            margin: 0;
-            width: ${baseWidth}px;
-            height: ${baseHeight}px;
-            overflow: hidden;
-            background: #020617;
-          }
-          body {
-            font-family: Inter, Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-        <div
-          style="
-            width:${baseWidth}px;
-            height:${baseHeight}px;
-            position:relative;
-            overflow:hidden;
-            background:radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63);
-          "
-        >
-          ${
-            backgroundUrl
-              ? `
-                <img
-                  src="${escapeHtmlString(backgroundUrl)}"
-                  style="
-                    position:absolute;
-                    left:50%;
-                    top:50%;
-                    width:${baseWidth}px;
-                    height:${baseHeight}px;
-                    object-fit:cover;
-                    transform:translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale});
-                    opacity:${backgroundOpacity};
-                    z-index:0;
-                  "
-                />
-              `
-              : ""
-          }
-
-          <div
-            style="
-              position:absolute;
-              inset:0;
-              z-index:1;
-              pointer-events:none;
-              background:${
-                glassTone === "light"
-                  ? `rgba(255,255,255,${glassOpacity})`
-                  : `rgba(2,6,23,${glassOpacity})`
-              };
-              backdrop-filter:${glassBlur ? `blur(${glassBlur}px)` : "none"};
-            "
-          ></div>
-
-          ${blocosHtml}
-        </div>
-      </body>
-    </html>
-  `;
-}
-
 function AutoScaledIframe({
   html,
   title = "Preview",
@@ -656,7 +477,6 @@ export default function ModelosConvitePage() {
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [gerandoPreviewId, setGerandoPreviewId] = useState<string | null>(null);
 
   const totalModelos = templates.length;
   const modelosAtivos = templates.filter((t) => t.active).length;
@@ -814,28 +634,9 @@ export default function ModelosConvitePage() {
       .select("id")
       .single();
 
-    if (error) {
-      setLoading(false);
-      return alert("Erro: " + error.message);
-    }
-        await gerarPreviewAutomatico(
-          data.id,
-          preencherTemplate(
-            htmlTemplate.trim(),
-            criarEventoDemo({
-              id: data.id,
-              nome,
-              name: nome,
-              preview_image: preview,
-            })
-          )
-        );
-      } catch (previewError) {
-        console.error("Erro ao gerar preview automático:", previewError);
-      }
-    }
-
     setLoading(false);
+
+    if (error) return alert("Erro: " + error.message);
 
     if (editorMode === "visual" && data?.id) {
       window.location.href = `/admin/modelos-convites/${data.id}/editor`;
@@ -861,7 +662,10 @@ export default function ModelosConvitePage() {
   async function salvarEdicao() {
     if (!editandoId) return;
     if (!nome.trim()) return alert("Digite o nome do modelo");
-    
+    if (editorMode === "html" && !htmlTemplate.trim()) {
+      return alert("Cole o código HTML do modelo ou altere para Editor Visual");
+    }
+
     setLoading(true);
 
     const { error } = await supabase
@@ -878,31 +682,9 @@ export default function ModelosConvitePage() {
       })
       .eq("id", editandoId);
 
-    if (error) {
-      setLoading(false);
-      return alert("Erro ao salvar edição: " + error.message);
-    }
-
-    if (editorMode === "html" && htmlTemplate.trim()) {
-      try {
-        await gerarPreviewAutomatico(
-          editandoId,
-          preencherTemplate(
-            htmlTemplate.trim(),
-            criarEventoDemo({
-              id: editandoId,
-              nome,
-              name: nome,
-              preview_image: preview,
-            })
-          )
-        );
-      } catch (previewError) {
-        console.error("Erro ao gerar preview automático:", previewError);
-      }
-    }
-
     setLoading(false);
+
+    if (error) return alert("Erro ao salvar edição: " + error.message);
 
     if (editorMode === "visual") {
       window.location.href = `/admin/modelos-convites/${editandoId}/editor`;
@@ -1324,14 +1106,7 @@ export default function ModelosConvitePage() {
               </div>
 
               <div style={{ marginTop: 14 }}>
-                {t.preview_image ? (
-                  <AutoScaledImage
-                    src={t.preview_image}
-                    alt={t.nome || t.name || "Preview do modelo"}
-                    maxHeight={isMobile ? 360 : 420}
-                  />
-                ) : t.editor_mode === "visual" &&
-                  templateBlocks[t.id]?.length ? (
+                {t.editor_mode === "visual" && templateBlocks[t.id]?.length ? (
                   <MiniVisualPreview
                     blocks={templateBlocks[t.id]}
                     template={t}
@@ -1339,11 +1114,14 @@ export default function ModelosConvitePage() {
                   />
                 ) : t.html_template ? (
                   <AutoScaledIframe
-                    html={preencherTemplate(
-                      t.html_template,
-                      criarEventoDemo(t)
-                    )}
+                    html={preencherTemplate(t.html_template, criarEventoDemo(t))}
                     title={`Preview ${t.nome || t.name}`}
+                    maxHeight={isMobile ? 360 : 420}
+                  />
+                ) : t.preview_image ? (
+                  <AutoScaledImage
+                    src={t.preview_image}
+                    alt={t.nome || t.name || "Preview do modelo"}
                     maxHeight={isMobile ? 360 : 420}
                   />
                 ) : (
