@@ -83,7 +83,8 @@ export default function ConvitePublicoPage() {
 
     const { data: evento } = await supabase
       .from("eventos")
-      .select(`
+      .select(
+        `
         id,
         nome,
         data_evento,
@@ -98,7 +99,8 @@ export default function ConvitePublicoPage() {
         logo_url,
         music_file,
         musica_url
-      `)
+      `,
+      )
       .eq("id", convidado.evento_id)
       .maybeSingle();
 
@@ -110,7 +112,8 @@ export default function ConvitePublicoPage() {
 
     const { data: template } = await supabase
       .from("invite_templates")
-      .select(`
+      .select(
+        `
         id,
         nome,
         name,
@@ -120,7 +123,8 @@ export default function ConvitePublicoPage() {
         background_image,
         logo_image,
         visual_config
-      `)
+      `,
+      )
       .eq("id", evento.invite_template_id)
       .maybeSingle();
 
@@ -167,7 +171,10 @@ export default function ConvitePublicoPage() {
         nomesDoConvite,
       );
     } else if (template.html_template) {
-      htmlDoEvento = preencherTemplate(template.html_template, evento as Evento);
+      htmlDoEvento = preencherTemplate(
+        template.html_template,
+        evento as Evento,
+      );
       htmlDoEvento = injetarConvidadosNoConvite(htmlDoEvento, nomesDoConvite);
     } else {
       setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
@@ -240,7 +247,6 @@ function renderizarConviteVisual(
 
   const dataEvento = evento.data_evento || "";
   const horarioEvento = evento.horario || "00:00";
-  const isGrupo = nomesDoConvite.length > 1;
 
   const blocksHtml = blocks
     .filter((block) => block.visible !== false)
@@ -248,20 +254,16 @@ function renderizarConviteVisual(
     .map((block) => renderBlockVisual(block, evento, logo))
     .join("");
 
-  const nomesHtml = isGrupo
-    ? nomesDoConvite
-        .map(
-          (nome) => `
-            <label class="name-option selected">
-              <input type="checkbox" checked name="guest-confirmation" />
-              <span>${escapeHtml(nome)}</span>
-            </label>
-          `,
-        )
-        .join("")
-    : `
-        <div class="single-guest-name">${escapeHtml(nomesDoConvite[0] || "")}</div>
-      `;
+  const nomesHtml = nomesDoConvite
+    .map(
+      (nome) => `
+        <label class="name-option selected">
+          <input type="checkbox" checked name="guest-confirmation" />
+          <span>${escapeHtml(nome)}</span>
+        </label>
+      `,
+    )
+    .join("");
 
   return `
     <!doctype html>
@@ -272,9 +274,7 @@ function renderizarConviteVisual(
         <title>${escapeHtml(evento.nome || "Convite digital")}</title>
 
         <style>
-          * {
-            box-sizing: border-box;
-          }
+          * { box-sizing: border-box; }
 
           html, body {
             margin: 0;
@@ -415,13 +415,6 @@ function renderizarConviteVisual(
             accent-color: #f7d477;
           }
 
-          .single-guest-name {
-            color: #ffffff;
-            text-align: center;
-            font-weight: 950;
-            font-size: 24px;
-          }
-
           .hint-text {
             position: absolute;
             left: 28px;
@@ -464,11 +457,7 @@ function renderizarConviteVisual(
             </section>
 
             <div class="hint-text" id="hintText">
-              ${
-                isGrupo
-                  ? "Selecione os nomes para confirmar presença"
-                  : "Confirme sua presença"
-              }
+              Selecione os nomes para confirmar presença
             </div>
 
             <button class="confirm-btn" id="confirmBtn">
@@ -552,7 +541,11 @@ function renderizarConviteVisual(
   `;
 }
 
-function renderBlockVisual(block: VisualBlock, evento: Evento, logoEvento: string) {
+function renderBlockVisual(
+  block: VisualBlock,
+  evento: Evento,
+  logoEvento: string,
+) {
   const style = `
     left:${Number(block.x || 0)}px;
     top:${Number(block.y || 0)}px;
