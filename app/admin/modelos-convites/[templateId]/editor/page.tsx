@@ -693,6 +693,34 @@ export default function EditorModeloConvitePage({
       return;
     }
 
+    const visualConfig = {
+      backgroundPreviewUrl,
+      backgroundX,
+      backgroundY,
+      backgroundScale,
+      backgroundOpacity,
+      glassOpacity,
+      glassBlur,
+      glassTone,
+      logoPreviewUrl,
+      musicaPreviewUrl,
+    };
+
+    const { error: templateUpdateError } = await supabase
+      .from("invite_templates")
+      .update({
+        background_image: backgroundPreviewUrl || null,
+        logo_image: logoPreviewUrl || null,
+        preview_image: backgroundPreviewUrl || null,
+        visual_config: visualConfig,
+      })
+      .eq("id", templateId);
+
+    if (templateUpdateError) {
+      alert("Blocos salvos, mas houve erro ao salvar preview do modelo: " + templateUpdateError.message);
+      return;
+    }
+
     try {
       localStorage.setItem(
         `omnistage_invite_editor_assets_${templateId}`,
