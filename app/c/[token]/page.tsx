@@ -257,7 +257,7 @@ function renderizarConviteVisual(
   );
 
   const blocksHtml = blocksVisiveis
-    .map((block) => renderBlockVisual(block, evento, logo))
+    .map((block) => renderBlockVisual(block, evento, logo, nomesDoConvite))
     .join("");
 
   const nomesHtml = nomesDoConvite
@@ -557,6 +557,7 @@ function renderBlockVisual(
   block: VisualBlock,
   evento: Evento,
   logoEvento: string,
+  nomesDoConvite: string[],
 ) {
   const style = `
     left:${Number(block.x || 0)}px;
