@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { preencherTemplate, type EventoConvite } from "@/lib/convite-render";
+import {
+  preencherTemplate,
+  renderizarTemplateVisual,
+  type EventoConvite,
+  type VisualBlock,
+} from "@/lib/convite-render";
 
 type Evento = EventoConvite & {
   status: string | null;
@@ -23,6 +28,8 @@ type Template = {
   background_image: string | null;
   logo_image: string | null;
   html_template: string | null;
+  editor_mode: "html" | "visual" | string | null;
+  visual_config: any | null;
   active: boolean | null;
   tenant_id: string | null;
   categoria?: { nome: string } | { nome: string }[] | null;
@@ -36,10 +43,59 @@ function getCategoriaNome(categoria: Template["categoria"]) {
   return categoria?.nome || "Sem categoria";
 }
 
+function toNumber(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizarBlock(raw: any): VisualBlock {
+  return {
+    id: String(raw.id),
+    template_id: String(raw.template_id),
+    type: raw.type || "text",
+    label: raw.label || null,
+    content: raw.content || "",
+    x: toNumber(raw.x, 0),
+    y: toNumber(raw.y, 0),
+    width: toNumber(raw.width, 200),
+    height: toNumber(raw.height, 60),
+    font_size: toNumber(raw.font_size, 24),
+    font_family: raw.font_family || "Inter",
+    color: raw.color || "#ffffff",
+    background: raw.background || null,
+    border_radius: toNumber(raw.border_radius, 0),
+    z_index: toNumber(raw.z_index, 1),
+    visible: raw.visible !== false,
+  };
+}
+
+function gerarHtmlPreview(
+  template: Template | null,
+  evento: Evento | null,
+  blocksByTemplate: Record<string, VisualBlock[]>,
+) {
+  if (!template) return "";
+
+  if (template.editor_mode === "visual") {
+    return renderizarTemplateVisual(
+      template,
+      blocksByTemplate[template.id] || [],
+      evento,
+    );
+  }
+
+  if (template.html_template) {
+    return preencherTemplate(template.html_template, evento);
+  }
+
+  return "";
+}
+
 export default function ConvitePage() {
   const [tenantId, setTenantId] = useState("");
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateBlocks, setTemplateBlocks] = useState<Record<string, VisualBlock[]>>({});
   const [eventoSelecionado, setEventoSelecionado] = useState("");
   const [templateSelecionado, setTemplateSelecionado] = useState("");
   const [temaSelecionado, setTemaSelecionado] = useState("todos");
@@ -142,6 +198,8 @@ export default function ConvitePage() {
         background_image,
         logo_image,
         html_template,
+        editor_mode,
+        visual_config,
         active,
         tenant_id,
         categoria:invite_template_categories (
@@ -158,14 +216,44 @@ export default function ConvitePage() {
       return;
     }
 
-    setTemplates(
-      (templatesData || []).map((template) => ({
-        ...template,
-        categoria: Array.isArray(template.categoria)
-          ? template.categoria[0] || null
-          : template.categoria || null,
-      })) as Template[]
-    );
+    const templatesRows = (templatesData || []).map((template) => ({
+      ...template,
+      editor_mode: template.editor_mode || "html",
+      categoria: Array.isArray(template.categoria)
+        ? template.categoria[0] || null
+        : template.categoria || null,
+    })) as Template[];
+
+    setTemplates(templatesRows);
+
+    const visualIds = templatesRows
+      .filter((template) => template.editor_mode === "visual")
+      .map((template) => template.id);
+
+    if (visualIds.length) {
+      const { data: blocksData, error: blocksError } = await supabase
+        .from("invite_template_blocks")
+        .select("*")
+        .in("template_id", visualIds)
+        .order("z_index", { ascending: true });
+
+      if (blocksError) {
+        console.error("Erro ao buscar blocos visuais:", blocksError);
+        setTemplateBlocks({});
+      } else {
+        const grouped: Record<string, VisualBlock[]> = {};
+
+        for (const raw of blocksData || []) {
+          const block = normalizarBlock(raw);
+          if (!grouped[block.template_id]) grouped[block.template_id] = [];
+          grouped[block.template_id].push(block);
+        }
+
+        setTemplateBlocks(grouped);
+      }
+    } else {
+      setTemplateBlocks({});
+    }
 
     setLoading(false);
   }
@@ -302,10 +390,9 @@ export default function ConvitePage() {
               {templatesFiltrados.map((template) => {
                 const selected = templateSelecionado === template.id;
                 const templateNome = template.nome || template.name || "Modelo";
+                const isVisual = template.editor_mode === "visual";
                 const preview = template.preview_image || template.background_image || "";
-                const previewHtml = template.html_template
-                  ? preencherTemplate(template.html_template, eventoAtual)
-                  : "";
+                const previewHtml = gerarHtmlPreview(template, eventoAtual, templateBlocks);
 
                 return (
                   <button
@@ -317,9 +404,7 @@ export default function ConvitePage() {
                     }}
                     onClick={() => setTemplateSelecionado(template.id)}
                   >
-                    {preview ? (
-                      <img src={preview} alt={templateNome} style={templateThumbStyle} />
-                    ) : template.html_template ? (
+                    {isVisual || template.html_template ? (
                       <div style={templateThumbFrameWrapStyle}>
                         <iframe
                           title={`Preview ${templateNome}`}
@@ -327,6 +412,8 @@ export default function ConvitePage() {
                           style={templateThumbFrameStyle}
                         />
                       </div>
+                    ) : preview ? (
+                      <img src={preview} alt={templateNome} style={templateThumbStyle} />
                     ) : (
                       <div style={templateThumbEmptyStyle}>Sem preview</div>
                     )}
@@ -334,6 +421,9 @@ export default function ConvitePage() {
                     <strong style={{ marginTop: 12 }}>{templateNome}</strong>
                     <span style={{ color: "#94a3b8", marginTop: 4 }}>
                       {getCategoriaNome(template.categoria)}
+                    </span>
+                    <span style={{ color: isVisual ? "#86efac" : "#c4b5fd", marginTop: 4, fontSize: 12 }}>
+                      {isVisual ? "Editor visual" : "HTML"}
                     </span>
                   </button>
                 );
@@ -346,10 +436,10 @@ export default function ConvitePage() {
 
             {!templateAtual && <div style={emptyStyle}>Selecione um modelo para visualizar.</div>}
 
-            {templateAtual?.html_template ? (
+            {templateAtual && gerarHtmlPreview(templateAtual, eventoAtual, templateBlocks) ? (
               <iframe
                 title={`Preview ${templateAtual.nome || templateAtual.name}`}
-                srcDoc={preencherTemplate(templateAtual.html_template, eventoAtual)}
+                srcDoc={gerarHtmlPreview(templateAtual, eventoAtual, templateBlocks)}
                 style={previewFrameStyle}
               />
             ) : templateAtual?.preview_image || templateAtual?.background_image ? (
@@ -446,14 +536,14 @@ const templateThumbStyle: React.CSSProperties = {
 
 const templateThumbFrameStyle: React.CSSProperties = {
   width: 430,
-  height: 760,
+  height: 920,
   border: 0,
   background: "#020617",
   pointerEvents: "none",
   position: "absolute",
   left: "50%",
   top: 0,
-  transform: "translateX(-50%) scale(0.38)",
+  transform: "translateX(-50%) scale(0.337)",
   transformOrigin: "top center",
   overflow: "hidden",
 };
