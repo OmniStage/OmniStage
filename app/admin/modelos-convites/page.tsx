@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
+import { preencherTemplate } from "@/lib/convite-render";
 
 function useViewportWidth() {
   const [width, setWidth] = useState(1440);
@@ -19,11 +20,55 @@ function useViewportWidth() {
   return width;
 }
 
+function criarEventoDemo(t?: any) {
+  return {
+    id: t?.id || "preview",
+    nome: t?.nome || t?.name || "Nome do Evento",
+    data_evento: "2026-05-16",
+    horario: "21:00",
+    local: "Local do Evento",
+    endereco: "Endereço do Evento",
+    mapa_url: "",
+
+    background_image:
+      t?.background_image ||
+      t?.background_url ||
+      t?.preview_image ||
+      "",
+
+    background_url:
+      t?.background_url ||
+      t?.background_image ||
+      t?.preview_image ||
+      "",
+
+    logo_image:
+      t?.logo_image ||
+      t?.logo_url ||
+      "",
+
+    logo_url:
+      t?.logo_url ||
+      t?.logo_image ||
+      "",
+
+    music_file:
+      t?.music_file ||
+      t?.musica_url ||
+      "",
+
+    musica_url:
+      t?.musica_url ||
+      t?.music_file ||
+      "",
+  };
+}
+
 function AutoScaledIframe({
   html,
   title = "Preview",
   baseWidth = 430,
-  baseHeight = 920,
+  baseHeight = 1400,
   maxHeight = 420,
 }: {
   html: string;
@@ -39,13 +84,18 @@ function AutoScaledIframe({
     if (!container) return;
 
     function resize() {
-  if (!container) return;
+      if (!container) return;
 
-  const availableWidth = container.clientWidth;
-  const nextScale = Math.min(availableWidth / baseWidth, 1);
+      const availableWidth = container.clientWidth;
+      const availableHeight = maxHeight;
+      const nextScale = Math.min(
+        availableWidth / baseWidth,
+        availableHeight / baseHeight,
+        1
+      );
 
-  setScale(nextScale);
-}
+      setScale(nextScale);
+    }
 
     resize();
 
@@ -53,7 +103,7 @@ function AutoScaledIframe({
     observer.observe(container);
 
     return () => observer.disconnect();
-  }, [container, baseWidth]);
+  }, [container, baseWidth, baseHeight, maxHeight]);
 
   return (
     <div
@@ -124,7 +174,6 @@ function AutoScaledImage({
   );
 }
 
-
 type VisualBlock = {
   id: string;
   template_id: string;
@@ -155,6 +204,7 @@ function renderDemoContent(content: string | null) {
     .replaceAll("{{nome_convidado}}", "Nome do Convidado")
     .replaceAll("{{data_evento}}", "16/05/2026")
     .replaceAll("{{hora_evento}}", "21h")
+    .replaceAll("{{horario_evento}}", "21h")
     .replaceAll("{{local_evento}}", "Local do Evento")
     .replaceAll("{{endereco_evento}}", "Endereço do Evento")
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
@@ -180,9 +230,16 @@ function MiniVisualPreview({
   const backgroundUrl =
     visualConfig.backgroundPreviewUrl ||
     template?.background_image ||
+    template?.background_url ||
     template?.preview_image ||
     "";
-  const logoUrl = visualConfig.logoPreviewUrl || template?.logo_image || "";
+
+  const logoUrl =
+    visualConfig.logoPreviewUrl ||
+    template?.logo_image ||
+    template?.logo_url ||
+    "";
+
   const backgroundX = toNumber(visualConfig.backgroundX, 0);
   const backgroundY = toNumber(visualConfig.backgroundY, 0);
   const backgroundScale = toNumber(visualConfig.backgroundScale, 1);
@@ -202,7 +259,7 @@ function MiniVisualPreview({
       const nextScale = Math.min(
         availableWidth / baseWidth,
         availableHeight / baseHeight,
-        0.52,
+        0.52
       );
 
       setScale(nextScale);
@@ -276,7 +333,9 @@ function MiniVisualPreview({
                   opacity: 0.92,
                 }}
               >
-                LOGO<br />EVENTO
+                LOGO
+                <br />
+                EVENTO
               </div>
             </div>
           )}
@@ -395,7 +454,6 @@ function MiniVisualPreview({
   );
 }
 
-
 export default function ModelosConvitePage() {
   const viewport = useViewportWidth();
 
@@ -413,7 +471,9 @@ export default function ModelosConvitePage() {
   const [salvandoCategoria, setSalvandoCategoria] = useState(false);
 
   const [templates, setTemplates] = useState<any[]>([]);
-  const [templateBlocks, setTemplateBlocks] = useState<Record<string, VisualBlock[]>>({});
+  const [templateBlocks, setTemplateBlocks] = useState<
+    Record<string, VisualBlock[]>
+  >({});
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -552,7 +612,9 @@ export default function ModelosConvitePage() {
   async function criarTemplate() {
     if (!nome.trim()) return alert("Digite o nome do modelo");
     if (editorMode === "html" && !htmlTemplate.trim()) {
-      return alert("Cole o código HTML do modelo ou selecione o modo Editor Visual");
+      return alert(
+        "Cole o código HTML do modelo ou selecione o modo Editor Visual"
+      );
     }
 
     setLoading(true);
@@ -614,7 +676,8 @@ export default function ModelosConvitePage() {
         slug,
         categoria_id: categoriaId || null,
         preview_image: preview.trim() || null,
-        html_template: editorMode === "html" ? htmlTemplate.trim() : htmlTemplate.trim(),
+        html_template:
+          editorMode === "html" ? htmlTemplate.trim() : htmlTemplate.trim(),
         editor_mode: editorMode,
       })
       .eq("id", editandoId);
@@ -916,7 +979,10 @@ export default function ModelosConvitePage() {
           ) : (
             <div style={visualNotice}>
               <strong>Editor Visual selecionado</strong>
-              <span>Ao criar ou salvar, o modelo será aberto no editor visual para montar os blocos arrastáveis.</span>
+              <span>
+                Ao criar ou salvar, o modelo será aberto no editor visual para
+                montar os blocos arrastáveis.
+              </span>
             </div>
           )}
 
@@ -967,7 +1033,10 @@ export default function ModelosConvitePage() {
             <div style={emptyPreview}>
               <div style={emptyIcon}>✦</div>
               <strong>Modo Editor Visual</strong>
-              <span>Crie o modelo e monte o convite arrastando blocos no editor visual.</span>
+              <span>
+                Crie o modelo e monte o convite arrastando blocos no editor
+                visual.
+              </span>
             </div>
           ) : preview && !htmlTemplate ? (
             <AutoScaledImage
@@ -977,7 +1046,7 @@ export default function ModelosConvitePage() {
             />
           ) : htmlTemplate ? (
             <AutoScaledIframe
-              html={htmlTemplate}
+              html={preencherTemplate(htmlTemplate, criarEventoDemo())}
               title="Preview do modelo"
               maxHeight={isMobile ? 560 : 720}
             />
@@ -1027,7 +1096,13 @@ export default function ModelosConvitePage() {
 
               <div style={modelInfo}>
                 <span>{t.categoria?.nome || "Sem categoria"}</span>
-                <span>{t.editor_mode === "visual" ? "Editor visual" : t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
+                <span>
+                  {t.editor_mode === "visual"
+                    ? "Editor visual"
+                    : t.html_template
+                    ? "HTML cadastrado"
+                    : "Sem HTML"}
+                </span>
               </div>
 
               <div style={{ marginTop: 14 }}>
@@ -1037,16 +1112,16 @@ export default function ModelosConvitePage() {
                     template={t}
                     maxHeight={isMobile ? 360 : 420}
                   />
+                ) : t.html_template ? (
+                  <AutoScaledIframe
+                    html={preencherTemplate(t.html_template, criarEventoDemo(t))}
+                    title={`Preview ${t.nome || t.name}`}
+                    maxHeight={isMobile ? 360 : 420}
+                  />
                 ) : t.preview_image ? (
                   <AutoScaledImage
                     src={t.preview_image}
                     alt={t.nome || t.name || "Preview do modelo"}
-                    maxHeight={isMobile ? 360 : 420}
-                  />
-                ) : t.html_template ? (
-                  <AutoScaledIframe
-                    html={t.html_template}
-                    title={`Preview ${t.nome || t.name}`}
                     maxHeight={isMobile ? 360 : 420}
                   />
                 ) : (
