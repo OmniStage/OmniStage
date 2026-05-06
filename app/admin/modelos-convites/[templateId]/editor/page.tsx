@@ -116,24 +116,44 @@ function normalizarHorario(horarioEvento?: string | null) {
   return "00:00";
 }
 
-function getDiasRestantesBrasil(
+function getCountdownBrasil(
   dataEvento?: string | null,
   horarioEvento?: string | null,
 ) {
   const dataISO = normalizarDataISO(String(dataEvento || ""));
   const horario = normalizarHorario(horarioEvento);
 
-  if (!dataISO) return 0;
+  if (!dataISO) {
+    return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
+  }
 
   const target = new Date(`${dataISO}T${horario}:00-03:00`);
   const now = new Date();
 
-  if (Number.isNaN(target.getTime())) return 0;
+  if (Number.isNaN(target.getTime())) {
+    return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
+  }
 
-  const diff = target.getTime() - now.getTime();
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const diff = Math.max(0, target.getTime() - now.getTime());
+  const totalSeconds = Math.floor(diff / 1000);
 
-  return Math.max(0, days);
+  return {
+    dias: Math.floor(totalSeconds / 86400),
+    horas: Math.floor((totalSeconds % 86400) / 3600),
+    minutos: Math.floor((totalSeconds % 3600) / 60),
+    segundos: totalSeconds % 60,
+  };
+}
+
+function getDiasRestantesBrasil(
+  dataEvento?: string | null,
+  horarioEvento?: string | null,
+) {
+  return getCountdownBrasil(dataEvento, horarioEvento).dias;
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
 }
 
 const DEMO_EVENTO = {
@@ -162,50 +182,77 @@ function renderDynamicContent(content: string | null) {
     .replaceAll("{{local_evento}}", DEMO_EVENTO.local_evento)
     .replaceAll("{{endereco_evento}}", DEMO_EVENTO.endereco_evento)
     .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
+    .replaceAll("{{contador_evento}}", String(diasParaEvento))
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
     .replaceAll("{{qr_code}}", "QR")
     .replaceAll("{{logo_evento}}", "Logo Evento");
 }
 
 function renderCountdownContent(block: ConviteBlock) {
-  const diasParaEvento = getDiasRestantesBrasil(
+  const countdown = getCountdownBrasil(
     DEMO_EVENTO.data_evento_iso,
     DEMO_EVENTO.horario_evento,
   );
 
+  const itemStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+  };
+
+  const numberStyle: CSSProperties = {
+    display: "block",
+    fontSize: Math.max(block.font_size, 28),
+    lineHeight: 0.9,
+    fontWeight: 950,
+    color: block.color || "#f7d477",
+    letterSpacing: "0.02em",
+  };
+
+  const labelStyle: CSSProperties = {
+    display: "block",
+    marginTop: 7,
+    fontSize: Math.max(8, Math.round(block.font_size * 0.28)),
+    lineHeight: 1,
+    fontWeight: 950,
+    letterSpacing: "0.16em",
+    color: "#ffffff",
+    opacity: 0.86,
+  };
+
   return (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-        alignItems: "center",
-        justifyContent: "center",
         width: "100%",
         height: "100%",
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
       }}
     >
-      <strong
-        style={{
-          display: "block",
-          fontSize: Math.max(block.font_size, 28),
-          lineHeight: 1,
-        }}
-      >
-        {diasParaEvento}
-      </strong>
-      <span
-        style={{
-          display: "block",
-          fontSize: Math.max(10, Math.round(block.font_size * 0.42)),
-          fontWeight: 900,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          opacity: 0.9,
-        }}
-      >
-        {diasParaEvento === 1 ? "dia para o evento" : "dias para o evento"}
-      </span>
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.dias)}</strong>
+        <span style={labelStyle}>DIAS</span>
+      </div>
+
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.horas)}</strong>
+        <span style={labelStyle}>HORAS</span>
+      </div>
+
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.minutos)}</strong>
+        <span style={labelStyle}>MIN</span>
+      </div>
+
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.segundos)}</strong>
+        <span style={labelStyle}>SEG</span>
+      </div>
     </div>
   );
 }
@@ -394,16 +441,16 @@ function defaultBlock(
   if (type === "countdown") {
     return {
       ...base,
-      label: "Contador de dias",
-      content: "{{dias_para_evento}}",
-      x: 95,
+      label: "Contador",
+      content: "{{contador_evento}}",
+      x: 20,
       y: 500,
-      width: 240,
-      height: 110,
-      font_size: 46,
+      width: 390,
+      height: 120,
+      font_size: 42,
       color: "#f7d477",
-      background: "rgba(15,23,42,.28)",
-      border_radius: 24,
+      background: "rgba(15,23,42,.48)",
+      border_radius: 0,
     };
   }
 
@@ -1529,6 +1576,7 @@ export default function EditorModeloConvitePage({
               "{{data_evento}}",
               "{{hora_evento}}",
               "{{dias_para_evento}}",
+              "{{contador_evento}}",
               "{{local_evento}}",
               "{{endereco_evento}}",
               "{{logo_evento}}",
