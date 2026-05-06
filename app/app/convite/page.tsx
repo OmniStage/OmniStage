@@ -9,6 +9,9 @@ type Evento = EventoConvite & {
   tenant_id: string | null;
   invite_template_id: string | null;
   created_at: string | null;
+  logo_url?: string | null;
+  background_url?: string | null;
+  musica_url?: string | null;
 };
 
 type Template = {
@@ -103,8 +106,11 @@ export default function ConvitePage() {
         endereco,
         mapa_url,
         background_image,
+        background_url,
         logo_image,
-        music_file
+        logo_url,
+        music_file,
+        musica_url
       `)
       .eq("tenant_id", membership.tenant_id)
       .order("created_at", { ascending: false });
@@ -243,8 +249,16 @@ export default function ConvitePage() {
                   {eventoAtual.data_evento || "Sem data"} · {eventoAtual.local || "Sem local"} ·{" "}
                   {eventoAtual.status || "sem status"}
                 </p>
-                <p style={{ margin: 0, color: eventoAtual.logo_image ? "#86efac" : "#fbbf24" }}>
-                  {eventoAtual.logo_image
+                <p
+                  style={{
+                    margin: 0,
+                    color:
+                      eventoAtual.logo_url || eventoAtual.logo_image
+                        ? "#86efac"
+                        : "#fbbf24",
+                  }}
+                >
+                  {eventoAtual.logo_url || eventoAtual.logo_image
                     ? "Logomarca carregada para este evento."
                     : "Este evento ainda está sem logomarca cadastrada."}
                 </p>
