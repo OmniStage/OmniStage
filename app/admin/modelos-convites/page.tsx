@@ -171,7 +171,7 @@ function MiniVisualPreview({
 }) {
   const baseWidth = 430;
   const baseHeight = 920;
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.42);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -179,13 +179,15 @@ function MiniVisualPreview({
 
     function resize() {
       if (!container) return;
-      const availableWidth = container.clientWidth;
-      const availableHeight = maxHeight;
+
+      const availableWidth = Math.max(container.clientWidth - 28, 160);
+      const availableHeight = Math.max(maxHeight - 28, 260);
       const nextScale = Math.min(
         availableWidth / baseWidth,
         availableHeight / baseHeight,
-        1,
+        0.52,
       );
+
       setScale(nextScale);
     }
 
@@ -196,6 +198,10 @@ function MiniVisualPreview({
   }, [container, maxHeight]);
 
   function renderBlock(block: VisualBlock) {
+    const isLogo = block.type === "logo";
+    const isQr = block.type === "qr";
+    const isDivider = block.type === "divider";
+
     const shared: CSSProperties = {
       position: "absolute",
       left: block.x,
@@ -215,12 +221,12 @@ function MiniVisualPreview({
       justifyContent: "center",
       textAlign: "center",
       lineHeight: 1.12,
-      padding: block.type === "divider" ? 0 : 8,
+      padding: isDivider ? 0 : 8,
       overflow: "hidden",
       whiteSpace: "pre-wrap",
     };
 
-    if (block.type === "logo") {
+    if (isLogo) {
       return (
         <div key={block.id} style={shared}>
           <div
@@ -234,7 +240,12 @@ function MiniVisualPreview({
                 "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
             }}
           >
-            <div style={{ fontSize: Math.max(10, block.font_size), opacity: 0.92 }}>
+            <div
+              style={{
+                fontSize: Math.max(10, Math.min(block.font_size || 14, 18)),
+                opacity: 0.92,
+              }}
+            >
               LOGO<br />EVENTO
             </div>
           </div>
@@ -242,7 +253,7 @@ function MiniVisualPreview({
       );
     }
 
-    if (block.type === "qr") {
+    if (isQr) {
       return (
         <div key={block.id} style={shared}>
           <div
@@ -259,9 +270,7 @@ function MiniVisualPreview({
       );
     }
 
-    if (block.type === "divider") {
-      return <div key={block.id} style={shared} />;
-    }
+    if (isDivider) return <div key={block.id} style={shared} />;
 
     return (
       <div key={block.id} style={shared}>
@@ -269,6 +278,9 @@ function MiniVisualPreview({
       </div>
     );
   }
+
+  const scaledWidth = Math.round(baseWidth * scale);
+  const scaledHeight = Math.round(baseHeight * scale);
 
   return (
     <div
@@ -279,29 +291,42 @@ function MiniVisualPreview({
         overflow: "hidden",
         borderRadius: 18,
         border: "1px solid #dbe3ef",
-        background: "#020617",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "flex-start",
+        background:
+          "radial-gradient(circle at 50% 0%, #f8fafc 0, #eef2ff 55%, #e2e8f0 100%)",
+        display: "grid",
+        placeItems: "center",
       }}
     >
       <div
         style={{
-          width: baseWidth,
-          height: baseHeight,
+          width: scaledWidth,
+          height: scaledHeight,
           position: "relative",
+          borderRadius: Math.max(14, Math.round(34 * scale)),
           overflow: "hidden",
-          flexShrink: 0,
-          transform: `scale(${scale})`,
-          transformOrigin: "top center",
-          background:
-            "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
+          background: "#020617",
+          boxShadow: "0 18px 48px rgba(15,23,42,.22)",
         }}
       >
-        {blocks
-          .filter((b) => b.visible !== false)
-          .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
-          .map(renderBlock)}
+        <div
+          style={{
+            width: baseWidth,
+            height: baseHeight,
+            position: "absolute",
+            left: 0,
+            top: 0,
+            overflow: "hidden",
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            background:
+              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
+          }}
+        >
+          {blocks
+            .filter((b) => b.visible !== false)
+            .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
+            .map(renderBlock)}
+        </div>
       </div>
     </div>
   );
@@ -873,7 +898,7 @@ export default function ModelosConvitePage() {
 
               <div style={modelInfo}>
                 <span>{t.categoria?.nome || "Sem categoria"}</span>
-                <span>{t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
+                <span>{t.editor_mode === "visual" ? "Editor visual" : t.html_template ? "HTML cadastrado" : "Sem HTML"}</span>
               </div>
 
               <div style={{ marginTop: 14 }}>
