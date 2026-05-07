@@ -243,7 +243,9 @@ export default function ConvidadosPage() {
   }
 
   function gerarLinkWhatsApp(convidado: Convidado) {
-    const telefone = normalizarTelefone(convidado.telefone);
+    const telefone = normalizarTelefone(
+      convidado.telefone || convidado.responsavel_telefone,
+    );
 
     if (!telefone) return "";
 
@@ -416,9 +418,7 @@ Apresente o cartão na entrada do evento.`;
         return;
       }
 
-      const telefonePrincipal = criancaSemGrupoViaResponsavel
-        ? responsavelTelefoneNormalizado
-        : form.telefone.trim();
+      const telefonePrincipal = form.telefone.trim();
 
       const payload = {
         nome: form.nome.trim(),
@@ -1289,14 +1289,18 @@ Apresente o cartão na entrada do evento.`;
                               }}
                             >
                               Criança: {convidado.crianca || "não"} · Responsável:{" "}
-                              {convidado.responsavel || convidado.mae || "-"} · Idade da criança:{" "}
-                              {convidado.idade_crianca ?? "-"}
+                              {convidado.responsavel || convidado.mae || "-"}
+                              {convidado.responsavel_telefone
+                                ? ` · Tel. responsável: ${convidado.responsavel_telefone}`
+                                : ""}{" "}
+                              · Idade da criança: {convidado.idade_crianca ?? "-"}
                             </div>
                           )}
 
-                          {(convidado.contato_principal || convidado.recebe_convite) && (
+                          {((mostrarGrupo && convidado.contato_principal) ||
+                            convidado.recebe_convite) && (
                             <div style={sendIdentityStyle}>
-                              {convidado.contato_principal && (
+                              {mostrarGrupo && convidado.contato_principal && (
                                 <span>Contato principal do grupo</span>
                               )}
                               {convidado.recebe_convite && (
