@@ -17,6 +17,8 @@ type Convidado = {
   grupo: string | null;
   crianca: string | null;
   mae: string | null;
+  responsavel: string | null;
+  responsavel_telefone: string | null;
   idade_crianca: number | null;
   contato_principal: boolean | null;
   recebe_convite: boolean | null;
@@ -36,6 +38,8 @@ type ConvidadoForm = {
   email: string;
   grupo: string;
   crianca: string;
+  responsavel: string;
+  responsavel_telefone: string;
   mae: string;
   idade_crianca: string;
   contato_principal: boolean;
@@ -58,6 +62,8 @@ type ImportPreviewRow = {
   quantidade?: number;
 
   crianca?: string | null;
+  responsavel?: string | null;
+  responsavel_telefone?: string | null;
   mae?: string | null;
   idade_crianca?: string | number | null;
 
@@ -71,6 +77,8 @@ const initialForm: ConvidadoForm = {
   email: "",
   grupo: "",
   crianca: "",
+  responsavel: "",
+  responsavel_telefone: "",
   mae: "",
   idade_crianca: "",
   contato_principal: false,
@@ -119,6 +127,8 @@ export default function ConvidadosPage() {
           convidado.email,
           convidado.grupo,
           convidado.crianca,
+          convidado.responsavel,
+          convidado.responsavel_telefone,
           convidado.mae,
           convidado.idade_crianca,
           convidado.contato_principal ? "contato principal" : "",
@@ -307,6 +317,8 @@ Apresente o cartão na entrada do evento.`;
         grupo,
         crianca,
         mae,
+        responsavel,
+        responsavel_telefone,
         idade_crianca,
         contato_principal,
         recebe_convite,
@@ -370,22 +382,43 @@ Apresente o cartão na entrada do evento.`;
     setLoading(true);
 
     try {
-      const maeNormalizada = form.mae.trim();
+      const grupoNormalizado = form.grupo.trim();
+      const responsavelNormalizado = form.responsavel.trim();
+      const responsavelTelefoneNormalizado = form.responsavel_telefone.trim();
+      const maeNormalizada = responsavelNormalizado || form.mae.trim();
       const idadeCriancaNormalizada = form.idade_crianca.trim();
+      const criancaSelecionada = form.crianca === "sim" || Boolean(idadeCriancaNormalizada);
+      const criancaSemGrupoViaResponsavel =
+        criancaSelecionada && !grupoNormalizado && Boolean(responsavelNormalizado);
+
+      if (criancaSemGrupoViaResponsavel && !responsavelTelefoneNormalizado) {
+        alert("Informe o telefone do responsável pelo envio.");
+        return;
+      }
+
+      const telefonePrincipal = criancaSemGrupoViaResponsavel
+        ? responsavelTelefoneNormalizado
+        : form.telefone.trim();
 
       const payload = {
         nome: form.nome.trim(),
-        telefone: form.telefone.trim() || null,
+        telefone: telefonePrincipal || null,
         email: form.email.trim() || null,
-        grupo: form.grupo.trim() || null,
-        crianca: maeNormalizada ? "sim" : form.crianca,
+        grupo: grupoNormalizado || null,
+        crianca: criancaSelecionada || responsavelNormalizado ? "sim" : form.crianca,
         mae: maeNormalizada || null,
+        responsavel: responsavelNormalizado || maeNormalizada || null,
+        responsavel_telefone: responsavelTelefoneNormalizado || null,
         idade_crianca: idadeCriancaNormalizada
           ? Number(idadeCriancaNormalizada)
           : null,
-        contato_principal: form.contato_principal,
-        recebe_convite: form.recebe_convite || form.contato_principal,
-        tipo_convite: form.tipo_convite,
+        contato_principal: criancaSemGrupoViaResponsavel ? false : form.contato_principal,
+        recebe_convite: criancaSemGrupoViaResponsavel
+          ? true
+          : form.recebe_convite || form.contato_principal,
+        tipo_convite: criancaSemGrupoViaResponsavel
+          ? "individual"
+          : form.tipo_convite,
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
         status_envio: form.status_envio,
@@ -473,7 +506,9 @@ Apresente o cartão na entrada do evento.`;
       telefone: convidado.telefone || "",
       email: convidado.email || "",
       grupo: convidado.grupo || "",
-      crianca: convidado.mae ? "sim" : convidado.crianca || "",
+      crianca: convidado.responsavel || convidado.mae ? "sim" : convidado.crianca || "",
+      responsavel: convidado.responsavel || convidado.mae || "",
+      responsavel_telefone: convidado.responsavel_telefone || "",
       mae: convidado.mae || "",
       idade_crianca: convidado.idade_crianca
         ? String(convidado.idade_crianca)
@@ -670,7 +705,7 @@ Apresente o cartão na entrada do evento.`;
                           · Criança: {item.mae
                             ? "sim"
                             : item.crianca || "não"}{" "}
-                          · Mãe: {item.mae || "-"} · Idade da criança:{" "}
+                          · Responsável: {item.responsavel || item.mae || "-"} · Idade da criança:{" "}
                           {item.idade_crianca || "-"}
                         </>
                       )}
@@ -760,28 +795,28 @@ Apresente o cartão na entrada do evento.`;
               <span>Grupo/Família</span>
               <input
                 value={form.grupo}
-                onChange={(event) => updateForm("grupo", event.target.value)}
+                onChange={(event) => {
+                  const grupo = event.target.value;
+                  setForm((current) => ({
+                    ...current,
+                    grupo,
+                    tipo_convite: grupo.trim() ? "grupo" : "individual",
+                    contato_principal: grupo.trim() ? current.contato_principal : false,
+                    recebe_convite:
+                      current.crianca === "sim" && !grupo.trim() && current.responsavel.trim()
+                        ? true
+                        : current.recebe_convite,
+                  }));
+                }}
                 placeholder="Ex: Família Silva"
                 style={inputStyle}
               />
             </label>
 
-            <label style={fieldStyle}>
-              <span>Mãe</span>
-              <input
-                value={form.mae}
-                onChange={(event) => {
-                  const mae = event.target.value;
-                  setForm((current) => ({
-                    ...current,
-                    mae,
-                    crianca: mae.trim() ? "sim" : "",
-                  }));
-                }}
-                placeholder="Ex: Ana Silva"
-                style={inputStyle}
-              />
-            </label>
+            <div style={formSectionDividerStyle}>
+              <strong>Perfil do convidado</strong>
+              <span>Defina se é adulto, criança ou criança com envio via responsável.</span>
+            </div>
 
             <label style={fieldStyle}>
               <span>Idade da criança</span>
@@ -798,17 +833,72 @@ Apresente o cartão na entrada do evento.`;
             </label>
 
             <label style={fieldStyle}>
-              <span>Criança</span>
+              <span>Tipo de convidado</span>
               <select
-                value={form.crianca}
-                onChange={(event) => updateForm("crianca", event.target.value)}
+                value={form.crianca === "sim" ? "crianca" : "adulto"}
+                onChange={(event) => {
+                  const isCrianca = event.target.value === "crianca";
+                  setForm((current) => ({
+                    ...current,
+                    crianca: isCrianca ? "sim" : "",
+                    responsavel: isCrianca ? current.responsavel : "",
+                    responsavel_telefone: isCrianca ? current.responsavel_telefone : "",
+                    recebe_convite:
+                      isCrianca && !current.grupo.trim() && current.responsavel.trim()
+                        ? true
+                        : current.recebe_convite,
+                  }));
+                }}
                 style={inputStyle}
-                disabled={Boolean(form.mae.trim())}
               >
-                <option value="">Não</option>
-                <option value="sim">Sim</option>
+                <option value="adulto">Adulto</option>
+                <option value="crianca">Criança</option>
               </select>
             </label>
+
+            {form.crianca === "sim" && !form.grupo.trim() && (
+              <div style={responsavelBoxStyle}>
+                <div style={responsavelHeaderStyle}>
+                  <strong>Responsável pelo envio</strong>
+                  <span>
+                    Criança sem grupo/família: o convite será enviado para este responsável.
+                  </span>
+                </div>
+
+                <label style={fieldStyle}>
+                  <span>Nome do responsável</span>
+                  <input
+                    value={form.responsavel}
+                    onChange={(event) => {
+                      const responsavel = event.target.value;
+                      setForm((current) => ({
+                        ...current,
+                        responsavel,
+                        mae: responsavel,
+                        crianca: "sim",
+                        recebe_convite: Boolean(responsavel.trim()),
+                        contato_principal: false,
+                        tipo_convite: "individual",
+                      }));
+                    }}
+                    placeholder="Ex: Jessica Amaral"
+                    style={inputStyle}
+                  />
+                </label>
+
+                <label style={fieldStyle}>
+                  <span>Telefone do responsável</span>
+                  <input
+                    value={form.responsavel_telefone}
+                    onChange={(event) =>
+                      updateForm("responsavel_telefone", event.target.value)
+                    }
+                    placeholder="Ex: (22) 99999-9999"
+                    style={inputStyle}
+                  />
+                </label>
+              </div>
+            )}
 
             <label style={toggleFieldStyle}>
               <input
@@ -840,8 +930,8 @@ Apresente o cartão na entrada do evento.`;
                 style={checkboxInputStyle}
               />
               <div>
-                <strong>Recebe convite</strong>
-                <span>Usado no envio: esta pessoa recebe o convite do grupo.</span>
+                <strong>Recebe comunicação</strong>
+                <span>Usado no envio: esta pessoa recebe o convite/comunicação.</span>
               </div>
             </label>
 
@@ -933,7 +1023,7 @@ Apresente o cartão na entrada do evento.`;
           <input
             value={busca}
             onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar por nome, telefone, e-mail ou grupo..."
+            placeholder="Buscar por nome, responsável, telefone, e-mail ou grupo..."
             style={inputStyle}
           />
 
@@ -1029,6 +1119,7 @@ Apresente o cartão na entrada do evento.`;
                           </small>
 
                           {(convidado.crianca ||
+                            convidado.responsavel ||
                             convidado.mae ||
                             convidado.idade_crianca) && (
                             <div
@@ -1038,8 +1129,8 @@ Apresente o cartão na entrada do evento.`;
                                 fontSize: 13,
                               }}
                             >
-                              Criança: {convidado.crianca || "não"} · Mãe:{" "}
-                              {convidado.mae || "-"} · Idade da criança:{" "}
+                              Criança: {convidado.crianca || "não"} · Responsável:{" "}
+                              {convidado.responsavel || convidado.mae || "-"} · Idade da criança:{" "}
                               {convidado.idade_crianca ?? "-"}
                             </div>
                           )}
@@ -1050,7 +1141,7 @@ Apresente o cartão na entrada do evento.`;
                                 <span>Contato principal do grupo</span>
                               )}
                               {convidado.recebe_convite && (
-                                <span>Recebe convite</span>
+                                <span>Recebe comunicação</span>
                               )}
                             </div>
                           )}
@@ -1649,6 +1740,32 @@ const sendIdentityStyle: CSSProperties = {
   color: "var(--accent)",
   fontSize: 12,
   fontWeight: 900,
+};
+
+const formSectionDividerStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  display: "grid",
+  gap: 4,
+  paddingTop: 8,
+  color: "var(--text)",
+};
+
+const responsavelBoxStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gap: 16,
+  padding: 18,
+  borderRadius: 22,
+  border: "1px solid var(--accent-border)",
+  background: "linear-gradient(135deg, var(--group-soft), var(--card-bg))",
+};
+
+const responsavelHeaderStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  display: "grid",
+  gap: 4,
+  color: "var(--text)",
 };
 
 const statusStyle: CSSProperties = {
