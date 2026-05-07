@@ -239,7 +239,48 @@ function numberValue(value: unknown, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function pareceCodigoJavascript(value: string) {
+  const texto = String(value || "").trim();
+
+  if (!texto) return false;
+
+  return [
+    "document.createElement",
+    "document.querySelector",
+    "appendChild",
+    "innerHTML",
+    "window.addEventListener",
+    "<script",
+    "</script>",
+    "function ",
+    "const ",
+    "let ",
+    "var ",
+  ].some((token) => texto.includes(token));
+}
+
+function textoSeguro(value: string) {
+  return escapeHtml(value).replaceAll("\n", "<br />");
+}
+
+function renderizarConteudoDinamico(
+  content: string | null,
+  evento: EventoConvite | null
+) {
+  const preenchido = preencherTemplate(String(content || ""), evento);
+
+  if (pareceCodigoJavascript(preenchido)) {
+    return "";
+  }
+
+  return textoSeguro(preenchido);
+}
+
 function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | null) {
+  const dataFormatada = formatarData(evento?.data_evento || null);
+  const horarioFormatado = formatarHorario(evento?.horario);
+  const localEvento = evento?.local || evento?.endereco || "";
+
   if (block.type === "logo") {
     const logo = evento?.logo_url || evento?.logo_image || "";
 
@@ -248,6 +289,42 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
     }
 
     return `<div style="width:100%;height:100%;display:grid;place-items:center;background:rgba(255,255,255,.12);border-radius:${block.border_radius || 0}px;font-weight:900;">LOGO<br/>EVENTO</div>`;
+  }
+
+  if (block.type === "event_name") {
+    return textoSeguro(evento?.nome || "Nome do Evento");
+  }
+
+  if (block.type === "date_time") {
+    return textoSeguro(
+      [dataFormatada, horarioFormatado].filter(Boolean).join(" • ")
+    );
+  }
+
+  if (block.type === "location") {
+    return textoSeguro(localEvento || "Local do Evento");
+  }
+
+  if (block.type === "guest_name") {
+    return textoSeguro("Nome do Convidado");
+  }
+
+  if (block.type === "button") {
+    return renderizarConteudoDinamico(
+      block.content || "CONFIRMAR PRESENÇA",
+      evento
+    );
+  }
+
+  if (block.type === "guest_picker") {
+    return `
+      <div id="namePicker" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;">
+        <label class="name-option selected" style="display:flex;align-items:center;gap:12px;color:inherit;font-family:inherit;font-size:inherit;font-weight:900;line-height:1.15;">
+          <input type="checkbox" checked readonly style="width:20px;height:20px;accent-color:#f7d477;flex-shrink:0;" />
+          <span>Nome do Convidado</span>
+        </label>
+      </div>
+    `;
   }
 
   if (block.type === "qr") {
@@ -283,7 +360,7 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
     `;
   }
 
-  return escapeHtml(preencherTemplate(block.content || "", evento)).replaceAll("\n", "<br />");
+  return renderizarConteudoDinamico(block.content || "", evento);
 }
 
 export function renderizarTemplateVisual(
