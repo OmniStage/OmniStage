@@ -459,7 +459,7 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
 
   if (block.type === "guest_picker") {
     return `
-      <div id="namePicker" style="width:100%;min-height:100%;height:auto;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;overflow:visible;">
+      <div id="namePicker" style="width:100%;height:100%;min-height:100%;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;">
         <label class="name-option selected" style="display:flex;align-items:center;gap:12px;color:inherit;font-family:inherit;font-size:inherit;font-weight:900;line-height:1.15;">
           <input type="checkbox" checked readonly style="width:20px;height:20px;accent-color:#f7d477;flex-shrink:0;" />
           <span>Nome do Convidado</span>
@@ -536,11 +536,11 @@ export function renderizarTemplateVisual(
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
 
-      const heightStyle = isGuestPicker
-        ? `min-height:${numberValue(block.height, 60)}px;height:auto;`
-        : `height:${numberValue(block.height, 60)}px;`;
+      const heightStyle = `height:${numberValue(block.height, 60)}px;`;
 
-      const overflowStyle = isGuestPicker ? "overflow:visible;" : "overflow:hidden;";
+      const overflowStyle = isGuestPicker
+        ? "overflow-y:auto;overflow-x:hidden;"
+        : "overflow:hidden;";
       const alignItems = isGuestPicker ? "stretch" : "center";
       const justifyContent = isGuestPicker ? "flex-start" : "center";
 
@@ -627,11 +627,10 @@ export function renderizarTemplateVisual(
 
           var larguraDisponivel = Math.max(280, viewport.clientWidth || window.innerWidth || CANVAS_W);
           var escala = Math.min(1, larguraDisponivel / CANVAS_W);
-          var alturaReal = Math.max(CANVAS_H, phone.offsetHeight || CANVAS_H);
 
           phone.style.transform = "scale(" + escala + ")";
           shell.style.width = CANVAS_W * escala + "px";
-          shell.style.height = alturaReal * escala + "px";
+          shell.style.height = CANVAS_H * escala + "px";
         }
 
         window.__OMNISTAGE_RESCALE__ = ajustarEscala;
@@ -1079,9 +1078,10 @@ export function injetarConvidadosNoConvite(
             picker.style.alignItems = "stretch";
             picker.style.justifyContent = "flex-start";
             picker.style.gap = "12px";
-            picker.style.height = "auto";
+            picker.style.height = "100%";
             picker.style.minHeight = "100%";
-            picker.style.overflow = "visible";
+            picker.style.overflowY = "auto";
+            picker.style.overflowX = "hidden";
             picker.classList.remove("hidden");
           } else {
             picker.innerHTML = "";
@@ -1092,51 +1092,17 @@ export function injetarConvidadosNoConvite(
           var pickerBlock = picker.closest('[data-block-type="guest_picker"]');
           if (pickerBlock) {
             var baseHeight = Number(pickerBlock.getAttribute("data-base-height") || 60);
-            var baseY = Number(pickerBlock.getAttribute("data-base-y") || 0);
-            var computedHeight = isGrupo
-              ? Math.max(baseHeight, picker.scrollHeight + 18)
-              : 0;
-            var extraHeight = Math.max(0, computedHeight - baseHeight);
 
             if (isGrupo) {
               pickerBlock.style.display = "";
-              pickerBlock.style.height = computedHeight + "px";
-              pickerBlock.style.minHeight = computedHeight + "px";
-              pickerBlock.style.overflow = "visible";
+              pickerBlock.style.height = baseHeight + "px";
+              pickerBlock.style.minHeight = baseHeight + "px";
+              pickerBlock.style.overflowY = "auto";
+              pickerBlock.style.overflowX = "hidden";
               pickerBlock.style.alignItems = "stretch";
               pickerBlock.style.justifyContent = "flex-start";
-              pickerBlock.style.paddingBottom = "12px";
             } else {
               pickerBlock.style.display = "none";
-              extraHeight = -baseHeight;
-            }
-
-            document.querySelectorAll("[data-base-y]").forEach(function (el) {
-              if (el === pickerBlock) return;
-
-              var elementBaseY = Number(el.getAttribute("data-base-y") || 0);
-
-              if (elementBaseY > baseY) {
-                el.style.top = elementBaseY + extraHeight + "px";
-              }
-            });
-
-            var canvas = document.querySelector(".omnistage-canvas");
-            var phone = document.querySelector(".omnistage-phone");
-            var maxBottom = 920;
-
-            document.querySelectorAll("[data-base-y]").forEach(function (el) {
-              if (el.style.display === "none") return;
-              var top = parseFloat(el.style.top || el.getAttribute("data-base-y") || 0);
-              var height = parseFloat(el.style.height || el.getAttribute("data-base-height") || 0);
-              maxBottom = Math.max(maxBottom, top + height + 28);
-            });
-
-            if (canvas) canvas.style.height = maxBottom + "px";
-            if (phone) phone.style.height = maxBottom + "px";
-
-            if (typeof window.__OMNISTAGE_RESCALE__ === "function") {
-              window.__OMNISTAGE_RESCALE__();
             }
           }
         }
