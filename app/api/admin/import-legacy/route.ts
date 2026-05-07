@@ -10,6 +10,8 @@ type ImportGuest = {
   crianca: string | null;
   mae: string | null;
   idade_crianca: string | number | null;
+  contato_principal: boolean;
+  recebe_convite: boolean;
   status_rsvp: string | null;
   status_envio: string | null;
   data_hora_rsvp: string | null;
@@ -104,8 +106,37 @@ function normalizeStatusEnvio(value: string | null | undefined): string {
   return "pendente";
 }
 
+function normalizarGrupoChave(value: string | null | undefined) {
+  return String(value || "Sem grupo")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_") || "sem_grupo";
+}
+
+function aplicarContatoPrincipal(rows: any[]): ImportGuest[] {
+  const gruposComPrincipal = new Set<string>();
+
+  return rows.map((guest) => {
+    const grupoKey = normalizarGrupoChave(guest.grupo || guest.name);
+    const temTelefone = Boolean(cleanPhone(guest.phone));
+    const contatoPrincipal = temTelefone && !gruposComPrincipal.has(grupoKey);
+
+    if (contatoPrincipal) {
+      gruposComPrincipal.add(grupoKey);
+    }
+
+    return {
+      ...guest,
+      contato_principal: contatoPrincipal,
+      recebe_convite: contatoPrincipal,
+    };
+  });
+}
+
 function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
-  return mappedRows
+  return aplicarContatoPrincipal(mappedRows
     .map((row) => ({
       legacy_id: row.legacy_id ? String(row.legacy_id).trim() : null,
       grupo: row.grupo ? String(row.grupo).trim() : null,
@@ -124,7 +155,7 @@ function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
         : null,
       raw: row,
     }))
-    .filter((guest) => guest.name.length > 1);
+    .filter((guest) => guest.name.length > 1));
 }
 
 export async function POST(req: Request) {
@@ -159,7 +190,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Lista vazia." }, { status: 400 });
         }
 
-        parsedGuests = parseLegacyGuestList(text).map((guest) => ({
+        parsedGuests = aplicarContatoPrincipal(parseLegacyGuestList(text).map((guest) => ({
           legacy_id: guest.legacy_id,
           grupo: guest.grupo,
           name: guest.name,
@@ -167,12 +198,14 @@ export async function POST(req: Request) {
           crianca: normalizeCrianca((guest as any).crianca, (guest as any).mae),
           mae: cleanText((guest as any).mae),
           idade_crianca: normalizeIdadeCrianca((guest as any).idade_crianca),
+          contato_principal: false,
+          recebe_convite: false,
           status_rsvp: guest.status_rsvp,
           status_envio: guest.status_envio,
           data_hora_rsvp: guest.data_hora_rsvp,
           data_hora_envio: guest.data_hora_envio,
           raw: guest.raw,
-        }));
+        })));
       }
 
       if (parsedGuests.length === 0) {
@@ -260,6 +293,8 @@ export async function POST(req: Request) {
         crianca: guest.crianca,
         mae: guest.mae,
         idade_crianca: guest.idade_crianca,
+        contato_principal: guest.contato_principal,
+        recebe_convite: guest.recebe_convite,
         quantidade: 1,
         status_rsvp: guest.status_rsvp || "pendente",
         status_envio: guest.status_envio || "pendente",
@@ -358,6 +393,8 @@ export async function POST(req: Request) {
         crianca: normalizeCrianca(item.crianca, item.mae),
         mae: cleanText(item.mae),
         idade_crianca: normalizeIdadeCrianca(item.idade_crianca),
+        contato_principal: Boolean(item.contato_principal),
+        recebe_convite: Boolean(item.recebe_convite),
         tipo_convite: item.grupo ? "grupo" : "individual",
         status_rsvp: item.status_rsvp || "pendente",
         status_envio: item.status_envio || "pendente",
