@@ -547,6 +547,8 @@ export function renderizarTemplateVisual(
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
+          data-base-y="${numberValue(block.y, 0)}"
+          data-base-height="${numberValue(block.height, 60)}"
           style="
             position:absolute;
             left:${numberValue(block.x, 0)}px;
@@ -625,12 +627,14 @@ export function renderizarTemplateVisual(
 
           var larguraDisponivel = Math.max(280, viewport.clientWidth || window.innerWidth || CANVAS_W);
           var escala = Math.min(1, larguraDisponivel / CANVAS_W);
+          var alturaReal = Math.max(CANVAS_H, phone.offsetHeight || CANVAS_H);
 
           phone.style.transform = "scale(" + escala + ")";
           shell.style.width = CANVAS_W * escala + "px";
-          shell.style.height = CANVAS_H * escala + "px";
+          shell.style.height = alturaReal * escala + "px";
         }
 
+        window.__OMNISTAGE_RESCALE__ = ajustarEscala;
         ajustarEscala();
 
         window.addEventListener("resize", ajustarEscala);
@@ -1057,6 +1061,15 @@ export function injetarConvidadosNoConvite(
           }
         }
 
+        document.querySelectorAll('[data-block-type="guest_name"]').forEach(function (el) {
+          if (isGrupo) {
+            el.style.display = "none";
+          } else {
+            el.textContent = nomeIndividual;
+            el.style.display = "";
+          }
+        });
+
         var picker = document.getElementById("namePicker");
         if (picker) {
           if (isGrupo) {
@@ -1078,12 +1091,53 @@ export function injetarConvidadosNoConvite(
 
           var pickerBlock = picker.closest('[data-block-type="guest_picker"]');
           if (pickerBlock) {
-            pickerBlock.style.height = "auto";
-            pickerBlock.style.minHeight = pickerBlock.style.minHeight || "60px";
-            pickerBlock.style.overflow = "visible";
-            pickerBlock.style.alignItems = "stretch";
-            pickerBlock.style.justifyContent = "flex-start";
-            pickerBlock.style.paddingBottom = "12px";
+            var baseHeight = Number(pickerBlock.getAttribute("data-base-height") || 60);
+            var baseY = Number(pickerBlock.getAttribute("data-base-y") || 0);
+            var computedHeight = isGrupo
+              ? Math.max(baseHeight, picker.scrollHeight + 18)
+              : 0;
+            var extraHeight = Math.max(0, computedHeight - baseHeight);
+
+            if (isGrupo) {
+              pickerBlock.style.display = "";
+              pickerBlock.style.height = computedHeight + "px";
+              pickerBlock.style.minHeight = computedHeight + "px";
+              pickerBlock.style.overflow = "visible";
+              pickerBlock.style.alignItems = "stretch";
+              pickerBlock.style.justifyContent = "flex-start";
+              pickerBlock.style.paddingBottom = "12px";
+            } else {
+              pickerBlock.style.display = "none";
+              extraHeight = -baseHeight;
+            }
+
+            document.querySelectorAll("[data-base-y]").forEach(function (el) {
+              if (el === pickerBlock) return;
+
+              var elementBaseY = Number(el.getAttribute("data-base-y") || 0);
+
+              if (elementBaseY > baseY) {
+                el.style.top = elementBaseY + extraHeight + "px";
+              }
+            });
+
+            var canvas = document.querySelector(".omnistage-canvas");
+            var phone = document.querySelector(".omnistage-phone");
+            var maxBottom = 920;
+
+            document.querySelectorAll("[data-base-y]").forEach(function (el) {
+              if (el.style.display === "none") return;
+              var top = parseFloat(el.style.top || el.getAttribute("data-base-y") || 0);
+              var height = parseFloat(el.style.height || el.getAttribute("data-base-height") || 0);
+              maxBottom = Math.max(maxBottom, top + height + 28);
+            });
+
+            if (canvas) canvas.style.height = maxBottom + "px";
+            if (phone) phone.style.height = maxBottom + "px";
+
+            if (typeof window.__OMNISTAGE_RESCALE__ === "function") {
+              window.__OMNISTAGE_RESCALE__();
+            }
           }
         }
 
