@@ -10,6 +10,8 @@ type Stats = {
   entradas: number;
   restantes: number;
   ausentes: number;
+  criancas: number;
+  responsaveisMae: number;
 };
 
 type Convidado = {
@@ -18,6 +20,9 @@ type Convidado = {
   telefone: string | null;
   email?: string | null;
   grupo: string | null;
+  crianca?: string | null;
+  mae?: string | null;
+  idade_crianca?: number | string | null;
   tipo_convite?: string | null;
   observacoes?: string | null;
   status_rsvp: string | null;
@@ -30,7 +35,15 @@ type Convidado = {
   data_hora_checkin?: string | null;
 };
 
-type FiltroStatus = "todos" | "confirmados" | "pendentes" | "entraram" | "faltam" | "nao";
+type FiltroStatus =
+  | "todos"
+  | "confirmados"
+  | "pendentes"
+  | "entraram"
+  | "faltam"
+  | "nao"
+  | "criancas"
+  | "com_mae";
 type ModoVisualizacao = "grupo" | "individual";
 
 export default function DashboardPage() {
@@ -41,6 +54,8 @@ export default function DashboardPage() {
     entradas: 0,
     restantes: 0,
     ausentes: 0,
+    criancas: 0,
+    responsaveisMae: 0,
   });
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
@@ -78,9 +93,24 @@ export default function DashboardPage() {
     const pendentes = lista.filter((c) => c.status_rsvp === "pendente").length;
     const entradas = lista.filter((c) => c.status_checkin === "entrou").length;
     const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
+    const criancas = lista.filter((c) => convidadoEhCrianca(c)).length;
+    const responsaveisMae = new Set(
+      lista
+        .map((c) => normalizarTextoChave(c.mae))
+        .filter(Boolean)
+    ).size;
     const restantes = Math.max(confirmados - entradas, 0);
 
-    const novasStats = { total, confirmados, pendentes, entradas, restantes, ausentes };
+    const novasStats = {
+      total,
+      confirmados,
+      pendentes,
+      entradas,
+      restantes,
+      ausentes,
+      criancas,
+      responsaveisMae,
+    };
     const statsAnterior = statsAnteriorRef.current;
 
     if (
@@ -88,7 +118,8 @@ export default function DashboardPage() {
       (statsAnterior.entradas !== entradas ||
         statsAnterior.confirmados !== confirmados ||
         statsAnterior.pendentes !== pendentes ||
-        statsAnterior.ausentes !== ausentes)
+        statsAnterior.ausentes !== ausentes ||
+        statsAnterior.criancas !== criancas)
     ) {
       setPulseLive(true);
       window.setTimeout(() => setPulseLive(false), 900);
@@ -189,6 +220,20 @@ export default function DashboardPage() {
       bg: "#ede9fe",
     },
     {
+      label: "Crianças",
+      value: stats.criancas,
+      detail: "Convidados marcados como criança",
+      color: "#9333ea",
+      bg: "#f3e8ff",
+    },
+    {
+      label: "Mães / responsáveis",
+      value: stats.responsaveisMae,
+      detail: "Responsáveis identificadas na lista",
+      color: "#be185d",
+      bg: "#fce7f3",
+    },
+    {
       label: "Confirmados",
       value: stats.confirmados,
       detail: `${percentualConfirmados}% da lista`,
@@ -243,6 +288,8 @@ export default function DashboardPage() {
     { key: "todos", label: "Todos" },
     { key: "confirmados", label: "Confirmados" },
     { key: "pendentes", label: "Pendentes" },
+    { key: "criancas", label: "Crianças" },
+    { key: "com_mae", label: "Com mãe" },
     { key: "entraram", label: "Entraram" },
     { key: "faltam", label: "Faltam entrar" },
     { key: "nao", label: "Ausência confirmada" },
@@ -497,6 +544,7 @@ export default function DashboardPage() {
             <span>{stats.confirmados} confirmados</span>
             <span>{stats.pendentes} pendentes</span>
             <span>{stats.ausentes} ausências</span>
+            <span>{stats.criancas} crianças</span>
           </div>
         </article>
 
@@ -586,7 +634,7 @@ export default function DashboardPage() {
 
         <div style={searchRowStyle}>
           <input
-            placeholder="Buscar por nome, grupo, telefone, e-mail ou token"
+            placeholder="Buscar por nome, mãe, criança, grupo, telefone, e-mail ou token"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             style={searchInputStyle}
@@ -618,6 +666,7 @@ export default function DashboardPage() {
                       </p>
                       <p style={groupContactStyle}>
                         {lista.length} integrante{lista.length === 1 ? "" : "s"}
+                        {contarCriancas(lista) > 0 ? ` · ${contarCriancas(lista)} criança${contarCriancas(lista) === 1 ? "" : "s"}` : ""}
                         {principal?.telefone ? ` · contato: ${principal.telefone}` : " · sem telefone principal"}
                       </p>
                     </div>
@@ -680,6 +729,9 @@ function GuestCard({
   const token = convidado.token || "Sem token";
   const linkCartao = gerarLinkCartao(convidado);
   const linkWhatsApp = gerarLinkWhatsApp(convidado);
+  const isCrianca = convidadoEhCrianca(convidado);
+  const mae = convidado.mae?.trim() || "";
+  const idadeCrianca = convidado.idade_crianca ? String(convidado.idade_crianca) : "";
 
   async function copiarNome() {
     await navigator.clipboard.writeText(nome);
@@ -692,9 +744,18 @@ function GuestCard({
         <div style={guestMainInfoStyle}>
           <strong style={guestNameStyle}>{nome}</strong>
           <span style={guestMetaStyle}>{grupo} • {telefone}</span>
+          {(isCrianca || mae || idadeCrianca) && (
+            <span style={childMetaStyle}>
+              {isCrianca ? "Criança" : "Convidado"}
+              {idadeCrianca ? ` · ${idadeCrianca} anos` : ""}
+              {mae ? ` · ⭐ Mãe/responsável: ${mae}` : ""}
+            </span>
+          )}
         </div>
 
         <div style={guestStatusRowStyle}>
+          {isCrianca && <span style={badgeStyle("#9333ea")}>Criança</span>}
+          {mae && <span style={badgeStyle("#be185d")}>⭐ Mãe</span>}
           {convidado.status_checkin === "entrou" && <span style={badgeStyle("#2563eb")}>Entrou</span>}
           {convidado.status_rsvp === "confirmado" && <span style={badgeStyle("#16a34a")}>Confirmado</span>}
           {convidado.status_rsvp === "pendente" && <span style={badgeStyle("#f59e0b")}>Pendente</span>}
@@ -711,6 +772,9 @@ function GuestCard({
             <InfoBox label="Status RSVP" value={labelRsvp(convidado.status_rsvp)} />
             <InfoBox label="Check-in" value={labelCheckin(convidado.status_checkin)} />
             <InfoBox label="E-mail" value={convidado.email || "Sem e-mail"} />
+            <InfoBox label="Criança" value={isCrianca ? "Sim" : "Não"} />
+            <InfoBox label="Mãe / responsável ⭐" value={mae || "Sem mãe informada"} />
+            <InfoBox label="Idade da criança" value={idadeCrianca || "Não informada"} />
             <InfoBox label="Token" value={token} />
           </div>
 
@@ -764,6 +828,9 @@ function convidadoCombinaComBusca(convidado: Convidado, termo: string) {
     convidado.telefone,
     convidado.email,
     convidado.token,
+    convidado.mae,
+    convidado.crianca,
+    convidado.idade_crianca,
   ]
     .filter(Boolean)
     .some((valor) => String(valor).toLowerCase().includes(termo));
@@ -773,6 +840,8 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus) {
   if (filtro === "todos") return true;
   if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
   if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
+  if (filtro === "criancas") return convidadoEhCrianca(convidado);
+  if (filtro === "com_mae") return Boolean(convidado.mae?.trim());
   if (filtro === "entraram") return convidado.status_checkin === "entrou";
   if (filtro === "faltam") {
     return convidado.status_rsvp === "confirmado" && convidado.status_checkin !== "entrou";
@@ -780,6 +849,30 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus) {
   if (filtro === "nao") return convidado.status_rsvp === "nao";
 
   return true;
+}
+
+function normalizarTextoChave(value: string | null | undefined) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function convidadoEhCrianca(convidado: Convidado) {
+  const crianca = normalizarTextoChave(convidado.crianca);
+  return (
+    crianca === "sim" ||
+    crianca === "s" ||
+    crianca === "true" ||
+    Boolean(convidado.mae?.trim()) ||
+    Boolean(convidado.idade_crianca)
+  );
+}
+
+function contarCriancas(lista: Convidado[]) {
+  return lista.filter((c) => convidadoEhCrianca(c)).length;
 }
 
 function normalizarGrupo(grupo: string | null | undefined) {
@@ -1318,6 +1411,12 @@ const guestMetaStyle: React.CSSProperties = {
   color: "var(--muted)",
   fontSize: 13,
   fontWeight: 700,
+};
+
+const childMetaStyle: React.CSSProperties = {
+  color: "#7c3aed",
+  fontSize: 13,
+  fontWeight: 900,
 };
 
 const guestStatusRowStyle: React.CSSProperties = {
