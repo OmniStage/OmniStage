@@ -17,6 +17,12 @@ export type EventoConvite = {
   logo_url?: string | null;
   music_file?: string | null;
   musica_url?: string | null;
+
+  link_rsvp?: string | null;
+  link_convite?: string | null;
+  google_maps_url?: string | null;
+  waze_url?: string | null;
+  total_convidados?: number | null;
 };
 
 export type VisualBlock = {
@@ -110,6 +116,130 @@ function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
+function criarTextoBuscaLocal(evento: EventoConvite | null) {
+  if (!evento) return "";
+  return [evento.local, evento.endereco].filter(Boolean).join(" ").trim();
+}
+
+function criarMapsUrl(evento: EventoConvite | null) {
+  if (!evento) return "";
+  if (evento.google_maps_url) return evento.google_maps_url;
+  if (evento.mapa_url) return evento.mapa_url;
+
+  const query = criarTextoBuscaLocal(evento);
+  return query
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    : "";
+}
+
+function criarWazeUrl(evento: EventoConvite | null) {
+  if (!evento) return "";
+  if (evento.waze_url) return evento.waze_url;
+
+  const query = criarTextoBuscaLocal(evento);
+  return query ? `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes` : "";
+}
+
+function criarCalendarUrl(evento: EventoConvite | null) {
+  const dataEvento = criarDataEvento(evento);
+  if (!evento || !dataEvento) return "";
+
+  const end = new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000);
+
+  function toGoogleDate(date: Date) {
+    return date
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}Z$/, "Z");
+  }
+
+  const local = evento.local || evento.endereco || "";
+  const details = evento.link_convite
+    ? `Convite digital: ${evento.link_convite}`
+    : "Convite digital OmniStage";
+
+  return (
+    "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+    "&text=" +
+    encodeURIComponent(evento.nome || "Evento") +
+    "&dates=" +
+    toGoogleDate(dataEvento) +
+    "/" +
+    toGoogleDate(end) +
+    "&location=" +
+    encodeURIComponent(local) +
+    "&details=" +
+    encodeURIComponent(details)
+  );
+}
+
+function detectarAcaoBotao(content: string | null) {
+  const texto = String(content || "").toLowerCase();
+
+  if (
+    texto.includes("waze") ||
+    texto.includes("trânsito") ||
+    texto.includes("transito")
+  ) {
+    return "waze";
+  }
+
+  if (
+    texto.includes("localização") ||
+    texto.includes("localizacao") ||
+    texto.includes("localização") ||
+    texto.includes("mapa") ||
+    texto.includes("google maps") ||
+    texto.includes("ver local")
+  ) {
+    return "maps";
+  }
+
+  if (
+    texto.includes("calendário") ||
+    texto.includes("calendario") ||
+    texto.includes("agenda")
+  ) {
+    return "calendar";
+  }
+
+  if (
+    texto.includes("confirmar") ||
+    texto.includes("presença") ||
+    texto.includes("presenca") ||
+    texto.includes("rsvp")
+  ) {
+    return "rsvp";
+  }
+
+  return "none";
+}
+
+function renderizarBotaoAcao(block: VisualBlock, evento: EventoConvite | null) {
+  const label = renderizarConteudoDinamico(
+    block.content || "CONFIRMAR PRESENÇA",
+    evento
+  );
+
+  const acao = detectarAcaoBotao(block.content);
+  const href =
+    acao === "waze"
+      ? criarWazeUrl(evento)
+      : acao === "maps"
+        ? criarMapsUrl(evento)
+        : acao === "calendar"
+          ? criarCalendarUrl(evento)
+          : acao === "rsvp"
+            ? evento?.link_rsvp || "#confirmar-presenca"
+            : "";
+
+  if (href) {
+    return `<a id="${acao === "rsvp" ? "confirmBtn" : acao + "Link"}" href="${escapeHtml(href)}" target="${acao === "rsvp" ? "_self" : "_blank"}" rel="noopener noreferrer" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:inherit;font:inherit;font-weight:inherit;border-radius:inherit;">${label}</a>`;
+  }
+
+  return `<button id="confirmBtn" type="button" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;border-radius:inherit;cursor:pointer;">${label}</button>`;
+}
+
 export function preencherTemplate(html: string, evento: EventoConvite | null) {
   if (!evento) return html;
 
@@ -162,8 +292,22 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     endereco_evento: evento.endereco || "",
     ENDERECO_EVENTO: evento.endereco || "",
 
-    mapa_url: evento.mapa_url || "",
-    MAPA_URL: evento.mapa_url || "",
+    mapa_url: criarMapsUrl(evento),
+    MAPA_URL: criarMapsUrl(evento),
+    google_maps_url: criarMapsUrl(evento),
+    GOOGLE_MAPS_URL: criarMapsUrl(evento),
+    waze_url: criarWazeUrl(evento),
+    WAZE_URL: criarWazeUrl(evento),
+    calendario_url: criarCalendarUrl(evento),
+    CALENDARIO_URL: criarCalendarUrl(evento),
+    link_rsvp: evento.link_rsvp || "",
+    LINK_RSVP: evento.link_rsvp || "",
+    link_convite: evento.link_convite || "",
+    LINK_CONVITE: evento.link_convite || "",
+    total_convidados: String(evento.total_convidados || ""),
+    TOTAL_CONVIDADOS: String(evento.total_convidados || ""),
+    convidados_quantidade: String(evento.total_convidados || ""),
+    CONVIDADOS_QUANTIDADE: String(evento.total_convidados || ""),
 
     background_image: backgroundEvento,
     BACKGROUND_IMAGE: backgroundEvento,
@@ -310,10 +454,7 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
   }
 
   if (block.type === "button") {
-    return renderizarConteudoDinamico(
-      block.content || "CONFIRMAR PRESENÇA",
-      evento
-    );
+    return renderizarBotaoAcao(block, evento);
   }
 
   if (block.type === "guest_picker") {
@@ -870,6 +1011,19 @@ export function injetarConvidadosNoConvite(
 
   const isGrupo = nomesLimpos.length > 1;
   const nomeIndividual = nomesLimpos[0] || "Convidado";
+  const totalConvidados = nomesLimpos.length || 1;
+  const textoTotalConvidados =
+    totalConvidados === 1
+      ? "Convite para 1 convidado"
+      : `Convite para ${totalConvidados} convidados`;
+
+  html = html
+    .replaceAll("{{total_convidados}}", String(totalConvidados))
+    .replaceAll("{{TOTAL_CONVIDADOS}}", String(totalConvidados))
+    .replaceAll("{{convidados_quantidade}}", String(totalConvidados))
+    .replaceAll("{{CONVIDADOS_QUANTIDADE}}", String(totalConvidados))
+    .replaceAll("{{texto_total_convidados}}", textoTotalConvidados)
+    .replaceAll("{{TEXTO_TOTAL_CONVIDADOS}}", textoTotalConvidados);
 
   const nomesHtml = nomesLimpos
     .map(
