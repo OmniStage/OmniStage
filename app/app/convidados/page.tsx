@@ -18,6 +18,8 @@ type Convidado = {
   crianca: string | null;
   mae: string | null;
   idade_crianca: number | null;
+  contato_principal: boolean | null;
+  recebe_convite: boolean | null;
   tipo_convite: string | null;
   observacoes: string | null;
   status_rsvp: string | null;
@@ -36,6 +38,8 @@ type ConvidadoForm = {
   crianca: string;
   mae: string;
   idade_crianca: string;
+  contato_principal: boolean;
+  recebe_convite: boolean;
   tipo_convite: string;
   observacoes: string;
   status_rsvp: string;
@@ -69,6 +73,8 @@ const initialForm: ConvidadoForm = {
   crianca: "",
   mae: "",
   idade_crianca: "",
+  contato_principal: false,
+  recebe_convite: false,
   tipo_convite: "individual",
   observacoes: "",
   status_rsvp: "pendente",
@@ -115,6 +121,8 @@ export default function ConvidadosPage() {
           convidado.crianca,
           convidado.mae,
           convidado.idade_crianca,
+          convidado.contato_principal ? "contato principal" : "",
+          convidado.recebe_convite ? "recebe convite" : "",
           convidado.tipo_convite,
           convidado.status_rsvp,
           convidado.status_envio,
@@ -169,6 +177,10 @@ export default function ConvidadosPage() {
   }, [convidadosFiltrados]);
 
   function updateForm(field: keyof ConvidadoForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateFormBoolean(field: "contato_principal" | "recebe_convite", value: boolean) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -296,6 +308,8 @@ Apresente o cartão na entrada do evento.`;
         crianca,
         mae,
         idade_crianca,
+        contato_principal,
+        recebe_convite,
         tipo_convite,
         observacoes,
         status_rsvp,
@@ -369,6 +383,8 @@ Apresente o cartão na entrada do evento.`;
         idade_crianca: idadeCriancaNormalizada
           ? Number(idadeCriancaNormalizada)
           : null,
+        contato_principal: form.contato_principal,
+        recebe_convite: form.recebe_convite || form.contato_principal,
         tipo_convite: form.tipo_convite,
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
@@ -462,6 +478,8 @@ Apresente o cartão na entrada do evento.`;
       idade_crianca: convidado.idade_crianca
         ? String(convidado.idade_crianca)
         : "",
+      contato_principal: Boolean(convidado.contato_principal),
+      recebe_convite: Boolean(convidado.recebe_convite),
       tipo_convite: convidado.tipo_convite || "individual",
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
@@ -792,6 +810,41 @@ Apresente o cartão na entrada do evento.`;
               </select>
             </label>
 
+            <label style={toggleFieldStyle}>
+              <input
+                type="checkbox"
+                checked={form.contato_principal}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setForm((current) => ({
+                    ...current,
+                    contato_principal: checked,
+                    recebe_convite: checked ? true : current.recebe_convite,
+                  }));
+                }}
+                style={checkboxInputStyle}
+              />
+              <div>
+                <strong>Contato principal do grupo</strong>
+                <span>Identifica quem representa o grupo/família.</span>
+              </div>
+            </label>
+
+            <label style={toggleFieldStyle}>
+              <input
+                type="checkbox"
+                checked={form.recebe_convite}
+                onChange={(event) =>
+                  updateFormBoolean("recebe_convite", event.target.checked)
+                }
+                style={checkboxInputStyle}
+              />
+              <div>
+                <strong>Recebe convite</strong>
+                <span>Usado no envio: esta pessoa recebe o convite do grupo.</span>
+              </div>
+            </label>
+
             <label style={fieldStyle}>
               <span>Tipo</span>
               <select
@@ -988,6 +1041,17 @@ Apresente o cartão na entrada do evento.`;
                               Criança: {convidado.crianca || "não"} · Mãe:{" "}
                               {convidado.mae || "-"} · Idade da criança:{" "}
                               {convidado.idade_crianca ?? "-"}
+                            </div>
+                          )}
+
+                          {(convidado.contato_principal || convidado.recebe_convite) && (
+                            <div style={sendIdentityStyle}>
+                              {convidado.contato_principal && (
+                                <span>Contato principal do grupo</span>
+                              )}
+                              {convidado.recebe_convite && (
+                                <span>Recebe convite</span>
+                              )}
                             </div>
                           )}
 
@@ -1555,6 +1619,36 @@ const goldButtonStyle: CSSProperties = {
   cursor: "pointer",
   textDecoration: "none",
   fontSize: 14,
+};
+
+const toggleFieldStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 12,
+  minHeight: 74,
+  padding: 16,
+  borderRadius: 18,
+  border: "1px solid var(--border-strong)",
+  background: "var(--card-bg)",
+  color: "var(--text-secondary)",
+};
+
+const checkboxInputStyle: CSSProperties = {
+  width: 20,
+  height: 20,
+  marginTop: 2,
+  accentColor: "var(--accent)",
+  cursor: "pointer",
+};
+
+const sendIdentityStyle: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 10,
+  color: "var(--accent)",
+  fontSize: 12,
+  fontWeight: 900,
 };
 
 const statusStyle: CSSProperties = {
