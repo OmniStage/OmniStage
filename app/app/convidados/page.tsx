@@ -324,6 +324,7 @@ Apresente o cartão na entrada do evento.`;
         responsavel,
         responsavel_telefone,
         idade_crianca,
+        tamanho_chinelo,
         contato_principal,
         recebe_convite,
         tipo_convite,
@@ -416,6 +417,7 @@ Apresente o cartão na entrada do evento.`;
         idade_crianca: idadeCriancaNormalizada
           ? Number(idadeCriancaNormalizada)
           : null,
+        tamanho_chinelo: form.tamanho_chinelo.trim() || null,
         contato_principal: criancaSemGrupoViaResponsavel ? false : form.contato_principal,
         recebe_convite: criancaSemGrupoViaResponsavel
           ? true
@@ -517,6 +519,7 @@ Apresente o cartão na entrada do evento.`;
       idade_crianca: convidado.idade_crianca
         ? String(convidado.idade_crianca)
         : "",
+      tamanho_chinelo: convidado.tamanho_chinelo || "",
       contato_principal: Boolean(convidado.contato_principal),
       recebe_convite: Boolean(convidado.recebe_convite),
       tipo_convite: convidado.tipo_convite || "individual",
