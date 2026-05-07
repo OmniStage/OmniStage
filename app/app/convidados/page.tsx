@@ -15,6 +15,9 @@ type Convidado = {
   telefone: string | null;
   email: string | null;
   grupo: string | null;
+  crianca: string | null;
+  mae: string | null;
+  idade_crianca: number | null;
   tipo_convite: string | null;
   observacoes: string | null;
   status_rsvp: string | null;
@@ -30,6 +33,9 @@ type ConvidadoForm = {
   telefone: string;
   email: string;
   grupo: string;
+  crianca: string;
+  mae: string;
+  idade_crianca: string;
   tipo_convite: string;
   observacoes: string;
   status_rsvp: string;
@@ -55,6 +61,9 @@ const initialForm: ConvidadoForm = {
   telefone: "",
   email: "",
   grupo: "",
+  crianca: "",
+  mae: "",
+  idade_crianca: "",
   tipo_convite: "individual",
   observacoes: "",
   status_rsvp: "pendente",
@@ -98,6 +107,9 @@ export default function ConvidadosPage() {
           convidado.telefone,
           convidado.email,
           convidado.grupo,
+          convidado.crianca,
+          convidado.mae,
+          convidado.idade_crianca,
           convidado.tipo_convite,
           convidado.status_rsvp,
           convidado.status_envio,
@@ -276,6 +288,9 @@ Apresente o cartão na entrada do evento.`;
         telefone,
         email,
         grupo,
+        crianca,
+        mae,
+        idade_crianca,
         tipo_convite,
         observacoes,
         status_rsvp,
@@ -336,11 +351,17 @@ Apresente o cartão na entrada do evento.`;
     setLoading(true);
 
     try {
+      const maeNormalizada = form.mae.trim();
+      const idadeCriancaNormalizada = form.idade_crianca.trim();
+
       const payload = {
         nome: form.nome.trim(),
         telefone: form.telefone.trim() || null,
         email: form.email.trim() || null,
         grupo: form.grupo.trim() || null,
+        crianca: maeNormalizada ? "sim" : form.crianca,
+        mae: maeNormalizada || null,
+        idade_crianca: idadeCriancaNormalizada ? Number(idadeCriancaNormalizada) : null,
         tipo_convite: form.tipo_convite,
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
@@ -429,6 +450,9 @@ Apresente o cartão na entrada do evento.`;
       telefone: convidado.telefone || "",
       email: convidado.email || "",
       grupo: convidado.grupo || "",
+      crianca: convidado.mae ? "sim" : convidado.crianca || "",
+      mae: convidado.mae || "",
+      idade_crianca: convidado.idade_crianca ? String(convidado.idade_crianca) : "",
       tipo_convite: convidado.tipo_convite || "individual",
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
@@ -608,6 +632,13 @@ Apresente o cartão na entrada do evento.`;
                       Telefone: {item.telefone || item.phone || "Sem telefone"}{" "}
                       · Grupo: {item.grupo || "Sem grupo"} · Quantidade:{" "}
                       {item.quantidade || 1}
+                      {(item.mae || item.idade_crianca) && (
+                        <>
+                          {" "}· Criança: {item.mae ? "sim" : item.crianca || "não"}
+                          {" "}· Mãe: {item.mae || "-"}
+                          {" "}· Idade da criança: {item.idade_crianca || "-"}
+                        </>
+                      )}
                     </p>
 
                     {item.observacoes && (
@@ -691,6 +722,48 @@ Apresente o cartão na entrada do evento.`;
                 placeholder="Ex: Família Silva"
                 style={inputStyle}
               />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Mãe</span>
+              <input
+                value={form.mae}
+                onChange={(event) => {
+                  const mae = event.target.value;
+                  setForm((current) => ({
+                    ...current,
+                    mae,
+                    crianca: mae.trim() ? "sim" : "",
+                  }));
+                }}
+                placeholder="Ex: Ana Silva"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Idade da criança</span>
+              <input
+                value={form.idade_crianca}
+                onChange={(event) => updateForm("idade_crianca", event.target.value)}
+                placeholder="Ex: 7"
+                type="number"
+                min="0"
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={fieldStyle}>
+              <span>Criança</span>
+              <select
+                value={form.crianca}
+                onChange={(event) => updateForm("crianca", event.target.value)}
+                style={inputStyle}
+                disabled={Boolean(form.mae.trim())}
+              >
+                <option value="">Não</option>
+                <option value="sim">Sim</option>
+              </select>
             </label>
 
             <label style={fieldStyle}>
@@ -867,6 +940,20 @@ Apresente o cartão na entrada do evento.`;
                             E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
                             {convidado.tipo_convite || "individual"}
                           </small>
+
+                          {(convidado.crianca || convidado.mae || convidado.idade_crianca) && (
+                            <div
+                              style={{
+                                marginTop: 8,
+                                color: "var(--muted)",
+                                fontSize: 13,
+                              }}
+                            >
+                              Criança: {convidado.crianca || "não"} · Mãe:{" "}
+                              {convidado.mae || "-"} · Idade da criança:{" "}
+                              {convidado.idade_crianca ?? "-"}
+                            </div>
+                          )}
 
                           <div
                             style={{
