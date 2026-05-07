@@ -7,6 +7,9 @@ type ImportGuest = {
   grupo: string | null;
   name: string;
   phone: string | null;
+  crianca: string | null;
+  mae: string | null;
+  idade_crianca: string | number | null;
   status_rsvp: string | null;
   status_envio: string | null;
   data_hora_rsvp: string | null;
@@ -34,6 +37,43 @@ function cleanPhone(value: string | null | undefined): string | null {
 
   const digits = String(value).replace(/\D/g, "");
   return digits.length >= 8 ? digits : null;
+}
+
+function cleanText(value: unknown): string | null {
+  const text = String(value || "").trim();
+  return text ? text : null;
+}
+
+function normalizeCrianca(value: unknown, mae: unknown): string | null {
+  const maeText = cleanText(mae);
+
+  if (maeText) return "sim";
+
+  const raw = String(value || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (!raw) return null;
+  if (["sim", "s", "crianca", "criança", "infantil", "kid", "kids"].includes(raw)) return "sim";
+  if (["nao", "não", "n", "adulto"].includes(raw)) return "nao";
+
+  return String(value).trim();
+}
+
+function normalizeIdadeCrianca(value: unknown): string | number | null {
+  const text = String(value || "").trim();
+
+  if (!text) return null;
+
+  const numberValue = Number(text.replace(",", "."));
+
+  if (Number.isFinite(numberValue)) {
+    return numberValue;
+  }
+
+  return text;
 }
 
 function normalizeStatusRsvp(value: string | null | undefined): string {
@@ -71,6 +111,9 @@ function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
       grupo: row.grupo ? String(row.grupo).trim() : null,
       name: row.nome ? String(row.nome).trim() : "",
       phone: cleanPhone(row.telefone),
+      crianca: normalizeCrianca(row.crianca, row.mae),
+      mae: cleanText(row.mae),
+      idade_crianca: normalizeIdadeCrianca(row.idade_crianca),
       status_rsvp: normalizeStatusRsvp(row.status_rsvp),
       status_envio: normalizeStatusEnvio(row.status_envio),
       data_hora_rsvp: row.data_hora_rsvp
@@ -121,6 +164,9 @@ export async function POST(req: Request) {
           grupo: guest.grupo,
           name: guest.name,
           phone: guest.phone,
+          crianca: normalizeCrianca((guest as any).crianca, (guest as any).mae),
+          mae: cleanText((guest as any).mae),
+          idade_crianca: normalizeIdadeCrianca((guest as any).idade_crianca),
           status_rsvp: guest.status_rsvp,
           status_envio: guest.status_envio,
           data_hora_rsvp: guest.data_hora_rsvp,
@@ -211,6 +257,9 @@ export async function POST(req: Request) {
         nome: guest.name,
         telefone: guest.phone,
         grupo: guest.grupo,
+        crianca: guest.crianca,
+        mae: guest.mae,
+        idade_crianca: guest.idade_crianca,
         quantidade: 1,
         status_rsvp: guest.status_rsvp || "pendente",
         status_envio: guest.status_envio || "pendente",
@@ -306,6 +355,9 @@ export async function POST(req: Request) {
         nome: item.nome,
         telefone: item.telefone,
         grupo: item.grupo,
+        crianca: normalizeCrianca(item.crianca, item.mae),
+        mae: cleanText(item.mae),
+        idade_crianca: normalizeIdadeCrianca(item.idade_crianca),
         tipo_convite: item.grupo ? "grupo" : "individual",
         status_rsvp: item.status_rsvp || "pendente",
         status_envio: item.status_envio || "pendente",
