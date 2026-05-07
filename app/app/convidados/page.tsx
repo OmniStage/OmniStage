@@ -52,6 +52,11 @@ type ImportPreviewRow = {
   phone?: string | null;
   grupo?: string | null;
   quantidade?: number;
+
+  crianca?: string | null;
+  mae?: string | null;
+  idade_crianca?: string | number | null;
+
   observacoes?: string | null;
   is_duplicate?: boolean;
 };
