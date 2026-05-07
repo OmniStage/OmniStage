@@ -318,7 +318,7 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
 
   if (block.type === "guest_picker") {
     return `
-      <div id="namePicker" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;">
+      <div id="namePicker" style="width:100%;min-height:100%;height:auto;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;overflow:visible;">
         <label class="name-option selected" style="display:flex;align-items:center;gap:12px;color:inherit;font-family:inherit;font-size:inherit;font-weight:900;line-height:1.15;">
           <input type="checkbox" checked readonly style="width:20px;height:20px;accent-color:#f7d477;flex-shrink:0;" />
           <span>Nome do Convidado</span>
@@ -391,13 +391,20 @@ export function renderizarTemplateVisual(
     .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
     .map((block) => {
       const isDivider = block.type === "divider";
+      const isGuestPicker = block.type === "guest_picker";
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
+      const heightStyle = isGuestPicker
+        ? `min-height:${numberValue(block.height, 60)}px;height:auto;`
+        : `height:${numberValue(block.height, 60)}px;`;
+      const overflowStyle = isGuestPicker ? "overflow:visible;" : "overflow:hidden;";
+      const alignItems = isGuestPicker ? "stretch" : "center";
+      const justifyContent = isGuestPicker ? "flex-start" : "center";
 
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
-          style="position:absolute;left:${numberValue(block.x, 0)}px;top:${numberValue(block.y, 0)}px;width:${numberValue(block.width, 200)}px;height:${numberValue(block.height, 60)}px;z-index:${(block.z_index || 1) + 10};box-sizing:border-box;border-radius:${numberValue(block.border_radius, 0)}px;color:${block.color || "#ffffff"};background:${background};font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;font-size:${numberValue(block.font_size, 24)}px;font-weight:900;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.12;padding:${padding}px;overflow:hidden;white-space:pre-wrap;"
+          style="position:absolute;left:${numberValue(block.x, 0)}px;top:${numberValue(block.y, 0)}px;width:${numberValue(block.width, 200)}px;${heightStyle}z-index:${(block.z_index || 1) + 10};box-sizing:border-box;border-radius:${numberValue(block.border_radius, 0)}px;color:${block.color || "#ffffff"};background:${background};font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;font-size:${numberValue(block.font_size, 24)}px;font-weight:900;display:flex;align-items:${alignItems};justify-content:${justifyContent};text-align:center;line-height:1.12;padding:${padding}px;${overflowStyle}white-space:pre-wrap;"
         >
           ${renderizarConteudoBloco(block, evento)}
         </div>
@@ -702,8 +709,8 @@ export function injetarConvidadosNoConvite(
   const nomesHtml = nomesLimpos
     .map(
       (nome) => `
-        <label class="name-option selected">
-          <input type="checkbox" checked name="guest-confirmation" />
+        <label class="name-option selected" style="display:flex;align-items:center;gap:12px;color:inherit;font-family:inherit;font-size:inherit;font-weight:900;line-height:1.15;">
+          <input type="checkbox" checked name="guest-confirmation" style="width:20px;height:20px;accent-color:#f7d477;flex-shrink:0;" />
           <span>${escapeHtml(nome)}</span>
         </label>
       `
@@ -735,12 +742,29 @@ export function injetarConvidadosNoConvite(
         if (picker) {
           if (isGrupo) {
             picker.innerHTML = ${JSON.stringify(nomesHtml)};
-            picker.style.display = "block";
+            picker.style.display = "flex";
+            picker.style.flexDirection = "column";
+            picker.style.alignItems = "stretch";
+            picker.style.justifyContent = "flex-start";
+            picker.style.gap = "12px";
+            picker.style.height = "auto";
+            picker.style.minHeight = "100%";
+            picker.style.overflow = "visible";
             picker.classList.remove("hidden");
           } else {
             picker.innerHTML = "";
             picker.style.display = "none";
             picker.classList.add("hidden");
+          }
+
+          var pickerBlock = picker.closest('[data-block-type="guest_picker"]');
+          if (pickerBlock) {
+            pickerBlock.style.height = "auto";
+            pickerBlock.style.minHeight = pickerBlock.style.minHeight || "60px";
+            pickerBlock.style.overflow = "visible";
+            pickerBlock.style.alignItems = "stretch";
+            pickerBlock.style.justifyContent = "flex-start";
+            pickerBlock.style.paddingBottom = "12px";
           }
         }
 
