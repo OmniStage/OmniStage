@@ -1228,7 +1228,7 @@ Apresente o cartão na entrada do evento.`;
                     <strong>Integrantes:</strong>{" "}
                     {nomesIntegrantes || "Sem integrantes"}
                   </p>
-                )
+                )}
 
                 <div style={groupMemberListStyle}>
                   {integrantes.map((convidado) => {
