@@ -243,6 +243,12 @@ function renderDynamicContent(content: string | null) {
     .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
     .replaceAll("{{contador_evento}}", String(diasParaEvento))
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
+    .replaceAll("{{total_convidados}}", "4")
+    .replaceAll("{{convidados_quantidade}}", "4")
+    .replaceAll("{{texto_total_convidados}}", "Convite para 4 convidados")
+    .replaceAll("{{google_maps_url}}", "Ver localização")
+    .replaceAll("{{waze_url}}", "Abrir no Waze")
+    .replaceAll("{{calendario_url}}", "Adicionar ao calendário")
     .replaceAll("{{qr_code}}", "QR")
     .replaceAll("{{logo_evento}}", "Logo Evento");
 }
@@ -665,6 +671,85 @@ function defaultBlock(
   return base;
 }
 
+
+function defaultActionBlock(
+  templateId: string,
+  action:
+    | "rsvp"
+    | "maps"
+    | "waze"
+    | "calendar"
+    | "guest_total",
+  nextZ: number,
+): ConviteBlock {
+  const buttonBaseBlock = {
+    ...defaultBlock(templateId, "button", nextZ),
+    x: 55,
+    y: 720,
+    width: 320,
+    height: 58,
+    font_size: 17,
+    color: "#ffffff",
+    background: "rgba(255,255,255,.16)",
+    border_radius: 18,
+  };
+
+  if (action === "rsvp") {
+    return {
+      ...buttonBaseBlock,
+      label: "RSVP",
+      content: "Confirmar presença",
+      y: 640,
+      background: "rgba(124,58,237,.82)",
+    };
+  }
+
+  if (action === "maps") {
+    return {
+      ...buttonBaseBlock,
+      label: "Ver localização",
+      content: "Ver localização",
+      y: 710,
+      background: "rgba(15,23,42,.58)",
+    };
+  }
+
+  if (action === "waze") {
+    return {
+      ...buttonBaseBlock,
+      label: "Abrir no Waze",
+      content: "Abrir no Waze",
+      y: 780,
+      background: "rgba(0,168,232,.78)",
+    };
+  }
+
+  if (action === "calendar") {
+    return {
+      ...buttonBaseBlock,
+      label: "Adicionar calendário",
+      content: "Adicionar ao calendário",
+      y: 850,
+      background: "rgba(15,23,42,.58)",
+    };
+  }
+
+  return {
+    ...defaultBlock(templateId, "text", nextZ),
+    label: "Quantidade convidados",
+    content: "{{texto_total_convidados}}",
+    x: 55,
+    y: 600,
+    width: 320,
+    height: 42,
+    font_size: 16,
+    color: "#ffffff",
+    background: "rgba(15,23,42,.42)",
+    border_radius: 999,
+  };
+}
+
+
 function renderBlock(
   block: ConviteBlock,
   selected: boolean,
@@ -966,6 +1051,14 @@ export default function EditorModeloConvitePage({
     setSelectedId(block.id);
   }
 
+  function addPresetBlock(
+    action: "rsvp" | "maps" | "waze" | "calendar" | "guest_total",
+  ) {
+    const block = defaultActionBlock(templateId, action, nextZ);
+    setBlocks((prev) => [...prev, block]);
+    setSelectedId(block.id);
+  }
+
   function deleteSelected() {
     if (!selectedId) return;
     setBlocks((prev) => prev.filter((b) => b.id !== selectedId));
@@ -1263,7 +1356,7 @@ export default function EditorModeloConvitePage({
               + Logo evento
             </button>
             <button style={smallButton} onClick={() => addBlock("button")}>
-              + Botão
+              + Botão livre
             </button>
             <button style={smallButton} onClick={() => addBlock("divider")}>
               + Linha
@@ -1276,6 +1369,38 @@ export default function EditorModeloConvitePage({
               onClick={() => addBlock("guest_picker")}
             >
               + Lista confirmação
+            </button>
+          </div>
+
+          <div style={divider} />
+
+          <h2 style={panelTitle}>Ações prontas</h2>
+          <div style={componentHint}>
+            Botões inteligentes: no cliente viram links reais do RSVP, mapa,
+            Waze e calendário.
+          </div>
+
+          <div style={componentGrid}>
+            <button style={smallButton} onClick={() => addPresetBlock("rsvp")}>
+              + RSVP
+            </button>
+            <button style={smallButton} onClick={() => addPresetBlock("maps")}>
+              + Ver localização
+            </button>
+            <button style={smallButton} onClick={() => addPresetBlock("waze")}>
+              + Abrir no Waze
+            </button>
+            <button
+              style={smallButton}
+              onClick={() => addPresetBlock("calendar")}
+            >
+              + Calendário
+            </button>
+            <button
+              style={smallButton}
+              onClick={() => addPresetBlock("guest_total")}
+            >
+              + Qtd convidados
             </button>
           </div>
 
@@ -1836,6 +1961,11 @@ export default function EditorModeloConvitePage({
               "{{logo_evento}}",
               "{{qr_code}}",
               "{{link_rsvp}}",
+              "{{google_maps_url}}",
+              "{{waze_url}}",
+              "{{calendario_url}}",
+              "{{total_convidados}}",
+              "{{texto_total_convidados}}",
             ].map((v) => (
               <button
                 key={v}
