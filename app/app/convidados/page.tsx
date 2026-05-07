@@ -52,11 +52,6 @@ type ImportPreviewRow = {
   phone?: string | null;
   grupo?: string | null;
   quantidade?: number;
-
-  crianca?: string | null;
-  mae?: string | null;
-  idade_crianca?: string | number | null;
-
   observacoes?: string | null;
   is_duplicate?: boolean;
 };
@@ -366,7 +361,9 @@ Apresente o cartão na entrada do evento.`;
         grupo: form.grupo.trim() || null,
         crianca: maeNormalizada ? "sim" : form.crianca,
         mae: maeNormalizada || null,
-        idade_crianca: idadeCriancaNormalizada ? Number(idadeCriancaNormalizada) : null,
+        idade_crianca: idadeCriancaNormalizada
+          ? Number(idadeCriancaNormalizada)
+          : null,
         tipo_convite: form.tipo_convite,
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
@@ -457,7 +454,9 @@ Apresente o cartão na entrada do evento.`;
       grupo: convidado.grupo || "",
       crianca: convidado.mae ? "sim" : convidado.crianca || "",
       mae: convidado.mae || "",
-      idade_crianca: convidado.idade_crianca ? String(convidado.idade_crianca) : "",
+      idade_crianca: convidado.idade_crianca
+        ? String(convidado.idade_crianca)
+        : "",
       tipo_convite: convidado.tipo_convite || "individual",
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
@@ -515,63 +514,69 @@ Apresente o cartão na entrada do evento.`;
 
   return (
     <main style={getPageStyle(themeVars)}>
-      <h1 style={{ fontSize: 48, margin: 0, color: "var(--text)" }}>Convidados</h1>
+      <section style={heroCardStyle}>
+        <div style={pageHeaderStyle}>
+          <div>
+            <div style={eyebrowStyle}>OmniStage App</div>
+            <h1 style={pageTitleStyle}>Convidados</h1>
+            <p style={pageSubtitleStyle}>
+              Cadastre os convidados que receberão o convite digital, RSVP e
+              cartão de entrada.
+            </p>
+          </div>
 
-      <div style={pageHeaderStyle}>
-        <p style={{ color: "var(--muted)", marginTop: 8 }}>
-          Cadastre os convidados que receberão o convite digital, RSVP e cartão de
-          entrada.
-        </p>
+          <label style={themeSwitcherStyle}>
+            <span>Tema</span>
+            <select
+              value={themeMode}
+              onChange={(event) =>
+                setThemeMode(event.target.value as ThemeMode)
+              }
+              style={themeSelectStyle}
+            >
+              <option value="auto">Automático</option>
+              <option value="light">Claro</option>
+              <option value="dark">Escuro</option>
+            </select>
+          </label>
+        </div>
 
-        <label style={themeSwitcherStyle}>
-          <span>Tema</span>
-          <select
-            value={themeMode}
-            onChange={(event) => setThemeMode(event.target.value as ThemeMode)}
-            style={themeSelectStyle}
-          >
-            <option value="auto">Automático</option>
-            <option value="light">Claro</option>
-            <option value="dark">Escuro</option>
-          </select>
-        </label>
-      </div>
+        <div style={heroControlsStyle}>
+          <label style={{ ...fieldStyle, maxWidth: 520 }}>
+            <span>Evento</span>
+            <select
+              value={eventoId}
+              onChange={(event) => trocarEvento(event.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Selecione um evento</option>
+              {eventos.map((evento) => (
+                <option key={evento.id} value={evento.id}>
+                  {evento.nome}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <section style={{ marginTop: 24, marginBottom: 8 }}>
-        <label style={fieldStyle}>
-          <span>Evento</span>
-          <select
-            value={eventoId}
-            onChange={(event) => trocarEvento(event.target.value)}
-            style={{ ...inputStyle, maxWidth: 420 }}
-          >
-            <option value="">Selecione um evento</option>
-            {eventos.map((evento) => (
-              <option key={evento.id} value={evento.id}>
-                {evento.nome}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div style={topActionsStyle}>
+            <button onClick={abrirCriacao} style={buttonStyle}>
+              + Criar convidado
+            </button>
+
+            <button
+              onClick={() => setImportAberto((current) => !current)}
+              style={secondaryButtonStyle}
+            >
+              Importar lista inteligente
+            </button>
+          </div>
+        </div>
       </section>
-
-      <div style={topActionsStyle}>
-        <button onClick={abrirCriacao} style={buttonStyle}>
-          + Criar convidado
-        </button>
-
-        <button
-          onClick={() => setImportAberto((current) => !current)}
-          style={secondaryButtonStyle}
-        >
-          Importar lista inteligente
-        </button>
-      </div>
 
       {importAberto && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
-            <h2 style={{ margin: 0 }}>Importar lista inteligente</h2>
+            <h2 style={cardTitleStyle}>Importar lista inteligente</h2>
             <button
               onClick={() => {
                 setImportAberto(false);
@@ -595,9 +600,8 @@ Apresente o cartão na entrada do evento.`;
             onChange={(event) => setImportText(event.target.value)}
             placeholder={`Maria Silva\nJoão Santos - 11999990000\nFamília Costa (4)\nAna +1`}
             style={{
-              ...inputStyle,
+              ...textareaStyle,
               minHeight: 180,
-              resize: "vertical",
               marginTop: 12,
             }}
           />
@@ -639,9 +643,12 @@ Apresente o cartão na entrada do evento.`;
                       {item.quantidade || 1}
                       {(item.mae || item.idade_crianca) && (
                         <>
-                          {" "}· Criança: {item.mae ? "sim" : item.crianca || "não"}
-                          {" "}· Mãe: {item.mae || "-"}
-                          {" "}· Idade da criança: {item.idade_crianca || "-"}
+                          {" "}
+                          · Criança: {item.mae
+                            ? "sim"
+                            : item.crianca || "não"}{" "}
+                          · Mãe: {item.mae || "-"} · Idade da criança:{" "}
+                          {item.idade_crianca || "-"}
                         </>
                       )}
                     </p>
@@ -668,7 +675,9 @@ Apresente o cartão na entrada do evento.`;
               </div>
 
               {importBatchId && (
-                <p style={{ color: "var(--muted)", marginTop: 12, fontSize: 13 }}>
+                <p
+                  style={{ color: "var(--muted)", marginTop: 12, fontSize: 13 }}
+                >
                   Lote de importação: {importBatchId}
                 </p>
               )}
@@ -680,9 +689,14 @@ Apresente o cartão na entrada do evento.`;
       {formAberto && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
-            <h2 style={{ margin: 0 }}>
-              {editandoId ? "Editar convidado" : "Criar convidado"}
-            </h2>
+            <div>
+              <div style={sectionKickerStyle}>
+                {editandoId ? "Atualizar cadastro" : "Novo cadastro"}
+              </div>
+              <h2 style={cardTitleStyle}>
+                {editandoId ? "Editar convidado" : "Criar convidado"}
+              </h2>
+            </div>
             <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
               Fechar
             </button>
@@ -750,7 +764,9 @@ Apresente o cartão na entrada do evento.`;
               <span>Idade da criança</span>
               <input
                 value={form.idade_crianca}
-                onChange={(event) => updateForm("idade_crianca", event.target.value)}
+                onChange={(event) =>
+                  updateForm("idade_crianca", event.target.value)
+                }
                 placeholder="Ex: 7"
                 type="number"
                 min="0"
@@ -823,7 +839,7 @@ Apresente o cartão na entrada do evento.`;
                   updateForm("observacoes", event.target.value)
                 }
                 placeholder="Observações internas sobre o convidado"
-                style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
+                style={textareaStyle}
               />
             </label>
           </div>
@@ -849,7 +865,7 @@ Apresente o cartão na entrada do evento.`;
 
       <section style={sectionStyle}>
         <div style={sectionHeaderStyle}>
-          <h2 style={{ margin: 0 }}>Convidados cadastrados</h2>
+          <h2 style={cardTitleStyle}>Convidados cadastrados</h2>
           <span style={{ color: "var(--muted)", fontWeight: 700 }}>
             {convidadosFiltrados.length} de {convidados.length}
           </span>
@@ -933,11 +949,19 @@ Apresente o cartão na entrada do evento.`;
                     return (
                       <div key={convidado.id} style={groupMemberRowStyle}>
                         <div style={groupMemberInfoStyle}>
-                          <strong style={{ fontSize: 20 }}>
+                          <strong
+                            style={{
+                              fontSize: 21,
+                              color: "var(--text)",
+                              letterSpacing: "-0.02em",
+                            }}
+                          >
                             {convidado.nome}
                           </strong>
 
-                          <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
+                          <p
+                            style={{ color: "var(--muted)", margin: "6px 0 0" }}
+                          >
                             {convidado.telefone || "Sem telefone"}
                           </p>
 
@@ -946,7 +970,9 @@ Apresente o cartão na entrada do evento.`;
                             {convidado.tipo_convite || "individual"}
                           </small>
 
-                          {(convidado.crianca || convidado.mae || convidado.idade_crianca) && (
+                          {(convidado.crianca ||
+                            convidado.mae ||
+                            convidado.idade_crianca) && (
                             <div
                               style={{
                                 marginTop: 8,
@@ -1185,7 +1211,9 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
       };
 }
 
-function getPageStyle(themeVars: CSSProperties & Record<string, string>): CSSProperties {
+function getPageStyle(
+  themeVars: CSSProperties & Record<string, string>,
+): CSSProperties {
   return {
     ...themeVars,
     minHeight: "100vh",
@@ -1195,6 +1223,64 @@ function getPageStyle(themeVars: CSSProperties & Record<string, string>): CSSPro
     transition: "background 180ms ease, color 180ms ease",
   };
 }
+
+const heroCardStyle: CSSProperties = {
+  padding: 30,
+  borderRadius: 34,
+  border: "1px solid var(--border)",
+  background: "linear-gradient(135deg, var(--section-bg), var(--soft-bg))",
+  boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
+};
+
+const eyebrowStyle: CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  marginBottom: 10,
+};
+
+const pageTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: 38,
+  lineHeight: 1.05,
+  fontWeight: 900,
+  letterSpacing: "-0.04em",
+};
+
+const pageSubtitleStyle: CSSProperties = {
+  color: "var(--muted)",
+  margin: "10px 0 0",
+  fontSize: 17,
+  lineHeight: 1.45,
+  maxWidth: 760,
+};
+
+const heroControlsStyle: CSSProperties = {
+  display: "grid",
+  gap: 18,
+  marginTop: 26,
+};
+
+const cardTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: 28,
+  lineHeight: 1.1,
+  fontWeight: 900,
+  letterSpacing: "-0.03em",
+};
+
+const sectionKickerStyle: CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  marginBottom: 6,
+};
 
 const pageHeaderStyle: CSSProperties = {
   display: "flex",
@@ -1222,12 +1308,12 @@ const themeSelectStyle: CSSProperties = {
 };
 
 const sectionStyle: CSSProperties = {
-  marginTop: 28,
-  padding: 22,
-  borderRadius: 28,
+  marginTop: 24,
+  padding: 30,
+  borderRadius: 34,
   border: "1px solid var(--border)",
   background: "var(--section-bg)",
-  boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
+  boxShadow: "0 14px 45px rgba(15,23,42,0.07), 0 2px 10px rgba(15,23,42,0.04)",
 };
 
 const topActionsStyle: CSSProperties = {
@@ -1235,7 +1321,7 @@ const topActionsStyle: CSSProperties = {
   gap: 12,
   flexWrap: "wrap",
   justifyContent: "flex-start",
-  marginTop: 24,
+  marginTop: 0,
 };
 
 const sectionHeaderStyle: CSSProperties = {
@@ -1248,24 +1334,38 @@ const sectionHeaderStyle: CSSProperties = {
 
 const formGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 14,
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gap: 18,
 };
 
 const fieldStyle: CSSProperties = {
   display: "grid",
-  gap: 8,
+  gap: 9,
   color: "var(--text-secondary)",
-  fontWeight: 700,
+  fontSize: 15,
+  fontWeight: 800,
+  letterSpacing: "-0.01em",
 };
 
 const inputStyle: CSSProperties = {
   width: "100%",
-  padding: 15,
-  borderRadius: 16,
+  minHeight: 54,
+  padding: "0 18px",
+  borderRadius: 18,
   background: "var(--card-bg)",
   color: "var(--text)",
   border: "1px solid var(--border-strong)",
+  fontSize: 15,
+  fontWeight: 600,
+  outline: "none",
+};
+
+const textareaStyle: CSSProperties = {
+  ...inputStyle,
+  minHeight: 118,
+  padding: 18,
+  resize: "vertical",
+  lineHeight: 1.55,
 };
 
 const formActionsStyle: CSSProperties = {
@@ -1277,30 +1377,35 @@ const formActionsStyle: CSSProperties = {
 
 const buttonStyle: CSSProperties = {
   padding: "15px 22px",
+  minHeight: 54,
   borderRadius: 999,
   background: "var(--primary-bg)",
   border: "none",
   color: "#ffffff",
-  fontWeight: "bold",
+  fontSize: 15,
+  fontWeight: 900,
   cursor: "pointer",
   boxShadow: "var(--primary-shadow)",
 };
 
 const secondaryButtonStyle: CSSProperties = {
-  padding: "13px 18px",
+  padding: "14px 20px",
+  minHeight: 54,
   borderRadius: 999,
   background: "var(--card-bg)",
   border: "1px solid var(--border-strong)",
   color: "var(--text)",
-  fontWeight: "bold",
+  fontSize: 15,
+  fontWeight: 900,
   cursor: "pointer",
 };
 
 const filtersStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 190px 190px",
-  gap: 12,
-  marginBottom: 18,
+  gridTemplateColumns:
+    "minmax(260px, 1fr) minmax(180px, 220px) minmax(180px, 220px)",
+  gap: 14,
+  marginBottom: 20,
 };
 
 const groupCardLargeStyle: CSSProperties = {
