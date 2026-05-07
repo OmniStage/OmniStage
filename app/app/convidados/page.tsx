@@ -1264,7 +1264,11 @@ Apresente o cartão na entrada do evento.`;
                           <p
                             style={{ color: "var(--muted)", margin: "6px 0 0" }}
                           >
-                            {convidado.telefone || "Sem telefone"}
+                            {convidado.telefone
+                              ? convidado.telefone
+                              : convidado.responsavel_telefone
+                                ? `Responsável: ${convidado.responsavel_telefone}`
+                                : "Sem telefone"}
                           </p>
 
                           <small style={{ color: "var(--muted)" }}>
