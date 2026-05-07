@@ -304,52 +304,74 @@ export default function ConvitePage() {
   }, []);
 
   return (
-    <main style={{ color: "#fff" }}>
-      <h1 style={{ fontSize: 40, margin: 0 }}>Convite Digital</h1>
-      <p style={{ color: "#94a3b8", marginTop: 8 }}>
-        Escolha o modelo criado no admin da OmniStage para aplicar ao evento do cliente.
-      </p>
+    <main style={pageStyle}>
+      <section style={heroStyle}>
+        <div>
+          <div style={eyebrowStyle}>OMNISTAGE CONVITES</div>
+          <h1 style={titleStyle}>Convite Digital</h1>
+          <p style={subtitleStyle}>
+            Escolha o modelo criado no admin para aplicar ao evento do cliente.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={carregarDados}
+          style={ghostButtonStyle}
+        >
+          Atualizar modelos
+        </button>
+      </section>
 
       {loading ? (
         <div style={emptyStyle}>Carregando eventos e modelos...</div>
       ) : (
         <>
           <section style={sectionStyle}>
-            <label style={labelStyle}>Evento</label>
+            <div style={eventSectionGridStyle}>
+              <div>
+                <div style={sectionKickerStyle}>Evento selecionado</div>
+                <h2 style={sectionTitleStyle}>Modelo do convite</h2>
+                <p style={sectionDescriptionStyle}>
+                  Escolha o evento para visualizar os modelos com os dados reais do cadastro.
+                </p>
+              </div>
 
-            <select
-              value={eventoSelecionado}
-              onChange={(event) => selecionarEvento(event.target.value)}
-              style={selectStyle}
-            >
-              <option value="">Selecione...</option>
+              <label style={eventSelectWrapStyle}>
+                <span style={labelStyle}>Evento</span>
+                <select
+                  value={eventoSelecionado}
+                  onChange={(event) => selecionarEvento(event.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">Selecione...</option>
 
-              {eventos.map((evento) => (
-                <option key={evento.id} value={evento.id}>
-                  {evento.nome}
-                </option>
-              ))}
-            </select>
+                  {eventos.map((evento) => (
+                    <option key={evento.id} value={evento.id}>
+                      {evento.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             {eventoAtual && (
-              <div style={{ color: "#94a3b8", marginTop: 10, display: "grid", gap: 6 }}>
-                <p style={{ margin: 0 }}>
-                  {eventoAtual.data_evento || "Sem data"} · {eventoAtual.local || "Sem local"} ·{" "}
-                  {eventoAtual.status || "sem status"}
-                </p>
-                <p
+              <div style={eventInfoBarStyle}>
+                <span>{eventoAtual.data_evento || "Sem data"}</span>
+                <span>{eventoAtual.local || "Sem local"}</span>
+                <span>{eventoAtual.status || "sem status"}</span>
+                <strong
                   style={{
-                    margin: 0,
                     color:
                       eventoAtual.logo_url || eventoAtual.logo_image
-                        ? "#86efac"
-                        : "#fbbf24",
+                        ? "#16a34a"
+                        : "#b45309",
                   }}
                 >
                   {eventoAtual.logo_url || eventoAtual.logo_image
-                    ? "Logomarca carregada para este evento."
-                    : "Este evento ainda está sem logomarca cadastrada."}
-                </p>
+                    ? "Logomarca carregada"
+                    : "Sem logomarca"}
+                </strong>
               </div>
             )}
           </section>
@@ -357,8 +379,9 @@ export default function ConvitePage() {
           <section style={sectionStyle}>
             <div style={sectionHeaderStyle}>
               <div>
-                <h2 style={{ margin: 0 }}>Modelos disponíveis</h2>
-                <p style={{ color: "#94a3b8", margin: "8px 0 0" }}>
+                <div style={sectionKickerStyle}>Biblioteca</div>
+                <h2 style={sectionTitleStyle}>Modelos disponíveis</h2>
+                <p style={sectionDescriptionStyle}>
                   Filtre por tema e escolha pelo preview visual do convite.
                 </p>
               </div>
@@ -400,7 +423,10 @@ export default function ConvitePage() {
                     type="button"
                     style={{
                       ...templateCardStyle,
-                      border: selected ? "2px solid #22c55e" : "1px solid #334155",
+                      border: selected ? "2px solid #7c3aed" : "1px solid #e2e8f0",
+                      boxShadow: selected
+                        ? "0 20px 55px rgba(124,58,237,0.20)"
+                        : "0 10px 35px rgba(15,23,42,0.06)",
                     }}
                     onClick={() => setTemplateSelecionado(template.id)}
                   >
@@ -418,11 +444,11 @@ export default function ConvitePage() {
                       <div style={templateThumbEmptyStyle}>Sem preview</div>
                     )}
 
-                    <strong style={{ marginTop: 12 }}>{templateNome}</strong>
-                    <span style={{ color: "#94a3b8", marginTop: 4 }}>
+                    <strong style={templateNameStyle}>{templateNome}</strong>
+                    <span style={templateCategoryStyle}>
                       {getCategoriaNome(template.categoria)}
                     </span>
-                    <span style={{ color: isVisual ? "#86efac" : "#c4b5fd", marginTop: 4, fontSize: 12 }}>
+                    <span style={isVisual ? visualBadgeStyle : htmlBadgeStyle}>
                       {isVisual ? "Editor visual" : "HTML"}
                     </span>
                   </button>
@@ -432,7 +458,8 @@ export default function ConvitePage() {
           </section>
 
           <section style={sectionStyle}>
-            <h2 style={{ marginTop: 0 }}>Preview selecionado</h2>
+            <div style={sectionKickerStyle}>Visualização</div>
+            <h2 style={sectionTitleStyle}>Preview selecionado</h2>
 
             {!templateAtual && <div style={emptyStyle}>Selecione um modelo para visualizar.</div>}
 
@@ -467,19 +494,111 @@ export default function ConvitePage() {
   );
 }
 
+
+const pageStyle: React.CSSProperties = {
+  color: "#0f172a",
+  display: "grid",
+  gap: 24,
+};
+
+const heroStyle: React.CSSProperties = {
+  padding: 34,
+  borderRadius: 34,
+  border: "1px solid #e2e8f0",
+  background: "linear-gradient(135deg,#ffffff,#f8fafc)",
+  boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 18,
+  flexWrap: "wrap",
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  color: "#6d28d9",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  marginBottom: 10,
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 46,
+  lineHeight: 1.02,
+  fontWeight: 950,
+  letterSpacing: "-0.045em",
+  color: "#0f172a",
+};
+
+const subtitleStyle: React.CSSProperties = {
+  margin: "12px 0 0",
+  color: "#64748b",
+  fontSize: 18,
+  lineHeight: 1.45,
+};
+
 const sectionStyle: React.CSSProperties = {
-  marginTop: 28,
-  padding: 20,
-  borderRadius: 16,
-  border: "1px solid #334155",
-  background: "#020617",
+  padding: 28,
+  borderRadius: 30,
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  boxShadow: "0 14px 45px rgba(15,23,42,0.07)",
+};
+
+const eventSectionGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 520px)",
+  gap: 22,
+  alignItems: "end",
+};
+
+const eventSelectWrapStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const eventInfoBarStyle: React.CSSProperties = {
+  marginTop: 20,
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  alignItems: "center",
+  color: "#64748b",
+  fontWeight: 800,
+};
+
+const sectionKickerStyle: React.CSSProperties = {
+  color: "#6d28d9",
+  fontSize: 12,
+  fontWeight: 950,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  marginBottom: 8,
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 28,
+  lineHeight: 1.08,
+  fontWeight: 950,
+  letterSpacing: "-0.03em",
+};
+
+const sectionDescriptionStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#64748b",
+  fontSize: 16,
+  lineHeight: 1.45,
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block",
-  marginBottom: 10,
-  color: "#cbd5e1",
-  fontWeight: 700,
+  color: "#334155",
+  fontSize: 14,
+  fontWeight: 900,
 };
 
 const sectionHeaderStyle: React.CSSProperties = {
@@ -487,122 +606,192 @@ const sectionHeaderStyle: React.CSSProperties = {
   justifyContent: "space-between",
   gap: 16,
   alignItems: "flex-start",
-  marginBottom: 18,
+  marginBottom: 22,
+  flexWrap: "wrap",
 };
 
 const selectStyle: React.CSSProperties = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  background: "#020617",
-  color: "#fff",
-  border: "1px solid #334155",
+  minHeight: 52,
+  padding: "0 16px",
+  borderRadius: 16,
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid #cbd5e1",
+  fontSize: 15,
+  fontWeight: 800,
+  outline: "none",
 };
 
 const filterSelectStyle: React.CSSProperties = {
-  minWidth: 220,
-  padding: 12,
-  borderRadius: 10,
-  background: "#020617",
-  color: "#fff",
-  border: "1px solid #334155",
+  minWidth: 240,
+  minHeight: 48,
+  padding: "0 16px",
+  borderRadius: 999,
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid #cbd5e1",
+  fontSize: 14,
+  fontWeight: 800,
+  outline: "none",
 };
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(210px, 240px))",
-  gap: 18,
+  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+  gap: 22,
 };
 
 const templateCardStyle: React.CSSProperties = {
   display: "grid",
   textAlign: "left",
-  borderRadius: 18,
-  padding: 14,
+  borderRadius: 28,
+  padding: 16,
   cursor: "pointer",
-  background: "#0f172a",
-  color: "#fff",
+  background: "#ffffff",
+  color: "#0f172a",
   alignContent: "start",
+  transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
+};
+
+const templateNameStyle: React.CSSProperties = {
+  marginTop: 14,
+  color: "#0f172a",
+  fontSize: 16,
+  fontWeight: 950,
+};
+
+const templateCategoryStyle: React.CSSProperties = {
+  color: "#64748b",
+  marginTop: 5,
+  fontSize: 13,
+  fontWeight: 750,
+};
+
+const visualBadgeStyle: React.CSSProperties = {
+  width: "fit-content",
+  marginTop: 10,
+  padding: "7px 10px",
+  borderRadius: 999,
+  background: "#dcfce7",
+  color: "#15803d",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
+const htmlBadgeStyle: React.CSSProperties = {
+  width: "fit-content",
+  marginTop: 10,
+  padding: "7px 10px",
+  borderRadius: 999,
+  background: "#ede9fe",
+  color: "#6d28d9",
+  fontSize: 12,
+  fontWeight: 900,
 };
 
 const templateThumbStyle: React.CSSProperties = {
   width: "100%",
-  height: 310,
-  objectFit: "contain",
-  borderRadius: 16,
-  border: "1px solid #334155",
-  background: "#020617",
+  height: 390,
+  objectFit: "cover",
+  borderRadius: 22,
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
 };
 
 const templateThumbFrameStyle: React.CSSProperties = {
   width: 430,
   height: 920,
   border: 0,
-  background: "#020617",
+  background: "#ffffff",
   pointerEvents: "none",
   position: "absolute",
   left: "50%",
   top: 0,
-  transform: "translateX(-50%) scale(0.337)",
+  transform: "translateX(-50%) scale(0.43)",
   transformOrigin: "top center",
   overflow: "hidden",
 };
 
 const templateThumbFrameWrapStyle: React.CSSProperties = {
   width: "100%",
-  height: 310,
-  borderRadius: 16,
-  border: "1px solid #334155",
-  background: "#020617",
+  height: 390,
+  borderRadius: 22,
+  border: "1px solid #e2e8f0",
+  background: "linear-gradient(135deg,#f8fafc,#eef2ff)",
   overflow: "hidden",
   position: "relative",
 };
 
 const templateThumbEmptyStyle: React.CSSProperties = {
   width: "100%",
-  height: 310,
-  borderRadius: 16,
-  border: "1px dashed #334155",
+  height: 390,
+  borderRadius: 22,
+  border: "1px dashed #cbd5e1",
   display: "grid",
   placeItems: "center",
-  color: "#94a3b8",
+  color: "#64748b",
+  background: "#f8fafc",
+  fontWeight: 900,
 };
 
 const emptyStyle: React.CSSProperties = {
   marginTop: 14,
-  padding: 18,
-  borderRadius: 12,
-  border: "1px dashed #334155",
-  color: "#94a3b8",
+  padding: 20,
+  borderRadius: 18,
+  border: "1px dashed #cbd5e1",
+  color: "#64748b",
+  background: "#f8fafc",
+  fontWeight: 800,
 };
 
 const previewFrameStyle: React.CSSProperties = {
-  width: "min(100%, 430px)",
-  height: 760,
+  width: "100%",
+  maxWidth: 460,
+  height: 860,
   display: "block",
-  margin: "0 auto",
-  borderRadius: 22,
-  border: "1px solid #334155",
-  background: "#020617",
+  margin: "22px auto 0",
+  borderRadius: 34,
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
 };
 
 const previewImageStyle: React.CSSProperties = {
-  width: "min(100%, 430px)",
-  maxHeight: 760,
+  width: "100%",
+  maxWidth: 460,
+  maxHeight: 860,
   display: "block",
-  margin: "0 auto",
+  margin: "22px auto 0",
   objectFit: "contain",
-  borderRadius: 22,
-  border: "1px solid #334155",
+  borderRadius: 34,
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
 };
 
 const buttonStyle: React.CSSProperties = {
-  marginTop: 24,
-  padding: "14px 20px",
-  borderRadius: 10,
-  background: "#22c55e",
+  width: "fit-content",
+  marginTop: 4,
+  padding: "17px 24px",
+  borderRadius: 18,
+  background: "linear-gradient(135deg,#7c3aed,#6d28d9)",
   border: "none",
-  color: "#fff",
-  fontWeight: "bold",
+  color: "#ffffff",
+  fontSize: 15,
+  fontWeight: 950,
   cursor: "pointer",
+  boxShadow: "0 16px 40px rgba(124,58,237,0.26)",
+};
+
+const ghostButtonStyle: React.CSSProperties = {
+  padding: "14px 18px",
+  borderRadius: 16,
+  background: "#7c3aed",
+  border: "none",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 950,
+  cursor: "pointer",
+  boxShadow: "0 14px 34px rgba(124,58,237,0.22)",
 };
