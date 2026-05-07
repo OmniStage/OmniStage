@@ -354,22 +354,87 @@ export default function AdminImportacaoPage() {
     return values;
   }
 
+  function normalizarTextoBusca(value: string) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLocaleLowerCase("pt-BR")
+      .trim();
+  }
+
+  function linhaPareceCabecalho(row: string[]) {
+    const termosCabecalho = [
+      "id",
+      "nome",
+      "convidado",
+      "telefone",
+      "whatsapp",
+      "celular",
+      "mae",
+      "crianca",
+      "idade",
+      "grupo",
+      "familia",
+      "status",
+      "rsvp",
+      "envio",
+    ];
+
+    return row.reduce((score, cell) => {
+      const normalized = normalizarTextoBusca(cell);
+
+      if (!normalized) return score;
+
+      const exactMatch = termosCabecalho.includes(normalized);
+      const partialMatch = termosCabecalho.some((term) => normalized.includes(term));
+
+      return score + (exactMatch ? 2 : partialMatch ? 1 : 0);
+    }, 0);
+  }
+
+  function prepararMatrizPlanilha(matrix: string[][]) {
+    const validRows = matrix
+      .map((row) => row.map((value) => String(value ?? "").trim()))
+      .filter((row) => row.some((value) => value));
+
+    if (validRows.length === 0) {
+      return { headers: [] as string[], rows: [] as string[][] };
+    }
+
+    let headerIndex = 0;
+    let bestScore = -1;
+
+    validRows.slice(0, 12).forEach((row, index) => {
+      const score = linhaPareceCabecalho(row);
+
+      if (score > bestScore) {
+        bestScore = score;
+        headerIndex = index;
+      }
+    });
+
+    const rawHeaders = validRows[headerIndex];
+    const headers = rawHeaders.map((header, index) =>
+      header && header.trim() ? header.trim() : `Coluna ${index + 1}`
+    );
+
+    const rows = validRows
+      .slice(headerIndex + 1)
+      .filter((row) => row.some((value) => value));
+
+    return { headers, rows };
+  }
+
   function parseCsvText(csvText: string) {
-    const lines = csvText
+    const matrix = csvText
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n")
       .split("\n")
       .map((line) => line.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map(parseCsvLine);
 
-    if (lines.length === 0) {
-      return { headers: [] as string[], rows: [] as string[][] };
-    }
-
-    const headers = parseCsvLine(lines[0]);
-    const rows = lines.slice(1).map(parseCsvLine);
-
-    return { headers, rows };
+    return prepararMatrizPlanilha(matrix);
   }
 
   async function handleSpreadsheetUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -424,17 +489,15 @@ export default function AdminImportacaoPage() {
           raw: false,
         });
 
-        const validRows = matrix
-          .map((row) => row.map((value) => String(value ?? "").trim()))
-          .filter((row) => row.some((value) => value));
+        const parsed = prepararMatrizPlanilha(matrix);
 
-        if (validRows.length === 0) {
-          alert("Nenhuma linha encontrada na planilha.");
+        if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+          alert("Nenhuma linha de convidados encontrada na planilha.");
           return;
         }
 
-        headers = validRows[0];
-        rows = validRows.slice(1);
+        headers = parsed.headers;
+        rows = parsed.rows;
       }
 
       if (headers.length === 0 || rows.length === 0) {
@@ -641,26 +704,34 @@ export default function AdminImportacaoPage() {
 
   function sugerirMapeamento(headers: string[]) {
     function findHeader(terms: string[]) {
+      const normalizedTerms = terms.map(normalizarTextoBusca);
+
+      const exact = headers.find((header) =>
+        normalizedTerms.some((term) => normalizarTextoBusca(header) === term)
+      );
+
+      if (exact) return exact;
+
       return (
         headers.find((header) => {
-          const normalized = header.toLocaleLowerCase("pt-BR");
-          return terms.some((term) => normalized.includes(term));
+          const normalized = normalizarTextoBusca(header);
+          return normalizedTerms.some((term) => normalized.includes(term));
         }) || ""
       );
     }
 
     setMapping({
       legacy_id: findHeader(["id"]),
-      grupo: findHeader(["grupo", "família", "familia"]),
+      grupo: findHeader(["grupo", "familia", "família"]),
       nome: findHeader(["nome", "convidado"]),
       telefone: findHeader(["telefone", "whatsapp", "celular"]),
       crianca: findHeader(["crianca", "criança"]),
       mae: findHeader(["mae", "mãe", "mae/responsavel", "mãe/responsável"]),
       idade_crianca: findHeader(["idade_crianca", "idade criança", "idade crianca", "idade"]),
       status_rsvp: findHeader(["status_rsvp", "rsvp", "confirma"]),
-      status_envio: findHeader(["status", "envio", "enviado"]),
+      status_envio: findHeader(["status_envio", "envio", "enviado", "status"]),
       data_hora_rsvp: findHeader(["data_resposta", "resposta"]),
-      data_hora_envio: findHeader(["dia", "horário", "horario", "hora"]),
+      data_hora_envio: findHeader(["data_hora_envio", "dia", "horário", "horario", "hora"]),
     });
   }
 
