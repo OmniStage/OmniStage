@@ -1207,27 +1207,42 @@ Apresente o cartão na entrada do evento.`;
               .map((convidado) => convidado.nome)
               .filter(Boolean)
               .join(" • ");
-            const isIndividual = grupo.startsWith("__individual__");
+            const isIndividual =
+              grupo.startsWith("__individual__") ||
+              integrantes.length === 1 ||
+              integrantes.every(
+                (item) =>
+                  !item.grupo ||
+                  item.grupo.trim() === "" ||
+                  item.tipo_convite === "individual",
+              );
+
+            const mostrarGrupo =
+              !isIndividual &&
+              Boolean(grupo) &&
+              !grupo.startsWith("__individual__");
 
             return (
               <article key={grupo} style={groupCardLargeStyle}>
-                <div style={groupCardHeaderStyle}>
-                  <div>
-                    <span style={groupEyebrowStyle}>Grupo encontrado</span>
-                    <strong style={groupTitleStyle}>{isIndividual ? "INDIVIDUAL" : grupo}</strong>
-                  </div>
+                {mostrarGrupo && (
+                  <>
+                    <div style={groupCardHeaderStyle}>
+                      <div>
+                        <span style={groupEyebrowStyle}>Grupo encontrado</span>
+                        <strong style={groupTitleStyle}>{grupo}</strong>
+                      </div>
 
-                  <span style={groupCountStyle}>
-                    {integrantes.length} integrante
-                    {integrantes.length === 1 ? "" : "s"}
-                  </span>
-                </div>
+                      <span style={groupCountStyle}>
+                        {integrantes.length} integrante
+                        {integrantes.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
 
-                {!isIndividual && (
-                  <p style={groupMembersSummaryStyle}>
-                    <strong>Integrantes:</strong>{" "}
-                    {nomesIntegrantes || "Sem integrantes"}
-                  </p>
+                    <p style={groupMembersSummaryStyle}>
+                      <strong>Integrantes:</strong>{" "}
+                      {nomesIntegrantes || "Sem integrantes"}
+                    </p>
+                  </>
                 )}
 
                 <div style={groupMemberListStyle}>
@@ -1256,8 +1271,12 @@ Apresente o cartão na entrada do evento.`;
                           </p>
 
                           <small style={{ color: "var(--muted)" }}>
-                            E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
-                            {convidado.tipo_convite || "individual"}
+                            E-mail: {convidado.email || "Sem e-mail"}
+                            {mostrarGrupo ? (
+                              <> · Grupo: {grupo}</>
+                            ) : (
+                              <> · Individual</>
+                            )}
                             {convidado.tamanho_chinelo ? ` · Chinelo: ${convidado.tamanho_chinelo}` : ""}
                           </small>
 
