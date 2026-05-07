@@ -464,7 +464,28 @@ export function renderizarTemplateVisual(
           <div class="omnistage-canvas" style="width:430px;height:920px;position:absolute;left:0;top:0;overflow:hidden;">
             ${
               backgroundEvento
-                ? `<img src="${escapeHtml(backgroundEvento)}" alt="Background" style="position:absolute;left:50%;top:50%;width:430px;height:920px;object-fit:cover;transform:translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale});opacity:${backgroundOpacity};z-index:0;" />`
+                ? `<img
+                    src="${escapeHtml(backgroundEvento)}"
+                    alt="Background"
+                    style="
+                      position:absolute;
+                      left:50%;
+                      top:50%;
+                      width:540px;
+                      height:1080px;
+                      object-fit:cover;
+                      transform:
+                        translate(
+                          calc(-50% + ${backgroundX}px),
+                          calc(-50% + ${backgroundY}px)
+                        )
+                        scale(${Math.max(backgroundScale, 1.15)});
+                      opacity:${backgroundOpacity};
+                      z-index:0;
+                      pointer-events:none;
+                      user-select:none;
+                    "
+                  />`
                 : ""
             }
             <div style="position:absolute;inset:0;z-index:1;pointer-events:none;background:${
