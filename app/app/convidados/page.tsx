@@ -396,13 +396,20 @@ Apresente o cartão na entrada do evento.`;
 
     try {
       const grupoNormalizado = form.grupo.trim();
+      const conviteEhGrupo = form.tipo_convite === "grupo";
+      const grupoFinal = conviteEhGrupo ? grupoNormalizado : "";
       const responsavelNormalizado = form.responsavel.trim();
       const responsavelTelefoneNormalizado = form.responsavel_telefone.trim();
       const maeNormalizada = responsavelNormalizado || form.mae.trim();
       const idadeCriancaNormalizada = form.idade_crianca.trim();
       const criancaSelecionada = form.crianca === "sim" || Boolean(idadeCriancaNormalizada);
       const criancaSemGrupoViaResponsavel =
-        criancaSelecionada && !grupoNormalizado && Boolean(responsavelNormalizado);
+        criancaSelecionada && !grupoFinal && Boolean(responsavelNormalizado);
+
+      if (conviteEhGrupo && !grupoFinal) {
+        alert("Informe o nome do grupo/família ou altere o tipo do convite para Individual.");
+        return;
+      }
 
       if (criancaSemGrupoViaResponsavel && !responsavelTelefoneNormalizado) {
         alert("Informe o telefone do responsável pelo envio.");
@@ -417,7 +424,7 @@ Apresente o cartão na entrada do evento.`;
         nome: form.nome.trim(),
         telefone: telefonePrincipal || null,
         email: form.email.trim() || null,
-        grupo: grupoNormalizado || null,
+        grupo: grupoFinal || null,
         crianca: criancaSelecionada || responsavelNormalizado ? "sim" : form.crianca,
         mae: maeNormalizada || null,
         responsavel: responsavelNormalizado || maeNormalizada || null,
@@ -426,13 +433,13 @@ Apresente o cartão na entrada do evento.`;
           ? Number(idadeCriancaNormalizada)
           : null,
         tamanho_chinelo: form.tamanho_chinelo.trim() || null,
-        contato_principal: criancaSemGrupoViaResponsavel ? false : form.contato_principal,
+        contato_principal: conviteEhGrupo && !criancaSemGrupoViaResponsavel ? form.contato_principal : false,
         recebe_convite: criancaSemGrupoViaResponsavel
           ? true
-          : form.recebe_convite || form.contato_principal,
-        tipo_convite: criancaSemGrupoViaResponsavel
-          ? "individual"
-          : form.tipo_convite,
+          : conviteEhGrupo
+            ? form.recebe_convite || form.contato_principal
+            : true,
+        tipo_convite: conviteEhGrupo ? "grupo" : "individual",
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
         status_envio: form.status_envio,
@@ -530,7 +537,7 @@ Apresente o cartão na entrada do evento.`;
       tamanho_chinelo: convidado.tamanho_chinelo || "",
       contato_principal: Boolean(convidado.contato_principal),
       recebe_convite: Boolean(convidado.recebe_convite),
-      tipo_convite: convidado.tipo_convite || "individual",
+      tipo_convite: convidado.tipo_convite || (convidado.grupo ? "grupo" : "individual"),
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
       status_envio: convidado.status_envio || "pendente",
@@ -921,6 +928,83 @@ Apresente o cartão na entrada do evento.`;
                     <label style={toggleFieldStyle}>
                       <input
                         type="checkbox"
+                        checked={form.recebe_convite}
+                        onChange={(event) =>
+                          updateFormBoolean("recebe_convite", event.target.checked)
+                        }
+                        style={checkboxInputStyle}
+                      />
+                      <div style={toggleTextStyle}>
+                        <strong>Recebe comunicação</strong>
+                        <span>Usado no envio: o responsável recebe o convite/comunicação da criança.</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section style={formBlockCardStyle}>
+              <div style={formBlockHeaderStyle}>
+                <span>03</span>
+                <div>
+                  <strong>Perfil do convite</strong>
+                  <p>Defina se este convite será individual ou para um grupo/família. Os campos de grupo aparecem somente quando necessário.</p>
+                </div>
+              </div>
+
+              <div style={formBlockGridStyle}>
+                <label style={fieldStyle}>
+                  <span>Tipo do convite</span>
+                  <select
+                    value={form.tipo_convite}
+                    onChange={(event) => {
+                      const tipo = event.target.value;
+
+                      setForm((current) => ({
+                        ...current,
+                        tipo_convite: tipo,
+                        grupo: tipo === "grupo" ? current.grupo : "",
+                        contato_principal: tipo === "grupo" ? current.contato_principal : false,
+                        recebe_convite:
+                          tipo === "individual"
+                            ? true
+                            : current.recebe_convite,
+                      }));
+                    }}
+                    style={inputStyle}
+                  >
+                    <option value="individual">Individual</option>
+                    <option value="grupo">Grupo / Família</option>
+                  </select>
+                </label>
+              </div>
+
+              {form.tipo_convite === "grupo" && (
+                <>
+                  <div style={formBlockGridStyle}>
+                    <label style={fieldStyle}>
+                      <span>Nome do grupo/família</span>
+                      <input
+                        value={form.grupo}
+                        onChange={(event) => {
+                          const grupo = event.target.value;
+                          setForm((current) => ({
+                            ...current,
+                            grupo,
+                            tipo_convite: "grupo",
+                          }));
+                        }}
+                        placeholder="Ex: Família Silva"
+                        style={inputStyle}
+                      />
+                    </label>
+                  </div>
+
+                  <div style={formBlockGridStyle}>
+                    <label style={toggleFieldStyle}>
+                      <input
+                        type="checkbox"
                         checked={form.contato_principal}
                         onChange={(event) => {
                           const checked = event.target.checked;
@@ -934,7 +1018,7 @@ Apresente o cartão na entrada do evento.`;
                       />
                       <div style={toggleTextStyle}>
                         <strong>Contato principal</strong>
-                        <span>Identifica quem representa o grupo / família. Se for sem grupo, não precisa marcar.</span>
+                        <span>Identifica quem representa o grupo/família no envio.</span>
                       </div>
                     </label>
 
@@ -949,98 +1033,11 @@ Apresente o cartão na entrada do evento.`;
                       />
                       <div style={toggleTextStyle}>
                         <strong>Recebe comunicação</strong>
-                        <span>Usado no envio: esta pessoa recebe o convite / comunicação.</span>
+                        <span>Usado no envio: esta pessoa recebe o convite/comunicação do grupo.</span>
                       </div>
                     </label>
                   </div>
-                </div>
-              )}
-            </section>
-
-            <section style={formBlockCardStyle}>
-              <div style={formBlockHeaderStyle}>
-                <span>03</span>
-                <div>
-                  <strong>Grupo / Família</strong>
-                  <p>Organize convidados por família ou grupo e defina quem representa o envio.</p>
-                </div>
-              </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Grupo/Família</span>
-                  <input
-                    value={form.grupo}
-                    onChange={(event) => {
-                      const grupo = event.target.value;
-                      setForm((current) => ({
-                        ...current,
-                        grupo,
-                        tipo_convite: grupo.trim() ? "grupo" : "individual",
-                        contato_principal: grupo.trim() ? current.contato_principal : false,
-                        recebe_convite:
-                          current.crianca === "sim" && !grupo.trim() && current.responsavel.trim()
-                            ? true
-                            : current.recebe_convite,
-                      }));
-                    }}
-                    placeholder="Ex: Família Silva"
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Tipo</span>
-                  <select
-                    value={form.tipo_convite}
-                    onChange={(event) =>
-                      updateForm("tipo_convite", event.target.value)
-                    }
-                    style={inputStyle}
-                  >
-                    <option value="individual">Individual</option>
-                    <option value="grupo">Grupo</option>
-                  </select>
-                </label>
-              </div>
-
-              {!(form.crianca === "sim" && !form.grupo.trim()) && (
-                <div style={formBlockGridStyle}>
-                  <label style={toggleFieldStyle}>
-                    <input
-                      type="checkbox"
-                      checked={form.contato_principal}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setForm((current) => ({
-                          ...current,
-                          contato_principal: checked,
-                          recebe_convite: checked ? true : current.recebe_convite,
-                        }));
-                      }}
-                      style={checkboxInputStyle}
-                    />
-                    <div style={toggleTextStyle}>
-                      <strong>Contato principal</strong>
-                      <span>Identifica quem representa o grupo / família. Se for sem grupo, não precisa marcar.</span>
-                    </div>
-                  </label>
-
-                  <label style={toggleFieldStyle}>
-                    <input
-                      type="checkbox"
-                      checked={form.recebe_convite}
-                      onChange={(event) =>
-                        updateFormBoolean("recebe_convite", event.target.checked)
-                      }
-                      style={checkboxInputStyle}
-                    />
-                    <div style={toggleTextStyle}>
-                      <strong>Recebe comunicação</strong>
-                      <span>Usado no envio: esta pessoa recebe o convite / comunicação.</span>
-                    </div>
-                  </label>
-                </div>
+                </>
               )}
             </section>
 
