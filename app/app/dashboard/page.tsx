@@ -11,7 +11,9 @@ type Stats = {
   restantes: number;
   ausentes: number;
   criancas: number;
-  responsaveisMae: number;
+  criancasViaResponsavel: number;
+  contatosPrincipais: number;
+  enviosGrupo: number;
 };
 
 type Convidado = {
@@ -23,6 +25,8 @@ type Convidado = {
   crianca?: string | null;
   mae?: string | null;
   idade_crianca?: number | string | null;
+  contato_principal?: boolean | null;
+  recebe_convite?: boolean | null;
   tipo_convite?: string | null;
   observacoes?: string | null;
   status_rsvp: string | null;
@@ -43,7 +47,9 @@ type FiltroStatus =
   | "faltam"
   | "nao"
   | "criancas"
-  | "com_mae";
+  | "criancas_responsavel"
+  | "contato_principal"
+  | "recebe_convite";
 type ModoVisualizacao = "grupo" | "individual";
 
 export default function DashboardPage() {
@@ -55,7 +61,9 @@ export default function DashboardPage() {
     restantes: 0,
     ausentes: 0,
     criancas: 0,
-    responsaveisMae: 0,
+    criancasViaResponsavel: 0,
+    contatosPrincipais: 0,
+    enviosGrupo: 0,
   });
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
@@ -94,11 +102,11 @@ export default function DashboardPage() {
     const entradas = lista.filter((c) => c.status_checkin === "entrou").length;
     const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
     const criancas = lista.filter((c) => convidadoEhCrianca(c)).length;
-    const responsaveisMae = new Set(
-      lista
-        .map((c) => normalizarTextoChave(c.mae))
-        .filter(Boolean)
-    ).size;
+    const criancasViaResponsavel = lista.filter(
+      (c) => convidadoEhCrianca(c) && !normalizarTelefone(c.telefone)
+    ).length;
+    const contatosPrincipais = lista.filter((c) => Boolean(c.contato_principal)).length;
+    const enviosGrupo = lista.filter((c) => Boolean(c.recebe_convite)).length;
     const restantes = Math.max(confirmados - entradas, 0);
 
     const novasStats = {
@@ -109,7 +117,9 @@ export default function DashboardPage() {
       restantes,
       ausentes,
       criancas,
-      responsaveisMae,
+      criancasViaResponsavel,
+      contatosPrincipais,
+      enviosGrupo,
     };
     const statsAnterior = statsAnteriorRef.current;
 
@@ -119,7 +129,8 @@ export default function DashboardPage() {
         statsAnterior.confirmados !== confirmados ||
         statsAnterior.pendentes !== pendentes ||
         statsAnterior.ausentes !== ausentes ||
-        statsAnterior.criancas !== criancas)
+        statsAnterior.criancas !== criancas ||
+        statsAnterior.enviosGrupo !== enviosGrupo)
     ) {
       setPulseLive(true);
       window.setTimeout(() => setPulseLive(false), 900);
@@ -227,11 +238,25 @@ export default function DashboardPage() {
       bg: "#f3e8ff",
     },
     {
-      label: "Mães / responsáveis",
-      value: stats.responsaveisMae,
-      detail: "Responsáveis identificadas na lista",
+      label: "Crianças via responsável",
+      value: stats.criancasViaResponsavel,
+      detail: "Crianças sem telefone próprio no evento",
       color: "#be185d",
       bg: "#fce7f3",
+    },
+    {
+      label: "Contatos principais",
+      value: stats.contatosPrincipais,
+      detail: "Pessoas que representam o grupo",
+      color: "#7c3aed",
+      bg: "#ede9fe",
+    },
+    {
+      label: "Recebem convite",
+      value: stats.enviosGrupo,
+      detail: "Destinatários de envio por WhatsApp",
+      color: "#0f766e",
+      bg: "#ccfbf1",
     },
     {
       label: "Confirmados",
@@ -289,7 +314,9 @@ export default function DashboardPage() {
     { key: "confirmados", label: "Confirmados" },
     { key: "pendentes", label: "Pendentes" },
     { key: "criancas", label: "Crianças" },
-    { key: "com_mae", label: "Com mãe" },
+    { key: "criancas_responsavel", label: "Crianças via responsável" },
+    { key: "contato_principal", label: "Contato principal" },
+    { key: "recebe_convite", label: "Recebe convite" },
     { key: "entraram", label: "Entraram" },
     { key: "faltam", label: "Faltam entrar" },
     { key: "nao", label: "Ausência confirmada" },
@@ -634,7 +661,7 @@ export default function DashboardPage() {
 
         <div style={searchRowStyle}>
           <input
-            placeholder="Buscar por nome, mãe, criança, grupo, telefone, e-mail ou token"
+            placeholder="Buscar por nome, responsável, criança, grupo, telefone, e-mail ou token"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             style={searchInputStyle}
@@ -654,7 +681,7 @@ export default function DashboardPage() {
           <div style={listStyle}>
             {grupos.map(({ grupo, lista }) => {
               const aberto = !!gruposAbertos[grupo];
-              const principal = lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
+              const principal = lista.find((c) => Boolean(c.contato_principal)) || lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
 
               return (
                 <article key={grupo} className="omni-group-card" style={groupCardStyle}>
@@ -667,7 +694,7 @@ export default function DashboardPage() {
                       <p style={groupContactStyle}>
                         {lista.length} integrante{lista.length === 1 ? "" : "s"}
                         {contarCriancas(lista) > 0 ? ` · ${contarCriancas(lista)} criança${contarCriancas(lista) === 1 ? "" : "s"}` : ""}
-                        {principal?.telefone ? ` · contato: ${principal.telefone}` : " · sem telefone principal"}
+                        {principal?.nome ? ` · contato principal: ${principal.nome}${principal.telefone ? ` (${principal.telefone})` : ""}` : " · sem contato principal"}
                       </p>
                     </div>
 
@@ -730,6 +757,8 @@ function GuestCard({
   const linkCartao = gerarLinkCartao(convidado);
   const linkWhatsApp = gerarLinkWhatsApp(convidado);
   const isCrianca = convidadoEhCrianca(convidado);
+  const isContatoPrincipal = Boolean(convidado.contato_principal);
+  const recebeConvite = Boolean(convidado.recebe_convite);
   const mae = convidado.mae?.trim() || "";
   const idadeCrianca = convidado.idade_crianca ? String(convidado.idade_crianca) : "";
 
@@ -748,14 +777,15 @@ function GuestCard({
             <span style={childMetaStyle}>
               {isCrianca ? "Criança" : "Convidado"}
               {idadeCrianca ? ` · ${idadeCrianca} anos` : ""}
-              {mae ? ` · ⭐ Mãe/responsável: ${mae}` : ""}
+              {mae ? ` · convite via responsável: ${mae}` : ""}
             </span>
           )}
         </div>
 
         <div style={guestStatusRowStyle}>
           {isCrianca && <span style={badgeStyle("#9333ea")}>Criança</span>}
-          {mae && <span style={badgeStyle("#be185d")}>⭐ Mãe</span>}
+          {isContatoPrincipal && <span style={outlineBadgeStyle("#7c3aed")}>Contato principal</span>}
+          {recebeConvite && <span style={outlineBadgeStyle("#0f766e")}>Recebe convite</span>}
           {convidado.status_checkin === "entrou" && <span style={badgeStyle("#2563eb")}>Entrou</span>}
           {convidado.status_rsvp === "confirmado" && <span style={badgeStyle("#16a34a")}>Confirmado</span>}
           {convidado.status_rsvp === "pendente" && <span style={badgeStyle("#f59e0b")}>Pendente</span>}
@@ -773,7 +803,9 @@ function GuestCard({
             <InfoBox label="Check-in" value={labelCheckin(convidado.status_checkin)} />
             <InfoBox label="E-mail" value={convidado.email || "Sem e-mail"} />
             <InfoBox label="Criança" value={isCrianca ? "Sim" : "Não"} />
-            <InfoBox label="Mãe / responsável ⭐" value={mae || "Sem mãe informada"} />
+            <InfoBox label="Responsável do convite" value={mae || "Sem responsável informado"} />
+            <InfoBox label="Contato principal" value={isContatoPrincipal ? "Sim" : "Não"} />
+            <InfoBox label="Recebe convite" value={recebeConvite ? "Sim" : "Não"} />
             <InfoBox label="Idade da criança" value={idadeCrianca || "Não informada"} />
             <InfoBox label="Token" value={token} />
           </div>
@@ -831,6 +863,8 @@ function convidadoCombinaComBusca(convidado: Convidado, termo: string) {
     convidado.mae,
     convidado.crianca,
     convidado.idade_crianca,
+    convidado.contato_principal ? "contato principal" : "",
+    convidado.recebe_convite ? "recebe convite" : "",
   ]
     .filter(Boolean)
     .some((valor) => String(valor).toLowerCase().includes(termo));
@@ -841,7 +875,11 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus) {
   if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
   if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
   if (filtro === "criancas") return convidadoEhCrianca(convidado);
-  if (filtro === "com_mae") return Boolean(convidado.mae?.trim());
+  if (filtro === "criancas_responsavel") {
+    return convidadoEhCrianca(convidado) && !normalizarTelefone(convidado.telefone);
+  }
+  if (filtro === "contato_principal") return Boolean(convidado.contato_principal);
+  if (filtro === "recebe_convite") return Boolean(convidado.recebe_convite);
   if (filtro === "entraram") return convidado.status_checkin === "entrou";
   if (filtro === "faltam") {
     return convidado.status_rsvp === "confirmado" && convidado.status_checkin !== "entrou";
@@ -856,7 +894,7 @@ function normalizarTextoChave(value: string | null | undefined) {
     .trim()
     .toLocaleLowerCase("pt-BR")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ");
 }
 
@@ -937,6 +975,19 @@ function badgeStyle(color: string): React.CSSProperties {
     borderRadius: 999,
     background: color,
     color: "#fff",
+    fontSize: 11,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  };
+}
+
+function outlineBadgeStyle(color: string): React.CSSProperties {
+  return {
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: `1px solid ${color}33`,
+    background: `${color}12`,
+    color,
     fontSize: 11,
     fontWeight: 900,
     whiteSpace: "nowrap",
