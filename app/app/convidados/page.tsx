@@ -105,6 +105,7 @@ export default function ConvidadosPage() {
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
   const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
   const [systemDark, setSystemDark] = useState(false);
 
@@ -122,6 +123,11 @@ export default function ConvidadosPage() {
         filtroRsvp === "todos" || convidado.status_rsvp === filtroRsvp;
       const envioOk =
         filtroEnvio === "todos" || convidado.status_envio === filtroEnvio;
+      const temGrupo = Boolean((convidado.grupo || "").trim());
+      const tipoOk =
+        filtroTipo === "todos" ||
+        (filtroTipo === "grupo" && temGrupo) ||
+        (filtroTipo === "individual" && !temGrupo);
 
       const buscaOk =
         !termo ||
@@ -135,6 +141,7 @@ export default function ConvidadosPage() {
           convidado.responsavel_telefone,
           convidado.mae,
           convidado.idade_crianca,
+          convidado.tamanho_chinelo,
           convidado.contato_principal ? "contato principal" : "",
           convidado.recebe_convite ? "recebe convite" : "",
           convidado.tipo_convite,
@@ -144,7 +151,7 @@ export default function ConvidadosPage() {
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
-      return rsvpOk && envioOk && buscaOk;
+      return rsvpOk && envioOk && tipoOk && buscaOk;
     });
 
     return [...filtrados].sort((a, b) => {
@@ -167,12 +174,13 @@ export default function ConvidadosPage() {
 
       return nomeA.localeCompare(nomeB, "pt-BR");
     });
-  }, [convidados, busca, filtroRsvp, filtroEnvio]);
+  }, [convidados, busca, filtroRsvp, filtroEnvio, filtroTipo]);
 
   const gruposConvidados = useMemo(() => {
     const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>(
       (acc, convidado) => {
-        const grupo = (convidado.grupo || "Sem grupo").trim() || "Sem grupo";
+        const grupoOriginal = (convidado.grupo || "").trim();
+        const grupo = grupoOriginal || `__individual__${convidado.id}`;
 
         if (!acc[grupo]) {
           acc[grupo] = [];
@@ -1169,6 +1177,16 @@ Apresente o cartão na entrada do evento.`;
             <option value="enviado">Enviado</option>
             <option value="erro">Erro</option>
           </select>
+
+          <select
+            value={filtroTipo}
+            onChange={(event) => setFiltroTipo(event.target.value)}
+            style={inputStyle}
+          >
+            <option value="todos">Todos os tipos</option>
+            <option value="grupo">Grupos/Famílias</option>
+            <option value="individual">Individuais</option>
+          </select>
         </div>
 
         <div style={{ display: "grid", gap: 16 }}>
@@ -1189,13 +1207,14 @@ Apresente o cartão na entrada do evento.`;
               .map((convidado) => convidado.nome)
               .filter(Boolean)
               .join(" • ");
+            const isIndividual = grupo.startsWith("__individual__");
 
             return (
               <article key={grupo} style={groupCardLargeStyle}>
                 <div style={groupCardHeaderStyle}>
                   <div>
                     <span style={groupEyebrowStyle}>Grupo encontrado</span>
-                    <strong style={groupTitleStyle}>{grupo}</strong>
+                    <strong style={groupTitleStyle}>{isIndividual ? "INDIVIDUAL" : grupo}</strong>
                   </div>
 
                   <span style={groupCountStyle}>
@@ -1204,10 +1223,12 @@ Apresente o cartão na entrada do evento.`;
                   </span>
                 </div>
 
-                <p style={groupMembersSummaryStyle}>
-                  <strong>Integrantes:</strong>{" "}
-                  {nomesIntegrantes || "Sem integrantes"}
-                </p>
+                {!isIndividual && (
+                  <p style={groupMembersSummaryStyle}>
+                    <strong>Integrantes:</strong>{" "}
+                    {nomesIntegrantes || "Sem integrantes"}
+                  </p>
+                )
 
                 <div style={groupMemberListStyle}>
                   {integrantes.map((convidado) => {
@@ -1728,7 +1749,7 @@ const secondaryButtonStyle: CSSProperties = {
 const filtersStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns:
-    "minmax(260px, 1fr) minmax(180px, 220px) minmax(180px, 220px)",
+    "minmax(260px, 1fr) minmax(160px, 200px) minmax(160px, 200px) minmax(160px, 200px)",
   gap: 14,
   marginBottom: 20,
 };
