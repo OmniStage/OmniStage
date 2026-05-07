@@ -120,6 +120,90 @@ export default function ConvitePage() {
     return templates.filter((template) => getCategoriaNome(template.categoria) === temaSelecionado);
   }, [templates, temaSelecionado]);
 
+  async function carregarTemplatesPermitidos(eventoId: string, tenantIdAtual: string) {
+    if (!eventoId || !tenantIdAtual) {
+      setTemplates([]);
+      setTemplateBlocks({});
+      return [] as Template[];
+    }
+
+    const { data: vinculosData, error: vinculosError } = await supabase
+      .from("event_invite_templates")
+      .select(`
+        template:invite_templates (
+          id,
+          nome,
+          name,
+          slug,
+          preview_image,
+          background_image,
+          logo_image,
+          html_template,
+          editor_mode,
+          visual_config,
+          active,
+          tenant_id,
+          categoria:invite_template_categories (
+            nome
+          )
+        )
+      `)
+      .eq("evento_id", eventoId);
+
+    if (vinculosError) {
+      console.error("Erro ao buscar modelos vinculados ao evento:", vinculosError);
+      setTemplates([]);
+      setTemplateBlocks({});
+      return [] as Template[];
+    }
+
+    const templatesRows = (vinculosData || [])
+      .map((row: any) => row.template)
+      .filter(Boolean)
+      .filter((template: any) => template.active === true)
+      .filter((template: any) => !template.tenant_id || template.tenant_id === tenantIdAtual)
+      .map((template: any) => ({
+        ...template,
+        editor_mode: template.editor_mode || "html",
+        categoria: Array.isArray(template.categoria)
+          ? template.categoria[0] || null
+          : template.categoria || null,
+      })) as Template[];
+
+    setTemplates(templatesRows);
+
+    const visualIds = templatesRows
+      .filter((template) => template.editor_mode === "visual")
+      .map((template) => template.id);
+
+    if (visualIds.length) {
+      const { data: blocksData, error: blocksError } = await supabase
+        .from("invite_template_blocks")
+        .select("*")
+        .in("template_id", visualIds)
+        .order("z_index", { ascending: true });
+
+      if (blocksError) {
+        console.error("Erro ao buscar blocos visuais:", blocksError);
+        setTemplateBlocks({});
+      } else {
+        const grouped: Record<string, VisualBlock[]> = {};
+
+        for (const raw of blocksData || []) {
+          const block = normalizarBlock(raw);
+          if (!grouped[block.template_id]) grouped[block.template_id] = [];
+          grouped[block.template_id].push(block);
+        }
+
+        setTemplateBlocks(grouped);
+      }
+    } else {
+      setTemplateBlocks({});
+    }
+
+    return templatesRows;
+  }
+
   async function carregarDados() {
     setLoading(true);
 
@@ -184,85 +268,51 @@ export default function ConvitePage() {
 
     if (eventoInicial) {
       setEventoSelecionado(eventoInicial.id);
-      setTemplateSelecionado(eventoInicial.invite_template_id || "");
-    }
-
-    const { data: templatesData, error: templatesError } = await supabase
-      .from("invite_templates")
-      .select(`
-        id,
-        nome,
-        name,
-        slug,
-        preview_image,
-        background_image,
-        logo_image,
-        html_template,
-        editor_mode,
-        visual_config,
-        active,
-        tenant_id,
-        categoria:invite_template_categories (
-          nome
-        )
-      `)
-      .eq("active", true)
-      .or(`tenant_id.is.null,tenant_id.eq.${membership.tenant_id}`)
-      .order("nome", { ascending: true });
-
-    if (templatesError) {
-      console.error("Erro ao buscar templates:", templatesError);
-      setLoading(false);
-      return;
-    }
-
-    const templatesRows = (templatesData || []).map((template) => ({
-      ...template,
-      editor_mode: template.editor_mode || "html",
-      categoria: Array.isArray(template.categoria)
-        ? template.categoria[0] || null
-        : template.categoria || null,
-    })) as Template[];
-
-    setTemplates(templatesRows);
-
-    const visualIds = templatesRows
-      .filter((template) => template.editor_mode === "visual")
-      .map((template) => template.id);
-
-    if (visualIds.length) {
-      const { data: blocksData, error: blocksError } = await supabase
-        .from("invite_template_blocks")
-        .select("*")
-        .in("template_id", visualIds)
-        .order("z_index", { ascending: true });
-
-      if (blocksError) {
-        console.error("Erro ao buscar blocos visuais:", blocksError);
-        setTemplateBlocks({});
-      } else {
-        const grouped: Record<string, VisualBlock[]> = {};
-
-        for (const raw of blocksData || []) {
-          const block = normalizarBlock(raw);
-          if (!grouped[block.template_id]) grouped[block.template_id] = [];
-          grouped[block.template_id].push(block);
-        }
-
-        setTemplateBlocks(grouped);
-      }
+      const templatesPermitidos = await carregarTemplatesPermitidos(
+        eventoInicial.id,
+        membership.tenant_id
+      );
+      const modeloSalvoEstaPermitido = templatesPermitidos.some(
+        (template) => template.id === eventoInicial.invite_template_id
+      );
+      setTemplateSelecionado(
+        modeloSalvoEstaPermitido
+          ? eventoInicial.invite_template_id || ""
+          : templatesPermitidos[0]?.id || ""
+      );
     } else {
+      setEventoSelecionado("");
+      setTemplateSelecionado("");
+      setTemplates([]);
       setTemplateBlocks({});
     }
 
     setLoading(false);
   }
 
-  function selecionarEvento(eventoId: string) {
+  async function selecionarEvento(eventoId: string) {
     const evento = eventos.find((item) => item.id === eventoId);
 
     setEventoSelecionado(eventoId);
-    setTemplateSelecionado(evento?.invite_template_id || "");
+    setTemaSelecionado("todos");
+    setTemplates([]);
+    setTemplateBlocks({});
+
+    if (!eventoId || !tenantId) {
+      setTemplateSelecionado("");
+      return;
+    }
+
+    const templatesPermitidos = await carregarTemplatesPermitidos(eventoId, tenantId);
+    const modeloSalvoEstaPermitido = templatesPermitidos.some(
+      (template) => template.id === evento?.invite_template_id
+    );
+
+    setTemplateSelecionado(
+      modeloSalvoEstaPermitido
+        ? evento?.invite_template_id || ""
+        : templatesPermitidos[0]?.id || ""
+    );
   }
 
   async function salvarTemplate() {
@@ -401,7 +451,7 @@ export default function ConvitePage() {
 
             {templates.length === 0 && (
               <div style={emptyStyle}>
-                Nenhum modelo ativo encontrado. Crie modelos em /admin/modelos-convites.
+                Nenhum modelo vinculado a este evento. Vincule o modelo no Admin em Modelos de Convite &gt; Eventos.
               </div>
             )}
 
