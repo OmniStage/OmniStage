@@ -547,7 +547,6 @@ export function renderizarTemplateVisual(
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
-          data-base-y="${numberValue(block.y, 0)}"
           data-base-height="${numberValue(block.height, 60)}"
           style="
             position:absolute;
@@ -730,6 +729,20 @@ export function renderizarTemplateVisual(
             z-index:0;
             pointer-events:none;
             user-select:none;
+          }
+
+          [data-block-type="guest_picker"] {
+            scrollbar-width: thin;
+            overscroll-behavior: contain;
+          }
+
+          [data-block-type="guest_picker"]::-webkit-scrollbar {
+            width: 6px;
+          }
+
+          [data-block-type="guest_picker"]::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,.35);
+            border-radius: 999px;
           }
 
           .name-option {
@@ -1082,6 +1095,7 @@ export function injetarConvidadosNoConvite(
             picker.style.minHeight = "100%";
             picker.style.overflowY = "auto";
             picker.style.overflowX = "hidden";
+            picker.style.webkitOverflowScrolling = "touch";
             picker.classList.remove("hidden");
           } else {
             picker.innerHTML = "";
@@ -1091,12 +1105,8 @@ export function injetarConvidadosNoConvite(
 
           var pickerBlock = picker.closest('[data-block-type="guest_picker"]');
           if (pickerBlock) {
-            var baseHeight = Number(pickerBlock.getAttribute("data-base-height") || 60);
-
             if (isGrupo) {
               pickerBlock.style.display = "";
-              pickerBlock.style.height = baseHeight + "px";
-              pickerBlock.style.minHeight = baseHeight + "px";
               pickerBlock.style.overflowY = "auto";
               pickerBlock.style.overflowX = "hidden";
               pickerBlock.style.alignItems = "stretch";
