@@ -103,7 +103,10 @@ export default function DashboardPage() {
     const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
     const criancas = lista.filter((c) => convidadoEhCrianca(c)).length;
     const criancasViaResponsavel = lista.filter(
-      (c) => convidadoEhCrianca(c) && !normalizarTelefone(c.telefone)
+      (c) =>
+        convidadoEhCrianca(c) &&
+        !normalizarTelefone(c.telefone) &&
+        Boolean(resolverResponsavelConvite(c, lista))
     ).length;
     const contatosPrincipais = lista.filter((c) => Boolean(c.contato_principal)).length;
     const enviosGrupo = lista.filter((c) => Boolean(c.recebe_convite)).length;
@@ -176,11 +179,11 @@ export default function DashboardPage() {
     const termo = busca.trim().toLowerCase();
 
     return convidados.filter((c) => {
-      const matchBusca = convidadoCombinaComBusca(c, termo);
+      const matchBusca = convidadoCombinaComBusca(c, termo, convidados);
 
       if (!matchBusca) return false;
 
-      return convidadoCombinaComFiltro(c, filtro);
+      return convidadoCombinaComFiltro(c, filtro, convidados);
     });
   }, [convidados, filtro, busca]);
 
@@ -199,14 +202,14 @@ export default function DashboardPage() {
       .map(([grupo, listaCompleta]) => {
         const grupoCombinaComBusca =
           !termo ||
-          listaCompleta.some((convidado) => convidadoCombinaComBusca(convidado, termo));
+          listaCompleta.some((convidado) => convidadoCombinaComBusca(convidado, termo, convidados));
 
         if (!grupoCombinaComBusca) {
           return null;
         }
 
         const lista = listaCompleta
-          .filter((convidado) => convidadoCombinaComFiltro(convidado, filtro))
+          .filter((convidado) => convidadoCombinaComFiltro(convidado, filtro, convidados))
           .sort(ordenarPorTelefoneDepoisNome);
 
         if (lista.length === 0) {
@@ -710,6 +713,7 @@ export default function DashboardPage() {
                         <GuestCard
                           key={convidado.id}
                           convidado={convidado}
+                          todosConvidados={convidados}
                           aberto={!!convidadosAbertos[convidado.id]}
                           onToggle={() => toggleConvidado(convidado.id)}
                         />
@@ -726,6 +730,7 @@ export default function DashboardPage() {
               <GuestCard
                 key={convidado.id}
                 convidado={convidado}
+                todosConvidados={convidados}
                 aberto={!!convidadosAbertos[convidado.id]}
                 onToggle={() => toggleConvidado(convidado.id)}
               />
@@ -743,10 +748,12 @@ export default function DashboardPage() {
 
 function GuestCard({
   convidado,
+  todosConvidados,
   aberto,
   onToggle,
 }: {
   convidado: Convidado;
+  todosConvidados: Convidado[];
   aberto: boolean;
   onToggle: () => void;
 }) {
@@ -760,6 +767,7 @@ function GuestCard({
   const isContatoPrincipal = Boolean(convidado.contato_principal);
   const recebeConvite = Boolean(convidado.recebe_convite);
   const mae = convidado.mae?.trim() || "";
+  const responsavelConvite = resolverResponsavelConvite(convidado, todosConvidados);
   const idadeCrianca = convidado.idade_crianca ? String(convidado.idade_crianca) : "";
 
   async function copiarNome() {
@@ -777,7 +785,7 @@ function GuestCard({
             <span style={childMetaStyle}>
               {isCrianca ? "Criança" : "Convidado"}
               {idadeCrianca ? ` · ${idadeCrianca} anos` : ""}
-              {mae ? ` · convite via responsável: ${mae}` : ""}
+              {responsavelConvite ? ` · convite via responsável: ${responsavelConvite}` : ""}
             </span>
           )}
         </div>
@@ -803,7 +811,7 @@ function GuestCard({
             <InfoBox label="Check-in" value={labelCheckin(convidado.status_checkin)} />
             <InfoBox label="E-mail" value={convidado.email || "Sem e-mail"} />
             <InfoBox label="Criança" value={isCrianca ? "Sim" : "Não"} />
-            <InfoBox label="Responsável do convite" value={mae || "Sem responsável informado"} />
+            <InfoBox label="Responsável do convite" value={responsavelConvite || "Sem responsável informado"} />
             <InfoBox label="Contato principal" value={isContatoPrincipal ? "Sim" : "Não"} />
             <InfoBox label="Recebe convite" value={recebeConvite ? "Sim" : "Não"} />
             <InfoBox label="Idade da criança" value={idadeCrianca || "Não informada"} />
@@ -851,7 +859,7 @@ function InfoBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function convidadoCombinaComBusca(convidado: Convidado, termo: string) {
+function convidadoCombinaComBusca(convidado: Convidado, termo: string, todosConvidados: Convidado[]) {
   if (!termo) return true;
 
   return [
@@ -863,6 +871,7 @@ function convidadoCombinaComBusca(convidado: Convidado, termo: string) {
     convidado.mae,
     convidado.crianca,
     convidado.idade_crianca,
+    resolverResponsavelConvite(convidado, todosConvidados),
     convidado.contato_principal ? "contato principal" : "",
     convidado.recebe_convite ? "recebe convite" : "",
   ]
@@ -870,13 +879,17 @@ function convidadoCombinaComBusca(convidado: Convidado, termo: string) {
     .some((valor) => String(valor).toLowerCase().includes(termo));
 }
 
-function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus) {
+function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus, todosConvidados: Convidado[]) {
   if (filtro === "todos") return true;
   if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
   if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
   if (filtro === "criancas") return convidadoEhCrianca(convidado);
   if (filtro === "criancas_responsavel") {
-    return convidadoEhCrianca(convidado) && !normalizarTelefone(convidado.telefone);
+    return (
+      convidadoEhCrianca(convidado) &&
+      !normalizarTelefone(convidado.telefone) &&
+      Boolean(resolverResponsavelConvite(convidado, todosConvidados))
+    );
   }
   if (filtro === "contato_principal") return Boolean(convidado.contato_principal);
   if (filtro === "recebe_convite") return Boolean(convidado.recebe_convite);
@@ -887,6 +900,35 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus) {
   if (filtro === "nao") return convidado.status_rsvp === "nao";
 
   return true;
+}
+
+
+function resolverResponsavelConvite(convidado: Convidado, todosConvidados: Convidado[]) {
+  const maeInformada = convidado.mae?.trim();
+
+  if (maeInformada) {
+    return maeInformada;
+  }
+
+  const grupoAtual = normalizarGrupo(convidado.grupo);
+
+  const integrantesGrupo = todosConvidados.filter(
+    (item) => normalizarGrupo(item.grupo) === grupoAtual
+  );
+
+  const contatoPrincipal = integrantesGrupo.find((item) => Boolean(item.contato_principal));
+
+  if (contatoPrincipal?.nome?.trim()) {
+    return contatoPrincipal.nome.trim();
+  }
+
+  const primeiroComTelefone = integrantesGrupo.find((item) => Boolean(normalizarTelefone(item.telefone)));
+
+  if (primeiroComTelefone?.nome?.trim()) {
+    return primeiroComTelefone.nome.trim();
+  }
+
+  return null;
 }
 
 function normalizarTextoChave(value: string | null | undefined) {
