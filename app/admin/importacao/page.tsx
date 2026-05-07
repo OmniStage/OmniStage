@@ -4,6 +4,14 @@ import type { CSSProperties, ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Tenant = {
+  id: string;
+  nome: string | null;
+  responsavel_nome?: string | null;
+  telefone?: string | null;
+  status?: string | null;
+};
+
 type Evento = {
   id: string;
   nome: string;
@@ -90,7 +98,9 @@ const initialMapping: SheetMapping = {
 
 export default function AdminImportacaoPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const spreadsheetInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
@@ -106,7 +116,7 @@ export default function AdminImportacaoPage() {
   const [loading, setLoading] = useState(false);
   const [vcfFileName, setVcfFileName] = useState<string | null>(null);
   const [vcfContacts, setVcfContacts] = useState<VcfContact[]>([]);
-  const [activeMode, setActiveMode] = useState<"texto" | "sheets" | "vcf">("texto");
+  const [activeMode, setActiveMode] = useState<"texto" | "sheets" | "excel" | "vcf">("texto");
 
   const hasSheetLoaded = sheetHeaders.length > 0 && sheetRows.length > 0;
 
@@ -129,6 +139,32 @@ export default function AdminImportacaoPage() {
     }
   }
 
+  async function carregarEventosDoTenant(tenant: string, selecionarPrimeiro = true) {
+    setEventos([]);
+    setEventoId("");
+    setHistory([]);
+    limparPreview();
+
+    const { data: eventosData, error: eventosError } = await supabase
+      .from("eventos")
+      .select("id, nome")
+      .eq("tenant_id", tenant)
+      .order("created_at", { ascending: false });
+
+    if (eventosError) {
+      alert("Erro ao carregar eventos: " + eventosError.message);
+      return;
+    }
+
+    const listaEventos = (eventosData || []) as Evento[];
+    setEventos(listaEventos);
+
+    if (selecionarPrimeiro && listaEventos.length > 0) {
+      setEventoId(listaEventos[0].id);
+      await carregarHistorico(tenant, listaEventos[0].id);
+    }
+  }
+
   async function carregarDados() {
     const {
       data: { user },
@@ -139,36 +175,23 @@ export default function AdminImportacaoPage() {
       return;
     }
 
-    const { data: member, error: memberError } = await supabase
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
+    const { data: tenantsData, error: tenantsError } = await supabase
+      .from("tenants")
+      .select("id, nome, responsavel_nome, telefone, status")
+      .order("nome", { ascending: true });
 
-    if (memberError || !member?.tenant_id) {
-      alert("Usuário sem empresa vinculada.");
+    if (tenantsError) {
+      alert("Erro ao carregar clientes/empresas: " + tenantsError.message);
       return;
     }
 
-    setTenantId(member.tenant_id);
+    const listaTenants = (tenantsData || []) as Tenant[];
+    setTenants(listaTenants);
 
-    const { data: eventosData, error: eventosError } = await supabase
-      .from("eventos")
-      .select("id, nome")
-      .eq("tenant_id", member.tenant_id)
-      .order("created_at", { ascending: false });
-
-    if (eventosError) {
-      alert("Erro ao carregar eventos: " + eventosError.message);
-      return;
-    }
-
-    setEventos((eventosData || []) as Evento[]);
-
-    if (eventosData && eventosData.length > 0) {
-      setEventoId(eventosData[0].id);
-      await carregarHistorico(member.tenant_id, eventosData[0].id);
+    if (listaTenants.length > 0) {
+      const primeiroTenant = listaTenants[0].id;
+      setTenantId(primeiroTenant);
+      await carregarEventosDoTenant(primeiroTenant, true);
     }
   }
 
@@ -187,6 +210,10 @@ export default function AdminImportacaoPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+
+    if (spreadsheetInputRef.current) {
+      spreadsheetInputRef.current.value = "";
+    }
   }
 
   function limparPlanilhaCarregada() {
@@ -196,6 +223,10 @@ export default function AdminImportacaoPage() {
     setTexto("");
     setActiveMode("texto");
     limparPreview();
+
+    if (spreadsheetInputRef.current) {
+      spreadsheetInputRef.current.value = "";
+    }
   }
 
   function limparVcf() {
@@ -295,6 +326,146 @@ export default function AdminImportacaoPage() {
     }
 
     return contacts;
+  }
+
+  function parseCsvLine(line: string) {
+    const values: string[] = [];
+    let current = "";
+    let insideQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const next = line[index + 1];
+
+      if (char === '"' && next === '"' && insideQuotes) {
+        current += '"';
+        index += 1;
+      } else if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if ((char === "," || char === ";" || char === "\t") && !insideQuotes) {
+        values.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    values.push(current.trim());
+    return values;
+  }
+
+  function parseCsvText(csvText: string) {
+    const lines = csvText
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      return { headers: [] as string[], rows: [] as string[][] };
+    }
+
+    const headers = parseCsvLine(lines[0]);
+    const rows = lines.slice(1).map(parseCsvLine);
+
+    return { headers, rows };
+  }
+
+  async function handleSpreadsheetUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const lowerName = file.name.toLowerCase();
+    const isCsv = lowerName.endsWith(".csv");
+    const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls");
+    const isPdf = lowerName.endsWith(".pdf");
+
+    if (isPdf) {
+      alert(
+        "PDF não é recomendado para importação direta porque pode embaralhar colunas, nomes e telefones. Converta o PDF para Excel/CSV e importe o arquivo convertido."
+      );
+      if (spreadsheetInputRef.current) spreadsheetInputRef.current.value = "";
+      return;
+    }
+
+    if (!isCsv && !isExcel) {
+      alert("Envie uma planilha .xlsx, .xls ou .csv.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let headers: string[] = [];
+      let rows: string[][] = [];
+
+      if (isCsv) {
+        const content = await file.text();
+        const parsed = parseCsvText(content);
+        headers = parsed.headers;
+        rows = parsed.rows;
+      } else {
+        const XLSX = await import("xlsx");
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+
+        if (!firstSheetName) {
+          alert("Nenhuma aba encontrada na planilha.");
+          return;
+        }
+
+        const worksheet = workbook.Sheets[firstSheetName];
+        const matrix = XLSX.utils.sheet_to_json<string[]>(worksheet, {
+          header: 1,
+          defval: "",
+          raw: false,
+        });
+
+        const validRows = matrix
+          .map((row) => row.map((value) => String(value ?? "").trim()))
+          .filter((row) => row.some((value) => value));
+
+        if (validRows.length === 0) {
+          alert("Nenhuma linha encontrada na planilha.");
+          return;
+        }
+
+        headers = validRows[0];
+        rows = validRows.slice(1);
+      }
+
+      if (headers.length === 0 || rows.length === 0) {
+        alert("A planilha precisa ter cabeçalho e pelo menos uma linha de convidados.");
+        return;
+      }
+
+      setActiveMode("excel");
+      setSheetUrl("");
+      setSheetHeaders(headers);
+      setSheetRows(rows);
+      setTexto("");
+      setVcfFileName(null);
+      setVcfContacts([]);
+      limparPreview();
+      sugerirMapeamento(headers);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      alert(`${rows.length} linha(s) carregada(s) da planilha ${file.name}. Revise o mapeamento antes de gerar a prévia.`);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao ler a planilha. Confira se o arquivo está em .xlsx, .xls ou .csv."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleVcfUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -764,12 +935,12 @@ export default function AdminImportacaoPage() {
           <div style={eyebrowStyle}>Admin OmniStage</div>
           <h1 style={titleStyle}>Importação de convidados</h1>
           <p style={subtitleStyle}>
-            Importe convidados por Google Sheets, texto colado ou contatos do celular em .vcf.
+            Importe convidados por Excel, CSV, Google Sheets, texto colado ou contatos do celular em .vcf.
           </p>
         </div>
 
         <div style={statusPillStyle}>
-          {eventos.length} evento(s) carregado(s)
+          {tenants.length} cliente(s) · {eventos.length} evento(s)
         </div>
       </div>
 
@@ -781,29 +952,60 @@ export default function AdminImportacaoPage() {
           </div>
         </div>
 
-        <label style={fieldStyle}>
-          <span>Evento</span>
-          <select
-            value={eventoId}
-            onChange={async (event) => {
-              const novoEventoId = event.target.value;
-              setEventoId(novoEventoId);
-              limparPreview();
+        <div style={selectionGridStyle}>
+          <label style={fieldStyle}>
+            <span>Cliente / Empresa</span>
+            <select
+              value={tenantId || ""}
+              onChange={async (event) => {
+                const novoTenantId = event.target.value;
+                setTenantId(novoTenantId);
+                setEventoId("");
+                limparPreview();
 
-              if (tenantId && novoEventoId) {
-                await carregarHistorico(tenantId, novoEventoId);
-              }
-            }}
-            style={inputStyle}
-          >
-            <option value="">Selecione um evento</option>
-            {eventos.map((evento) => (
-              <option key={evento.id} value={evento.id}>
-                {evento.nome}
-              </option>
-            ))}
-          </select>
-        </label>
+                if (novoTenantId) {
+                  await carregarEventosDoTenant(novoTenantId, true);
+                } else {
+                  setEventos([]);
+                  setHistory([]);
+                }
+              }}
+              style={inputStyle}
+            >
+              <option value="">Selecione um cliente</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.nome || tenant.responsavel_nome || tenant.id}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Evento</span>
+            <select
+              value={eventoId}
+              onChange={async (event) => {
+                const novoEventoId = event.target.value;
+                setEventoId(novoEventoId);
+                limparPreview();
+
+                if (tenantId && novoEventoId) {
+                  await carregarHistorico(tenantId, novoEventoId);
+                }
+              }}
+              style={inputStyle}
+              disabled={!tenantId}
+            >
+              <option value="">Selecione um evento</option>
+              {eventos.map((evento) => (
+                <option key={evento.id} value={evento.id}>
+                  {evento.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </section>
 
       <section style={sectionStyle}>
@@ -819,11 +1021,21 @@ export default function AdminImportacaoPage() {
               ? "Contatos .vcf"
               : activeMode === "sheets"
               ? "Google Sheets"
+              : activeMode === "excel"
+              ? "Excel / CSV"
               : "Texto livre"}
           </span>
         </div>
 
         <div style={methodGridStyle}>
+          <article style={methodCardStyle}>
+            <div style={methodIconStyle}>📊</div>
+            <strong>Excel / CSV</strong>
+            <p style={methodTextStyle}>
+              Importe arquivos .xlsx, .xls ou .csv enviados pelo cliente.
+            </p>
+          </article>
+
           <article style={methodCardStyle}>
             <div style={methodIconStyle}>📄</div>
             <strong>Google Sheets CSV</strong>
@@ -847,6 +1059,26 @@ export default function AdminImportacaoPage() {
               Importe contatos exportados do celular ou compartilhados pelo WhatsApp.
             </p>
           </article>
+        </div>
+
+        <div style={vcfBoxStyle}>
+          <div>
+            <strong style={{ fontSize: 18, color: "#0f172a" }}>Importar Excel / CSV</strong>
+            <p style={{ color: "#64748b", margin: "6px 0 0" }}>
+              Aceita .xlsx, .xls e .csv. PDF deve ser convertido para Excel/CSV antes da importação.
+            </p>
+          </div>
+
+          <label style={uploadButtonStyle}>
+            Escolher planilha
+            <input
+              ref={spreadsheetInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/pdf"
+              onChange={handleSpreadsheetUpload}
+              style={{ display: "none" }}
+            />
+          </label>
         </div>
 
         <div style={blockStyle}>
@@ -1326,9 +1558,15 @@ const modeBadgeStyle: CSSProperties = {
   fontSize: 13,
 };
 
+const selectionGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 14,
+};
+
 const methodGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 14,
   marginBottom: 22,
 };
