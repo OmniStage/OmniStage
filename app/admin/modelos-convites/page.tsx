@@ -1245,43 +1245,50 @@ export default function ModelosConvitePage() {
               </div>
 
               <div style={modelActions}>
-  <button
-    onClick={() => {
-      window.location.href = `/admin/modelos-convites/${t.id}/editor`;
-    }}
-    style={btnPurple}
-  >
-    Editor Visual
-  </button>
+                <button
+                  onClick={() => {
+                    window.location.href = `/admin/modelos-convites/${t.id}/editor`;
+                  }}
+                  style={btnPurple}
+                >
+                  Editor Visual
+                </button>
 
-  <button
-    onClick={() => {
-      window.location.href = `/admin/modelos-convites/${t.id}/eventos`;
-    }}
-    style={btnSoft}
-  >
-    Eventos
-  </button>
+                <button
+                  onClick={() => {
+                    window.location.href = `/admin/modelos-convites/${t.id}/eventos`;
+                  }}
+                  style={btnSoft}
+                >
+                  Eventos
+                </button>
 
-  <button onClick={() => editarTemplate(t)} style={btnBlue}>
-    Editar
-  </button>
+                <button onClick={() => editarTemplate(t)} style={btnBlue}>
+                  Editar
+                </button>
 
-  <button onClick={() => duplicarTemplate(t)} style={btnPurple}>
-    Duplicar
-  </button>
+                <button onClick={() => duplicarTemplate(t)} style={btnPurple}>
+                  Duplicar
+                </button>
 
-  <button
-    onClick={() => alternarStatus(t.id, t.active)}
-    style={btnSoft}
-  >
-    {t.active ? "Desativar" : "Ativar"}
-  </button>
+                <button
+                  onClick={() => alternarStatus(t.id, t.active)}
+                  style={btnSoft}
+                >
+                  {t.active ? "Desativar" : "Ativar"}
+                </button>
 
-  <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>
-    Excluir
-  </button>
-</div>}
+                <button onClick={() => deletarTemplate(t.id)} style={btnDanger}>
+                  Excluir
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
 
 const page: CSSProperties = {
   margin: "0 auto",
