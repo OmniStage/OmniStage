@@ -24,6 +24,8 @@ type Convidado = {
   grupo: string | null;
   crianca?: string | null;
   mae?: string | null;
+  responsavel?: string | null;
+  responsavel_telefone?: string | null;
   idade_crianca?: number | string | null;
   contato_principal?: boolean | null;
   recebe_convite?: boolean | null;
@@ -49,7 +51,9 @@ type FiltroStatus =
   | "criancas"
   | "criancas_responsavel"
   | "contato_principal"
-  | "recebe_convite";
+  | "recebe_convite"
+  | "grupo"
+  | "individual";
 type ModoVisualizacao = "grupo" | "individual";
 
 export default function DashboardPage() {
@@ -102,11 +106,8 @@ export default function DashboardPage() {
     const entradas = lista.filter((c) => c.status_checkin === "entrou").length;
     const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
     const criancas = lista.filter((c) => convidadoEhCrianca(c)).length;
-    const criancasViaResponsavel = lista.filter(
-      (c) =>
-        convidadoEhCrianca(c) &&
-        !normalizarTelefone(c.telefone) &&
-        Boolean(resolverResponsavelConvite(c, lista))
+    const criancasViaResponsavel = lista.filter((c) =>
+      convidadoEhCriancaViaResponsavel(c, lista)
     ).length;
     const contatosPrincipais = lista.filter((c) => Boolean(c.contato_principal)).length;
     const enviosGrupo = lista.filter((c) => Boolean(c.recebe_convite)).length;
@@ -192,7 +193,7 @@ export default function DashboardPage() {
     const mapaCompleto = new Map<string, Convidado[]>();
 
     convidados.forEach((c) => {
-      const grupo = normalizarGrupo(c.grupo);
+      const grupo = (c.grupo || "").trim() ? normalizarGrupo(c.grupo) : `__individual__${c.id}`;
       const lista = mapaCompleto.get(grupo) || [];
       lista.push(c);
       mapaCompleto.set(grupo, lista);
@@ -241,9 +242,9 @@ export default function DashboardPage() {
       bg: "#f3e8ff",
     },
     {
-      label: "Crianças via responsável",
+      label: "Crianças sem pais",
       value: stats.criancasViaResponsavel,
-      detail: "Crianças sem telefone próprio no evento",
+      detail: "Crianças na festa com convite via responsável",
       color: "#be185d",
       bg: "#fce7f3",
     },
@@ -314,10 +315,12 @@ export default function DashboardPage() {
 
   const tabs: { key: FiltroStatus; label: string }[] = [
     { key: "todos", label: "Todos" },
+    { key: "grupo", label: "Grupo" },
+    { key: "individual", label: "Individual" },
     { key: "confirmados", label: "Confirmados" },
     { key: "pendentes", label: "Pendentes" },
     { key: "criancas", label: "Crianças" },
-    { key: "criancas_responsavel", label: "Crianças via responsável" },
+    { key: "criancas_responsavel", label: "Crianças sem pais" },
     { key: "contato_principal", label: "Contato principal" },
     { key: "recebe_convite", label: "Recebe convite" },
     { key: "entraram", label: "Entraram" },
@@ -684,6 +687,7 @@ export default function DashboardPage() {
           <div style={listStyle}>
             {grupos.map(({ grupo, lista }) => {
               const aberto = !!gruposAbertos[grupo];
+              const isIndividual = grupo.startsWith("__individual__");
               const principal = lista.find((c) => Boolean(c.contato_principal)) || lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
 
               return (
@@ -869,6 +873,8 @@ function convidadoCombinaComBusca(convidado: Convidado, termo: string, todosConv
     convidado.email,
     convidado.token,
     convidado.mae,
+    convidado.responsavel,
+    convidado.responsavel_telefone,
     convidado.crianca,
     convidado.idade_crianca,
     resolverResponsavelConvite(convidado, todosConvidados),
@@ -885,12 +891,10 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus, t
   if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
   if (filtro === "criancas") return convidadoEhCrianca(convidado);
   if (filtro === "criancas_responsavel") {
-    return (
-      convidadoEhCrianca(convidado) &&
-      !normalizarTelefone(convidado.telefone) &&
-      Boolean(resolverResponsavelConvite(convidado, todosConvidados))
-    );
+    return convidadoEhCriancaViaResponsavel(convidado, todosConvidados);
   }
+  if (filtro === "grupo") return Boolean((convidado.grupo || "").trim());
+  if (filtro === "individual") return !Boolean((convidado.grupo || "").trim());
   if (filtro === "contato_principal") return Boolean(convidado.contato_principal);
   if (filtro === "recebe_convite") return Boolean(convidado.recebe_convite);
   if (filtro === "entraram") return convidado.status_checkin === "entrou";
@@ -904,17 +908,17 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus, t
 
 
 function resolverResponsavelConvite(convidado: Convidado, todosConvidados: Convidado[]) {
-  const maeInformada = convidado.mae?.trim();
+  const responsavelInformado = convidado.responsavel?.trim() || convidado.mae?.trim();
 
-  if (maeInformada) {
-    return maeInformada;
+  if (responsavelInformado) {
+    return responsavelInformado;
   }
 
-  const grupoAtual = normalizarGrupo(convidado.grupo);
+  const grupoOriginal = (convidado.grupo || "").trim();
 
-  const integrantesGrupo = todosConvidados.filter(
-    (item) => normalizarGrupo(item.grupo) === grupoAtual
-  );
+  const integrantesGrupo = grupoOriginal
+    ? todosConvidados.filter((item) => normalizarGrupo(item.grupo) === normalizarGrupo(grupoOriginal))
+    : todosConvidados.filter((item) => item.id === convidado.id);
 
   const contatoPrincipal = integrantesGrupo.find((item) => Boolean(item.contato_principal));
 
@@ -929,6 +933,24 @@ function resolverResponsavelConvite(convidado: Convidado, todosConvidados: Convi
   }
 
   return null;
+}
+
+
+function convidadoEhCriancaViaResponsavel(convidado: Convidado, todosConvidados: Convidado[]) {
+  const grupoOriginal = (convidado.grupo || "").trim();
+  const integrantesGrupo = grupoOriginal
+    ? todosConvidados.filter((item) => normalizarGrupo(item.grupo) === normalizarGrupo(grupoOriginal))
+    : todosConvidados.filter((item) => item.id === convidado.id);
+
+  const temResponsavelInformado = Boolean(
+    convidado.responsavel?.trim() || convidado.mae?.trim()
+  );
+
+  return (
+    convidadoEhCrianca(convidado) &&
+    temResponsavelInformado &&
+    integrantesGrupo.length === 1
+  );
 }
 
 function normalizarTextoChave(value: string | null | undefined) {
