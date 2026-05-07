@@ -109,7 +109,10 @@ export default function DashboardPage() {
     const criancasViaResponsavel = lista.filter((c) =>
       convidadoEhCriancaViaResponsavel(c, lista)
     ).length;
-    const contatosPrincipais = lista.filter((c) => Boolean(c.contato_principal)).length;
+    const contatosPrincipais = lista.filter((c) => {
+      const temGrupo = Boolean((c.grupo || "").trim());
+      return temGrupo && c.tipo_convite !== "individual" && Boolean(c.contato_principal);
+    }).length;
     const enviosGrupo = lista.filter((c) => Boolean(c.recebe_convite)).length;
     const restantes = Math.max(confirmados - entradas, 0);
 
@@ -242,9 +245,9 @@ export default function DashboardPage() {
       bg: "#f3e8ff",
     },
     {
-      label: "Crianças sem pais",
+      label: "Via responsável",
       value: stats.criancasViaResponsavel,
-      detail: "Crianças na festa com convite via responsável",
+      detail: "Convite enviado ao responsável",
       color: "#be185d",
       bg: "#fce7f3",
     },
@@ -315,12 +318,10 @@ export default function DashboardPage() {
 
   const tabs: { key: FiltroStatus; label: string }[] = [
     { key: "todos", label: "Todos" },
-    { key: "grupo", label: "Grupo" },
-    { key: "individual", label: "Individual" },
     { key: "confirmados", label: "Confirmados" },
     { key: "pendentes", label: "Pendentes" },
     { key: "criancas", label: "Crianças" },
-    { key: "criancas_responsavel", label: "Crianças sem pais" },
+    { key: "criancas_responsavel", label: "Via responsável" },
     { key: "contato_principal", label: "Contato principal" },
     { key: "recebe_convite", label: "Recebe convite" },
     { key: "entraram", label: "Entraram" },
@@ -688,21 +689,32 @@ export default function DashboardPage() {
             {grupos.map(({ grupo, lista }) => {
               const aberto = !!gruposAbertos[grupo];
               const isIndividual = grupo.startsWith("__individual__");
-              const principal = lista.find((c) => Boolean(c.contato_principal)) || lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
+              const principal = isIndividual
+                ? null
+                : lista.find((c) => Boolean(c.contato_principal)) ||
+                  lista.find((c) => !!normalizarTelefone(c.telefone)) ||
+                  lista[0];
+              const resumoGrupo = [
+                `${lista.length} integrante${lista.length === 1 ? "" : "s"}`,
+                contarCriancas(lista) > 0
+                  ? `${contarCriancas(lista)} criança${contarCriancas(lista) === 1 ? "" : "s"}`
+                  : null,
+                principal?.nome
+                  ? `contato principal: ${principal.nome}${principal.telefone ? ` (${principal.telefone})` : ""}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
 
               return (
                 <article key={grupo} className="omni-group-card" style={groupCardStyle}>
                   <button onClick={() => toggleGrupo(grupo)} className="omni-group-header" style={groupHeaderStyle}>
                     <div style={groupHeaderTextStyle}>
                       <p style={groupTitleStyle}>
-                        <span style={groupLabelStyle}>Integrantes:</span>{" "}
+                        {!isIndividual && <span style={groupLabelStyle}>Integrantes: </span>}
                         <span style={groupNamesStyle}>{nomesIntegrantes(lista)}</span>
                       </p>
-                      <p style={groupContactStyle}>
-                        {lista.length} integrante{lista.length === 1 ? "" : "s"}
-                        {contarCriancas(lista) > 0 ? ` · ${contarCriancas(lista)} criança${contarCriancas(lista) === 1 ? "" : "s"}` : ""}
-                        {principal?.nome ? ` · contato principal: ${principal.nome}${principal.telefone ? ` (${principal.telefone})` : ""}` : " · sem contato principal"}
-                      </p>
+                      <p style={groupContactStyle}>{resumoGrupo}</p>
                     </div>
 
                     <div style={groupRightStyle}>
@@ -762,13 +774,21 @@ function GuestCard({
   onToggle: () => void;
 }) {
   const nome = convidado.nome || "Sem nome";
-  const grupo = normalizarGrupo(convidado.grupo);
+  const grupoOriginal = (convidado.grupo || "").trim();
+  const isIndividual = !grupoOriginal || convidado.tipo_convite === "individual";
+  const grupo = grupoOriginal ? normalizarGrupo(grupoOriginal) : "Individual";
+  const telefoneResponsavel = convidado.responsavel_telefone?.trim() || "";
   const telefone = convidado.telefone || "Sem telefone";
+  const telefoneMeta = convidado.telefone
+    ? convidado.telefone
+    : telefoneResponsavel
+      ? `Responsável: ${telefoneResponsavel}`
+      : "Sem telefone";
   const token = convidado.token || "Sem token";
   const linkCartao = gerarLinkCartao(convidado);
   const linkWhatsApp = gerarLinkWhatsApp(convidado);
   const isCrianca = convidadoEhCrianca(convidado);
-  const isContatoPrincipal = Boolean(convidado.contato_principal);
+  const isContatoPrincipal = !isIndividual && Boolean(convidado.contato_principal);
   const recebeConvite = Boolean(convidado.recebe_convite);
   const mae = convidado.mae?.trim() || "";
   const responsavelConvite = resolverResponsavelConvite(convidado, todosConvidados);
@@ -784,12 +804,16 @@ function GuestCard({
       <button onClick={onToggle} style={guestHeaderButtonStyle}>
         <div style={guestMainInfoStyle}>
           <strong style={guestNameStyle}>{nome}</strong>
-          <span style={guestMetaStyle}>{grupo} • {telefone}</span>
+          <span style={guestMetaStyle}>{grupo} • {telefoneMeta}</span>
           {(isCrianca || mae || idadeCrianca) && (
             <span style={childMetaStyle}>
               {isCrianca ? "Criança" : "Convidado"}
               {idadeCrianca ? ` · ${idadeCrianca} anos` : ""}
-              {responsavelConvite ? ` · convite via responsável: ${responsavelConvite}` : ""}
+              {responsavelConvite
+                ? ` · responsável: ${responsavelConvite}${
+                    telefoneResponsavel ? ` (${telefoneResponsavel})` : ""
+                  }`
+                : ""}
             </span>
           )}
         </div>
@@ -809,14 +833,18 @@ function GuestCard({
       {aberto && (
         <div style={guestExpandedStyle}>
           <div style={infoGridStyle}>
-            <InfoBox label="Grupo" value={grupo} />
-            <InfoBox label="Telefone" value={telefone} />
+            <InfoBox label="Tipo" value={isIndividual ? "Individual" : "Grupo"} />
+            {!isIndividual && <InfoBox label="Grupo" value={grupo} />}
+            <InfoBox label="Telefone do convidado" value={telefone} />
+            {telefoneResponsavel && (
+              <InfoBox label="Telefone do responsável" value={telefoneResponsavel} />
+            )}
             <InfoBox label="Status RSVP" value={labelRsvp(convidado.status_rsvp)} />
             <InfoBox label="Check-in" value={labelCheckin(convidado.status_checkin)} />
             <InfoBox label="E-mail" value={convidado.email || "Sem e-mail"} />
             <InfoBox label="Criança" value={isCrianca ? "Sim" : "Não"} />
             <InfoBox label="Responsável do convite" value={responsavelConvite || "Sem responsável informado"} />
-            <InfoBox label="Contato principal" value={isContatoPrincipal ? "Sim" : "Não"} />
+            {!isIndividual && <InfoBox label="Contato principal" value={isContatoPrincipal ? "Sim" : "Não"} />}
             <InfoBox label="Recebe convite" value={recebeConvite ? "Sim" : "Não"} />
             <InfoBox label="Idade da criança" value={idadeCrianca || "Não informada"} />
             <InfoBox label="Token" value={token} />
@@ -895,7 +923,11 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus, t
   }
   if (filtro === "grupo") return Boolean((convidado.grupo || "").trim());
   if (filtro === "individual") return !Boolean((convidado.grupo || "").trim());
-  if (filtro === "contato_principal") return Boolean(convidado.contato_principal);
+  if (filtro === "contato_principal") {
+    return Boolean((convidado.grupo || "").trim()) &&
+      convidado.tipo_convite !== "individual" &&
+      Boolean(convidado.contato_principal);
+  }
   if (filtro === "recebe_convite") return Boolean(convidado.recebe_convite);
   if (filtro === "entraram") return convidado.status_checkin === "entrou";
   if (filtro === "faltam") {
@@ -916,9 +948,13 @@ function resolverResponsavelConvite(convidado: Convidado, todosConvidados: Convi
 
   const grupoOriginal = (convidado.grupo || "").trim();
 
-  const integrantesGrupo = grupoOriginal
-    ? todosConvidados.filter((item) => normalizarGrupo(item.grupo) === normalizarGrupo(grupoOriginal))
-    : todosConvidados.filter((item) => item.id === convidado.id);
+  if (!grupoOriginal || convidado.tipo_convite === "individual") {
+    return null;
+  }
+
+  const integrantesGrupo = todosConvidados.filter(
+    (item) => normalizarGrupo(item.grupo) === normalizarGrupo(grupoOriginal),
+  );
 
   const contatoPrincipal = integrantesGrupo.find((item) => Boolean(item.contato_principal));
 
@@ -969,6 +1005,7 @@ function convidadoEhCrianca(convidado: Convidado) {
     crianca === "s" ||
     crianca === "true" ||
     Boolean(convidado.mae?.trim()) ||
+    Boolean(convidado.responsavel?.trim()) ||
     Boolean(convidado.idade_crianca)
   );
 }
