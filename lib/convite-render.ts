@@ -612,6 +612,88 @@ export function renderizarTemplateVisual(
     </script>
   `;
 
+
+  const guestPickerFitScript = `
+    <script>
+      (function () {
+        var CANVAS_H = 920;
+        var GAP = 12;
+
+        function number(value, fallback) {
+          var parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : fallback;
+        }
+
+        function visible(el) {
+          if (!el) return false;
+          var style = window.getComputedStyle(el);
+          return style.display !== "none" && style.visibility !== "hidden";
+        }
+
+        function baseY(el) {
+          return number(el.getAttribute("data-base-y"), el.offsetTop || 0);
+        }
+
+        function fitGuestPickerOnly() {
+          var pickerBlock = document.querySelector('[data-block-type="guest_picker"]');
+          if (!pickerBlock || !visible(pickerBlock)) return;
+
+          var picker = pickerBlock.querySelector("#namePicker");
+          var originalHeight = number(
+            pickerBlock.getAttribute("data-base-height"),
+            pickerBlock.offsetHeight || 60
+          );
+          var top = baseY(pickerBlock);
+
+          var buttonsBelow = Array.from(document.querySelectorAll('[data-block-type="button"]'))
+            .filter(function (el) { return visible(el) && baseY(el) > top; })
+            .sort(function (a, b) { return baseY(a) - baseY(b); });
+
+          var nextButton = buttonsBelow[0];
+          var limitY = nextButton ? baseY(nextButton) - GAP : CANVAS_H - GAP;
+          var available = Math.max(44, limitY - top);
+          var finalHeight = Math.min(originalHeight, available);
+
+          pickerBlock.style.height = finalHeight + "px";
+          pickerBlock.style.maxHeight = finalHeight + "px";
+          pickerBlock.style.minHeight = "0";
+          pickerBlock.style.overflow = "hidden";
+          pickerBlock.style.overflowY = "hidden";
+          pickerBlock.style.overflowX = "hidden";
+
+          if (picker) {
+            picker.style.height = "100%";
+            picker.style.maxHeight = "100%";
+            picker.style.minHeight = "0";
+            picker.style.overflowY = "auto";
+            picker.style.overflowX = "hidden";
+            picker.style.overscrollBehavior = "contain";
+            picker.style.webkitOverflowScrolling = "touch";
+          }
+        }
+
+        window.__OMNISTAGE_FIT_GUEST_PICKER__ = fitGuestPickerOnly;
+
+        window.addEventListener("DOMContentLoaded", function () {
+          fitGuestPickerOnly();
+          setTimeout(fitGuestPickerOnly, 80);
+          setTimeout(fitGuestPickerOnly, 250);
+          setTimeout(fitGuestPickerOnly, 600);
+        });
+
+        window.addEventListener("load", function () {
+          fitGuestPickerOnly();
+          setTimeout(fitGuestPickerOnly, 250);
+        });
+
+        window.addEventListener("resize", fitGuestPickerOnly);
+        window.addEventListener("orientationchange", function () {
+          setTimeout(fitGuestPickerOnly, 250);
+        });
+      })();
+    </script>
+  `;
+
   const responsiveScaleScript = `
     <script>
       (function () {
@@ -746,6 +828,13 @@ export function renderizarTemplateVisual(
             border-radius: 999px;
           }
 
+          #namePicker {
+            min-height: 0 !important;
+            max-height: 100% !important;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+          }
+
           .name-option {
             display:flex;
             align-items:center;
@@ -798,6 +887,7 @@ export function renderizarTemplateVisual(
         </div>
 
         ${countdownScript}
+        ${guestPickerFitScript}
         ${responsiveScaleScript}
       </body>
     </html>
@@ -1107,13 +1197,20 @@ export function injetarConvidadosNoConvite(
           if (pickerBlock) {
             if (isGrupo) {
               pickerBlock.style.display = "";
-              pickerBlock.style.overflowY = "auto";
+              pickerBlock.style.overflow = "hidden";
+              pickerBlock.style.overflowY = "hidden";
               pickerBlock.style.overflowX = "hidden";
               pickerBlock.style.alignItems = "stretch";
               pickerBlock.style.justifyContent = "flex-start";
             } else {
               pickerBlock.style.display = "none";
             }
+          }
+
+          if (window.__OMNISTAGE_FIT_GUEST_PICKER__) {
+            window.__OMNISTAGE_FIT_GUEST_PICKER__();
+            setTimeout(window.__OMNISTAGE_FIT_GUEST_PICKER__, 120);
+            setTimeout(window.__OMNISTAGE_FIT_GUEST_PICKER__, 450);
           }
         }
 
