@@ -394,9 +394,11 @@ export function renderizarTemplateVisual(
       const isGuestPicker = block.type === "guest_picker";
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
+
       const heightStyle = isGuestPicker
         ? `min-height:${numberValue(block.height, 60)}px;height:auto;`
         : `height:${numberValue(block.height, 60)}px;`;
+
       const overflowStyle = isGuestPicker ? "overflow:visible;" : "overflow:hidden;";
       const alignItems = isGuestPicker ? "stretch" : "center";
       const justifyContent = isGuestPicker ? "flex-start" : "center";
@@ -404,7 +406,29 @@ export function renderizarTemplateVisual(
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
-          style="position:absolute;left:${numberValue(block.x, 0)}px;top:${numberValue(block.y, 0)}px;width:${numberValue(block.width, 200)}px;${heightStyle}z-index:${(block.z_index || 1) + 10};box-sizing:border-box;border-radius:${numberValue(block.border_radius, 0)}px;color:${block.color || "#ffffff"};background:${background};font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;font-size:${numberValue(block.font_size, 24)}px;font-weight:900;display:flex;align-items:${alignItems};justify-content:${justifyContent};text-align:center;line-height:1.12;padding:${padding}px;${overflowStyle}white-space:pre-wrap;"
+          style="
+            position:absolute;
+            left:${numberValue(block.x, 0)}px;
+            top:${numberValue(block.y, 0)}px;
+            width:${numberValue(block.width, 200)}px;
+            ${heightStyle}
+            z-index:${(block.z_index || 1) + 10};
+            box-sizing:border-box;
+            border-radius:${numberValue(block.border_radius, 0)}px;
+            color:${block.color || "#ffffff"};
+            background:${background};
+            font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;
+            font-size:${numberValue(block.font_size, 24)}px;
+            font-weight:900;
+            display:flex;
+            align-items:${alignItems};
+            justify-content:${justifyContent};
+            text-align:center;
+            line-height:1.12;
+            padding:${padding}px;
+            ${overflowStyle}
+            white-space:pre-wrap;
+          "
         >
           ${renderizarConteudoBloco(block, evento)}
         </div>
@@ -445,58 +469,178 @@ export function renderizarTemplateVisual(
     </script>
   `;
 
+  const responsiveScaleScript = `
+    <script>
+      (function () {
+        var CANVAS_W = 430;
+        var CANVAS_H = 920;
+
+        function ajustarEscala() {
+          var viewport = document.querySelector(".omnistage-viewport");
+          var shell = document.querySelector(".omnistage-scale-shell");
+          var phone = document.querySelector(".omnistage-phone");
+
+          if (!viewport || !shell || !phone) return;
+
+          var larguraDisponivel = Math.max(280, viewport.clientWidth || window.innerWidth || CANVAS_W);
+          var escala = Math.min(1, larguraDisponivel / CANVAS_W);
+
+          phone.style.transform = "scale(" + escala + ")";
+          shell.style.width = CANVAS_W * escala + "px";
+          shell.style.height = CANVAS_H * escala + "px";
+        }
+
+        ajustarEscala();
+
+        window.addEventListener("resize", ajustarEscala);
+        window.addEventListener("orientationchange", function () {
+          setTimeout(ajustarEscala, 250);
+        });
+        window.addEventListener("load", ajustarEscala);
+      })();
+    </script>
+  `;
+
   return `
     <!doctype html>
     <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <style>
           * { box-sizing: border-box; }
-          html, body { margin: 0; min-height: 100%; background: #020617; }
-          body { display: grid; place-items: center; font-family: Inter, Arial, sans-serif; overflow-x: hidden; }
-          .omnistage-phone { width: 430px; height: 920px; max-width: 100vw; max-height: none; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63); }
-          @media (max-width: 460px) { .omnistage-phone { width: 100vw; height: calc(100vw * 2.1395); } .omnistage-canvas { transform: scale(calc(100vw / 430)); transform-origin: top left; } }
+
+          html,
+          body {
+            margin: 0;
+            min-height: 100%;
+            background: #020617;
+          }
+
+          body {
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100svh;
+            font-family: Inter, Arial, sans-serif;
+            overflow-x: hidden;
+          }
+
+          .omnistage-viewport {
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100svh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background: #020617;
+            overflow-x: hidden;
+            overflow-y: auto;
+          }
+
+          .omnistage-scale-shell {
+            width: 430px;
+            height: 920px;
+            position: relative;
+            flex: 0 0 auto;
+            overflow: visible;
+          }
+
+          .omnistage-phone {
+            width: 430px;
+            height: 920px;
+            position: absolute;
+            left: 50%;
+            top: 0;
+            margin-left: -215px;
+            overflow: hidden;
+            background:
+              radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%),
+              linear-gradient(180deg,#0b1530,#211f63);
+            transform-origin: top center;
+            color: #ffffff;
+          }
+
+          .omnistage-canvas {
+            width: 430px;
+            height: 920px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            overflow: hidden;
+          }
+
+          .omnistage-bg {
+            position:absolute;
+            left:50%;
+            top:50%;
+            width:430px;
+            height:920px;
+            object-fit:cover;
+            transform:
+              translate(
+                calc(-50% + ${backgroundX}px),
+                calc(-50% + ${backgroundY}px)
+              )
+              scale(${backgroundScale});
+            opacity:${backgroundOpacity};
+            z-index:0;
+            pointer-events:none;
+            user-select:none;
+          }
+
+          .name-option {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            color:inherit;
+            font-family:inherit;
+            font-size:inherit;
+            font-weight:900;
+            line-height:1.15;
+          }
+
+          .name-option input {
+            width:20px;
+            height:20px;
+            accent-color:#f7d477;
+            flex-shrink:0;
+          }
+
+          .name-option span {
+            display:block;
+            overflow-wrap:anywhere;
+          }
         </style>
       </head>
       <body>
-        <main class="omnistage-phone">
-          <div class="omnistage-canvas" style="width:430px;height:920px;position:absolute;left:0;top:0;overflow:hidden;">
-            ${
-              backgroundEvento
-                ? `<img
-                    src="${escapeHtml(backgroundEvento)}"
-                    alt="Background"
-                    style="
-                      position:absolute;
-                      left:50%;
-                      top:50%;
-                      width:540px;
-                      height:1080px;
-                      object-fit:cover;
-                      transform:
-                        translate(
-                          calc(-50% + ${backgroundX}px),
-                          calc(-50% + ${backgroundY}px)
-                        )
-                        scale(${Math.max(backgroundScale, 1.15)});
-                      opacity:${backgroundOpacity};
-                      z-index:0;
-                      pointer-events:none;
-                      user-select:none;
-                    "
-                  />`
-                : ""
-            }
-            <div style="position:absolute;inset:0;z-index:1;pointer-events:none;background:${
-              glassTone === "light"
-                ? `rgba(255,255,255,${glassOpacity})`
-                : `rgba(2,6,23,${glassOpacity})`
-            };backdrop-filter:${glassBlur ? `blur(${glassBlur}px)` : "none"};"></div>
-            ${blocosHtml}
+        <div class="omnistage-viewport">
+          <div class="omnistage-scale-shell">
+            <main class="omnistage-phone">
+              <div class="omnistage-canvas">
+                ${
+                  backgroundEvento
+                    ? `<img
+                        class="omnistage-bg"
+                        src="${escapeHtml(backgroundEvento)}"
+                        alt="Background"
+                      />`
+                    : ""
+                }
+
+                <div style="position:absolute;inset:0;z-index:1;pointer-events:none;background:${
+                  glassTone === "light"
+                    ? `rgba(255,255,255,${glassOpacity})`
+                    : `rgba(2,6,23,${glassOpacity})`
+                };backdrop-filter:${glassBlur ? `blur(${glassBlur}px)` : "none"};"></div>
+
+                ${blocosHtml}
+              </div>
+            </main>
           </div>
-        </main>
+        </div>
+
         ${countdownScript}
+        ${responsiveScaleScript}
       </body>
     </html>
   `;
