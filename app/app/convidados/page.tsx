@@ -20,6 +20,7 @@ type Convidado = {
   responsavel: string | null;
   responsavel_telefone: string | null;
   idade_crianca: number | null;
+  tamanho_chinelo: string | null;
   contato_principal: boolean | null;
   recebe_convite: boolean | null;
   tipo_convite: string | null;
@@ -42,6 +43,7 @@ type ConvidadoForm = {
   responsavel_telefone: string;
   mae: string;
   idade_crianca: string;
+  tamanho_chinelo: string;
   contato_principal: boolean;
   recebe_convite: boolean;
   tipo_convite: string;
@@ -66,6 +68,7 @@ type ImportPreviewRow = {
   responsavel_telefone?: string | null;
   mae?: string | null;
   idade_crianca?: string | number | null;
+  tamanho_chinelo?: string | null;
 
   observacoes?: string | null;
   is_duplicate?: boolean;
@@ -81,6 +84,7 @@ const initialForm: ConvidadoForm = {
   responsavel_telefone: "",
   mae: "",
   idade_crianca: "",
+  tamanho_chinelo: "",
   contato_principal: false,
   recebe_convite: false,
   tipo_convite: "individual",
@@ -815,22 +819,8 @@ Apresente o cartão na entrada do evento.`;
 
             <div style={formSectionDividerStyle}>
               <strong>Perfil do convidado</strong>
-              <span>Defina se é adulto, criança ou criança com envio via responsável.</span>
+              <span>Defina primeiro se é adulto ou criança. Campos específicos aparecem conforme a escolha.</span>
             </div>
-
-            <label style={fieldStyle}>
-              <span>Idade da criança</span>
-              <input
-                value={form.idade_crianca}
-                onChange={(event) =>
-                  updateForm("idade_crianca", event.target.value)
-                }
-                placeholder="Ex: 7"
-                type="number"
-                min="0"
-                style={inputStyle}
-              />
-            </label>
 
             <label style={fieldStyle}>
               <span>Tipo de convidado</span>
@@ -841,6 +831,7 @@ Apresente o cartão na entrada do evento.`;
                   setForm((current) => ({
                     ...current,
                     crianca: isCrianca ? "sim" : "",
+                    idade_crianca: isCrianca ? current.idade_crianca : "",
                     responsavel: isCrianca ? current.responsavel : "",
                     responsavel_telefone: isCrianca ? current.responsavel_telefone : "",
                     recebe_convite:
@@ -855,6 +846,34 @@ Apresente o cartão na entrada do evento.`;
                 <option value="crianca">Criança</option>
               </select>
             </label>
+
+            {form.crianca === "sim" && (
+              <label style={fieldStyle}>
+                <span>Idade da criança</span>
+                <input
+                  value={form.idade_crianca}
+                  onChange={(event) =>
+                    updateForm("idade_crianca", event.target.value)
+                  }
+                  placeholder="Ex: 7"
+                  type="number"
+                  min="0"
+                  style={inputStyle}
+                />
+              </label>
+            )}
+
+            {form.crianca !== "sim" && (
+              <label style={fieldStyle}>
+                <span>Tamanho do chinelo</span>
+                <input
+                  value={form.tamanho_chinelo}
+                  onChange={(event) => updateForm("tamanho_chinelo", event.target.value)}
+                  placeholder="Ex: 35/36"
+                  style={inputStyle}
+                />
+              </label>
+            )}
 
             {form.crianca === "sim" && !form.grupo.trim() && (
               <div style={responsavelBoxStyle}>
@@ -914,9 +933,9 @@ Apresente o cartão na entrada do evento.`;
                 }}
                 style={checkboxInputStyle}
               />
-              <div>
-                <strong>Contato principal do grupo</strong>
-                <span>Identifica quem representa o grupo/família.</span>
+              <div style={toggleTextStyle}>
+                <strong>Contato principal</strong>
+                <span>Identifica quem representa o grupo / família. Se for sem grupo, não precisa marcar.</span>
               </div>
             </label>
 
@@ -929,9 +948,9 @@ Apresente o cartão na entrada do evento.`;
                 }
                 style={checkboxInputStyle}
               />
-              <div>
+              <div style={toggleTextStyle}>
                 <strong>Recebe comunicação</strong>
-                <span>Usado no envio: esta pessoa recebe o convite/comunicação.</span>
+                <span>Usado no envio: esta pessoa recebe o convite / comunicação.</span>
               </div>
             </label>
 
@@ -1116,6 +1135,7 @@ Apresente o cartão na entrada do evento.`;
                           <small style={{ color: "var(--muted)" }}>
                             E-mail: {convidado.email || "Sem e-mail"} · Tipo:{" "}
                             {convidado.tipo_convite || "individual"}
+                            {convidado.tamanho_chinelo ? ` · Chinelo: ${convidado.tamanho_chinelo}` : ""}
                           </small>
 
                           {(convidado.crianca ||
@@ -1730,6 +1750,12 @@ const checkboxInputStyle: CSSProperties = {
   marginTop: 2,
   accentColor: "var(--accent)",
   cursor: "pointer",
+};
+
+const toggleTextStyle: CSSProperties = {
+  display: "grid",
+  gap: 3,
+  lineHeight: 1.22,
 };
 
 const sendIdentityStyle: CSSProperties = {
