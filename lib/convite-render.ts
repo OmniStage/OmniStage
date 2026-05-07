@@ -459,7 +459,7 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
 
   if (block.type === "guest_picker") {
     return `
-      <div id="namePicker" style="width:100%;height:100%;min-height:100%;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;">
+      <div id="namePicker" style="width:100%;height:100%;min-height:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:12px;padding:10px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;">
         <label class="name-option selected" style="display:flex;align-items:center;gap:12px;color:inherit;font-family:inherit;font-size:inherit;font-weight:900;line-height:1.15;">
           <input type="checkbox" checked readonly style="width:20px;height:20px;accent-color:#f7d477;flex-shrink:0;" />
           <span>Nome do Convidado</span>
@@ -547,7 +547,9 @@ export function renderizarTemplateVisual(
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
+          data-base-y="${numberValue(block.y, 0)}"
           data-base-height="${numberValue(block.height, 60)}"
+          data-dynamic-fit="true"
           style="
             position:absolute;
             left:${numberValue(block.x, 0)}px;
@@ -608,6 +610,156 @@ export function renderizarTemplateVisual(
           setInterval(function () { counters.forEach(updateCountdown); }, 1000);
         }
       });
+    </script>
+  `;
+
+
+  const dynamicLayoutScript = `
+    <script>
+      (function () {
+        var CANVAS_H = 920;
+        var MIN_FONT = 9;
+        var SAFE_GAP = 10;
+
+        function px(value, fallback) {
+          var n = Number(String(value || "").replace("px", ""));
+          return Number.isFinite(n) ? n : fallback;
+        }
+
+        function isVisible(el) {
+          if (!el) return false;
+          var style = window.getComputedStyle(el);
+          return style.display !== "none" && style.visibility !== "hidden" && el.offsetHeight > 0 && el.offsetWidth > 0;
+        }
+
+        function fitTextBlock(el) {
+          if (!el || !isVisible(el)) return;
+
+          var type = el.getAttribute("data-block-type") || "";
+          if (
+            type === "guest_picker" ||
+            type === "button" ||
+            type === "logo" ||
+            type === "qr" ||
+            type === "divider" ||
+            type === "countdown"
+          ) {
+            return;
+          }
+
+          var original = Number(el.getAttribute("data-original-font-size") || 0);
+          if (!original) {
+            original = px(window.getComputedStyle(el).fontSize, 16);
+            el.setAttribute("data-original-font-size", String(original));
+          }
+
+          el.style.fontSize = original + "px";
+          el.style.lineHeight = "1.08";
+          el.style.overflow = "hidden";
+
+          var size = original;
+          var guard = 0;
+
+          while (
+            guard < 40 &&
+            size > MIN_FONT &&
+            (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
+          ) {
+            size -= 1;
+            el.style.fontSize = size + "px";
+            guard += 1;
+          }
+        }
+
+        function limitarGuestPicker() {
+          var pickerBlock = document.querySelector('[data-block-type="guest_picker"]');
+          if (!pickerBlock || !isVisible(pickerBlock)) return;
+
+          var picker = pickerBlock.querySelector("#namePicker");
+          var baseHeight = Number(pickerBlock.getAttribute("data-base-height") || pickerBlock.offsetHeight || 60);
+          var top = Number(pickerBlock.getAttribute("data-base-y") || pickerBlock.offsetTop || 0);
+
+          var blocks = Array.from(document.querySelectorAll("[data-block-type]"))
+            .filter(function (el) {
+              if (el === pickerBlock || !isVisible(el)) return false;
+              var otherTop = Number(el.getAttribute("data-base-y") || el.offsetTop || 0);
+              return otherTop > top;
+            })
+            .sort(function (a, b) {
+              return Number(a.getAttribute("data-base-y") || a.offsetTop || 0) -
+                     Number(b.getAttribute("data-base-y") || b.offsetTop || 0);
+            });
+
+          var nextBlock = blocks.find(function (el) {
+            var type = el.getAttribute("data-block-type") || "";
+            return type === "button" || type === "qr" || type === "text" || type === "location" || type === "date_time";
+          }) || blocks[0];
+
+          var bottomLimit = nextBlock
+            ? Number(nextBlock.getAttribute("data-base-y") || nextBlock.offsetTop || CANVAS_H) - SAFE_GAP
+            : CANVAS_H - 16;
+
+          var availableHeight = Math.max(48, bottomLimit - top);
+          var finalHeight = Math.max(48, Math.min(baseHeight, availableHeight));
+
+          pickerBlock.style.height = finalHeight + "px";
+          pickerBlock.style.maxHeight = finalHeight + "px";
+          pickerBlock.style.minHeight = "0";
+          pickerBlock.style.overflowY = "hidden";
+          pickerBlock.style.overflowX = "hidden";
+          pickerBlock.style.alignItems = "stretch";
+          pickerBlock.style.justifyContent = "flex-start";
+
+          if (picker) {
+            picker.style.height = "100%";
+            picker.style.maxHeight = "100%";
+            picker.style.minHeight = "0";
+            picker.style.overflowY = "auto";
+            picker.style.overflowX = "hidden";
+            picker.style.overscrollBehavior = "contain";
+            picker.style.webkitOverflowScrolling = "touch";
+          }
+        }
+
+        function protegerBotoes() {
+          var buttons = Array.from(document.querySelectorAll('[data-block-type="button"]')).filter(isVisible);
+          buttons.forEach(function (button) {
+            button.style.overflow = "hidden";
+            button.style.flexShrink = "0";
+            button.style.zIndex = String(Math.max(60, Number(window.getComputedStyle(button).zIndex || 0)));
+          });
+        }
+
+        function ajustarLayoutDinamico() {
+          limitarGuestPicker();
+          protegerBotoes();
+
+          Array.from(document.querySelectorAll('[data-dynamic-fit="true"]')).forEach(fitTextBlock);
+
+          if (window.__OMNISTAGE_RESCALE__) {
+            window.__OMNISTAGE_RESCALE__();
+          }
+        }
+
+        window.__OMNISTAGE_DYNAMIC_LAYOUT__ = ajustarLayoutDinamico;
+
+        window.addEventListener("DOMContentLoaded", function () {
+          ajustarLayoutDinamico();
+          setTimeout(ajustarLayoutDinamico, 80);
+          setTimeout(ajustarLayoutDinamico, 250);
+          setTimeout(ajustarLayoutDinamico, 700);
+        });
+
+        window.addEventListener("load", function () {
+          ajustarLayoutDinamico();
+          setTimeout(ajustarLayoutDinamico, 250);
+        });
+
+        window.addEventListener("resize", ajustarLayoutDinamico);
+        window.addEventListener("orientationchange", function () {
+          setTimeout(ajustarLayoutDinamico, 250);
+        });
+      })();
     </script>
   `;
 
@@ -731,6 +883,18 @@ export function renderizarTemplateVisual(
             user-select:none;
           }
 
+
+          [data-block-type="button"] {
+            z-index: 70 !important;
+          }
+
+          #namePicker {
+            min-height: 0 !important;
+            max-height: 100% !important;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+          }
+
           [data-block-type="guest_picker"] {
             scrollbar-width: thin;
             overscroll-behavior: contain;
@@ -797,6 +961,7 @@ export function renderizarTemplateVisual(
         </div>
 
         ${countdownScript}
+        ${dynamicLayoutScript}
         ${responsiveScaleScript}
       </body>
     </html>
@@ -1092,7 +1257,7 @@ export function injetarConvidadosNoConvite(
             picker.style.justifyContent = "flex-start";
             picker.style.gap = "12px";
             picker.style.height = "100%";
-            picker.style.minHeight = "100%";
+            picker.style.minHeight = "0";
             picker.style.overflowY = "auto";
             picker.style.overflowX = "hidden";
             picker.style.webkitOverflowScrolling = "touch";
@@ -1151,6 +1316,13 @@ export function injetarConvidadosNoConvite(
           input.style.display = isGrupo ? "" : "none";
           input.checked = true;
         });
+
+        if (window.__OMNISTAGE_DYNAMIC_LAYOUT__) {
+          window.__OMNISTAGE_DYNAMIC_LAYOUT__();
+          setTimeout(window.__OMNISTAGE_DYNAMIC_LAYOUT__, 120);
+          setTimeout(window.__OMNISTAGE_DYNAMIC_LAYOUT__, 400);
+        }
+
       });
     </script>
   `;
