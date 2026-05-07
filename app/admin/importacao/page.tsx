@@ -15,6 +15,9 @@ type PreviewRow = {
   nome: string;
   telefone: string | null;
   grupo: string | null;
+  crianca: string | null;
+  mae: string | null;
+  idade_crianca: string | number | null;
   status_rsvp: string | null;
   status_envio: string | null;
   data_hora_rsvp: string | null;
@@ -42,6 +45,9 @@ type SheetMapping = {
   grupo: string;
   nome: string;
   telefone: string;
+  crianca: string;
+  mae: string;
+  idade_crianca: string;
   status_rsvp: string;
   status_envio: string;
   data_hora_rsvp: string;
@@ -59,6 +65,9 @@ type MappedRow = {
   grupo: string;
   nome: string;
   telefone: string;
+  crianca: string;
+  mae: string;
+  idade_crianca: string;
   status_rsvp: string;
   status_envio: string;
   data_hora_rsvp: string;
@@ -70,6 +79,9 @@ const initialMapping: SheetMapping = {
   grupo: "",
   nome: "",
   telefone: "",
+  crianca: "",
+  mae: "",
+  idade_crianca: "",
   status_rsvp: "",
   status_envio: "",
   data_hora_rsvp: "",
@@ -317,6 +329,9 @@ export default function AdminImportacaoPage() {
             contact.grupo || "sem grupo",
             contact.nome,
             contact.telefone || "sem telefone",
+            "",
+            "",
+            "",
             "pendente",
           ].join("    ")
         )
@@ -354,6 +369,16 @@ export default function AdminImportacaoPage() {
     return row[index] || "";
   }
 
+  function normalizarCriancaPorMae(crianca: string, mae: string) {
+    const maeLimpa = String(mae || "").trim();
+
+    if (maeLimpa) {
+      return "sim";
+    }
+
+    return String(crianca || "").trim();
+  }
+
   function montarTextoMapeado(updateState = true) {
     const textoMapeado = sheetRows
       .map((row) => {
@@ -361,6 +386,9 @@ export default function AdminImportacaoPage() {
         const grupo = getColumnValue(row, mapping.grupo);
         const nome = getColumnValue(row, mapping.nome);
         const telefone = getColumnValue(row, mapping.telefone);
+        const mae = getColumnValue(row, mapping.mae);
+        const crianca = normalizarCriancaPorMae(getColumnValue(row, mapping.crianca), mae);
+        const idadeCrianca = getColumnValue(row, mapping.idade_crianca);
         const statusRsvp = getColumnValue(row, mapping.status_rsvp);
         const dataHoraRsvp = getColumnValue(row, mapping.data_hora_rsvp);
         const statusEnvio = getColumnValue(row, mapping.status_envio);
@@ -371,6 +399,9 @@ export default function AdminImportacaoPage() {
           grupo,
           nome,
           telefone,
+          crianca,
+          mae,
+          idadeCrianca,
           statusRsvp,
           dataHoraRsvp,
           statusEnvio,
@@ -395,6 +426,12 @@ export default function AdminImportacaoPage() {
         grupo: getColumnValue(row, mapping.grupo),
         nome: getColumnValue(row, mapping.nome),
         telefone: getColumnValue(row, mapping.telefone),
+        crianca: normalizarCriancaPorMae(
+          getColumnValue(row, mapping.crianca),
+          getColumnValue(row, mapping.mae)
+        ),
+        mae: getColumnValue(row, mapping.mae),
+        idade_crianca: getColumnValue(row, mapping.idade_crianca),
         status_rsvp: getColumnValue(row, mapping.status_rsvp),
         status_envio: getColumnValue(row, mapping.status_envio),
         data_hora_rsvp: getColumnValue(row, mapping.data_hora_rsvp),
@@ -410,6 +447,9 @@ export default function AdminImportacaoPage() {
         grupo: contact.grupo || "",
         nome: contact.nome,
         telefone: contact.telefone || "",
+        crianca: "",
+        mae: "",
+        idade_crianca: "",
         status_rsvp: "pendente",
         status_envio: "",
         data_hora_rsvp: "",
@@ -443,6 +483,9 @@ export default function AdminImportacaoPage() {
       grupo: findHeader(["grupo", "família", "familia"]),
       nome: findHeader(["nome", "convidado"]),
       telefone: findHeader(["telefone", "whatsapp", "celular"]),
+      crianca: findHeader(["crianca", "criança"]),
+      mae: findHeader(["mae", "mãe", "mae/responsavel", "mãe/responsável"]),
+      idade_crianca: findHeader(["idade_crianca", "idade criança", "idade crianca", "idade"]),
       status_rsvp: findHeader(["status_rsvp", "rsvp", "confirma"]),
       status_envio: findHeader(["status", "envio", "enviado"]),
       data_hora_rsvp: findHeader(["data_resposta", "resposta"]),
@@ -888,6 +931,9 @@ export default function AdminImportacaoPage() {
               <MappingSelect label="grupo" value={mapping.grupo} headers={sheetHeaders} onChange={(value) => updateMapping("grupo", value)} />
               <MappingSelect label="nome" value={mapping.nome} headers={sheetHeaders} onChange={(value) => updateMapping("nome", value)} />
               <MappingSelect label="telefone" value={mapping.telefone} headers={sheetHeaders} onChange={(value) => updateMapping("telefone", value)} />
+              <MappingSelect label="crianca" value={mapping.crianca} headers={sheetHeaders} onChange={(value) => updateMapping("crianca", value)} />
+              <MappingSelect label="mae" value={mapping.mae} headers={sheetHeaders} onChange={(value) => updateMapping("mae", value)} />
+              <MappingSelect label="idade_crianca" value={mapping.idade_crianca} headers={sheetHeaders} onChange={(value) => updateMapping("idade_crianca", value)} />
               <MappingSelect label="status_rsvp" value={mapping.status_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("status_rsvp", value)} />
               <MappingSelect label="status_envio" value={mapping.status_envio} headers={sheetHeaders} onChange={(value) => updateMapping("status_envio", value)} />
               <MappingSelect label="data_hora_rsvp" value={mapping.data_hora_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora_rsvp", value)} />
@@ -930,7 +976,7 @@ export default function AdminImportacaoPage() {
                   fileInputRef.current.value = "";
                 }
               }}
-              placeholder={`3    FAMILIA_ANDREZZA    ANDREZZA FERRAZ    5522999787402    confirmado    02/05/2026    enviado    02/05/2026 18:40`}
+              placeholder={`3    FAMILIA_ANDREZZA    ANDREZZA FERRAZ    5522999787402    sim    URSULA    7    confirmado    02/05/2026    enviado    02/05/2026 18:40`}
               style={{
                 ...inputStyle,
                 minHeight: 220,
@@ -1037,6 +1083,11 @@ export default function AdminImportacaoPage() {
                         Legacy ID: {item.legacy_id || "sem ID"} · Grupo:{" "}
                         {item.grupo || "sem grupo"} · Telefone:{" "}
                         {item.telefone || "sem telefone"}
+                      </p>
+
+                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
+                        Criança: {item.crianca || "-"} · Mãe: {item.mae || "-"} · Idade criança:{" "}
+                        {item.idade_crianca || "-"}
                       </p>
 
                       <p style={{ color: "#334155", margin: "6px 0 0" }}>
