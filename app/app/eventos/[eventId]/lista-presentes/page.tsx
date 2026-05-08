@@ -27,6 +27,7 @@ type GiftItem = {
   descricao: string | null;
   valor_sugerido: number | null;
   imagem_url: string | null;
+  link_produto: string | null;
   quantidade_total: number | null;
   quantidade_reservada: number | null;
   ativo: boolean | null;
@@ -40,6 +41,7 @@ type FormItem = {
   descricao: string;
   valor_sugerido: string;
   imagem_url: string;
+  link_produto: string;
   quantidade_total: string;
   ativo: boolean;
 };
@@ -50,6 +52,7 @@ const formItemInicial: FormItem = {
   descricao: "",
   valor_sugerido: "",
   imagem_url: "",
+  link_produto: "",
   quantidade_total: "",
   ativo: true,
 };
@@ -156,6 +159,7 @@ export default function ListaPresentesEventoPage() {
         descricao,
         valor_sugerido,
         imagem_url,
+        link_produto,
         quantidade_total,
         quantidade_reservada,
         ativo,
@@ -276,6 +280,7 @@ export default function ListaPresentesEventoPage() {
       descricao: item.descricao || "",
       valor_sugerido: valorParaInput(item.valor_sugerido),
       imagem_url: item.imagem_url || "",
+      link_produto: item.link_produto || "",
       quantidade_total: item.quantidade_total ? String(item.quantidade_total) : "",
       ativo: item.ativo === true,
     });
@@ -319,6 +324,7 @@ export default function ListaPresentesEventoPage() {
       descricao: formItem.descricao.trim() || null,
       valor_sugerido: normalizarMoeda(formItem.valor_sugerido),
       imagem_url: formItem.imagem_url.trim() || null,
+      link_produto: formItem.link_produto.trim() || null,
       quantidade_total: formItem.quantidade_total
         ? Number(formItem.quantidade_total)
         : null,
@@ -640,6 +646,33 @@ export default function ListaPresentesEventoPage() {
           background: #fef3c7;
           font-weight: 850;
           line-height: 1.45;
+        }
+
+        .product-link-preview {
+          margin-top: 12px;
+          padding: 13px 14px;
+          border-radius: 16px;
+          border: 1px solid rgba(226,232,240,.95);
+          background: #f8fafc;
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .product-link-preview span {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 800;
+          word-break: break-all;
+        }
+
+        .product-link-preview a {
+          color: #6d28d9;
+          font-weight: 950;
+          text-decoration: none;
+          white-space: nowrap;
         }
 
         .input, .select, .textarea {
@@ -1128,7 +1161,30 @@ export default function ListaPresentesEventoPage() {
                   </div>
                 )}
                 <a href={formItem.imagem_url} target="_blank" rel="noreferrer">
-                  Abrir link
+                  Abrir link da imagem
+                </a>
+              </div>
+            )}
+          </label>
+
+          <label className="full">
+            <span className="field-label">Link do produto</span>
+            <input
+              className="input"
+              value={formItem.link_produto}
+              onChange={(e) =>
+                setFormItem((old) => ({ ...old, link_produto: e.target.value }))
+              }
+              placeholder="https://www.mercadolivre.com.br/produto..."
+            />
+            <div className="field-help">
+              Use este campo para Mercado Livre, Amazon, Shopee ou qualquer página externa do produto.
+            </div>
+            {formItem.link_produto && (
+              <div className="product-link-preview">
+                <span>{formItem.link_produto}</span>
+                <a href={formItem.link_produto} target="_blank" rel="noreferrer">
+                  Abrir produto
                 </a>
               </div>
             )}
@@ -1216,6 +1272,17 @@ export default function ListaPresentesEventoPage() {
                 {item.descricao && <p className="gift-desc">{item.descricao}</p>}
 
                 <div className="card-actions">
+                  {item.link_produto && (
+                    <a
+                      href={item.link_produto}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="primary"
+                    >
+                      Ver produto
+                    </a>
+                  )}
+
                   <button onClick={() => editarItem(item)} className="warning">
                     Editar
                   </button>
@@ -1263,4 +1330,3 @@ const loadingStyle: React.CSSProperties = {
   color: "#0f172a",
   fontWeight: 900,
 };
-
