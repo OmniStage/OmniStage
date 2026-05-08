@@ -1410,27 +1410,29 @@ export default function AppEventosPage() {
               </div>
 
               <div className="card-actions">
-  <a
-    href={`/app/eventos/${evento.id}/lista-presentes`}
-    className="secondary"
-    style={{
-      textDecoration: "none",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    Presentes
-  </a>
+                <a
+                  href={`/app/eventos/${evento.id}/lista-presentes`}
+                  className="secondary"
+                  style={{
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  Presentes
+                </a>
 
-  <button className="secondary" onClick={() => abrirEdicao(evento)}>
-    Editar
-  </button>
+                <button className="secondary" onClick={() => abrirEdicao(evento)}>
+                  Editar
+                </button>
 
-  <button className="danger" onClick={() => excluirEvento(evento)}>
-    Excluir
-  </button>
-</div>
+                <button className="danger" onClick={() => excluirEvento(evento)}>
+                  Excluir
+                </button>
+              </div>
+            </article>
+          ))}
 
           {!loading && eventosFiltrados.length === 0 && (
             <div className="empty">Nenhum evento encontrado para este tenant.</div>
