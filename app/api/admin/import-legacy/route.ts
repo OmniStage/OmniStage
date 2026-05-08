@@ -607,16 +607,21 @@ export async function POST(req: Request) {
         updated++;
       }
 
-      const { error: batchUpdateError } = await supabase
+      const confirmedAt = new Date().toISOString();
+
+      const { data: updatedBatch, error: batchUpdateError } = await supabase
         .from("guest_import_batches")
         .update({
           status: "updated",
           imported_rows: updated,
-          confirmed_at: new Date().toISOString(),
+          duplicated_rows: duplicatedRows.length,
+          confirmed_at: confirmedAt,
         })
         .eq("id", batchId)
         .eq("tenant_id", tenantId)
-        .eq("event_id", eventoId);
+        .eq("event_id", eventoId)
+        .select("id, status, total_rows, imported_rows, duplicated_rows, confirmed_at")
+        .maybeSingle();
 
       if (batchUpdateError) {
         return NextResponse.json(
@@ -625,7 +630,14 @@ export async function POST(req: Request) {
         );
       }
 
-      await supabase.from("import_logs").insert({
+      if (!updatedBatch) {
+        return NextResponse.json(
+          { error: "Atualização concluída, mas o lote não foi encontrado para gravar o histórico." },
+          { status: 404 }
+        );
+      }
+
+      const { error: logError } = await supabase.from("import_logs").insert({
         tenant_id: tenantId,
         evento_id: eventoId,
         batch_id: batchId,
@@ -635,6 +647,13 @@ export async function POST(req: Request) {
         total: updated,
       });
 
+      if (logError) {
+        return NextResponse.json(
+          { error: logError.message },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json({
         ok: true,
         duplicated: duplicatedRows.length,
@@ -643,6 +662,7 @@ export async function POST(req: Request) {
         unchanged,
         ignored,
         errors,
+        batch: updatedBatch,
       });
     }
 
