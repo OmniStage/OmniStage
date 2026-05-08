@@ -158,6 +158,23 @@ function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
     .filter((guest) => guest.name.length > 1));
 }
 
+function normalizeComparableValue(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function valuesAreDifferent(newValue: unknown, oldValue: unknown) {
+  const normalizedNew = normalizeComparableValue(newValue);
+  const normalizedOld = normalizeComparableValue(oldValue);
+
+  if (!normalizedNew) return false;
+
+  return normalizedNew !== normalizedOld;
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
@@ -482,6 +499,8 @@ export async function POST(req: Request) {
       }
 
       let updated = 0;
+      let changed = 0;
+      let unchanged = 0;
       let ignored = 0;
       const errors: string[] = [];
 
@@ -492,7 +511,7 @@ export async function POST(req: Request) {
           const { data, error } = await supabase
             .from("convidados")
             .select(
-              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp"
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca"
             )
             .eq("tenant_id", tenantId)
             .eq("evento_id", eventoId)
@@ -512,7 +531,7 @@ export async function POST(req: Request) {
           const { data, error } = await supabase
             .from("convidados")
             .select(
-              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp"
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca"
             )
             .eq("tenant_id", tenantId)
             .eq("evento_id", eventoId)
@@ -535,40 +554,40 @@ export async function POST(req: Request) {
 
         const updatePayload: any = {};
 
-        // Atualiza somente dados vindos da planilha atualizada.
+        function addIfChanged(field: string, newValue: unknown, oldValue: unknown) {
+          if (valuesAreDifferent(newValue, oldValue)) {
+            updatePayload[field] = newValue;
+          }
+        }
+
+        // Atualiza somente dados vindos da planilha atualizada que realmente mudaram.
         // Não mexe em token, QR, cartão, check-in, envio ou histórico.
-        if (item.status_rsvp) {
-          updatePayload.status_rsvp = item.status_rsvp;
-        }
-
-        if (item.data_hora_rsvp) {
-          updatePayload.data_hora_rsvp = item.data_hora_rsvp;
-        }
-
-        if (item.grupo) {
-          updatePayload.grupo = item.grupo;
-        }
+        addIfChanged("status_rsvp", item.status_rsvp, existingGuest.status_rsvp);
+        addIfChanged("data_hora_rsvp", item.data_hora_rsvp, existingGuest.data_hora_rsvp);
+        addIfChanged("grupo", item.grupo, existingGuest.grupo);
 
         if (item.telefone && !existingGuest.telefone) {
           updatePayload.telefone = item.telefone;
         }
 
-        if (item.crianca) {
-          updatePayload.crianca = normalizeCrianca(item.crianca, item.mae);
-        }
-
-        if (item.mae) {
-          updatePayload.mae = cleanText(item.mae);
-        }
-
-        if (item.idade_crianca) {
-          updatePayload.idade_crianca = normalizeIdadeCrianca(item.idade_crianca);
-        }
+        addIfChanged(
+          "crianca",
+          normalizeCrianca(item.crianca, item.mae),
+          existingGuest.crianca
+        );
+        addIfChanged("mae", cleanText(item.mae), existingGuest.mae);
+        addIfChanged(
+          "idade_crianca",
+          normalizeIdadeCrianca(item.idade_crianca),
+          existingGuest.idade_crianca
+        );
 
         if (Object.keys(updatePayload).length === 0) {
-          ignored++;
+          unchanged++;
           continue;
         }
+
+        changed++;
 
         const { error: updateError } = await supabase
           .from("convidados")
@@ -618,7 +637,10 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         ok: true,
+        duplicated: duplicatedRows.length,
+        changed,
         updated,
+        unchanged,
         ignored,
         errors,
       });
