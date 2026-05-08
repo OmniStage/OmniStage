@@ -92,6 +92,7 @@ export default function ListaPresentesEventoPage() {
   const [toast, setToast] = useState("");
   const [formItem, setFormItem] = useState<FormItem>(formItemInicial);
   const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
+  const [formItemAberto, setFormItemAberto] = useState(false);
 
   useEffect(() => {
     if (eventId) carregarTudo();
@@ -210,6 +211,11 @@ export default function ListaPresentesEventoPage() {
       return;
     }
 
+    setFormItem((old) => ({
+      ...old,
+      imagem_url: "",
+    }));
+
     const extensao = file.name.split(".").pop() || "jpg";
     const nomeArquivo = `${evento.tenant_id}/gift-items/${evento.id}/${Date.now()}-${Math.random()
       .toString(36)
@@ -242,8 +248,22 @@ export default function ListaPresentesEventoPage() {
     showToast("Imagem enviada com sucesso.");
   }
 
+  function abrirNovoItem() {
+    setItemEditandoId(null);
+    setFormItem(formItemInicial);
+    setFormItemAberto(true);
+
+    setTimeout(() => {
+      document.getElementById("form-item-lista-presentes")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  }
+
   function editarItem(item: GiftItem) {
     setItemEditandoId(item.id);
+    setFormItemAberto(true);
 
     setFormItem({
       tipo:
@@ -268,9 +288,14 @@ export default function ListaPresentesEventoPage() {
     }, 80);
   }
 
-  function cancelarEdicao() {
+  function fecharFormItem() {
     setItemEditandoId(null);
     setFormItem(formItemInicial);
+    setFormItemAberto(false);
+  }
+
+  function cancelarEdicao() {
+    fecharFormItem();
   }
 
   async function salvarItem() {
@@ -315,6 +340,7 @@ export default function ListaPresentesEventoPage() {
 
       setItemEditandoId(null);
       setFormItem(formItemInicial);
+      setFormItemAberto(false);
       setSalvandoItem(false);
       showToast("Item atualizado com sucesso.");
       await carregarItems();
@@ -334,6 +360,7 @@ export default function ListaPresentesEventoPage() {
     }
 
     setFormItem(formItemInicial);
+    setFormItemAberto(false);
     setSalvandoItem(false);
     showToast("Item criado com sucesso.");
     await carregarItems();
@@ -605,6 +632,14 @@ export default function ListaPresentesEventoPage() {
           color: #6d28d9;
           font-weight: 900;
           text-decoration: none;
+        }
+
+        .image-preview-warning {
+          padding: 14px;
+          color: #92400e;
+          background: #fef3c7;
+          font-weight: 850;
+          line-height: 1.45;
         }
 
         .input, .select, .textarea {
@@ -958,22 +993,34 @@ export default function ListaPresentesEventoPage() {
         <div className="panel-head">
           <div>
             <h2 className="panel-title">
-              {itemEditandoId ? "Editar item" : "Adicionar item"}
+              {formItemAberto
+                ? itemEditandoId
+                  ? "Editar item"
+                  : "Adicionar item"
+                : "Itens da lista"}
             </h2>
             <p className="panel-desc">
-              {itemEditandoId
-                ? "Altere as informações do item selecionado e salve."
-                : "Cadastre presentes físicos, experiências ou sugestões de presentes em valor."}
+              {formItemAberto
+                ? itemEditandoId
+                  ? "Altere as informações do item selecionado e salve."
+                  : "Cadastre presentes físicos, experiências ou sugestões de presentes em valor."
+                : "Clique em adicionar para cadastrar um novo presente, experiência ou presente em valor."}
             </p>
           </div>
 
-          {itemEditandoId && (
-            <button onClick={cancelarEdicao} className="secondary">
-              Cancelar edição
+          {formItemAberto ? (
+            <button onClick={fecharFormItem} className="secondary">
+              Fechar formulário
+            </button>
+          ) : (
+            <button onClick={abrirNovoItem} className="primary">
+              + Adicionar item
             </button>
           )}
         </div>
 
+        {formItemAberto && (
+          <>
         <div className="form-grid">
           <label>
             <span className="field-label">Tipo</span>
@@ -1072,9 +1119,16 @@ export default function ListaPresentesEventoPage() {
             />
             {formItem.imagem_url && (
               <div className="image-preview-box">
-                <img src={formItem.imagem_url} alt="Preview do item" />
+                {/\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(formItem.imagem_url) ||
+                formItem.imagem_url.includes("/storage/v1/object/public/") ? (
+                  <img src={formItem.imagem_url} alt="Preview do item" />
+                ) : (
+                  <div className="image-preview-warning">
+                    Este link parece ser uma página, não uma imagem direta. Use o envio de imagem acima.
+                  </div>
+                )}
                 <a href={formItem.imagem_url} target="_blank" rel="noreferrer">
-                  Abrir imagem
+                  Abrir link
                 </a>
               </div>
             )}
@@ -1104,12 +1158,12 @@ export default function ListaPresentesEventoPage() {
               : "Adicionar item"}
           </button>
 
-          {itemEditandoId && (
-            <button onClick={cancelarEdicao} className="secondary">
-              Cancelar
-            </button>
-          )}
+          <button onClick={fecharFormItem} className="secondary">
+            Cancelar
+          </button>
         </div>
+          </>
+        )}
       </section>
 
       <section className="panel">
@@ -1121,9 +1175,15 @@ export default function ListaPresentesEventoPage() {
             </p>
           </div>
 
-          <button onClick={carregarItems} className="secondary">
-            Atualizar
-          </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={abrirNovoItem} className="primary">
+              + Adicionar item
+            </button>
+
+            <button onClick={carregarItems} className="secondary">
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {items.length === 0 ? (
