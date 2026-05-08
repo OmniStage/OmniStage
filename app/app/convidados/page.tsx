@@ -238,10 +238,29 @@ export default function ConvidadosPage() {
   }
 
   function gerarLinkConvite(convidado: Convidado) {
+  const grupo = (convidado.grupo || "").trim();
+
+  // convite individual
+  if (!grupo) {
     const token = encodeURIComponent(convidado.token || "");
     return `/c/${token}`;
   }
 
+  // pega todos integrantes do mesmo grupo
+  const integrantesGrupo = convidados.filter(
+    (item) =>
+      item.evento_id === convidado.evento_id &&
+      (item.grupo || "").trim() === grupo
+  );
+
+  // junta todos os tokens
+  const tokens = integrantesGrupo
+    .map((item) => item.token)
+    .filter(Boolean)
+    .join(",");
+
+  return `/c/${encodeURIComponent(tokens)}`;
+}
   function gerarLinkWhatsApp(convidado: Convidado) {
     const telefone = normalizarTelefone(
       convidado.telefone || convidado.responsavel_telefone,
