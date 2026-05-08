@@ -259,7 +259,7 @@ export default function ConvidadosPage() {
     .filter(Boolean)
     .join(",");
 
-  return `/c/${encodeURIComponent(tokens)}`;
+  return `/c/${tokens}`;
 }
   function gerarLinkWhatsApp(convidado: Convidado) {
     const telefone = normalizarTelefone(
