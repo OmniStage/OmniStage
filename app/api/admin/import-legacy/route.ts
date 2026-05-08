@@ -444,6 +444,169 @@ export async function POST(req: Request) {
       });
     }
 
+    if (action === "update_existing") {
+      if (!batchId) {
+        return NextResponse.json(
+          { error: "batchId é obrigatório." },
+          { status: 400 }
+        );
+      }
+
+      let duplicatedQuery = supabase
+        .from("guest_import_preview")
+        .select("*")
+        .eq("batch_id", batchId)
+        .eq("tenant_id", tenantId)
+        .eq("event_id", eventoId)
+        .eq("is_duplicate", true);
+
+      if (selectedIds.length > 0) {
+        duplicatedQuery = duplicatedQuery.in("id", selectedIds);
+      }
+
+      const { data: duplicatedRows, error: duplicatedError } =
+        await duplicatedQuery;
+
+      if (duplicatedError) {
+        return NextResponse.json(
+          { error: duplicatedError.message },
+          { status: 500 }
+        );
+      }
+
+      if (!duplicatedRows || duplicatedRows.length === 0) {
+        return NextResponse.json(
+          { error: "Nenhum convidado existente encontrado para atualizar." },
+          { status: 400 }
+        );
+      }
+
+      let updated = 0;
+      let ignored = 0;
+      const errors: string[] = [];
+
+      for (const item of duplicatedRows) {
+        let existingGuest: any = null;
+
+        if (item.legacy_id) {
+          const { data, error } = await supabase
+            .from("convidados")
+            .select(
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp"
+            )
+            .eq("tenant_id", tenantId)
+            .eq("evento_id", eventoId)
+            .eq("legacy_id", item.legacy_id)
+            .maybeSingle();
+
+          if (error) {
+            errors.push(`Erro ao buscar legacy_id ${item.legacy_id}: ${error.message}`);
+            ignored++;
+            continue;
+          }
+
+          existingGuest = data;
+        }
+
+        if (!existingGuest && item.telefone) {
+          const { data, error } = await supabase
+            .from("convidados")
+            .select(
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp"
+            )
+            .eq("tenant_id", tenantId)
+            .eq("evento_id", eventoId)
+            .eq("telefone", item.telefone)
+            .maybeSingle();
+
+          if (error) {
+            errors.push(`Erro ao buscar telefone ${item.telefone}: ${error.message}`);
+            ignored++;
+            continue;
+          }
+
+          existingGuest = data;
+        }
+
+        if (!existingGuest) {
+          ignored++;
+          continue;
+        }
+
+        const updatePayload: any = {};
+
+        // Atualiza somente dados vindos da planilha atualizada.
+        // Não mexe em token, QR, cartão, check-in, envio ou histórico.
+        if (item.status_rsvp) {
+          updatePayload.status_rsvp = item.status_rsvp;
+        }
+
+        if (item.data_hora_rsvp) {
+          updatePayload.data_hora_rsvp = item.data_hora_rsvp;
+        }
+
+        if (item.grupo) {
+          updatePayload.grupo = item.grupo;
+        }
+
+        if (item.telefone && !existingGuest.telefone) {
+          updatePayload.telefone = item.telefone;
+        }
+
+        if (item.crianca) {
+          updatePayload.crianca = normalizeCrianca(item.crianca, item.mae);
+        }
+
+        if (item.mae) {
+          updatePayload.mae = cleanText(item.mae);
+        }
+
+        if (item.idade_crianca) {
+          updatePayload.idade_crianca = normalizeIdadeCrianca(item.idade_crianca);
+        }
+
+        if (Object.keys(updatePayload).length === 0) {
+          ignored++;
+          continue;
+        }
+
+        const { error: updateError } = await supabase
+          .from("convidados")
+          .update(updatePayload)
+          .eq("id", existingGuest.id)
+          .eq("tenant_id", tenantId)
+          .eq("evento_id", eventoId);
+
+        if (updateError) {
+          errors.push(
+            `Erro ao atualizar ${item.nome || item.telefone || item.legacy_id}: ${updateError.message}`
+          );
+          ignored++;
+          continue;
+        }
+
+        updated++;
+      }
+
+      await supabase.from("import_logs").insert({
+        tenant_id: tenantId,
+        evento_id: eventoId,
+        batch_id: batchId,
+        tipo: "legacy_guests",
+        acao: "update_existing",
+        origem: "planilha_atualizada",
+        total: updated,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        updated,
+        ignored,
+        errors,
+      });
+    }
+
+
     return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json(
