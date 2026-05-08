@@ -55,7 +55,11 @@ export default function ConvitePublicoPage() {
 
     const tokens = tokenDecodificado
       .split(",")
-      .map((item) => item.trim())
+      .map((item) =>
+        String(item || "")
+          .trim()
+          .replace(/\s/g, ""),
+      )
       .filter(Boolean);
 
     if (!tokens.length) {
@@ -66,10 +70,24 @@ export default function ConvitePublicoPage() {
 
     const { data: convidadosPorToken, error: convidadosError } = await supabase
       .from("convidados")
-      .select("id,nome,token,evento_id,grupo,tipo_convite")
-      .in("token", tokens);
+      .select(
+        `
+        id,
+        nome,
+        token,
+        evento_id,
+        grupo,
+        tipo_convite
+      `,
+      )
+      .in("token", tokens)
+      .order("nome", { ascending: true });
+
+    console.log("TOKENS URL:", tokens);
+    console.log("CONVIDADOS RETORNADOS:", convidadosPorToken);
 
     if (convidadosError || !convidadosPorToken?.length) {
+      console.error("Erro ao buscar convidados:", convidadosError);
       setHtmlFinal(htmlErro("Convite não encontrado."));
       setLoading(false);
       return;
@@ -89,19 +107,36 @@ export default function ConvitePublicoPage() {
       : (convidadosPorToken as Convidado[]);
 
     /*
-      Regra correta:
+      Regra:
       - Se a URL tiver vários tokens separados por vírgula, usa exatamente esses tokens.
       - Se a URL tiver apenas 1 token e esse convidado tiver grupo, carrega todos do mesmo grupo.
-      - Não usamos tipo_convite aqui, porque no seu cadastro o responsável do grupo pode estar marcado como individual/contato principal,
-        mas o convite precisa continuar exibindo todos os integrantes do grupo.
+      - Não usa tipo_convite para bloquear grupo, porque alguns responsáveis podem estar cadastrados como individual.
     */
     if (tokens.length === 1 && convidadoBase?.grupo) {
-      const { data: convidadosGrupo } = await supabase
+      const grupoBase = String(convidadoBase.grupo || "").trim();
+
+      const { data: convidadosGrupo, error: grupoError } = await supabase
         .from("convidados")
-        .select("id,nome,token,evento_id,grupo,tipo_convite")
+        .select(
+          `
+          id,
+          nome,
+          token,
+          evento_id,
+          grupo,
+          tipo_convite
+        `,
+        )
         .eq("evento_id", convidadoBase.evento_id)
-        .eq("grupo", convidadoBase.grupo)
+        .eq("grupo", grupoBase)
         .order("nome", { ascending: true });
+
+      console.log("GRUPO BASE:", grupoBase);
+      console.log("CONVIDADOS DO GRUPO:", convidadosGrupo);
+
+      if (grupoError) {
+        console.error("Erro ao buscar grupo:", grupoError);
+      }
 
       if (convidadosGrupo?.length) {
         convidadosDoConvite = convidadosGrupo as Convidado[];
@@ -170,6 +205,8 @@ export default function ConvitePublicoPage() {
     const nomesDoConvite = convidadosDoConvite
       .map((item) => item.nome)
       .filter(Boolean);
+
+    console.log("NOMES INJETADOS NO CONVITE:", nomesDoConvite);
 
     let htmlDoEvento = "";
     const isVisual = template.editor_mode === "visual";
@@ -265,16 +302,4 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function escapeAttr(value: string) {
-  return escapeHtml(value);
-}
-
-function escapeCssValue(value: string) {
-  return String(value || "").replace(/[<>]/g, "");
-}
-
-function safeCssUrl(value: string) {
-  return String(value || "").replace(/["'()<>]/g, "");
 }
