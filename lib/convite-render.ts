@@ -216,12 +216,23 @@ function detectarAcaoBotao(content: string | null) {
 }
 
 function renderizarBotaoAcao(block: VisualBlock, evento: EventoConvite | null) {
-  const label = renderizarConteudoDinamico(
-    block.content || "CONFIRMAR PRESENÇA",
-    evento
-  );
-
   const acao = detectarAcaoBotao(block.content);
+
+  const labelCalculado = renderizarConteudoDinamico(
+    block.content || ""
+  , evento);
+
+  const fallbackLabel =
+    acao === "maps"
+      ? "Ver localização"
+      : acao === "waze"
+        ? "Abrir no Waze"
+        : acao === "calendar"
+          ? "Adicionar ao calendário"
+          : "Confirmar presença";
+
+  const label = String(labelCalculado || "").trim() ? labelCalculado : fallbackLabel;
+
   const href =
     acao === "waze"
       ? criarWazeUrl(evento)
@@ -460,8 +471,8 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
   if (block.type === "guest_picker") {
     return `
       <div id="namePicker" style="width:100%;height:100%;min-height:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;padding:8px 10px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;">
-        <label class="name-option selected" style="display:flex;align-items:center;gap:8px;color:inherit;font-family:inherit;font-size:18px;font-weight:900;line-height:1.05;min-height:26px;">
-          <input type="checkbox" checked readonly style="width:18px;height:18px;accent-color:#f7d477;flex-shrink:0;" />
+        <label class="name-option selected" style="display:flex;align-items:center;gap:8px;color:inherit;font-family:inherit;font-size:17px;font-weight:900;line-height:1.05;min-height:26px;">
+          <input type="checkbox" checked readonly style="width:17px;height:17px;accent-color:#f7d477;flex-shrink:0;" />
           <span>Nome do Convidado</span>
         </label>
       </div>
@@ -630,8 +641,15 @@ export function renderizarTemplateVisual(
       <div class="omnistage-fluid-actions">
         ${blocosButtons
           .map((block) => {
-            const minHeight = Math.max(numberValue(block.height, 54), 42);
+            const acao = detectarAcaoBotao(block.content);
+            const isSecondaryAction = acao === "maps" || acao === "waze" || acao === "calendar";
+            const minHeight = isSecondaryAction
+              ? Math.max(Math.min(numberValue(block.height, 38), 44), 32)
+              : Math.max(Math.min(numberValue(block.height, 54), 58), 44);
             const radius = Math.max(numberValue(block.border_radius, 18), 12);
+            const fontSize = isSecondaryAction
+              ? Math.max(Math.min(numberValue(block.font_size, 16), 18), 13)
+              : Math.max(Math.min(numberValue(block.font_size, 18), 22), 16);
 
             return `
               <div
@@ -645,7 +663,7 @@ export function renderizarTemplateVisual(
                   background:${cssValue(block.background, "rgba(255,255,255,.14)")};
                   color:${block.color || "#ffffff"};
                   font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;
-                  font-size:${numberValue(block.font_size, 18)}px;
+                  font-size:${fontSize}px;
                   font-weight:900;
                 "
               >
@@ -660,10 +678,7 @@ export function renderizarTemplateVisual(
 
   const footerHtml = footerTemConteudo
     ? `
-      <section
-        class="omnistage-fluid-footer"
-        style="top:${footerTop}px;"
-      >
+      <section class="omnistage-fluid-footer">
         ${guestPickerHtml}
         ${actionsHtml}
       </section>
@@ -827,19 +842,19 @@ export function renderizarTemplateVisual(
             position:absolute;
             left:0;
             right:0;
-            bottom:0;
+            bottom:18px;
             z-index:120;
             display:flex;
             flex-direction:column;
             justify-content:flex-end;
-            gap:12px;
-            padding:18px 22px 22px;
+            gap:10px;
+            padding:0 22px;
             pointer-events:auto;
           }
 
           .omnistage-fluid-guest-picker {
             width:100%;
-            max-height:220px;
+            max-height:178px;
             min-height:0;
             overflow-y:auto;
             overflow-x:hidden;
@@ -864,11 +879,13 @@ export function renderizarTemplateVisual(
           .omnistage-fluid-actions {
             display:flex;
             flex-direction:column;
-            gap:10px;
+            align-items:center;
+            gap:8px;
           }
 
           .omnistage-fluid-button {
-            width:100%;
+            width:min(100%, 330px);
+            margin:0 auto;
             display:flex;
             align-items:center;
             justify-content:center;
@@ -904,7 +921,7 @@ export function renderizarTemplateVisual(
             gap:8px;
             color:inherit;
             font-family:inherit;
-            font-size:18px;
+            font-size:17px;
             font-weight:900;
             line-height:1.05;
             min-height:26px;
@@ -1199,8 +1216,8 @@ export function injetarConvidadosNoConvite(
   const nomesHtml = nomesLimpos
     .map(
       (nome) => `
-        <label class="name-option selected" style="display:flex;align-items:center;gap:8px;color:inherit;font-family:inherit;font-size:18px;font-weight:900;line-height:1.05;min-height:26px;">
-          <input type="checkbox" checked name="guest-confirmation" style="width:18px;height:18px;accent-color:#f7d477;flex-shrink:0;" />
+        <label class="name-option selected" style="display:flex;align-items:center;gap:8px;color:inherit;font-family:inherit;font-size:17px;font-weight:900;line-height:1.05;min-height:26px;">
+          <input type="checkbox" checked name="guest-confirmation" style="width:17px;height:17px;accent-color:#f7d477;flex-shrink:0;" />
           <span>${escapeHtml(nome)}</span>
         </label>
       `
