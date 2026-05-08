@@ -88,13 +88,14 @@ export default function ConvitePublicoPage() {
       ? convidadosOrdenados
       : (convidadosPorToken as Convidado[]);
 
-    const abriuComUmToken = tokens.length === 1;
-
-    if (
-      abriuComUmToken &&
-      convidadoBase?.grupo &&
-      convidadoBase.tipo_convite !== "individual"
-    ) {
+    /*
+      Regra correta:
+      - Se a URL tiver vários tokens separados por vírgula, usa exatamente esses tokens.
+      - Se a URL tiver apenas 1 token e esse convidado tiver grupo, carrega todos do mesmo grupo.
+      - Não usamos tipo_convite aqui, porque no seu cadastro o responsável do grupo pode estar marcado como individual/contato principal,
+        mas o convite precisa continuar exibindo todos os integrantes do grupo.
+    */
+    if (tokens.length === 1 && convidadoBase?.grupo) {
       const { data: convidadosGrupo } = await supabase
         .from("convidados")
         .select("id,nome,token,evento_id,grupo,tipo_convite")
