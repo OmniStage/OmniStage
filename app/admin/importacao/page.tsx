@@ -952,6 +952,55 @@ export default function AdminImportacaoPage() {
     }
   }
 
+  async function atualizarConvidadosExistentes() {
+    if (!tenantId || !eventoId || !batchId) {
+      alert("Gere uma prévia antes de atualizar convidados existentes.");
+      return;
+    }
+
+    const duplicadosParaAtualizar = preview.filter((item) => item.is_duplicate).length;
+
+    if (duplicadosParaAtualizar === 0) {
+      alert("Nenhum convidado duplicado encontrado na prévia para atualizar.");
+      return;
+    }
+
+    const confirmar = confirm(
+      `Atualizar ${duplicadosParaAtualizar} convidado(s) já cadastrado(s) com os dados mais recentes da planilha? Token, QR, check-in e histórico de envio serão preservados.`
+    );
+
+    if (!confirmar) return;
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/import-legacy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_existing",
+          tenantId,
+          eventoId,
+          batchId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao atualizar convidados existentes.");
+      }
+
+      alert(`${result.updated || 0} convidado(s) existente(s) atualizado(s) com sucesso.`);
+
+      await carregarHistorico(tenantId, eventoId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao atualizar convidados existentes.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function reverterImportacao(batchIdParaReverter: string) {
     if (!tenantId || !eventoId) return;
 
@@ -1304,6 +1353,16 @@ export default function AdminImportacaoPage() {
               >
                 Importar selecionados ({totalSelecionados})
               </button>
+
+              {totalDuplicados > 0 && (
+                <button
+                  onClick={atualizarConvidadosExistentes}
+                  disabled={loading || !batchId}
+                  style={blueButtonStyle}
+                >
+                  Atualizar existentes ({totalDuplicados})
+                </button>
+              )}
 
               <button
                 onClick={cancelarPrevia}
@@ -1801,6 +1860,16 @@ const goldButtonStyle: CSSProperties = {
   border: "1px solid #facc15",
   background: "#fefce8",
   color: "#854d0e",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const blueButtonStyle: CSSProperties = {
+  padding: "14px 20px",
+  borderRadius: 14,
+  border: "1px solid #bfdbfe",
+  background: "#eff6ff",
+  color: "#1d4ed8",
   fontWeight: 900,
   cursor: "pointer",
 };
