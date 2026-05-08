@@ -563,10 +563,27 @@ export function renderizarTemplateVisual(
   const blocosHtml = blocosNormais
     .map((block) => {
       const isDivider = block.type === "divider";
+      const textoReferencia = `${block.type || ""} ${block.label || ""} ${block.content || ""}`
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
       const isCentralInfo =
         block.type === "date_time" ||
         block.type === "location" ||
-        block.type === "countdown";
+        block.type === "countdown" ||
+        textoReferencia.includes("data") ||
+        textoReferencia.includes("horario") ||
+        textoReferencia.includes("local") ||
+        textoReferencia.includes("endereco") ||
+        textoReferencia.includes("contador") ||
+        textoReferencia.includes("{{data_evento}}") ||
+        textoReferencia.includes("{{data_horario_evento}}") ||
+        textoReferencia.includes("{{horario_evento}}") ||
+        textoReferencia.includes("{{local_evento}}") ||
+        textoReferencia.includes("{{endereco_evento}}") ||
+        textoReferencia.includes("{{contador_evento}}");
+
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
       const blockLeft = isCentralInfo ? 22 : numberValue(block.x, 0);
@@ -575,6 +592,9 @@ export function renderizarTemplateVisual(
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
+          data-block-label="${escapeHtml(block.label || "")}"
+          data-block-content="${escapeHtml(block.content || "")}"
+          data-central-info="${isCentralInfo ? "true" : "false"}"
           data-base-y="${numberValue(block.y, 0)}"
           data-base-height="${numberValue(block.height, 60)}"
           style="
@@ -721,6 +741,68 @@ export function renderizarTemplateVisual(
           setInterval(function () { counters.forEach(updateCountdown); }, 1000);
         }
       });
+    </script>
+  `;
+
+
+  const centralInfoRuntimeScript = `
+    <script>
+      (function () {
+        function normalizar(value) {
+          return String(value || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\\u0300-\\u036f]/g, "");
+        }
+
+        function ajustarInfoCentral() {
+          var elementos = Array.from(document.querySelectorAll("[data-block-type]"));
+
+          elementos.forEach(function (el) {
+            var tipo = normalizar(el.getAttribute("data-block-type"));
+            var label = normalizar(el.getAttribute("data-block-label"));
+            var content = normalizar(el.getAttribute("data-block-content"));
+            var texto = normalizar(el.textContent);
+            var alvo =
+              el.getAttribute("data-central-info") === "true" ||
+              tipo === "date_time" ||
+              tipo === "location" ||
+              tipo === "countdown" ||
+              label.includes("data") ||
+              label.includes("horario") ||
+              label.includes("local") ||
+              label.includes("endereco") ||
+              label.includes("contador") ||
+              content.includes("data_evento") ||
+              content.includes("data_horario_evento") ||
+              content.includes("horario_evento") ||
+              content.includes("local_evento") ||
+              content.includes("endereco_evento") ||
+              content.includes("contador_evento") ||
+              /^\\d{1,2}\\s+de\\s+/.test(texto);
+
+            if (!alvo) return;
+
+            el.style.left = "22px";
+            el.style.width = "386px";
+            el.style.textAlign = "center";
+            el.style.alignItems = "center";
+            el.style.justifyContent = "center";
+            el.style.marginLeft = "0";
+            el.style.marginRight = "0";
+          });
+        }
+
+        window.addEventListener("DOMContentLoaded", function () {
+          ajustarInfoCentral();
+          setTimeout(ajustarInfoCentral, 80);
+          setTimeout(ajustarInfoCentral, 250);
+          setTimeout(ajustarInfoCentral, 700);
+        });
+
+        window.addEventListener("load", ajustarInfoCentral);
+        window.addEventListener("resize", ajustarInfoCentral);
+      })();
     </script>
   `;
 
@@ -923,6 +1005,7 @@ export function renderizarTemplateVisual(
             overflow:visible !important;
           }
 
+          [data-central-info="true"],
           [data-block-type="date_time"],
           [data-block-type="location"],
           [data-block-type="countdown"] {
@@ -931,8 +1014,11 @@ export function renderizarTemplateVisual(
             text-align:center !important;
             align-items:center !important;
             justify-content:center !important;
+            padding-left:8px !important;
+            padding-right:8px !important;
           }
 
+          [data-central-info="true"],
           [data-block-type="location"] {
             overflow-wrap:anywhere;
             word-break:normal;
@@ -992,6 +1078,7 @@ export function renderizarTemplateVisual(
         </div>
 
         ${countdownScript}
+        ${centralInfoRuntimeScript}
         ${responsiveScaleScript}
       </body>
     </html>
