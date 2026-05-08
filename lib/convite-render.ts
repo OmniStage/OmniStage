@@ -563,8 +563,14 @@ export function renderizarTemplateVisual(
   const blocosHtml = blocosNormais
     .map((block) => {
       const isDivider = block.type === "divider";
+      const isCentralInfo =
+        block.type === "date_time" ||
+        block.type === "location" ||
+        block.type === "countdown";
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
+      const blockLeft = isCentralInfo ? 22 : numberValue(block.x, 0);
+      const blockWidth = isCentralInfo ? 386 : numberValue(block.width, 200);
 
       return `
         <div
@@ -573,9 +579,9 @@ export function renderizarTemplateVisual(
           data-base-height="${numberValue(block.height, 60)}"
           style="
             position:absolute;
-            left:${numberValue(block.x, 0)}px;
+            left:${blockLeft}px;
             top:${numberValue(block.y, 0)}px;
-            width:${numberValue(block.width, 200)}px;
+            width:${blockWidth}px;
             height:${numberValue(block.height, 60)}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
@@ -915,6 +921,21 @@ export function renderizarTemplateVisual(
             gap:6px !important;
             padding:0 !important;
             overflow:visible !important;
+          }
+
+          [data-block-type="date_time"],
+          [data-block-type="location"],
+          [data-block-type="countdown"] {
+            left:22px !important;
+            width:386px !important;
+            text-align:center !important;
+            align-items:center !important;
+            justify-content:center !important;
+          }
+
+          [data-block-type="location"] {
+            overflow-wrap:anywhere;
+            word-break:normal;
           }
 
           .name-option {
