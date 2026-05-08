@@ -1233,6 +1233,15 @@ export function injetarConvidadosNoConvite(
         var isGrupo = nomes.length > 1;
         var nomeIndividual = nomes[0] || "Convidado";
 
+        function escapeHtmlClient(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
         var guestName = document.getElementById("guestName");
         if (guestName) {
           if (isGrupo) {
@@ -1273,11 +1282,10 @@ export function injetarConvidadosNoConvite(
             picker.style.overscrollBehavior = "contain";
             picker.classList.remove("hidden");
           } else {
-            picker.innerHTML = `
-              <div class="name-option selected" style="display:flex;align-items:center;gap:8px;color:inherit;font-family:inherit;font-size:17px;font-weight:900;line-height:1.05;min-height:24px;">
-                <span>${nomeIndividual}</span>
-              </div>
-            `;
+            picker.innerHTML =
+              '<div class="name-option selected" style="display:flex;align-items:center;justify-content:center;gap:8px;color:inherit;font-family:inherit;font-size:17px;font-weight:900;line-height:1.05;min-height:24px;text-align:center;">' +
+              '<span>' + escapeHtmlClient(nomeIndividual) + '</span>' +
+              '</div>';
             picker.style.display = "flex";
             picker.style.flexDirection = "column";
             picker.style.alignItems = "center";
