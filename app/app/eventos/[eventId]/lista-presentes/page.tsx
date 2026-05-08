@@ -62,11 +62,16 @@ function normalizarMoeda(valor: string) {
 }
 
 function formatarMoeda(valor: number | null | undefined) {
-  if (valor === null || valor === undefined) return "Valor livre";
+  if (valor === null || valor === undefined || Number.isNaN(valor)) return "Valor livre";
   return valor.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function valorParaInput(valor: number | null | undefined) {
+  if (valor === null || valor === undefined || Number.isNaN(valor)) return "";
+  return Number(valor).toFixed(2).replace(".", ",");
 }
 
 export default function ListaPresentesEventoPage() {
@@ -86,6 +91,7 @@ export default function ListaPresentesEventoPage() {
   const [salvandoItem, setSalvandoItem] = useState(false);
   const [toast, setToast] = useState("");
   const [formItem, setFormItem] = useState<FormItem>(formItemInicial);
+  const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (eventId) carregarTudo();
@@ -198,7 +204,38 @@ export default function ListaPresentesEventoPage() {
     await carregarEvento();
   }
 
-  async function criarItem() {
+  function editarItem(item: GiftItem) {
+    setItemEditandoId(item.id);
+
+    setFormItem({
+      tipo:
+        item.tipo === "experiencia"
+          ? "experiencia"
+          : item.tipo === "presente_valor" || item.tipo === "cota_pix"
+          ? "presente_valor"
+          : "presente",
+      nome: item.nome || "",
+      descricao: item.descricao || "",
+      valor_sugerido: valorParaInput(item.valor_sugerido),
+      imagem_url: item.imagem_url || "",
+      quantidade_total: item.quantidade_total ? String(item.quantidade_total) : "",
+      ativo: item.ativo === true,
+    });
+
+    setTimeout(() => {
+      document.getElementById("form-item-lista-presentes")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  }
+
+  function cancelarEdicao() {
+    setItemEditandoId(null);
+    setFormItem(formItemInicial);
+  }
+
+  async function salvarItem() {
     if (!evento?.tenant_id) {
       alert("Evento sem tenant vinculado.");
       return;
@@ -222,12 +259,35 @@ export default function ListaPresentesEventoPage() {
       quantidade_total: formItem.quantidade_total
         ? Number(formItem.quantidade_total)
         : null,
-      quantidade_reservada: 0,
       ativo: formItem.ativo,
-      ordem: items.length + 1,
     };
 
-    const { error } = await supabase.from("gift_items").insert(payload);
+    if (itemEditandoId) {
+      const { error } = await supabase
+        .from("gift_items")
+        .update(payload)
+        .eq("id", itemEditandoId)
+        .eq("evento_id", evento.id);
+
+      if (error) {
+        alert("Erro ao atualizar item: " + error.message);
+        setSalvandoItem(false);
+        return;
+      }
+
+      setItemEditandoId(null);
+      setFormItem(formItemInicial);
+      setSalvandoItem(false);
+      showToast("Item atualizado com sucesso.");
+      await carregarItems();
+      return;
+    }
+
+    const { error } = await supabase.from("gift_items").insert({
+      ...payload,
+      quantidade_reservada: 0,
+      ordem: items.length + 1,
+    });
 
     if (error) {
       alert("Erro ao criar item: " + error.message);
@@ -266,6 +326,8 @@ export default function ListaPresentesEventoPage() {
       return;
     }
 
+    if (itemEditandoId === item.id) cancelarEdicao();
+
     showToast("Item excluído.");
     await carregarItems();
   }
@@ -283,19 +345,11 @@ export default function ListaPresentesEventoPage() {
   }, [items]);
 
   if (loading) {
-    return (
-      <div style={loadingStyle}>
-        Carregando lista de presentes...
-      </div>
-    );
+    return <div style={loadingStyle}>Carregando lista de presentes...</div>;
   }
 
   if (!evento) {
-    return (
-      <div style={loadingStyle}>
-        Evento não encontrado.
-      </div>
-    );
+    return <div style={loadingStyle}>Evento não encontrado.</div>;
   }
 
   return (
@@ -358,7 +412,7 @@ export default function ListaPresentesEventoPage() {
           flex-wrap: wrap;
         }
 
-        .primary, .secondary, .danger {
+        .primary, .secondary, .danger, .warning {
           border: none;
           border-radius: 15px;
           font-weight: 950;
@@ -384,13 +438,20 @@ export default function ListaPresentesEventoPage() {
           border: 1px solid rgba(203,213,225,.95);
         }
 
+        .warning {
+          background: #fef3c7;
+          color: #92400e;
+          padding: 11px 14px;
+          border: 1px solid rgba(245,158,11,.24);
+        }
+
         .danger {
           background: #fee2e2;
           color: #991b1b;
           padding: 11px 14px;
         }
 
-        .primary:hover, .secondary:hover, .danger:hover {
+        .primary:hover, .secondary:hover, .danger:hover, .warning:hover {
           transform: translateY(-1px);
         }
 
@@ -429,6 +490,11 @@ export default function ListaPresentesEventoPage() {
         .panel {
           border-radius: 26px;
           padding: 26px;
+        }
+
+        .panel.editing {
+          border-color: rgba(124,58,237,.35);
+          box-shadow: 0 0 0 5px rgba(124,58,237,.08), 0 24px 70px rgba(15,23,42,.08);
         }
 
         .panel-head {
@@ -541,6 +607,11 @@ export default function ListaPresentesEventoPage() {
           display: flex;
           flex-direction: column;
           gap: 12px;
+        }
+
+        .gift-card.editing {
+          border-color: rgba(124,58,237,.40);
+          box-shadow: 0 0 0 4px rgba(124,58,237,.08);
         }
 
         .gift-img {
@@ -810,14 +881,27 @@ export default function ListaPresentesEventoPage() {
         </div>
       </section>
 
-      <section className="panel">
+      <section
+        id="form-item-lista-presentes"
+        className={itemEditandoId ? "panel editing" : "panel"}
+      >
         <div className="panel-head">
           <div>
-            <h2 className="panel-title">Adicionar item</h2>
+            <h2 className="panel-title">
+              {itemEditandoId ? "Editar item" : "Adicionar item"}
+            </h2>
             <p className="panel-desc">
-              Cadastre presentes físicos, experiências ou sugestões de presentes em valor.
+              {itemEditandoId
+                ? "Altere as informações do item selecionado e salve."
+                : "Cadastre presentes físicos, experiências ou sugestões de presentes em valor."}
             </p>
           </div>
+
+          {itemEditandoId && (
+            <button onClick={cancelarEdicao} className="secondary">
+              Cancelar edição
+            </button>
+          )}
         </div>
 
         <div className="form-grid">
@@ -917,10 +1001,20 @@ export default function ListaPresentesEventoPage() {
           </label>
         </div>
 
-        <div style={{ marginTop: 18 }}>
-          <button onClick={criarItem} disabled={salvandoItem} className="primary">
-            {salvandoItem ? "Salvando..." : "Adicionar item"}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+          <button onClick={salvarItem} disabled={salvandoItem} className="primary">
+            {salvandoItem
+              ? "Salvando..."
+              : itemEditandoId
+              ? "Salvar alterações"
+              : "Adicionar item"}
           </button>
+
+          {itemEditandoId && (
+            <button onClick={cancelarEdicao} className="secondary">
+              Cancelar
+            </button>
+          )}
         </div>
       </section>
 
@@ -943,7 +1037,10 @@ export default function ListaPresentesEventoPage() {
         ) : (
           <div className="items-list">
             {items.map((item) => (
-              <article key={item.id} className="gift-card">
+              <article
+                key={item.id}
+                className={itemEditandoId === item.id ? "gift-card editing" : "gift-card"}
+              >
                 {item.imagem_url ? (
                   <img className="gift-img" src={item.imagem_url} alt={item.nome} />
                 ) : (
@@ -956,7 +1053,7 @@ export default function ListaPresentesEventoPage() {
                     {item.ativo ? "Ativo" : "Inativo"}
                   </span>
                   <span className="badge badge-yellow">
-                    {formatarMoeda(Number(item.valor_sugerido))}
+                    {formatarMoeda(item.valor_sugerido)}
                   </span>
                 </div>
 
@@ -965,6 +1062,10 @@ export default function ListaPresentesEventoPage() {
                 {item.descricao && <p className="gift-desc">{item.descricao}</p>}
 
                 <div className="card-actions">
+                  <button onClick={() => editarItem(item)} className="warning">
+                    Editar
+                  </button>
+
                   <button onClick={() => alternarAtivo(item)} className="secondary">
                     {item.ativo ? "Desativar" : "Ativar"}
                   </button>
@@ -1008,3 +1109,4 @@ const loadingStyle: React.CSSProperties = {
   color: "#0f172a",
   fontWeight: 900,
 };
+
