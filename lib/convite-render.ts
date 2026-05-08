@@ -1340,9 +1340,8 @@ export function injetarConvidadosNoConvite(
 
         var options = document.querySelectorAll(".name-option");
         options.forEach(function(option) {
-          option.style.display = isGrupo ? "flex" : "none";
-          if (isGrupo) option.classList.remove("hidden");
-          else option.classList.add("hidden");
+          option.style.display = "flex";
+          option.classList.remove("hidden");
         });
 
         var inputs = document.querySelectorAll('input[name="guest-confirmation"]');
