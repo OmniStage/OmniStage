@@ -527,22 +527,33 @@ export function renderizarTemplateVisual(
   const glassBlur = numberValue(visualConfig.glassBlur, 0);
   const glassTone = visualConfig.glassTone === "light" ? "light" : "dark";
 
-  const blocosHtml = blocks
+  const blocosVisiveis = blocks
     .filter((block) => block.visible !== false)
-    .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
+    .sort((a, b) => (a.z_index || 1) - (b.z_index || 1));
+
+  /*
+    Render híbrido:
+    - Admin/editor continua absoluto em outras telas.
+    - Cliente público usa este renderizador:
+      blocos normais absolutos + guest_picker/botões em rodapé fluido.
+  */
+  const blocosNormais = blocosVisiveis.filter(
+    (block) => block.type !== "guest_picker" && block.type !== "button",
+  );
+
+  const blocoGuestPicker = blocosVisiveis.find(
+    (block) => block.type === "guest_picker",
+  );
+
+  const blocosButtons = blocosVisiveis
+    .filter((block) => block.type === "button")
+    .sort((a, b) => numberValue(a.y, 0) - numberValue(b.y, 0));
+
+  const blocosHtml = blocosNormais
     .map((block) => {
       const isDivider = block.type === "divider";
-      const isGuestPicker = block.type === "guest_picker";
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
-
-      const heightStyle = `height:${numberValue(block.height, 60)}px;`;
-
-      const overflowStyle = isGuestPicker
-        ? "overflow-y:auto;overflow-x:hidden;"
-        : "overflow:hidden;";
-      const alignItems = isGuestPicker ? "stretch" : "center";
-      const justifyContent = isGuestPicker ? "flex-start" : "center";
 
       return `
         <div
@@ -554,7 +565,7 @@ export function renderizarTemplateVisual(
             left:${numberValue(block.x, 0)}px;
             top:${numberValue(block.y, 0)}px;
             width:${numberValue(block.width, 200)}px;
-            ${heightStyle}
+            height:${numberValue(block.height, 60)}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
             border-radius:${numberValue(block.border_radius, 0)}px;
@@ -564,12 +575,12 @@ export function renderizarTemplateVisual(
             font-size:${numberValue(block.font_size, 24)}px;
             font-weight:900;
             display:flex;
-            align-items:${alignItems};
-            justify-content:${justifyContent};
+            align-items:center;
+            justify-content:center;
             text-align:center;
             line-height:1.12;
             padding:${padding}px;
-            ${overflowStyle}
+            overflow:hidden;
             white-space:pre-wrap;
           "
         >
@@ -578,6 +589,86 @@ export function renderizarTemplateVisual(
       `;
     })
     .join("");
+
+  const footerTemConteudo = Boolean(blocoGuestPicker || blocosButtons.length);
+
+  const footerTop = Math.max(
+    520,
+    Math.min(
+      760,
+      Math.min(
+        ...[
+          blocoGuestPicker ? numberValue(blocoGuestPicker.y, 650) : 650,
+          ...blocosButtons.map((block) => numberValue(block.y, 760)),
+        ],
+      ),
+    ),
+  );
+
+  const guestPickerHtml = blocoGuestPicker
+    ? `
+      <div
+        class="omnistage-fluid-guest-picker"
+        data-block-type="guest_picker"
+        data-base-y="${numberValue(blocoGuestPicker.y, footerTop)}"
+        data-base-height="${numberValue(blocoGuestPicker.height, 150)}"
+        style="
+          color:${blocoGuestPicker.color || "#ffffff"};
+          background:${cssValue(blocoGuestPicker.background, "rgba(8,15,35,.70)")};
+          border-radius:${Math.max(numberValue(blocoGuestPicker.border_radius, 22), 14)}px;
+          font-family:${escapeHtml(blocoGuestPicker.font_family || "Inter")}, Arial, sans-serif;
+          font-size:${Math.min(Math.max(numberValue(blocoGuestPicker.font_size, 18), 14), 22)}px;
+        "
+      >
+        ${renderizarConteudoBloco(blocoGuestPicker, evento)}
+      </div>
+    `
+    : "";
+
+  const actionsHtml = blocosButtons.length
+    ? `
+      <div class="omnistage-fluid-actions">
+        ${blocosButtons
+          .map((block) => {
+            const minHeight = Math.max(numberValue(block.height, 54), 42);
+            const radius = Math.max(numberValue(block.border_radius, 18), 12);
+
+            return `
+              <div
+                class="omnistage-fluid-button"
+                data-block-type="button"
+                data-base-y="${numberValue(block.y, 0)}"
+                data-base-height="${numberValue(block.height, 54)}"
+                style="
+                  min-height:${minHeight}px;
+                  border-radius:${radius}px;
+                  background:${cssValue(block.background, "rgba(255,255,255,.14)")};
+                  color:${block.color || "#ffffff"};
+                  font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;
+                  font-size:${numberValue(block.font_size, 18)}px;
+                  font-weight:900;
+                "
+              >
+                ${renderizarConteudoBloco(block, evento)}
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    `
+    : "";
+
+  const footerHtml = footerTemConteudo
+    ? `
+      <section
+        class="omnistage-fluid-footer"
+        style="top:${footerTop}px;"
+      >
+        ${guestPickerHtml}
+        ${actionsHtml}
+      </section>
+    `
+    : "";
 
   const countdownScript = `
     <script>
@@ -732,25 +823,79 @@ export function renderizarTemplateVisual(
             user-select:none;
           }
 
-          [data-block-type="guest_picker"] {
-            scrollbar-width: thin;
-            overscroll-behavior: contain;
+          .omnistage-fluid-footer {
+            position:absolute;
+            left:0;
+            right:0;
+            bottom:0;
+            z-index:120;
+            display:flex;
+            flex-direction:column;
+            justify-content:flex-end;
+            gap:12px;
+            padding:18px 22px 22px;
+            pointer-events:auto;
           }
 
-          [data-block-type="guest_picker"]::-webkit-scrollbar {
-            width: 6px;
+          .omnistage-fluid-guest-picker {
+            width:100%;
+            max-height:220px;
+            min-height:0;
+            overflow-y:auto;
+            overflow-x:hidden;
+            backdrop-filter:blur(12px);
+            -webkit-backdrop-filter:blur(12px);
+            padding:14px;
+            box-sizing:border-box;
+            scrollbar-width:thin;
+            overscroll-behavior:contain;
+            box-shadow:0 14px 38px rgba(0,0,0,.20);
           }
 
-          [data-block-type="guest_picker"]::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,.35);
-            border-radius: 999px;
+          .omnistage-fluid-guest-picker::-webkit-scrollbar {
+            width:6px;
+          }
+
+          .omnistage-fluid-guest-picker::-webkit-scrollbar-thumb {
+            background:rgba(255,255,255,.35);
+            border-radius:999px;
+          }
+
+          .omnistage-fluid-actions {
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+          }
+
+          .omnistage-fluid-button {
+            width:100%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            overflow:hidden;
+            box-shadow:0 12px 28px rgba(0,0,0,.18);
+          }
+
+          .omnistage-fluid-button a,
+          .omnistage-fluid-button button {
+            width:100% !important;
+            min-height:inherit !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            text-align:center !important;
           }
 
           #namePicker {
-            min-height: 0 !important;
-            max-height: 100% !important;
-            overscroll-behavior: contain;
-            -webkit-overflow-scrolling: touch;
+            width:100% !important;
+            height:auto !important;
+            max-height:100% !important;
+            min-height:0 !important;
+            display:flex;
+            flex-direction:column;
+            gap:6px !important;
+            padding:0 !important;
+            overflow:visible !important;
           }
 
           .name-option {
@@ -800,6 +945,7 @@ export function renderizarTemplateVisual(
                 };backdrop-filter:${glassBlur ? `blur(${glassBlur}px)` : "none"};"></div>
 
                 ${blocosHtml}
+                ${footerHtml}
               </div>
             </main>
           </div>
@@ -1101,10 +1247,10 @@ export function injetarConvidadosNoConvite(
             picker.style.justifyContent = "flex-start";
             picker.style.gap = "6px";
             picker.style.padding = "8px 10px";
-            picker.style.height = "100%";
-            picker.style.maxHeight = "100%";
+            picker.style.height = "auto";
+            picker.style.maxHeight = "none";
             picker.style.minHeight = "0";
-            picker.style.overflowY = "auto";
+            picker.style.overflowY = "visible";
             picker.style.overflowX = "hidden";
             picker.style.webkitOverflowScrolling = "touch";
             picker.style.overscrollBehavior = "contain";
@@ -1119,12 +1265,9 @@ export function injetarConvidadosNoConvite(
           if (pickerBlock) {
             if (isGrupo) {
               pickerBlock.style.display = "";
-              pickerBlock.style.overflow = "hidden";
               pickerBlock.style.minHeight = "0";
-              pickerBlock.style.overflowY = "hidden";
+              pickerBlock.style.overflowY = "auto";
               pickerBlock.style.overflowX = "hidden";
-              pickerBlock.style.alignItems = "stretch";
-              pickerBlock.style.justifyContent = "flex-start";
             } else {
               pickerBlock.style.display = "none";
             }
