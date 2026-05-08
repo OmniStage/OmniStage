@@ -588,6 +588,24 @@ export async function POST(req: Request) {
         updated++;
       }
 
+      const { error: batchUpdateError } = await supabase
+        .from("guest_import_batches")
+        .update({
+          status: "updated",
+          imported_rows: updated,
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq("id", batchId)
+        .eq("tenant_id", tenantId)
+        .eq("event_id", eventoId);
+
+      if (batchUpdateError) {
+        return NextResponse.json(
+          { error: batchUpdateError.message },
+          { status: 500 }
+        );
+      }
+
       await supabase.from("import_logs").insert({
         tenant_id: tenantId,
         evento_id: eventoId,
