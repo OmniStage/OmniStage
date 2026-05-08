@@ -204,6 +204,44 @@ export default function ListaPresentesEventoPage() {
     await carregarEvento();
   }
 
+  async function uploadImagemItem(file: File) {
+    if (!evento?.tenant_id) {
+      alert("Evento sem tenant vinculado.");
+      return;
+    }
+
+    const extensao = file.name.split(".").pop() || "jpg";
+    const nomeArquivo = `${evento.tenant_id}/gift-items/${evento.id}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${extensao}`;
+
+    const { error } = await supabase.storage
+      .from("event-assets")
+      .upload(nomeArquivo, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      alert(
+        "Erro ao enviar imagem. Confirme se o bucket 'event-assets' existe e está público. Detalhe: " +
+          error.message
+      );
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("event-assets")
+      .getPublicUrl(nomeArquivo);
+
+    setFormItem((old) => ({
+      ...old,
+      imagem_url: data.publicUrl,
+    }));
+
+    showToast("Imagem enviada com sucesso.");
+  }
+
   function editarItem(item: GiftItem) {
     setItemEditandoId(item.id);
 
@@ -535,6 +573,38 @@ export default function ListaPresentesEventoPage() {
           font-size: 14px;
           font-weight: 950;
           margin-bottom: 8px;
+        }
+
+        .field-help {
+          margin-top: 8px;
+          color: #64748b;
+          font-size: 12px;
+          line-height: 1.4;
+          font-weight: 750;
+        }
+
+        .image-preview-box {
+          margin-top: 12px;
+          border: 1px solid rgba(226,232,240,.95);
+          border-radius: 18px;
+          overflow: hidden;
+          background: #f8fafc;
+        }
+
+        .image-preview-box img {
+          width: 100%;
+          max-height: 260px;
+          object-fit: cover;
+          display: block;
+          background: #f1f5f9;
+        }
+
+        .image-preview-box a {
+          display: inline-flex;
+          margin: 12px;
+          color: #6d28d9;
+          font-weight: 900;
+          text-decoration: none;
         }
 
         .input, .select, .textarea {
@@ -960,15 +1030,19 @@ export default function ListaPresentesEventoPage() {
           </label>
 
           <label>
-            <span className="field-label">Imagem URL</span>
+            <span className="field-label">Imagem do item</span>
             <input
+              type="file"
+              accept="image/*"
               className="input"
-              value={formItem.imagem_url}
-              onChange={(e) =>
-                setFormItem((old) => ({ ...old, imagem_url: e.target.value }))
-              }
-              placeholder="https://..."
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadImagemItem(file);
+              }}
             />
+            <div className="field-help">
+              Envie uma imagem do computador. Links de produto, como Mercado Livre, não são imagem direta.
+            </div>
           </label>
 
           <label>
@@ -984,6 +1058,26 @@ export default function ListaPresentesEventoPage() {
               }
               placeholder="Opcional"
             />
+          </label>
+
+          <label className="full">
+            <span className="field-label">URL da imagem</span>
+            <input
+              className="input"
+              value={formItem.imagem_url}
+              onChange={(e) =>
+                setFormItem((old) => ({ ...old, imagem_url: e.target.value }))
+              }
+              placeholder="https://...jpg ou imagem enviada automaticamente"
+            />
+            {formItem.imagem_url && (
+              <div className="image-preview-box">
+                <img src={formItem.imagem_url} alt="Preview do item" />
+                <a href={formItem.imagem_url} target="_blank" rel="noreferrer">
+                  Abrir imagem
+                </a>
+              </div>
+            )}
           </label>
 
           <label className="full toggle-card">
