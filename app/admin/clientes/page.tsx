@@ -28,6 +28,7 @@ type Tenant = {
   tipo: string | null;
   responsavel_nome: string | null;
   onboarding_completed: boolean | null;
+  lista_presentes_enabled: boolean | null;
   planos?: PlanoRelacao | null;
 };
 
@@ -61,6 +62,7 @@ type TenantForm = {
   plano_id: string;
   tipo: string;
   responsavel_nome: string;
+  lista_presentes_enabled: boolean;
 };
 
 const formInicial: TenantForm = {
@@ -72,6 +74,7 @@ const formInicial: TenantForm = {
   plano_id: "",
   tipo: "empresa",
   responsavel_nome: "",
+  lista_presentes_enabled: false,
 };
 
 function normalizarId(valor: string | null | undefined) {
@@ -132,7 +135,8 @@ export default function AdminClientesPage() {
         plano_id,
         tipo,
         responsavel_nome,
-        onboarding_completed
+        onboarding_completed,
+        lista_presentes_enabled
       `)
       .order("created_at", { ascending: false });
 
@@ -268,6 +272,7 @@ export default function AdminClientesPage() {
       plano_id: tenant.plano_id || "",
       tipo: tenant.tipo || "empresa",
       responsavel_nome: tenant.responsavel_nome || "",
+      lista_presentes_enabled: tenant.lista_presentes_enabled === true,
     });
 
     setEditandoTenantId(tenant.id);
@@ -293,6 +298,7 @@ export default function AdminClientesPage() {
       tipo: form.tipo || "empresa",
       responsavel_nome: form.responsavel_nome.trim() || null,
       onboarding_completed: true,
+      lista_presentes_enabled: form.lista_presentes_enabled,
     };
 
     if (editandoTenantId) {
@@ -596,6 +602,40 @@ function usuarioDoMembro(membro: TenantMember) {
                 ))}
               </select>
             </label>
+
+            <label style={checkBoxCardStyle}>
+              <input
+                type="checkbox"
+                checked={form.lista_presentes_enabled}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    lista_presentes_enabled: e.target.checked,
+                  }))
+                }
+                style={checkboxStyle}
+              />
+
+              <div>
+                <strong style={{ color: "#0f172a" }}>
+                  Liberar lista de presentes / experiências
+                </strong>
+
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    color: "#64748b",
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                    textTransform: "none",
+                    letterSpacing: 0,
+                  }}
+                >
+                  Permite que o cliente utilize presentes físicos, experiências
+                  e cotas pagas via PIX.
+                </p>
+              </div>
+            </label>
           </div>
 
           <button onClick={salvarTenant} disabled={salvando} style={saveButtonStyle}>
@@ -745,6 +785,9 @@ function usuarioDoMembro(membro: TenantMember) {
                     <span style={planBadgeStyle}>
                       {tenant.planos?.nome || "Sem plano"}
                     </span>
+                    {tenant.lista_presentes_enabled && (
+                      <span style={giftBadgeStyle}>Lista de presentes</span>
+                    )}
                   </div>
 
                   <div style={itemMetaStyle}>{tenant.email || "Sem e-mail"}</div>
@@ -881,4 +924,7 @@ const miniSelectStyle: React.CSSProperties = { border: "1px solid rgba(226,232,2
 const activeBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 950 };
 const blockedBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 950 };
 const planBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#ede9fe", color: "#6d28d9", fontSize: 11, fontWeight: 950 };
+const checkBoxCardStyle: React.CSSProperties = { gridColumn: "1 / -1", display: "flex", alignItems: "flex-start", gap: 12, padding: 14, borderRadius: 18, border: "1px solid rgba(124,58,237,0.18)", background: "linear-gradient(135deg, rgba(124,58,237,0.08), rgba(37,99,235,0.05))", cursor: "pointer", textTransform: "none", letterSpacing: 0 };
+const checkboxStyle: React.CSSProperties = { width: 18, height: 18, marginTop: 2, accentColor: "#7c3aed" };
+const giftBadgeStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 950 };
 const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed rgba(148,163,184,0.5)", color: "#64748b" };
