@@ -64,12 +64,12 @@ export default function ConvitePublicoPage() {
       return;
     }
 
-    const { data: convidados, error: convidadosError } = await supabase
+    const { data: convidadosPorToken, error: convidadosError } = await supabase
       .from("convidados")
       .select("id,nome,token,evento_id,grupo,tipo_convite")
       .in("token", tokens);
 
-    if (convidadosError || !convidados?.length) {
+    if (convidadosError || !convidadosPorToken?.length) {
       setHtmlFinal(htmlErro("Convite não encontrado."));
       setLoading(false);
       return;
@@ -77,15 +77,35 @@ export default function ConvitePublicoPage() {
 
     const convidadosOrdenados = tokens
       .map((tokenItem) =>
-        convidados.find((convidado) => convidado.token === tokenItem),
+        convidadosPorToken.find((convidado) => convidado.token === tokenItem),
       )
       .filter(Boolean) as Convidado[];
 
-    const convidadosDoConvite = convidadosOrdenados.length
-      ? convidadosOrdenados
-      : (convidados as Convidado[]);
+    const convidadoBase =
+      convidadosOrdenados[0] || (convidadosPorToken[0] as Convidado);
 
-    const convidadoBase = convidadosDoConvite[0];
+    let convidadosDoConvite: Convidado[] = convidadosOrdenados.length
+      ? convidadosOrdenados
+      : (convidadosPorToken as Convidado[]);
+
+    const abriuComUmToken = tokens.length === 1;
+
+    if (
+      abriuComUmToken &&
+      convidadoBase?.grupo &&
+      convidadoBase.tipo_convite !== "individual"
+    ) {
+      const { data: convidadosGrupo } = await supabase
+        .from("convidados")
+        .select("id,nome,token,evento_id,grupo,tipo_convite")
+        .eq("evento_id", convidadoBase.evento_id)
+        .eq("grupo", convidadoBase.grupo)
+        .order("nome", { ascending: true });
+
+      if (convidadosGrupo?.length) {
+        convidadosDoConvite = convidadosGrupo as Convidado[];
+      }
+    }
 
     if (!convidadoBase?.evento_id) {
       setHtmlFinal(htmlErro("Convite inválido."));
@@ -174,7 +194,7 @@ export default function ConvitePublicoPage() {
 
       htmlDoEvento = injetarConvidadosNoConvite(
         htmlDoEvento,
-        nomesDoConvite.length ? nomesDoConvite : ["Convidado"],
+        nomesDoConvite.length ? nomesDoConvite : [convidadoBase.nome || "Convidado"],
       );
     } else if (template.html_template?.trim()) {
       htmlDoEvento = preencherTemplate(
@@ -184,7 +204,7 @@ export default function ConvitePublicoPage() {
 
       htmlDoEvento = injetarConvidadosNoConvite(
         htmlDoEvento,
-        nomesDoConvite.length ? nomesDoConvite : ["Convidado"],
+        nomesDoConvite.length ? nomesDoConvite : [convidadoBase.nome || "Convidado"],
       );
     } else {
       setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
