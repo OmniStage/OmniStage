@@ -27,6 +27,7 @@ export default function AdminLayout({
     { name: "Redes / Franquias", href: "/admin/redes" },
     { name: "Eventos", href: "/admin/eventos" },
     { name: "Modelos de Convite", href: "/admin/modelos-convites" },
+    { name: "Lista de Presentes", href: "/admin/lista-presentes" },
     { name: "Usuários", href: "/admin/usuarios" },
     { name: "Planos", href: "/admin/planos" },
     { name: "Importação", href: "/admin/importacao" },
