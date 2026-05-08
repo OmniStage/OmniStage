@@ -37,9 +37,10 @@ export default function AppLayout({
     { name: "Eventos", href: "/app/eventos" },
     { name: "Convidados", href: "/app/convidados" },
     { name: "Convite Digital", href: "/app/convite" },
-    { name: "RSVP", href: "/app/rsvp" },
-    { name: "Check-in / Totem", href: "/app/checkin" },
     { name: "Envios", href: "/app/envios" },
+    { name: "RSVP", href: "/app/rsvp" },
+    { name: "Lista de Presentes", href: "/app/lista-presentes" },
+    { name: "Check-in / Totem", href: "/app/checkin" },
     { name: "Relatórios", href: "/app/relatorios" },
     { name: "Configurações", href: "/app/configuracoes" },
   ];
