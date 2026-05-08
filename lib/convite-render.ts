@@ -1273,9 +1273,23 @@ export function injetarConvidadosNoConvite(
             picker.style.overscrollBehavior = "contain";
             picker.classList.remove("hidden");
           } else {
-            picker.innerHTML = "";
-            picker.style.display = "none";
-            picker.classList.add("hidden");
+            picker.innerHTML = `
+              <div class="name-option selected" style="display:flex;align-items:center;gap:8px;color:inherit;font-family:inherit;font-size:17px;font-weight:900;line-height:1.05;min-height:24px;">
+                <span>${nomeIndividual}</span>
+              </div>
+            `;
+            picker.style.display = "flex";
+            picker.style.flexDirection = "column";
+            picker.style.alignItems = "center";
+            picker.style.justifyContent = "center";
+            picker.style.gap = "6px";
+            picker.style.padding = "8px 10px";
+            picker.style.height = "auto";
+            picker.style.maxHeight = "none";
+            picker.style.minHeight = "0";
+            picker.style.overflowY = "visible";
+            picker.style.overflowX = "hidden";
+            picker.classList.remove("hidden");
           }
 
           var pickerBlock = picker.closest('[data-block-type="guest_picker"]');
@@ -1286,7 +1300,10 @@ export function injetarConvidadosNoConvite(
               pickerBlock.style.overflowY = "auto";
               pickerBlock.style.overflowX = "hidden";
             } else {
-              pickerBlock.style.display = "none";
+              pickerBlock.style.display = "";
+              pickerBlock.style.minHeight = "0";
+              pickerBlock.style.overflowY = "hidden";
+              pickerBlock.style.overflowX = "hidden";
             }
           }
         }
