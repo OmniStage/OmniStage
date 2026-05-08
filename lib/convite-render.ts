@@ -678,7 +678,7 @@ export function renderizarTemplateVisual(
 
   const footerHtml = footerTemConteudo
     ? `
-      <section class="omnistage-fluid-footer">
+      <section class="omnistage-fluid-footer" style="top:${footerTop}px;--fluid-footer-top:${footerTop}px;">
         ${guestPickerHtml}
         ${actionsHtml}
       </section>
@@ -842,25 +842,27 @@ export function renderizarTemplateVisual(
             position:absolute;
             left:0;
             right:0;
-            bottom:18px;
+            bottom:auto;
             z-index:120;
             display:flex;
             flex-direction:column;
-            justify-content:flex-end;
+            justify-content:flex-start;
             gap:10px;
             padding:0 22px;
             pointer-events:auto;
+            max-height:calc(920px - var(--fluid-footer-top, 650px) - 18px);
           }
 
           .omnistage-fluid-guest-picker {
             width:100%;
             max-height:178px;
             min-height:0;
+            height:auto;
             overflow-y:auto;
             overflow-x:hidden;
             backdrop-filter:blur(12px);
             -webkit-backdrop-filter:blur(12px);
-            padding:14px;
+            padding:12px 14px;
             box-sizing:border-box;
             scrollbar-width:thin;
             overscroll-behavior:contain;
@@ -1315,6 +1317,36 @@ export function injetarConvidadosNoConvite(
             }
           }
         }
+
+
+        function ajustarFooterFluido() {
+          var footer = document.querySelector(".omnistage-fluid-footer");
+          var pickerBlock = document.querySelector(".omnistage-fluid-guest-picker");
+          var nomes = window.__OMNISTAGE_GUESTS__ || [];
+          var isGrupo = nomes.length > 1;
+
+          if (!footer) return;
+
+          if (pickerBlock) {
+            if (isGrupo) {
+              pickerBlock.style.display = "";
+              pickerBlock.style.maxHeight = "178px";
+              pickerBlock.style.padding = "12px 14px";
+            } else {
+              pickerBlock.style.display = "";
+              pickerBlock.style.maxHeight = "54px";
+              pickerBlock.style.padding = "10px 14px";
+            }
+          }
+
+          if (window.__OMNISTAGE_RESCALE__) {
+            window.__OMNISTAGE_RESCALE__();
+          }
+        }
+
+        ajustarFooterFluido();
+        setTimeout(ajustarFooterFluido, 80);
+        setTimeout(ajustarFooterFluido, 250);
 
         var hint = document.getElementById("hintText");
         if (hint) {
