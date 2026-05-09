@@ -69,6 +69,77 @@ function normalizarTipo(tipo: string): FiltroTipo {
   return "presente";
 }
 
+function limparTextoPix(valor: string, limite: number) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 $%*+\\-./:]/g, "")
+    .trim()
+    .slice(0, limite);
+}
+
+function emv(id: string, value: string) {
+  const tamanho = String(value.length).padStart(2, "0");
+  return `${id}${tamanho}${value}`;
+}
+
+function crc16(payload: string) {
+  let crc = 0xffff;
+
+  for (let i = 0; i < payload.length; i += 1) {
+    crc ^= payload.charCodeAt(i) << 8;
+
+    for (let j = 0; j < 8; j += 1) {
+      if ((crc & 0x8000) !== 0) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc <<= 1;
+      }
+
+      crc &= 0xffff;
+    }
+  }
+
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+
+function gerarPixCopiaECola({
+  chave,
+  nome,
+  cidade,
+  valor,
+}: {
+  chave: string;
+  nome?: string | null;
+  cidade?: string | null;
+  valor?: number | null;
+}) {
+  const chaveLimpa = chave.trim();
+  const nomePix = limparTextoPix(nome || "Recebedor", 25) || "Recebedor";
+  const cidadePix = limparTextoPix(cidade || "BRASIL", 15) || "BRASIL";
+
+  const merchantAccountInfo = emv("00", "br.gov.bcb.pix") + emv("01", chaveLimpa);
+
+  let payload =
+    emv("00", "01") +
+    emv("26", merchantAccountInfo) +
+    emv("52", "0000") +
+    emv("53", "986");
+
+  if (valor && Number.isFinite(Number(valor)) && Number(valor) > 0) {
+    payload += emv("54", Number(valor).toFixed(2));
+  }
+
+  payload +=
+    emv("58", "BR") +
+    emv("59", nomePix) +
+    emv("60", cidadePix) +
+    emv("62", emv("05", "***"));
+
+  const payloadComCRC = `${payload}6304`;
+  return `${payloadComCRC}${crc16(payloadComCRC)}`;
+}
+
 export default function ListaPresentesPublicaPage() {
   const params = useParams();
   const eventId = String(params?.eventId || "");
@@ -176,6 +247,25 @@ export default function ListaPresentesPublicaPage() {
       setTimeout(() => setCopiado(false), 2500);
     } catch {
       alert("Não foi possível copiar automaticamente. Copie a chave manualmente.");
+    }
+  }
+
+  async function copiarPixCopiaECola(valor?: number | null) {
+    if (!evento?.pix_chave) return;
+
+    const codigoPix = gerarPixCopiaECola({
+      chave: evento.pix_chave,
+      nome: evento.pix_nome_recebedor,
+      cidade: evento.pix_cidade,
+      valor,
+    });
+
+    try {
+      await navigator.clipboard.writeText(codigoPix);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      window.prompt("Copie o código PIX:", codigoPix);
     }
   }
 
@@ -494,9 +584,39 @@ export default function ListaPresentesPublicaPage() {
                       <strong>Chave PIX:</strong> {evento.pix_chave}
                     </div>
 
-                    <button className="primary-btn" onClick={copiarPix}>
-                      {copiado ? "Chave copiada" : "Copiar chave PIX"}
-                    </button>
+                    <div className="pix-qr-box">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                          gerarPixCopiaECola({
+                            chave: evento.pix_chave,
+                            nome: evento.pix_nome_recebedor,
+                            cidade: evento.pix_cidade,
+                            valor: presenteSelecionado.valor_sugerido,
+                          })
+                        )}`}
+                        alt="QR Code PIX"
+                      />
+
+                      <div>
+                        <strong>QR Code PIX</strong>
+                        <span>
+                          Escaneie pelo aplicativo do banco ou copie o código PIX abaixo.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pix-actions">
+                      <button
+                        className="primary-btn"
+                        onClick={() => copiarPixCopiaECola(presenteSelecionado.valor_sugerido)}
+                      >
+                        {copiado ? "PIX copiado" : "Copiar PIX copia e cola"}
+                      </button>
+
+                      <button className="secondary-btn" onClick={copiarPix}>
+                        Copiar só a chave
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="modal-pix-card">
@@ -991,6 +1111,42 @@ const styles = `
     margin-top: 14px;
   }
 
+  .pix-qr-box {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid rgba(226,232,240,.95);
+    padding: 14px;
+  }
+
+  .pix-qr-box img {
+    width: 150px;
+    height: 150px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid rgba(226,232,240,.95);
+  }
+
+  .pix-qr-box span {
+    display: block;
+    margin-top: 5px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 750;
+  }
+
+  .pix-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
   .modal-actions {
     display: flex;
     flex-wrap: wrap;
@@ -1141,8 +1297,15 @@ const styles = `
       font-size: 28px;
     }
 
-    .modal-actions {
+    .modal-actions,
+    .pix-actions {
       flex-direction: column;
+    }
+
+    .pix-qr-box {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
     }
 
     .gift-image {
@@ -1150,4 +1313,3 @@ const styles = `
     }
   }
 `;
-
