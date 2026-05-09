@@ -11,6 +11,7 @@ type Evento = {
   data_evento: string | null;
   cidade: string | null;
   logo_url: string | null;
+  background_url: string | null;
   lista_presentes_ativa: boolean | null;
   lista_presentes_titulo: string | null;
   pix_nome_recebedor: string | null;
@@ -188,6 +189,7 @@ export default function ListaPresentesPublicaPage() {
         data_evento,
         cidade,
         logo_url,
+        background_url,
         lista_presentes_ativa,
         lista_presentes_titulo,
         pix_nome_recebedor,
@@ -394,6 +396,15 @@ export default function ListaPresentesPublicaPage() {
     });
   }, [evento, filtro, items]);
 
+  const pageBackdropStyle = evento?.background_url
+    ? {
+        backgroundImage: `
+          linear-gradient(180deg, rgba(248,250,252,.78) 0%, rgba(255,255,255,.88) 48%, rgba(255,255,255,.94) 100%),
+          url(${evento.background_url})
+        `,
+      }
+    : undefined;
+
   if (loading) {
     return (
       <main style={loadingStyle}>
@@ -412,7 +423,7 @@ export default function ListaPresentesPublicaPage() {
 
   if (evento.lista_presentes_ativa !== true) {
     return (
-      <main className="public-gift-page">
+      <main className="public-gift-page" style={pageBackdropStyle}>
         <style>{styles}</style>
 
         <section className="empty-shell">
@@ -427,7 +438,7 @@ export default function ListaPresentesPublicaPage() {
   }
 
   return (
-    <main className="public-gift-page">
+    <main className="public-gift-page" style={pageBackdropStyle}>
       <style>{styles}</style>
 
       <section className="hero hero-with-logo">
@@ -775,6 +786,10 @@ const styles = `
       radial-gradient(circle at 8% 0%, rgba(124,58,237,.10), transparent 34%),
       radial-gradient(circle at 92% 0%, rgba(245,158,11,.10), transparent 30%),
       linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: #0f172a;
     padding: 32px;
   }
@@ -790,7 +805,8 @@ const styles = `
   }
 
   .hero {
-    background: rgba(255,255,255,.92);
+    background: rgba(255,255,255,.88);
+    backdrop-filter: blur(18px);
     border: 1px solid rgba(226,232,240,.95);
     border-radius: 34px;
     padding: 42px;
@@ -893,6 +909,11 @@ const styles = `
 
   .filters {
     display: flex;
+    background: rgba(255,255,255,.66);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(226,232,240,.72);
+    border-radius: 999px;
+    padding: 10px;
     gap: 10px;
     flex-wrap: wrap;
     margin-top: 20px;
@@ -992,7 +1013,8 @@ const styles = `
   }
 
   .gift-card {
-    background: #fff;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(14px);
     border: 1px solid rgba(226,232,240,.95);
     border-radius: 28px;
     overflow: hidden;
@@ -1509,4 +1531,5 @@ const styles = `
     }
   }
 `;
+
 
