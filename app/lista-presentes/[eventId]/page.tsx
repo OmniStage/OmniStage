@@ -396,15 +396,6 @@ export default function ListaPresentesPublicaPage() {
     });
   }, [evento, filtro, items]);
 
-  const pageBackdropStyle = evento?.background_url
-    ? {
-        backgroundImage: `
-          linear-gradient(180deg, rgba(248,250,252,.28) 0%, rgba(248,250,252,.42) 42%, rgba(255,255,255,.70) 100%),
-          url(${evento.background_url})
-        `,
-      }
-    : undefined;
-
   if (loading) {
     return (
       <main style={loadingStyle}>
@@ -423,7 +414,7 @@ export default function ListaPresentesPublicaPage() {
 
   if (evento.lista_presentes_ativa !== true) {
     return (
-      <main className="public-gift-page" style={pageBackdropStyle}>
+      <main className="public-gift-page">
         <style>{styles}</style>
 
         <section className="empty-shell">
@@ -438,7 +429,7 @@ export default function ListaPresentesPublicaPage() {
   }
 
   return (
-    <main className="public-gift-page" style={pageBackdropStyle}>
+    <main className="public-gift-page">
       <style>{styles}</style>
 
       <section className="hero hero-with-logo">
@@ -461,7 +452,19 @@ export default function ListaPresentesPublicaPage() {
           </div>
         </div>
 
-        <div className="event-logo-card">
+        <div
+          className="event-logo-card"
+          style={
+            evento.background_url
+              ? {
+                  backgroundImage: `
+                    linear-gradient(180deg, rgba(255,255,255,.50), rgba(255,255,255,.70)),
+                    url(${evento.background_url})
+                  `,
+                }
+              : undefined
+          }
+        >
           <img
             src={evento.logo_url || "https://placehold.co/600x400/png?text=Evento"}
             alt={evento.nome || "Logo do evento"}
@@ -786,10 +789,6 @@ const styles = `
       radial-gradient(circle at 8% 0%, rgba(124,58,237,.10), transparent 34%),
       radial-gradient(circle at 92% 0%, rgba(245,158,11,.10), transparent 30%),
       linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-    background-size: cover;
-    background-position: center top;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
     color: #0f172a;
     padding: 32px;
   }
@@ -831,15 +830,27 @@ const styles = `
     border: 1px solid rgba(226,232,240,.78);
     background:
       radial-gradient(circle at 20% 0%, rgba(124,58,237,.08), transparent 34%),
-      rgba(255,255,255,.78);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+      linear-gradient(180deg, #ffffff, #f8fafc);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 18px 48px rgba(15,23,42,.06);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
     overflow: hidden;
+    position: relative;
+  }
+
+  .event-logo-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 48%, rgba(255,255,255,.28), transparent 44%),
+      linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.22));
   }
 
   .event-logo-card img {
@@ -847,6 +858,8 @@ const styles = `
     max-height: 170px;
     object-fit: contain;
     display: block;
+    position: relative;
+    z-index: 2;
   }
 
   .event-logo-placeholder {
