@@ -84,6 +84,8 @@ export default function ListaPresentesPublicaPage() {
   const [erro, setErro] = useState("");
   const [filtro, setFiltro] = useState<FiltroTipo>("todos");
   const [copiado, setCopiado] = useState(false);
+  const [presenteSelecionado, setPresenteSelecionado] = useState<GiftItem | null>(null);
+  const [efeitoPresente, setEfeitoPresente] = useState(false);
 
   useEffect(() => {
     if (eventId) carregarLista();
@@ -175,6 +177,20 @@ export default function ListaPresentesPublicaPage() {
     } catch {
       alert("Não foi possível copiar automaticamente. Copie a chave manualmente.");
     }
+  }
+
+  function abrirPresente(item: GiftItem) {
+    setPresenteSelecionado(item);
+    setEfeitoPresente(true);
+
+    setTimeout(() => {
+      setEfeitoPresente(false);
+    }, 1200);
+  }
+
+  function fecharPresente() {
+    setPresenteSelecionado(null);
+    setEfeitoPresente(false);
   }
 
   const tiposDisponiveis = useMemo(() => {
@@ -368,6 +384,14 @@ export default function ListaPresentesPublicaPage() {
                   <div className="badges">
                     <span className="badge">{labelTipo(item.tipo)}</span>
                     <span className="badge value">{formatarMoeda(item.valor_sugerido)}</span>
+
+                    <button
+                      type="button"
+                      className="badge presentear"
+                      onClick={() => abrirPresente(item)}
+                    >
+                      Presentear
+                    </button>
                   </div>
 
                   <h3>{item.nome}</h3>
@@ -408,6 +432,99 @@ export default function ListaPresentesPublicaPage() {
             );
           })}
         </section>
+      )}
+
+      {presenteSelecionado && (
+        <div className="gift-modal-backdrop" onClick={fecharPresente}>
+          <div className="gift-modal" onClick={(event) => event.stopPropagation()}>
+            {efeitoPresente ? (
+              <div className="gift-effect-stage">
+                <div className="gift-box-animation">
+                  <div className="gift-lid" />
+                  <div className="gift-ribbon-v" />
+                  <div className="gift-ribbon-h" />
+                  <div className="gift-box-body" />
+                </div>
+
+                <div className="gift-sparkles">
+                  <span>✦</span>
+                  <span>✧</span>
+                  <span>✦</span>
+                  <span>✧</span>
+                </div>
+
+                <h2>Preparando seu presente...</h2>
+              </div>
+            ) : (
+              <>
+                <button className="modal-close" onClick={fecharPresente}>
+                  ×
+                </button>
+
+                <span className="modal-kicker">Presentear</span>
+
+                <h2>{presenteSelecionado.nome}</h2>
+
+                <div className="modal-badges">
+                  <span>{labelTipo(presenteSelecionado.tipo)}</span>
+                  <span>{formatarMoeda(presenteSelecionado.valor_sugerido)}</span>
+                </div>
+
+                {presenteSelecionado.descricao && (
+                  <p className="modal-desc">{presenteSelecionado.descricao}</p>
+                )}
+
+                {evento.pix_chave ? (
+                  <div className="modal-pix-card">
+                    <h3>Dados para PIX</h3>
+
+                    {evento.pix_nome_recebedor && (
+                      <div>
+                        <strong>Recebedor:</strong> {evento.pix_nome_recebedor}
+                      </div>
+                    )}
+
+                    {evento.pix_cidade && (
+                      <div>
+                        <strong>Cidade:</strong> {evento.pix_cidade}
+                      </div>
+                    )}
+
+                    <div>
+                      <strong>Chave PIX:</strong> {evento.pix_chave}
+                    </div>
+
+                    <button className="primary-btn" onClick={copiarPix}>
+                      {copiado ? "Chave copiada" : "Copiar chave PIX"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="modal-pix-card">
+                    <h3>PIX não cadastrado</h3>
+                    <p>O anfitrião ainda não informou uma chave PIX para este evento.</p>
+                  </div>
+                )}
+
+                <div className="modal-actions">
+                  {presenteSelecionado.link_produto && (
+                    <a
+                      href={presenteSelecionado.link_produto}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="secondary-btn"
+                    >
+                      Ver produto
+                    </a>
+                  )}
+
+                  <button className="secondary-btn" onClick={fecharPresente}>
+                    Fechar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );
@@ -702,6 +819,18 @@ const styles = `
     color: #92400e;
   }
 
+  .badge.presentear {
+    border: none;
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 12px 26px rgba(124,58,237,.18);
+  }
+
+  .badge.presentear:hover {
+    transform: translateY(-1px);
+  }
+
   .gift-body h3 {
     margin: 0;
     color: #0f172a;
@@ -756,6 +885,219 @@ const styles = `
     max-width: 520px;
   }
 
+
+  .gift-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(15,23,42,.52);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .gift-modal {
+    position: relative;
+    width: min(560px, 100%);
+    min-height: 320px;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(124,58,237,.12), transparent 34%),
+      #fff;
+    border: 1px solid rgba(226,232,240,.95);
+    border-radius: 30px;
+    box-shadow: 0 34px 110px rgba(15,23,42,.28);
+    padding: 30px;
+    overflow: hidden;
+    animation: modalIn .28s cubic-bezier(.16,1,.3,1) both;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(226,232,240,.95);
+    background: #fff;
+    color: #0f172a;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: 950;
+  }
+
+  .modal-kicker {
+    color: #7c3aed;
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+
+  .gift-modal h2 {
+    margin: 10px 44px 0 0;
+    color: #0f172a;
+    font-size: 34px;
+    line-height: 1.05;
+    font-weight: 950;
+    letter-spacing: -.05em;
+  }
+
+  .modal-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .modal-badges span {
+    border-radius: 999px;
+    padding: 8px 11px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 950;
+  }
+
+  .modal-desc {
+    color: #64748b;
+    line-height: 1.6;
+    font-weight: 750;
+    margin: 16px 0 0;
+  }
+
+  .modal-pix-card {
+    margin-top: 18px;
+    border-radius: 22px;
+    background: #f8fafc;
+    border: 1px solid rgba(226,232,240,.95);
+    padding: 18px;
+    color: #334155;
+    line-height: 1.8;
+    font-weight: 800;
+    word-break: break-word;
+  }
+
+  .modal-pix-card h3 {
+    margin: 0 0 8px;
+    color: #0f172a;
+    font-size: 20px;
+    font-weight: 950;
+  }
+
+  .modal-pix-card .primary-btn {
+    margin-top: 14px;
+  }
+
+  .modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .gift-effect-stage {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+  }
+
+  .gift-effect-stage h2 {
+    margin: 0;
+    font-size: 26px;
+  }
+
+  .gift-box-animation {
+    position: relative;
+    width: 150px;
+    height: 140px;
+    animation: giftBounce .85s cubic-bezier(.2,.8,.2,1) infinite alternate;
+  }
+
+  .gift-box-body {
+    position: absolute;
+    left: 18px;
+    bottom: 0;
+    width: 114px;
+    height: 86px;
+    border-radius: 18px 18px 22px 22px;
+    background: linear-gradient(135deg,#7c3aed,#5b21b6);
+    box-shadow: 0 24px 48px rgba(124,58,237,.28);
+  }
+
+  .gift-lid {
+    position: absolute;
+    left: 10px;
+    bottom: 78px;
+    width: 130px;
+    height: 34px;
+    border-radius: 16px;
+    background: linear-gradient(135deg,#fbbf24,#f59e0b);
+    transform-origin: left bottom;
+    animation: lidOpen 1.2s cubic-bezier(.16,1,.3,1) both;
+  }
+
+  .gift-ribbon-v {
+    position: absolute;
+    left: 65px;
+    bottom: 0;
+    width: 20px;
+    height: 112px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.72);
+    z-index: 3;
+  }
+
+  .gift-ribbon-h {
+    position: absolute;
+    left: 18px;
+    bottom: 42px;
+    width: 114px;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.72);
+    z-index: 3;
+  }
+
+  .gift-sparkles span {
+    position: absolute;
+    color: #f59e0b;
+    font-size: 28px;
+    animation: sparklePop 1.1s ease-in-out infinite alternate;
+  }
+
+  .gift-sparkles span:nth-child(1) { transform: translate(-110px, -90px); }
+  .gift-sparkles span:nth-child(2) { transform: translate(110px, -80px); animation-delay: .12s; }
+  .gift-sparkles span:nth-child(3) { transform: translate(-90px, 60px); animation-delay: .22s; }
+  .gift-sparkles span:nth-child(4) { transform: translate(92px, 54px); animation-delay: .32s; }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes giftBounce {
+    from { transform: translateY(0) rotate(-2deg); }
+    to { transform: translateY(-10px) rotate(2deg); }
+  }
+
+  @keyframes lidOpen {
+    0% { transform: rotate(0deg) translateY(0); }
+    55% { transform: rotate(-12deg) translateY(-12px); }
+    100% { transform: rotate(-8deg) translateY(-8px); }
+  }
+
+  @keyframes sparklePop {
+    from { opacity: .3; scale: .75; }
+    to { opacity: 1; scale: 1.25; }
+  }
+
   @media (max-width: 720px) {
     .public-gift-page {
       padding: 16px;
@@ -790,8 +1132,22 @@ const styles = `
       width: 100%;
     }
 
+    .gift-modal {
+      padding: 24px;
+      border-radius: 24px;
+    }
+
+    .gift-modal h2 {
+      font-size: 28px;
+    }
+
+    .modal-actions {
+      flex-direction: column;
+    }
+
     .gift-image {
       height: 200px;
     }
   }
 `;
+
