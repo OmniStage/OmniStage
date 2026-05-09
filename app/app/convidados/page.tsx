@@ -104,6 +104,29 @@ Você pode escolher um presente físico, uma experiência especial ou presentear
 
 Com carinho 💜`;
 
+function limparTextoWhatsApp(texto: string) {
+  return String(texto || "")
+    .normalize("NFC")
+    // remove caracteres quebrados que já chegam salvos como � no banco/template
+    .replace(/\uFFFD/g, "")
+    // remove controles invisíveis que podem quebrar URL em alguns navegadores
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim();
+}
+
+function normalizarTelefoneWhatsApp(telefone: string) {
+  let numero = String(telefone || "").replace(/\D/g, "");
+
+  // remove todos os DDI 55 repetidos do início
+  while (numero.startsWith("55")) {
+    numero = numero.slice(2);
+  }
+
+  if (!numero) return "";
+
+  return `55${numero}`;
+}
+
 function montarMensagemListaPresentes({
   template,
   nome,
@@ -115,10 +138,14 @@ function montarMensagemListaPresentes({
   evento: string;
   linkLista: string;
 }) {
-  return (template?.trim() || mensagemPadraoListaPresentes)
-    .replaceAll("{nome}", nome || "Convidado")
-    .replaceAll("{evento}", evento || "Evento")
-    .replaceAll("{link_lista}", linkLista);
+  const textoBase = template?.trim() || mensagemPadraoListaPresentes;
+
+  return limparTextoWhatsApp(
+    textoBase
+      .replaceAll("{nome}", nome || "Convidado")
+      .replaceAll("{evento}", evento || "Evento")
+      .replaceAll("{link_lista}", linkLista),
+  );
 }
 
 function criarLinkWhatsApp({
@@ -128,22 +155,13 @@ function criarLinkWhatsApp({
   telefone: string;
   mensagem: string;
 }) {
-  // WhatsApp exige telefone somente com números no formato: 55 + DDD + número.
-  // Esta limpeza evita duplicar o DDI quando o número já vem com +55, 55 ou 5555.
-  let telefoneLimpo = String(telefone || "").replace(/\D/g, "");
+  const telefoneFinal = normalizarTelefoneWhatsApp(telefone);
 
-  // Remove um ou mais DDIs 55 no início e adiciona apenas um novamente.
-  telefoneLimpo = telefoneLimpo.replace(/^(55)+/, "");
+  if (!telefoneFinal) return "";
 
-  if (!telefoneLimpo) return "";
+  const texto = encodeURIComponent(limparTextoWhatsApp(mensagem));
 
-  const telefoneFinal = `55${telefoneLimpo}`;
-
-  // NFC + encodeURIComponent preservam acentos, quebras de linha e emojis no WhatsApp.
-  const mensagemNormalizada = String(mensagem || "").normalize("NFC");
-  const texto = encodeURIComponent(mensagemNormalizada);
-
-  return `https://api.whatsapp.com/send?phone=${telefoneFinal}&text=${texto}`;
+  return `https://wa.me/${telefoneFinal}?text=${texto}`;
 }
 
 export default function ConvidadosPage() {
