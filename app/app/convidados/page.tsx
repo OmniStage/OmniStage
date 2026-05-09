@@ -128,11 +128,22 @@ function criarLinkWhatsApp({
   telefone: string;
   mensagem: string;
 }) {
-  const telefoneLimpo = telefone.startsWith("55") ? telefone : `55${telefone}`;
-  const mensagemNormalizada = mensagem.normalize("NFC");
+  // WhatsApp exige telefone somente com números no formato: 55 + DDD + número.
+  // Esta limpeza evita duplicar o DDI quando o número já vem com +55, 55 ou 5555.
+  let telefoneLimpo = String(telefone || "").replace(/\D/g, "");
+
+  // Remove um ou mais DDIs 55 no início e adiciona apenas um novamente.
+  telefoneLimpo = telefoneLimpo.replace(/^(55)+/, "");
+
+  if (!telefoneLimpo) return "";
+
+  const telefoneFinal = `55${telefoneLimpo}`;
+
+  // NFC + encodeURIComponent preservam acentos, quebras de linha e emojis no WhatsApp.
+  const mensagemNormalizada = String(mensagem || "").normalize("NFC");
   const texto = encodeURIComponent(mensagemNormalizada);
 
-  return `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${texto}`;
+  return `https://api.whatsapp.com/send?phone=${telefoneFinal}&text=${texto}`;
 }
 
 export default function ConvidadosPage() {
