@@ -399,7 +399,7 @@ export default function ListaPresentesPublicaPage() {
   const pageBackdropStyle = evento?.background_url
     ? {
         backgroundImage: `
-          linear-gradient(180deg, rgba(248,250,252,.78) 0%, rgba(255,255,255,.88) 48%, rgba(255,255,255,.94) 100%),
+          linear-gradient(180deg, rgba(248,250,252,.28) 0%, rgba(248,250,252,.42) 42%, rgba(255,255,255,.70) 100%),
           url(${evento.background_url})
         `,
       }
@@ -805,8 +805,9 @@ const styles = `
   }
 
   .hero {
-    background: rgba(255,255,255,.88);
+    background: rgba(255,255,255,.76);
     backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     border: 1px solid rgba(226,232,240,.95);
     border-radius: 34px;
     padding: 42px;
@@ -827,10 +828,12 @@ const styles = `
   .event-logo-card {
     min-height: 220px;
     border-radius: 28px;
-    border: 1px solid rgba(226,232,240,.95);
+    border: 1px solid rgba(226,232,240,.78);
     background:
-      radial-gradient(circle at 20% 0%, rgba(124,58,237,.10), transparent 34%),
-      linear-gradient(180deg, #ffffff, #f8fafc);
+      radial-gradient(circle at 20% 0%, rgba(124,58,237,.08), transparent 34%),
+      rgba(255,255,255,.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 18px 48px rgba(15,23,42,.06);
     display: flex;
     align-items: center;
@@ -909,8 +912,9 @@ const styles = `
 
   .filters {
     display: flex;
-    background: rgba(255,255,255,.66);
+    background: rgba(255,255,255,.62);
     backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(226,232,240,.72);
     border-radius: 999px;
     padding: 10px;
@@ -1013,8 +1017,9 @@ const styles = `
   }
 
   .gift-card {
-    background: rgba(255,255,255,.92);
+    background: rgba(255,255,255,.86);
     backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(226,232,240,.95);
     border-radius: 28px;
     overflow: hidden;
