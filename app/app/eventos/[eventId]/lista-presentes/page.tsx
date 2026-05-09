@@ -10,6 +10,7 @@ type Evento = {
   tenant_id: string | null;
   lista_presentes_ativa: boolean | null;
   lista_presentes_titulo: string | null;
+  lista_presentes_mensagem: string | null;
   pix_nome_recebedor: string | null;
   pix_chave: string | null;
   pix_cidade: string | null;
@@ -77,6 +78,31 @@ function valorParaInput(valor: number | null | undefined) {
   return Number(valor).toFixed(2).replace(".", ",");
 }
 
+const mensagemPadraoListaPresentes = `Olá {nome} ✨
+
+A lista de presentes do evento {evento} já está disponível.
+
+Você pode escolher um presente físico, uma experiência especial ou presentear em valor via PIX pelo link abaixo:
+
+{link_lista}
+
+Com carinho 💜`;
+
+function gerarPreviewMensagemLista({
+  mensagem,
+  nomeEvento,
+  linkLista,
+}: {
+  mensagem: string | null | undefined;
+  nomeEvento: string | null | undefined;
+  linkLista: string;
+}) {
+  return (mensagem?.trim() || mensagemPadraoListaPresentes)
+    .replaceAll("{nome}", "Maria")
+    .replaceAll("{evento}", nomeEvento || "Evento")
+    .replaceAll("{link_lista}", linkLista);
+}
+
 export default function ListaPresentesEventoPage() {
   const params = useParams();
   const router = useRouter();
@@ -96,7 +122,6 @@ export default function ListaPresentesEventoPage() {
   const [formItem, setFormItem] = useState<FormItem>(formItemInicial);
   const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
   const [formItemAberto, setFormItemAberto] = useState(false);
-  const [linkPublicoCopiado, setLinkPublicoCopiado] = useState(false);
 
   useEffect(() => {
     if (eventId) carregarTudo();
@@ -111,24 +136,6 @@ export default function ListaPresentesEventoPage() {
   function gerarLinkPublicoLista() {
     if (typeof window === "undefined") return "";
     return `${window.location.origin}/lista-presentes/${eventId}`;
-  }
-
-  async function copiarLinkPublicoLista() {
-    const link = gerarLinkPublicoLista();
-
-    if (!link) {
-      alert("Não foi possível gerar o link público da lista.");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(link);
-      setLinkPublicoCopiado(true);
-      showToast("Link público da lista copiado.");
-      setTimeout(() => setLinkPublicoCopiado(false), 2500);
-    } catch {
-      window.prompt("Copie o link público da lista:", link);
-    }
   }
 
   async function carregarTudo() {
@@ -147,6 +154,7 @@ export default function ListaPresentesEventoPage() {
         tenant_id,
         lista_presentes_ativa,
         lista_presentes_titulo,
+        lista_presentes_mensagem,
         pix_nome_recebedor,
         pix_chave,
         pix_cidade,
@@ -213,6 +221,8 @@ export default function ListaPresentesEventoPage() {
         lista_presentes_ativa: evento.lista_presentes_ativa === true,
         lista_presentes_titulo:
           evento.lista_presentes_titulo?.trim() || "Lista de Presentes",
+        lista_presentes_mensagem:
+          evento.lista_presentes_mensagem?.trim() || mensagemPadraoListaPresentes,
         pix_nome_recebedor: evento.pix_nome_recebedor?.trim() || null,
         pix_chave: evento.pix_chave?.trim() || null,
         pix_cidade: evento.pix_cidade?.trim() || null,
@@ -699,6 +709,43 @@ export default function ListaPresentesEventoPage() {
           white-space: nowrap;
         }
 
+        .variables-box {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 10px;
+        }
+
+        .variable-pill {
+          border-radius: 999px;
+          background: #ede9fe;
+          color: #6d28d9;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 950;
+        }
+
+        .message-preview {
+          margin-top: 12px;
+          border-radius: 18px;
+          border: 1px solid rgba(226,232,240,.95);
+          background: #f8fafc;
+          padding: 16px;
+          color: #334155;
+          line-height: 1.55;
+          font-size: 14px;
+          font-weight: 750;
+          white-space: pre-wrap;
+        }
+
+        .message-preview-title {
+          display: block;
+          color: #0f172a;
+          font-size: 13px;
+          font-weight: 950;
+          margin-bottom: 8px;
+        }
+
         .input, .select, .textarea {
           width: 100%;
           padding: 15px 16px;
@@ -877,19 +924,6 @@ export default function ListaPresentesEventoPage() {
             Voltar
           </button>
 
-          <button onClick={copiarLinkPublicoLista} className="secondary">
-            {linkPublicoCopiado ? "Link copiado" : "Copiar link público"}
-          </button>
-
-          <a
-            href={`/lista-presentes/${eventId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="secondary"
-          >
-            Abrir lista pública
-          </a>
-
           <button
             onClick={salvarConfiguracaoEvento}
             disabled={salvandoEvento}
@@ -998,6 +1032,52 @@ export default function ListaPresentesEventoPage() {
               </div>
             </label>
           </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <div>
+            <h2 className="panel-title">Mensagem de envio WhatsApp</h2>
+            <p className="panel-desc">
+              Configure o texto usado ao enviar a lista de presentes pelo card do convidado.
+            </p>
+          </div>
+        </div>
+
+        <div className="form-grid">
+          <label className="full">
+            <span className="field-label">Mensagem da lista de presentes</span>
+            <textarea
+              className="textarea"
+              value={evento.lista_presentes_mensagem || mensagemPadraoListaPresentes}
+              onChange={(e) =>
+                setEvento((old) =>
+                  old ? { ...old, lista_presentes_mensagem: e.target.value } : old
+                )
+              }
+              placeholder={mensagemPadraoListaPresentes}
+            />
+
+            <div className="field-help">
+              Variáveis disponíveis para personalizar automaticamente a mensagem:
+            </div>
+
+            <div className="variables-box">
+              <span className="variable-pill">{"{nome}"}</span>
+              <span className="variable-pill">{"{evento}"}</span>
+              <span className="variable-pill">{"{link_lista}"}</span>
+            </div>
+
+            <div className="message-preview">
+              <span className="message-preview-title">Prévia da mensagem</span>
+              {gerarPreviewMensagemLista({
+                mensagem: evento.lista_presentes_mensagem,
+                nomeEvento: evento.nome,
+                linkLista: gerarLinkPublicoLista() || "/lista-presentes/ID_DO_EVENTO",
+              })}
+            </div>
+          </label>
         </div>
       </section>
 
