@@ -817,8 +817,8 @@ const styles = `
 
   .hero-with-logo {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 260px;
-    gap: 28px;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 32px;
     align-items: center;
   }
 
@@ -829,12 +829,12 @@ const styles = `
   .event-logo-card {
     min-height: 220px;
     border-radius: 28px;
-    border: 1px solid rgba(226,232,240,.78);
-    background: var(--event-backdrop-url), linear-gradient(180deg, #ffffff, #f8fafc);
+    border: 1px solid rgba(226,232,240,.95);
+    background: var(--event-backdrop-url), #ffffff;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.32), 0 18px 48px rgba(15,23,42,.06);
+    box-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -843,22 +843,19 @@ const styles = `
     position: relative;
   }
 
-  .event-logo-card::before {
-    display: none;
-  }
-
+  .event-logo-card::before,
   .event-logo-card::after {
     display: none;
   }
 
   .event-logo-card img {
     max-width: 100%;
-    max-height: 170px;
+    max-height: 180px;
     object-fit: contain;
     display: block;
     position: relative;
     z-index: 2;
-    filter: drop-shadow(0 12px 18px rgba(15,23,42,.12));
+    filter: none;
   }
 
   .event-logo-placeholder {
@@ -1021,7 +1018,7 @@ const styles = `
   }
 
   .items-grid {
-    max-width: 1180px;
+    max-width: 1320px;
     margin: 20px auto 0;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1068,15 +1065,15 @@ const styles = `
   .badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
   }
 
   .badge {
     border-radius: 999px;
-    padding: 7px 10px;
+    padding: 9px 13px;
     background: #ede9fe;
     color: #6d28d9;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 950;
   }
 
