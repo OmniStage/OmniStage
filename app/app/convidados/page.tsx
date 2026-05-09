@@ -121,6 +121,17 @@ function montarMensagemListaPresentes({
     .replaceAll("{link_lista}", linkLista);
 }
 
+function criarLinkWhatsApp({
+  telefone,
+  mensagem,
+}: {
+  telefone: string;
+  mensagem: string;
+}) {
+  const texto = new URLSearchParams({ text: mensagem }).toString();
+  return `https://api.whatsapp.com/send?phone=55${telefone}&${texto}`;
+}
+
 export default function ConvidadosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -325,7 +336,7 @@ export default function ConvidadosPage() {
       linkLista,
     });
 
-    return `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+    return criarLinkWhatsApp({ telefone, mensagem });
   }
 
   function gerarLinkWhatsApp(convidado: Convidado) {
@@ -350,7 +361,7 @@ ${linkCartao}
 
 Apresente o cartão na entrada do evento.`;
 
-    return `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+    return criarLinkWhatsApp({ telefone, mensagem });
   }
 
   async function copiarNome(nome: string) {
