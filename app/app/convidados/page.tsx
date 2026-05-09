@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 type Evento = {
   id: string;
   nome: string;
+  lista_presentes_mensagem: string | null;
 };
 
 type Convidado = {
@@ -92,6 +93,33 @@ const initialForm: ConvidadoForm = {
   status_rsvp: "pendente",
   status_envio: "pendente",
 };
+
+const mensagemPadraoListaPresentes = `Olá {nome} ✨
+
+A lista de presentes do evento {evento} já está disponível.
+
+Você pode escolher um presente físico, uma experiência especial ou presentear em valor via PIX pelo link abaixo:
+
+{link_lista}
+
+Com carinho 💜`;
+
+function montarMensagemListaPresentes({
+  template,
+  nome,
+  evento,
+  linkLista,
+}: {
+  template: string | null | undefined;
+  nome: string;
+  evento: string;
+  linkLista: string;
+}) {
+  return (template?.trim() || mensagemPadraoListaPresentes)
+    .replaceAll("{nome}", nome || "Convidado")
+    .replaceAll("{evento}", evento || "Evento")
+    .replaceAll("{link_lista}", linkLista);
+}
 
 export default function ConvidadosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -262,6 +290,11 @@ export default function ConvidadosPage() {
   return `/c/${tokens}`;
 }
 
+  function getEventoDoConvidado(convidado: Convidado) {
+    const idEvento = convidado.evento_id || eventoId;
+    return eventos.find((evento) => evento.id === idEvento) || null;
+  }
+
   function gerarLinkListaPresentes(convidado: Convidado) {
     const eventoDoConvidado = convidado.evento_id || eventoId;
     const token = encodeURIComponent(convidado.token || "");
@@ -283,17 +316,14 @@ export default function ConvidadosPage() {
     if (!telefone) return "";
 
     const linkLista = `${window.location.origin}${gerarLinkListaPresentes(convidado)}`;
+    const eventoAtual = getEventoDoConvidado(convidado);
 
-    const mensagem = `Olá ${convidado.nome} ✨
-
-A lista de presentes do evento já está disponível.
-
-Você pode escolher um presente físico, uma experiência especial ou presentear em valor via PIX pelo link abaixo:
-
-${linkLista}
-
-Com carinho,
-OmniStage`;
+    const mensagem = montarMensagemListaPresentes({
+      template: eventoAtual?.lista_presentes_mensagem,
+      nome: convidado.nome || "Convidado",
+      evento: eventoAtual?.nome || "Evento",
+      linkLista,
+    });
 
     return `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
   }
@@ -357,7 +387,7 @@ Apresente o cartão na entrada do evento.`;
   async function carregarEventos(tenant: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome")
+      .select("id, nome, lista_presentes_mensagem")
       .eq("tenant_id", tenant)
       .order("created_at", { ascending: false });
 
