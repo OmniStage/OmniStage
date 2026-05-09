@@ -6,6 +6,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 type Evento = {
   id: string;
+  tenant_id: string | null;
   nome: string | null;
   data_evento: string | null;
   cidade: string | null;
@@ -163,6 +164,11 @@ export default function ListaPresentesPublicaPage() {
   const [copiado, setCopiado] = useState(false);
   const [presenteSelecionado, setPresenteSelecionado] = useState<GiftItem | null>(null);
   const [efeitoPresente, setEfeitoPresente] = useState(false);
+  const [nomePresenteador, setNomePresenteador] = useState("");
+  const [telefonePresenteador, setTelefonePresenteador] = useState("");
+  const [mensagemPresenteador, setMensagemPresenteador] = useState("");
+  const [confirmandoPresente, setConfirmandoPresente] = useState(false);
+  const [presenteConfirmado, setPresenteConfirmado] = useState(false);
 
   useEffect(() => {
     if (eventId) carregarLista();
@@ -177,6 +183,7 @@ export default function ListaPresentesPublicaPage() {
       .from("eventos")
       .select(`
         id,
+        tenant_id,
         nome,
         data_evento,
         cidade,
@@ -278,6 +285,10 @@ export default function ListaPresentesPublicaPage() {
   function abrirPresente(item: GiftItem) {
     setPresenteSelecionado(item);
     setEfeitoPresente(true);
+    setNomePresenteador("");
+    setTelefonePresenteador("");
+    setMensagemPresenteador("");
+    setPresenteConfirmado(false);
 
     setTimeout(() => {
       setEfeitoPresente(false);
@@ -287,6 +298,77 @@ export default function ListaPresentesPublicaPage() {
   function fecharPresente() {
     setPresenteSelecionado(null);
     setEfeitoPresente(false);
+    setNomePresenteador("");
+    setTelefonePresenteador("");
+    setMensagemPresenteador("");
+    setConfirmandoPresente(false);
+    setPresenteConfirmado(false);
+  }
+
+  async function confirmarPresente() {
+    if (!evento || !presenteSelecionado) return;
+
+    if (!nomePresenteador.trim()) {
+      alert("Informe seu nome para confirmar o presente.");
+      return;
+    }
+
+    if (!evento.tenant_id) {
+      alert("Evento sem tenant vinculado.");
+      return;
+    }
+
+    setConfirmandoPresente(true);
+
+    const { error: reservationError } = await supabase
+      .from("gift_reservations")
+      .insert({
+        gift_item_id: presenteSelecionado.id,
+        evento_id: evento.id,
+        tenant_id: evento.tenant_id,
+        nome_presenteador: nomePresenteador.trim(),
+        telefone_presenteador: telefonePresenteador.trim() || null,
+        mensagem: mensagemPresenteador.trim() || null,
+        valor_presenteado: presenteSelecionado.valor_sugerido,
+        status: "presenteado",
+      });
+
+    if (reservationError) {
+      alert("Erro ao confirmar presente: " + reservationError.message);
+      setConfirmandoPresente(false);
+      return;
+    }
+
+    const novaQuantidade = Number(presenteSelecionado.quantidade_reservada || 0) + 1;
+
+    const { error: updateError } = await supabase
+      .from("gift_items")
+      .update({
+        quantidade_reservada: novaQuantidade,
+      })
+      .eq("id", presenteSelecionado.id);
+
+    if (updateError) {
+      alert(
+        "O presente foi registrado, mas não foi possível atualizar a quantidade: " +
+          updateError.message
+      );
+    }
+
+    setItems((old) =>
+      old.map((item) =>
+        item.id === presenteSelecionado.id
+          ? { ...item, quantidade_reservada: novaQuantidade }
+          : item
+      )
+    );
+
+    setPresenteSelecionado((old) =>
+      old ? { ...old, quantidade_reservada: novaQuantidade } : old
+    );
+
+    setPresenteConfirmado(true);
+    setConfirmandoPresente(false);
   }
 
   const tiposDisponiveis = useMemo(() => {
@@ -369,13 +451,14 @@ export default function ListaPresentesPublicaPage() {
         </div>
 
         <div className="event-logo-card">
-          {evento.logo_url ? (
-            <img src={evento.logo_url} alt={evento.nome || "Logo do evento"} />
-          ) : (
-            <div className="event-logo-placeholder">
-              {evento.nome || "Evento"}
-            </div>
-          )}
+          <img
+            src={evento.logo_url || "https://placehold.co/600x400/png?text=Evento"}
+            alt={evento.nome || "Logo do evento"}
+            onError={(event) => {
+              event.currentTarget.src =
+                "https://placehold.co/600x400/png?text=Evento";
+            }}
+          />
         </div>
       </section>
 
@@ -595,6 +678,59 @@ export default function ListaPresentesPublicaPage() {
                     <p>O anfitrião ainda não informou uma chave PIX para este evento.</p>
                   </div>
                 )}
+
+                <div className="confirm-gift-card">
+                  {presenteConfirmado ? (
+                    <div className="confirm-success">
+                      <strong>Presente confirmado com sucesso!</strong>
+                      <span>
+                        Obrigado por registrar seu presente. O anfitrião conseguirá ver quem presenteou.
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <h3>Confirme seu presente</h3>
+                      <p>
+                        Depois de fazer o PIX ou escolher o produto, informe seus dados para o anfitrião saber quem presenteou.
+                      </p>
+
+                      <label>
+                        <span>Seu nome</span>
+                        <input
+                          value={nomePresenteador}
+                          onChange={(event) => setNomePresenteador(event.target.value)}
+                          placeholder="Ex: Maria Souza"
+                        />
+                      </label>
+
+                      <label>
+                        <span>WhatsApp / telefone</span>
+                        <input
+                          value={telefonePresenteador}
+                          onChange={(event) => setTelefonePresenteador(event.target.value)}
+                          placeholder="Opcional"
+                        />
+                      </label>
+
+                      <label>
+                        <span>Mensagem</span>
+                        <textarea
+                          value={mensagemPresenteador}
+                          onChange={(event) => setMensagemPresenteador(event.target.value)}
+                          placeholder="Opcional: deixe uma mensagem para o anfitrião"
+                        />
+                      </label>
+
+                      <button
+                        className="primary-btn"
+                        onClick={confirmarPresente}
+                        disabled={confirmandoPresente}
+                      >
+                        {confirmandoPresente ? "Confirmando..." : "Confirmar que presenteei"}
+                      </button>
+                    </>
+                  )}
+                </div>
 
                 <div className="modal-actions">
                   {presenteSelecionado.link_produto && (
@@ -1116,6 +1252,95 @@ const styles = `
     gap: 10px;
     flex-wrap: wrap;
     margin-top: 14px;
+  }
+
+  .confirm-gift-card {
+    margin-top: 18px;
+    border-radius: 22px;
+    background: #fff;
+    border: 1px solid rgba(226,232,240,.95);
+    padding: 18px;
+  }
+
+  .confirm-gift-card h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 20px;
+    font-weight: 950;
+  }
+
+  .confirm-gift-card p {
+    margin: 8px 0 14px;
+    color: #64748b;
+    line-height: 1.5;
+    font-weight: 750;
+  }
+
+  .confirm-gift-card label {
+    display: block;
+    margin-top: 12px;
+  }
+
+  .confirm-gift-card label span {
+    display: block;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 950;
+    margin-bottom: 7px;
+  }
+
+  .confirm-gift-card input,
+  .confirm-gift-card textarea {
+    width: 100%;
+    border: 1px solid rgba(203,213,225,.95);
+    background: #fff;
+    color: #0f172a;
+    border-radius: 15px;
+    padding: 13px 14px;
+    outline: none;
+    font-weight: 800;
+    font-family: inherit;
+  }
+
+  .confirm-gift-card textarea {
+    min-height: 88px;
+    resize: vertical;
+  }
+
+  .confirm-gift-card input:focus,
+  .confirm-gift-card textarea:focus {
+    border-color: rgba(124,58,237,.45);
+    box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+  }
+
+  .confirm-gift-card .primary-btn {
+    margin-top: 14px;
+  }
+
+  .confirm-success {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    border-radius: 18px;
+    background: #dcfce7;
+    color: #166534;
+    padding: 16px;
+    font-weight: 850;
+  }
+
+  .confirm-success strong {
+    color: #14532d;
+    font-size: 17px;
+  }
+
+  .confirm-success span {
+    color: #166534;
+    line-height: 1.5;
+  }
+
+  .primary-btn:disabled {
+    opacity: .58;
+    cursor: not-allowed;
   }
 
   .modal-actions {
