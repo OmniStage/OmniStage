@@ -415,41 +415,6 @@ export default function ListaPresentesPublicaPage() {
         )}
       </section>
 
-      {evento.presentes_valor_enabled && evento.pix_chave && (
-        <section className="pix-panel">
-          <div>
-            <span className="panel-kicker">Presentes em valor</span>
-            <h2>Presenteie via PIX</h2>
-            <p>
-              Para contribuir com sonhos, viagens ou experiências especiais,
-              copie a chave PIX abaixo.
-            </p>
-
-            <div className="pix-data">
-              {evento.pix_nome_recebedor && (
-                <div>
-                  <strong>Recebedor:</strong> {evento.pix_nome_recebedor}
-                </div>
-              )}
-
-              {evento.pix_cidade && (
-                <div>
-                  <strong>Cidade:</strong> {evento.pix_cidade}
-                </div>
-              )}
-
-              <div>
-                <strong>Chave PIX:</strong> {evento.pix_chave}
-              </div>
-            </div>
-          </div>
-
-          <button className="primary-btn" onClick={copiarPix}>
-            {copiado ? "Chave copiada" : "Copiar chave PIX"}
-          </button>
-        </section>
-      )}
-
       {itensFiltrados.length === 0 ? (
         <section className="empty-shell">
           <h2>Nenhum item disponível</h2>
