@@ -169,7 +169,7 @@ function criarLinkWhatsApp({
 
   const texto = encodeURIComponent(limparTextoWhatsApp(mensagem));
 
-  return `https://wa.me/${telefoneFinal}?text=${texto}`;
+  return `https://api.whatsapp.com/send?phone=${telefoneFinal}&text=${texto}`;
 }
 
 export default function ConvidadosPage() {
