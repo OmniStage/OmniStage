@@ -127,6 +127,10 @@ function normalizarTelefoneWhatsApp(telefone: string) {
   return `55${numero}`;
 }
 
+function templateWhatsAppEstaQuebrado(template: string | null | undefined) {
+  return Boolean(template && /\uFFFD/.test(template));
+}
+
 function montarMensagemListaPresentes({
   template,
   nome,
@@ -138,7 +142,11 @@ function montarMensagemListaPresentes({
   evento: string;
   linkLista: string;
 }) {
-  const textoBase = template?.trim() || mensagemPadraoListaPresentes;
+  // Quando o template salvo no Supabase já vem com �, o emoji original já foi perdido.
+  // Para não enviar mensagem quebrada, usamos o padrão do código, onde os emojis estão íntegros.
+  const textoBase = templateWhatsAppEstaQuebrado(template)
+    ? mensagemPadraoListaPresentes
+    : template?.trim() || mensagemPadraoListaPresentes;
 
   return limparTextoWhatsApp(
     textoBase
