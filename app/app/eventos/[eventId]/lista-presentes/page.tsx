@@ -96,6 +96,7 @@ export default function ListaPresentesEventoPage() {
   const [formItem, setFormItem] = useState<FormItem>(formItemInicial);
   const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
   const [formItemAberto, setFormItemAberto] = useState(false);
+  const [linkPublicoCopiado, setLinkPublicoCopiado] = useState(false);
 
   useEffect(() => {
     if (eventId) carregarTudo();
@@ -105,6 +106,29 @@ export default function ListaPresentesEventoPage() {
   function showToast(message: string) {
     setToast(message);
     setTimeout(() => setToast(""), 3500);
+  }
+
+  function gerarLinkPublicoLista() {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/lista-presentes/${eventId}`;
+  }
+
+  async function copiarLinkPublicoLista() {
+    const link = gerarLinkPublicoLista();
+
+    if (!link) {
+      alert("Não foi possível gerar o link público da lista.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkPublicoCopiado(true);
+      showToast("Link público da lista copiado.");
+      setTimeout(() => setLinkPublicoCopiado(false), 2500);
+    } catch {
+      window.prompt("Copie o link público da lista:", link);
+    }
   }
 
   async function carregarTudo() {
@@ -852,6 +876,19 @@ export default function ListaPresentesEventoPage() {
           <button onClick={() => router.push("/app/eventos")} className="secondary">
             Voltar
           </button>
+
+          <button onClick={copiarLinkPublicoLista} className="secondary">
+            {linkPublicoCopiado ? "Link copiado" : "Copiar link público"}
+          </button>
+
+          <a
+            href={`/lista-presentes/${eventId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="secondary"
+          >
+            Abrir lista pública
+          </a>
 
           <button
             onClick={salvarConfiguracaoEvento}
