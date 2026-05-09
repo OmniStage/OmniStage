@@ -128,8 +128,11 @@ function criarLinkWhatsApp({
   telefone: string;
   mensagem: string;
 }) {
-  const texto = new URLSearchParams({ text: mensagem }).toString();
-  return `https://api.whatsapp.com/send?phone=55${telefone}&${texto}`;
+  const telefoneLimpo = telefone.startsWith("55") ? telefone : `55${telefone}`;
+  const mensagemNormalizada = mensagem.normalize("NFC");
+  const texto = encodeURIComponent(mensagemNormalizada);
+
+  return `https://api.whatsapp.com/send?phone=${telefoneLimpo}&text=${texto}`;
 }
 
 export default function ConvidadosPage() {
