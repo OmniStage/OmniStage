@@ -798,9 +798,11 @@ const styles = `
   .gift-card,
   .empty-shell,
   .filters {
-    max-width: 1180px;
-    margin-left: auto;
-    margin-right: auto;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    margin-bottom: 20px;
   }
 
   .hero {
@@ -828,12 +830,7 @@ const styles = `
     min-height: 220px;
     border-radius: 28px;
     border: 1px solid rgba(226,232,240,.78);
-    background:
-      radial-gradient(circle at 20% 0%, rgba(124,58,237,.08), transparent 34%),
-      linear-gradient(180deg, #ffffff, #f8fafc);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 18px 48px rgba(15,23,42,.06);
     display: flex;
     align-items: center;
@@ -843,14 +840,29 @@ const styles = `
     position: relative;
   }
 
+  .event-logo-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.42)),
+      var(--event-backdrop-url);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 1;
+    z-index: 0;
+  }
+
   .event-logo-card::after {
     content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 50% 48%, rgba(255,255,255,.28), transparent 44%),
-      linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.22));
+      radial-gradient(circle at 50% 48%, rgba(255,255,255,.22), transparent 46%),
+      linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.12));
+    z-index: 1;
   }
 
   .event-logo-card img {
