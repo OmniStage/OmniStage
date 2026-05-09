@@ -456,12 +456,9 @@ export default function ListaPresentesPublicaPage() {
           className="event-logo-card"
           style={
             evento.background_url
-              ? {
-                  backgroundImage: `
-                    linear-gradient(180deg, rgba(255,255,255,.50), rgba(255,255,255,.70)),
-                    url(${evento.background_url})
-                  `,
-                }
+              ? ({
+                  "--event-backdrop-url": `url(${evento.background_url})`,
+                } as React.CSSProperties)
               : undefined
           }
         >
@@ -798,11 +795,9 @@ const styles = `
   .gift-card,
   .empty-shell,
   .filters {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-    margin-bottom: 20px;
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .hero {
@@ -830,12 +825,12 @@ const styles = `
     min-height: 220px;
     border-radius: 28px;
     border: 1px solid rgba(226,232,240,.95);
-    background: var(--event-backdrop-url), #ffffff;
-    background-size: contain;
+    background-image: var(--event-backdrop-url);
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-color: #0b1020;
-    box-shadow: none;
+    box-shadow: 0 18px 48px rgba(15,23,42,.08);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1071,7 +1066,7 @@ const styles = `
 
   .badge {
     border-radius: 999px;
-    padding: 9px 13px;
+    padding: 10px 14px;
     background: #ede9fe;
     color: #6d28d9;
     font-size: 13px;
