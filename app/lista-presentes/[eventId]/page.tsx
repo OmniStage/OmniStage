@@ -9,6 +9,7 @@ type Evento = {
   nome: string | null;
   data_evento: string | null;
   cidade: string | null;
+  logo_url: string | null;
   lista_presentes_ativa: boolean | null;
   lista_presentes_titulo: string | null;
   pix_nome_recebedor: string | null;
@@ -100,6 +101,7 @@ export default function ListaPresentesPublicaPage() {
         nome,
         data_evento,
         cidade,
+        logo_url,
         lista_presentes_ativa,
         lista_presentes_titulo,
         pix_nome_recebedor,
@@ -234,8 +236,8 @@ export default function ListaPresentesPublicaPage() {
     <main className="public-gift-page">
       <style>{styles}</style>
 
-      <section className="hero">
-        <div>
+      <section className="hero hero-with-logo">
+        <div className="hero-copy">
           <span className="eyebrow">Lista de Presentes</span>
 
           <h1>
@@ -252,6 +254,16 @@ export default function ListaPresentesPublicaPage() {
             {evento.data_evento && <span>{formatarData(evento.data_evento)}</span>}
             {evento.cidade && <span>{evento.cidade}</span>}
           </div>
+        </div>
+
+        <div className="event-logo-card">
+          {evento.logo_url ? (
+            <img src={evento.logo_url} alt={evento.nome || "Logo do evento"} />
+          ) : (
+            <div className="event-logo-placeholder">
+              {evento.nome || "Evento"}
+            </div>
+          )}
         </div>
       </section>
 
@@ -439,6 +451,54 @@ const styles = `
     border-radius: 34px;
     padding: 42px;
     box-shadow: 0 28px 90px rgba(15,23,42,.08);
+  }
+
+  .hero-with-logo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 28px;
+    align-items: center;
+  }
+
+  .hero-copy {
+    min-width: 0;
+  }
+
+  .event-logo-card {
+    min-height: 220px;
+    border-radius: 28px;
+    border: 1px solid rgba(226,232,240,.95);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(124,58,237,.10), transparent 34%),
+      linear-gradient(180deg, #ffffff, #f8fafc);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 18px 48px rgba(15,23,42,.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  .event-logo-card img {
+    max-width: 100%;
+    max-height: 170px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .event-logo-placeholder {
+    width: 100%;
+    min-height: 150px;
+    border-radius: 22px;
+    background: #f1f5f9;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 18px;
+    font-weight: 950;
+    line-height: 1.15;
   }
 
   .eyebrow,
@@ -704,6 +764,19 @@ const styles = `
     .hero {
       padding: 26px;
       border-radius: 26px;
+    }
+
+    .hero-with-logo {
+      grid-template-columns: 1fr;
+    }
+
+    .event-logo-card {
+      min-height: 170px;
+      padding: 18px;
+    }
+
+    .event-logo-card img {
+      max-height: 130px;
     }
 
     .pix-panel {
