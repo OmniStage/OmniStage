@@ -299,6 +299,9 @@ export default function ListaPresentesPage() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          cursor: pointer;
+          font-family: inherit;
+          font-size: inherit;
         }
 
         .primary:hover,
@@ -446,6 +449,41 @@ export default function ListaPresentesPage() {
                   className="primary"
                 >
                   Configurar lista
+                </Link>
+
+                <a
+                  href={`/lista-presentes/${evento.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="secondary"
+                >
+                  Abrir lista pública
+                </a>
+
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    const link = `${window.location.origin}/lista-presentes/${evento.id}`;
+
+                    navigator.clipboard
+                      .writeText(link)
+                      .then(() => {
+                        alert("Link público copiado.");
+                      })
+                      .catch(() => {
+                        window.prompt("Copie o link público:", link);
+                      });
+                  }}
+                >
+                  Copiar link público
+                </button>
+
+                <Link
+                  href={`/app/eventos/${evento.id}/lista-presentes/presenteados`}
+                  className="secondary"
+                >
+                  Presentes recebidos
                 </Link>
 
                 <Link href="/app/eventos" className="secondary">
