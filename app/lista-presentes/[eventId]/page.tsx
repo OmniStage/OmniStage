@@ -844,13 +844,11 @@ const styles = `
     content: "";
     position: absolute;
     inset: 0;
-    background-image:
-      linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.42)),
-      var(--event-backdrop-url);
+    background-image: var(--event-backdrop-url);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 1;
+    opacity: 95;
     z-index: 0;
   }
 
