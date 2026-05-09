@@ -70,12 +70,18 @@ function normalizarTipo(tipo: string): FiltroTipo {
 }
 
 function limparTextoPix(valor: string, limite: number) {
-  return valor
+  const semAcento = valor
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 $%*+\\-./:]/g, "")
-    .trim()
-    .slice(0, limite);
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const permitido = semAcento
+    .split("")
+    .filter((char) => {
+      return /^[A-Za-z0-9 $%*+.\\/:_-]$/.test(char);
+    })
+    .join("");
+
+  return permitido.trim().slice(0, limite);
 }
 
 function emv(id: string, value: string) {
@@ -1313,3 +1319,4 @@ const styles = `
     }
   }
 `;
+
