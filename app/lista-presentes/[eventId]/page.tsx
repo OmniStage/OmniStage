@@ -831,9 +831,10 @@ const styles = `
     border-radius: 28px;
     border: 1px solid rgba(226,232,240,.95);
     background: var(--event-backdrop-url), #ffffff;
-    background-size: cover;
+    background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
+    background-color: #0b1020;
     box-shadow: none;
     display: flex;
     align-items: center;
