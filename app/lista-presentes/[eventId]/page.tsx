@@ -1152,15 +1152,20 @@ const styles = `
     background: rgba(15,23,42,.52);
     backdrop-filter: blur(8px);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .gift-modal {
     position: relative;
     width: min(560px, 100%);
     min-height: 320px;
+    max-height: calc(100dvh - 36px);
+    margin: auto 0;
     background:
       radial-gradient(circle at 20% 0%, rgba(124,58,237,.12), transparent 34%),
       #fff;
@@ -1168,7 +1173,10 @@ const styles = `
     border-radius: 30px;
     box-shadow: 0 34px 110px rgba(15,23,42,.28);
     padding: 30px;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     animation: modalIn .28s cubic-bezier(.16,1,.3,1) both;
   }
 
@@ -1485,6 +1493,7 @@ const styles = `
   @media (max-width: 720px) {
     .public-gift-page {
       padding: 16px;
+      overflow-x: hidden;
     }
 
     .hero {
@@ -1519,6 +1528,8 @@ const styles = `
     .gift-modal {
       padding: 24px;
       border-radius: 24px;
+      max-height: calc(100dvh - 24px);
+      margin: 12px 0;
     }
 
     .gift-modal h2 {
