@@ -261,6 +261,43 @@ export default function ConvidadosPage() {
 
   return `/c/${tokens}`;
 }
+
+  function gerarLinkListaPresentes(convidado: Convidado) {
+    const eventoDoConvidado = convidado.evento_id || eventoId;
+    const token = encodeURIComponent(convidado.token || "");
+
+    if (!eventoDoConvidado) return "";
+
+    const base = `/lista-presentes/${eventoDoConvidado}`;
+
+    if (!token) return base;
+
+    return `${base}?token=${token}`;
+  }
+
+  function gerarLinkWhatsAppListaPresentes(convidado: Convidado) {
+    const telefone = normalizarTelefone(
+      convidado.telefone || convidado.responsavel_telefone,
+    );
+
+    if (!telefone) return "";
+
+    const linkLista = `${window.location.origin}${gerarLinkListaPresentes(convidado)}`;
+
+    const mensagem = `Olá ${convidado.nome} ✨
+
+A lista de presentes do evento já está disponível.
+
+Você pode escolher um presente físico, uma experiência especial ou presentear em valor via PIX pelo link abaixo:
+
+${linkLista}
+
+Com carinho,
+OmniStage`;
+
+    return `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+  }
+
   function gerarLinkWhatsApp(convidado: Convidado) {
     const telefone = normalizarTelefone(
       convidado.telefone || convidado.responsavel_telefone,
@@ -1264,8 +1301,11 @@ Apresente o cartão na entrada do evento.`;
                 <div style={groupMemberListStyle}>
                   {integrantes.map((convidado) => {
                     const linkWhatsApp = gerarLinkWhatsApp(convidado);
+                    const linkWhatsAppListaPresentes =
+                      gerarLinkWhatsAppListaPresentes(convidado);
                     const linkCartao = gerarLinkCartao(convidado);
                     const linkConvite = gerarLinkConvite(convidado);
+                    const linkListaPresentes = gerarLinkListaPresentes(convidado);
 
                     return (
                       <div key={convidado.id} style={groupMemberRowStyle}>
@@ -1385,6 +1425,39 @@ Apresente o cartão na entrada do evento.`;
                               >
                                 WhatsApp
                               </button>
+                            )}
+
+                            {linkWhatsAppListaPresentes ? (
+                              <a
+                                href={linkWhatsAppListaPresentes}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={giftButtonStyle}
+                              >
+                                Enviar lista de presentes
+                              </a>
+                            ) : (
+                              <button
+                                disabled
+                                style={{
+                                  ...giftButtonStyle,
+                                  opacity: 0.45,
+                                  cursor: "not-allowed",
+                                }}
+                              >
+                                Enviar lista de presentes
+                              </button>
+                            )}
+
+                            {linkListaPresentes && (
+                              <a
+                                href={linkListaPresentes}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={goldButtonStyle}
+                              >
+                                Ver lista
+                              </a>
                             )}
 
                             <a
@@ -1936,6 +2009,18 @@ const goldButtonStyle: CSSProperties = {
   background: "var(--card-bg)",
   color: "var(--accent)",
   fontWeight: 800,
+  cursor: "pointer",
+  textDecoration: "none",
+  fontSize: 14,
+};
+
+const giftButtonStyle: CSSProperties = {
+  padding: "10px 16px",
+  borderRadius: 999,
+  border: "1px solid rgba(124,58,237,0.32)",
+  background: "linear-gradient(135deg, rgba(124,58,237,0.12), var(--card-bg))",
+  color: "var(--accent)",
+  fontWeight: 900,
   cursor: "pointer",
   textDecoration: "none",
   fontSize: 14,
