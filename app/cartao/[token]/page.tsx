@@ -71,7 +71,7 @@ export default async function CartaoPage({
 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://omnistage-six.vercel.app";
+    "https://app.omnistageproducoes.com.br";
 
   const cartaoUrl = `${siteUrl}/cartao/${encodeURIComponent(token)}`;
 
@@ -149,10 +149,7 @@ export default async function CartaoPage({
           borderRadius: 30,
           padding: "26px 22px 24px",
           border: "1px solid rgba(255,255,255,.14)",
-          background:
-          "linear-gradient(180deg, rgba(5,16,40,.82), rgba(2,8,24,.96))",
-          backdropFilter: "blur(18px)",
-          WebkitBackdropFilter: "blur(18px)",
+          background: "linear-gradient(180deg, rgba(5,16,40,.96), rgba(2,8,24,.985))",
           boxShadow: "0 26px 70px rgba(0,0,0,.42)",
           textAlign: "center",
           overflow: "hidden",
@@ -202,6 +199,7 @@ export default async function CartaoPage({
                 fontFamily: "Georgia, serif",
                 fontSize: 38,
                 lineHeight: 1,
+                color: "#f8fafc",
               }}
             >
               {nomeEvento}
@@ -222,10 +220,9 @@ export default async function CartaoPage({
             style={{
               marginTop: 20,
               border: "1px solid rgba(255,255,255,.10)",
-              background: "rgba(255,255,255,.055)",
+              background: "linear-gradient(180deg, rgba(17,33,58,.96), rgba(10,22,42,.98))",
               borderRadius: 24,
               padding: "18px 16px 20px",
-              backdropFilter: "blur(8px)",
             }}
           >
             <div
@@ -247,6 +244,8 @@ export default async function CartaoPage({
                 fontFamily: "Georgia, serif",
                 fontSize: 29,
                 lineHeight: 1.12,
+                color: "#ffffff",
+                textShadow: "0 2px 16px rgba(0,0,0,.45)",
               }}
             >
               {nomeConvidado}
