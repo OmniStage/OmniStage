@@ -310,6 +310,7 @@ export default function LoginPage() {
 
   return (
     <main
+      className="loginShell"
       style={{
         minHeight: "100vh",
         display: "grid",
@@ -320,6 +321,7 @@ export default function LoginPage() {
       <div ref={captchaRef} style={{ display: "none" }} />
 
       <section
+        className="loginHero"
         style={{
           padding: 80,
           background:
@@ -330,7 +332,7 @@ export default function LoginPage() {
           justifyContent: "center",
         }}
       >
-        <h1 style={{ fontSize: 62, lineHeight: 1, margin: 0 }}>
+        <h1 style={{ fontSize: 62, lineHeight: 1, margin: 0, color: "#ffffff" }}>
           Bem-vindo ao <br />
           <span style={{ color: "#a78bfa" }}>OmniStage</span>
         </h1>
@@ -350,7 +352,7 @@ export default function LoginPage() {
             padding: 32,
           }}
         >
-          <h2 style={{ marginTop: 0 }}>Sistema RSVP Premium</h2>
+          <h2 style={{ marginTop: 0, color: "#ffffff" }}>Sistema RSVP Premium</h2>
           <p style={{ color: "#94a3b8" }}>Convites digitais personalizados</p>
           <p style={{ color: "#94a3b8" }}>Confirmação de presença em tempo real</p>
           <p style={{ color: "#94a3b8" }}>Check-in com QR Code e controle de entrada</p>
@@ -358,6 +360,7 @@ export default function LoginPage() {
       </section>
 
       <section
+        className="loginFormSection"
         style={{
           background: "#fff",
           color: "#111827",
@@ -367,7 +370,7 @@ export default function LoginPage() {
           padding: 50,
         }}
       >
-        <div style={{ width: "100%", maxWidth: 430 }}>
+        <div className="loginFormCard" style={{ width: "100%", maxWidth: 430 }}>
           <h2 style={{ fontSize: 44, textAlign: "center", margin: 0 }}>OmniStage</h2>
 
           <h3 style={{ fontSize: 26, textAlign: "center", marginTop: 10, marginBottom: 28 }}>
@@ -584,6 +587,51 @@ export default function LoginPage() {
           </p>
         </div>
       </section>
+
+      <style jsx>{`
+        @media (max-width: 900px) {
+          .loginShell {
+            grid-template-columns: 1fr !important;
+            min-height: 100dvh !important;
+          }
+
+          .loginHero {
+            display: none !important;
+          }
+
+          .loginFormSection {
+            min-height: 100dvh !important;
+            padding: 32px 20px !important;
+            align-items: flex-start !important;
+          }
+
+          .loginFormCard {
+            max-width: 430px !important;
+            margin: 0 auto !important;
+            padding-top: 24px !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .loginFormSection {
+            padding: 24px 18px !important;
+          }
+
+          .loginFormCard h2 {
+            font-size: 36px !important;
+          }
+
+          .loginFormCard h3 {
+            font-size: 22px !important;
+            margin-bottom: 22px !important;
+          }
+
+          .loginFormCard input,
+          .loginFormCard button {
+            box-sizing: border-box !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
