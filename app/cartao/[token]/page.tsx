@@ -219,8 +219,10 @@ export default async function CartaoPage({
           <div
             style={{
               marginTop: 20,
-              border: "1px solid rgba(255,255,255,.10)",
-              background: "linear-gradient(180deg, rgba(17,33,58,.96), rgba(10,22,42,.98))",
+              border: "1px solid rgba(255,255,255,.18)",
+              background: "rgba(2,8,24,.22)",
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
               borderRadius: 24,
               padding: "18px 16px 20px",
             }}
@@ -259,9 +261,7 @@ export default async function CartaoPage({
                 gap: 8,
                 padding: "10px 14px",
                 borderRadius: 999,
-                background: "rgba(4,20,47,.72)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
+                background: "rgba(255,255,255,.07)",
                 border: "1px solid rgba(255,255,255,.10)",
                 fontSize: 13,
               }}
