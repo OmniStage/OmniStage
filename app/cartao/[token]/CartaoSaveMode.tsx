@@ -259,7 +259,9 @@ export default function CartaoSaveMode({
 
           <button
             type="button"
-            onClick={() => history.back()}
+         onClick={() => {
+  window.location.href = window.location.pathname;
+}}
             style={{
               marginTop: 24,
               width: "100%",
