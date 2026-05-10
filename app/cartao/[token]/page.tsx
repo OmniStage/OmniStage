@@ -11,15 +11,12 @@ type PageProps = {
 
 function formatDate(value?: string | null) {
   if (!value) return "";
-
   const date = new Date(`${value}T00:00:00`);
-
   return date.toLocaleDateString("pt-BR");
 }
 
 export default async function CartaoPage({ params }: PageProps) {
   const { token } = await params;
-
   const supabase = await createClient();
 
   const { data: convidado, error: convidadoError } = await supabase
@@ -28,9 +25,7 @@ export default async function CartaoPage({ params }: PageProps) {
     .eq("token", token)
     .maybeSingle();
 
-  if (convidadoError || !convidado) {
-    notFound();
-  }
+  if (convidadoError || !convidado) notFound();
 
   const { data: evento, error: eventoError } = await supabase
     .from("eventos")
@@ -38,9 +33,7 @@ export default async function CartaoPage({ params }: PageProps) {
     .eq("id", convidado.evento_id)
     .maybeSingle();
 
-  if (eventoError || !evento) {
-    notFound();
-  }
+  if (eventoError || !evento) notFound();
 
   const nomeConvidado = convidado.nome || "Convidado";
   const nomeEvento = evento.nome || "Evento";
@@ -54,18 +47,11 @@ export default async function CartaoPage({ params }: PageProps) {
 
   const endereco =
     evento.endereco ||
-    [
-      evento.rua,
-      evento.numero,
-      evento.bairro,
-      evento.cidade,
-      evento.estado,
-    ]
+    [evento.rua, evento.numero, evento.bairro, evento.cidade, evento.estado]
       .filter(Boolean)
       .join(", ");
 
   const logoUrl = evento.logo_url || evento.logo_image || "";
-
   const backgroundUrl = evento.background_url || evento.background_image || "";
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(
@@ -88,6 +74,28 @@ export default async function CartaoPage({ params }: PageProps) {
   const whatsappUrl = telefone
     ? `https://wa.me/${telefone}?text=${mensagemWhatsApp}`
     : `https://wa.me/?text=${mensagemWhatsApp}`;
+
+  const isGrupoPrincipal =
+    Boolean(convidado.grupo) &&
+    (convidado.contato_principal === true ||
+      convidado.recebe_convite === true ||
+      Boolean(convidado.responsavel_telefone));
+
+  const { data: integrantesGrupo } = isGrupoPrincipal
+    ? await supabase
+        .from("convidados")
+        .select("id, nome, telefone, responsavel_telefone, token")
+        .eq("evento_id", convidado.evento_id)
+        .eq("grupo", convidado.grupo)
+        .order("nome", { ascending: true })
+    : { data: [] };
+
+  const grupoParaEnvio = (integrantesGrupo || []).map((integrante: any) => ({
+    id: integrante.id,
+    nome: integrante.nome || "Convidado",
+    telefone: integrante.telefone || integrante.responsavel_telefone || null,
+    token: integrante.token || null,
+  }));
 
   return (
     <main
@@ -168,13 +176,7 @@ export default async function CartaoPage({ params }: PageProps) {
             </h1>
           )}
 
-          <p
-            style={{
-              color: "#d7b56d",
-              fontSize: 14,
-              marginTop: 10,
-            }}
-          >
+          <p style={{ color: "#d7b56d", fontSize: 14, marginTop: 10 }}>
             Apresente este QR Code na entrada do evento
           </p>
 
@@ -289,23 +291,11 @@ export default async function CartaoPage({ params }: PageProps) {
                 {nomeEvento}
               </strong>
 
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: 15,
-                  marginTop: 4,
-                }}
-              >
+              <strong style={{ display: "block", fontSize: 15, marginTop: 4 }}>
                 {[dataEvento, horario].filter(Boolean).join(" • ")}
               </strong>
 
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: 15,
-                  marginTop: 4,
-                }}
-              >
+              <strong style={{ display: "block", fontSize: 15, marginTop: 4 }}>
                 {local}
               </strong>
 
@@ -323,7 +313,14 @@ export default async function CartaoPage({ params }: PageProps) {
               ) : null}
             </div>
 
-            <CartaoActions whatsappUrl={whatsappUrl} />
+            <CartaoActions
+              whatsappUrl={whatsappUrl}
+              isGrupoPrincipal={isGrupoPrincipal}
+              grupoNome={convidado.grupo}
+              integrantesGrupo={grupoParaEnvio}
+              nomeEvento={nomeEvento}
+              siteUrl={siteUrl}
+            />
           </div>
 
           <footer
