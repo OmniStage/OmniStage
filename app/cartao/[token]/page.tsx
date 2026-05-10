@@ -280,4 +280,4 @@ export default async function CartaoPage({ params }: PageProps) {
       </section>
     </main>
   );
-
+}
