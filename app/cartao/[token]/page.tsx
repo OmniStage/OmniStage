@@ -135,9 +135,7 @@ export default async function CartaoPage({
         padding: "22px 16px 34px",
         display: "grid",
         placeItems: "center",
-        background: backgroundUrl
-          ? `linear-gradient(180deg, rgba(2,8,20,.60), rgba(2,8,20,.95)), url("${backgroundUrl}") center/cover no-repeat`
-          : "#020814",
+        background: "linear-gradient(180deg, #020814 0%, #071832 52%, #020814 100%)",
         color: "#fff",
         fontFamily: "Arial, Helvetica, sans-serif",
       }}
@@ -149,7 +147,9 @@ export default async function CartaoPage({
           borderRadius: 30,
           padding: "26px 22px 24px",
           border: "1px solid rgba(255,255,255,.14)",
-          background: "linear-gradient(180deg, rgba(5,16,40,.96), rgba(2,8,24,.985))",
+          background: backgroundUrl
+            ? `linear-gradient(180deg, rgba(5,16,40,.50), rgba(2,8,24,.88)), url("${backgroundUrl}") center/cover no-repeat`
+            : "linear-gradient(180deg,#04142f,#020814)",
           boxShadow: "0 26px 70px rgba(0,0,0,.42)",
           textAlign: "center",
           overflow: "hidden",
