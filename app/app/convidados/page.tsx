@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 type Evento = {
   id: string;
   nome: string;
+  slug: string | null;
   lista_presentes_mensagem: string | null;
 };
 
@@ -347,12 +348,15 @@ export default function ConvidadosPage() {
   }
 
   function gerarLinkListaPresentes(convidado: Convidado) {
-    const eventoDoConvidado = convidado.evento_id || eventoId;
+    const eventoAtual = getEventoDoConvidado(convidado);
+    const identificador =
+      eventoAtual?.slug || eventoAtual?.id || convidado.evento_id || eventoId;
+
     const token = encodeURIComponent(convidado.token || "");
 
-    if (!eventoDoConvidado) return "";
+    if (!identificador) return "";
 
-    const base = `/lista-presentes/${eventoDoConvidado}`;
+    const base = `/lista-presentes/${identificador}`;
 
     if (!token) return base;
 
@@ -438,7 +442,7 @@ Apresente o cartão na entrada do evento.`;
   async function carregarEventos(tenant: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome, lista_presentes_mensagem")
+      .select("id, nome, slug, lista_presentes_mensagem")
       .eq("tenant_id", tenant)
       .order("created_at", { ascending: false });
 
