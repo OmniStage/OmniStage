@@ -71,6 +71,12 @@ function normalizarTipo(tipo: string): FiltroTipo {
   return "presente";
 }
 
+function pareceUuid(valor: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    valor
+  );
+}
+
 function limparTextoPix(valor: string, limite: number) {
   const semAcento = valor
     .normalize("NFD")
@@ -180,7 +186,7 @@ export default function ListaPresentesPublicaPage() {
     setLoading(true);
     setErro("");
 
-    const { data: eventoData, error: eventoError } = await supabase
+    const buscaEvento = supabase
       .from("eventos")
       .select(`
         id,
@@ -198,9 +204,11 @@ export default function ListaPresentesPublicaPage() {
         presentes_fisicos_enabled,
         experiencias_enabled,
         presentes_valor_enabled
-      `)
-      .eq("id", eventId)
-      .maybeSingle();
+      `);
+
+    const { data: eventoData, error: eventoError } = pareceUuid(eventId)
+      ? await buscaEvento.eq("id", eventId).maybeSingle()
+      : await buscaEvento.eq("slug", eventId).maybeSingle();
 
     if (eventoError) {
       setErro("Não foi possível carregar esta lista.");
@@ -238,7 +246,7 @@ export default function ListaPresentesPublicaPage() {
         ativo,
         ordem
       `)
-      .eq("evento_id", eventId)
+      .eq("evento_id", eventoCarregado.id)
       .eq("ativo", true)
       .order("ordem", { ascending: true })
       .order("nome", { ascending: true });
