@@ -10,6 +10,7 @@ type TenantMember = {
 
 type Evento = {
   id: string;
+  slug: string | null;
   nome: string | null;
   data_evento: string | null;
   cidade: string | null;
@@ -37,6 +38,23 @@ function labelStatus(status: string | null) {
   if (status === "reprovado") return "Reprovado";
   if (status === "aguardando_aprovacao") return "Aguardando aprovação";
   return "Rascunho";
+}
+
+function gerarIdentificadorEvento(evento: Evento) {
+  return evento.slug || evento.id;
+}
+
+function gerarUrlPublicaLista(evento: Evento) {
+  const identificador = gerarIdentificadorEvento(evento);
+  const caminho = `/lista-presentes/${identificador}`;
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+
+  if (!baseUrl) return caminho;
+
+  return `${baseUrl.replace(/\/$/, "")}${caminho}`;
 }
 
 export default function ListaPresentesPage() {
@@ -92,6 +110,7 @@ export default function ListaPresentesPage() {
       .from("eventos")
       .select(`
         id,
+        slug,
         nome,
         data_evento,
         cidade,
@@ -357,7 +376,8 @@ export default function ListaPresentesPage() {
             grid-template-columns: 1fr;
           }
 
-          .actions a {
+          .actions a,
+          .actions button {
             width: 100%;
           }
         }
@@ -391,107 +411,109 @@ export default function ListaPresentesPage() {
         </div>
       ) : (
         <section className="events-grid">
-          {eventosFiltrados.map((evento) => (
-            <article key={evento.id} className="event-card">
-              <div>
-                <h2 className="event-name">{evento.nome || "Evento sem nome"}</h2>
-              </div>
+          {eventosFiltrados.map((evento) => {
+            const linkPublico = gerarUrlPublicaLista(evento);
 
-              <div className="meta">
-                <span className="badge purple">
-                  {evento.categoria_evento || "Sem categoria"}
-                </span>
-
-                <span className="badge neutral">
-                  {labelStatus(evento.status_aprovacao)}
-                </span>
-
-                <span
-                  className={
-                    evento.lista_presentes_ativa
-                      ? "badge green"
-                      : "badge yellow"
-                  }
-                >
-                  {evento.lista_presentes_ativa
-                    ? "Lista ativa"
-                    : "Lista desativada"}
-                </span>
-              </div>
-
-              <div className="info">
+            return (
+              <article key={evento.id} className="event-card">
                 <div>
-                  <strong>Data:</strong> {formatarData(evento.data_evento)}
+                  <h2 className="event-name">{evento.nome || "Evento sem nome"}</h2>
                 </div>
 
-                <div>
-                  <strong>Cidade:</strong> {evento.cidade || "Não informada"}
+                <div className="meta">
+                  <span className="badge purple">
+                    {evento.categoria_evento || "Sem categoria"}
+                  </span>
+
+                  <span className="badge neutral">
+                    {labelStatus(evento.status_aprovacao)}
+                  </span>
+
+                  <span
+                    className={
+                      evento.lista_presentes_ativa
+                        ? "badge green"
+                        : "badge yellow"
+                    }
+                  >
+                    {evento.lista_presentes_ativa
+                      ? "Lista ativa"
+                      : "Lista desativada"}
+                  </span>
                 </div>
-              </div>
 
-              <div className="modules">
-                {evento.presentes_fisicos_enabled && (
-                  <span className="module-pill">Presentes físicos</span>
-                )}
+                <div className="info">
+                  <div>
+                    <strong>Data:</strong> {formatarData(evento.data_evento)}
+                  </div>
 
-                {evento.experiencias_enabled && (
-                  <span className="module-pill">Experiências</span>
-                )}
+                  <div>
+                    <strong>Cidade:</strong> {evento.cidade || "Não informada"}
+                  </div>
+                </div>
 
-                {evento.presentes_valor_enabled && (
-                  <span className="module-pill">Presentes em valor</span>
-                )}
-              </div>
+                <div className="modules">
+                  {evento.presentes_fisicos_enabled && (
+                    <span className="module-pill">Presentes físicos</span>
+                  )}
 
-              <div className="actions">
-                <Link
-                  href={`/app/eventos/${evento.id}/lista-presentes`}
-                  className="primary"
-                >
-                  Configurar lista
-                </Link>
+                  {evento.experiencias_enabled && (
+                    <span className="module-pill">Experiências</span>
+                  )}
 
-                <a
-                  href={`/lista-presentes/${evento.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="secondary"
-                >
-                  Abrir lista pública
-                </a>
+                  {evento.presentes_valor_enabled && (
+                    <span className="module-pill">Presentes em valor</span>
+                  )}
+                </div>
 
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    const link = `${window.location.origin}/lista-presentes/${evento.id}`;
+                <div className="actions">
+                  <Link
+                    href={`/app/eventos/${evento.id}/lista-presentes`}
+                    className="primary"
+                  >
+                    Configurar lista
+                  </Link>
 
-                    navigator.clipboard
-                      .writeText(link)
-                      .then(() => {
-                        alert("Link público copiado.");
-                      })
-                      .catch(() => {
-                        window.prompt("Copie o link público:", link);
-                      });
-                  }}
-                >
-                  Copiar link público
-                </button>
+                  <a
+                    href={linkPublico}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="secondary"
+                  >
+                    Abrir lista pública
+                  </a>
 
-                <Link
-                  href={`/app/eventos/${evento.id}/lista-presentes/presenteados`}
-                  className="secondary"
-                >
-                  Presentes recebidos
-                </Link>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      navigator.clipboard
+                        .writeText(linkPublico)
+                        .then(() => {
+                          alert("Link público copiado.");
+                        })
+                        .catch(() => {
+                          window.prompt("Copie o link público:", linkPublico);
+                        });
+                    }}
+                  >
+                    Copiar link público
+                  </button>
 
-                <Link href="/app/eventos" className="secondary">
-                  Ver eventos
-                </Link>
-              </div>
-            </article>
-          ))}
+                  <Link
+                    href={`/app/eventos/${evento.id}/lista-presentes/presenteados`}
+                    className="secondary"
+                  >
+                    Presentes recebidos
+                  </Link>
+
+                  <Link href="/app/eventos" className="secondary">
+                    Ver eventos
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
         </section>
       )}
     </div>
