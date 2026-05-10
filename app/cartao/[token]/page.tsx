@@ -149,9 +149,10 @@ export default async function CartaoPage({
           borderRadius: 30,
           padding: "26px 22px 24px",
           border: "1px solid rgba(255,255,255,.14)",
-          background: backgroundUrl
-            ? `linear-gradient(180deg, rgba(5,16,40,.62), rgba(2,8,24,.92)), url("${backgroundUrl}") center/cover no-repeat`
-            : "linear-gradient(180deg,#04142f,#020814)",
+          background:
+          "linear-gradient(180deg, rgba(5,16,40,.82), rgba(2,8,24,.96))",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
           boxShadow: "0 26px 70px rgba(0,0,0,.42)",
           textAlign: "center",
           overflow: "hidden",
