@@ -91,8 +91,10 @@ export default function CartaoActions({
                 localStorage.getItem(`cartao_enviado_${integrante.token}`) ===
                   "1";
 
-              const linkSalvar = integrante.token
-                ? `${siteUrl}/cartao/${encodeURIComponent(integrante.token)}`
+             const linkSalvar = integrante.token
+  ? `${siteUrl}/cartao/${encodeURIComponent(
+      integrante.token,
+    )}?save=1`
                 : "#";
 
               return (
