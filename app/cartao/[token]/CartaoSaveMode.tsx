@@ -107,7 +107,6 @@ export default function CartaoSaveMode({
 
     ctx.fillStyle = "rgba(255,255,255,0.78)";
     ctx.font = "900 38px Arial";
-    ctx.letterSpacing = "12px";
     ctx.textAlign = "center";
     ctx.fillText("CARTÃO DE ENTRADA", 540, 405);
 
@@ -134,7 +133,6 @@ export default function CartaoSaveMode({
 
     ctx.fillStyle = "#f6d98a";
     ctx.font = "900 34px Arial";
-    ctx.letterSpacing = "8px";
     ctx.fillText(token, 540, 1458);
 
     return new Promise<Blob>((resolve, reject) => {
