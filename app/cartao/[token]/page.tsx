@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import CartaoActions from "./CartaoActions";
+import CartaoSaveMode from "./CartaoSaveMode";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,7 +17,10 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString("pt-BR");
 }
 
-export default async function CartaoPage({ params, searchParams }: PageProps) {
+export default async function CartaoPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { token } = await params;
   const query = searchParams ? await searchParams : {};
   const isSaveMode = query.save === "1";
@@ -41,6 +45,7 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
 
   const nomeConvidado = convidado.nome || "Convidado";
   const nomeEvento = evento.nome || "Evento";
+
   const dataEvento = formatDate(evento.data_evento);
   const horario = evento.horario || evento.hora_inicio || "";
 
@@ -56,14 +61,17 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
       .join(", ");
 
   const logoUrl = evento.logo_url || evento.logo_image || "";
-  const backgroundUrl = evento.background_url || evento.background_image || "";
+
+  const backgroundUrl =
+    evento.background_url || evento.background_image || "";
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(
     token,
   )}`;
 
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://omnistage-six.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://omnistage-six.vercel.app";
 
   const cartaoUrl = `${siteUrl}/cartao/${encodeURIComponent(token)}`;
 
@@ -95,18 +103,36 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
           .order("nome", { ascending: true })
       : { data: [] };
 
-  const grupoParaEnvio = (integrantesGrupo || []).map((integrante: any) => ({
-    id: integrante.id,
-    nome: integrante.nome || "Convidado",
-    telefone: integrante.telefone || integrante.responsavel_telefone || null,
-    token: integrante.token || null,
-  }));
+  const grupoParaEnvio = (integrantesGrupo || []).map(
+    (integrante: any) => ({
+      id: integrante.id,
+      nome: integrante.nome || "Convidado",
+      telefone:
+        integrante.telefone ||
+        integrante.responsavel_telefone ||
+        null,
+      token: integrante.token || null,
+    }),
+  );
+
+  if (isSaveMode) {
+    return (
+      <CartaoSaveMode
+        nomeConvidado={nomeConvidado}
+        nomeEvento={nomeEvento}
+        token={token}
+        qrUrl={qrUrl}
+        logoUrl={logoUrl}
+        backgroundUrl={backgroundUrl}
+      />
+    );
+  }
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        padding: isSaveMode ? "18px 12px 42px" : "22px 16px 34px",
+        padding: "22px 16px 34px",
         display: "grid",
         placeItems: "center",
         background: backgroundUrl
@@ -119,7 +145,7 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
       <section
         style={{
           width: "100%",
-          maxWidth: isSaveMode ? 430 : 440,
+          maxWidth: 440,
           borderRadius: 30,
           padding: "26px 22px 24px",
           border: "1px solid rgba(255,255,255,.14)",
@@ -181,7 +207,13 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
             </h1>
           )}
 
-          <p style={{ color: "#d7b56d", fontSize: 14, marginTop: 10 }}>
+          <p
+            style={{
+              color: "#d7b56d",
+              fontSize: 14,
+              marginTop: 10,
+            }}
+          >
             Apresente este QR Code na entrada do evento
           </p>
 
@@ -232,7 +264,10 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
                 fontSize: 13,
               }}
             >
-              <strong style={{ color: "#d7b56d" }}>TOKEN</strong>
+              <strong style={{ color: "#d7b56d" }}>
+                TOKEN
+              </strong>
+
               <span>{token}</span>
             </div>
 
@@ -266,8 +301,9 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
                 lineHeight: 1.45,
               }}
             >
-              Guarde este cartão no seu WhatsApp e apresente o QR Code no totem
-              de recepção para agilizar seu check-in.
+              Guarde este cartão no seu WhatsApp e apresente o
+              QR Code no totem de recepção para agilizar seu
+              check-in.
             </p>
 
             <div
@@ -292,15 +328,34 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
                 Evento
               </div>
 
-              <strong style={{ display: "block", fontSize: 15 }}>
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: 15,
+                }}
+              >
                 {nomeEvento}
               </strong>
 
-              <strong style={{ display: "block", fontSize: 15, marginTop: 4 }}>
-                {[dataEvento, horario].filter(Boolean).join(" • ")}
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: 15,
+                  marginTop: 4,
+                }}
+              >
+                {[dataEvento, horario]
+                  .filter(Boolean)
+                  .join(" • ")}
               </strong>
 
-              <strong style={{ display: "block", fontSize: 15, marginTop: 4 }}>
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: 15,
+                  marginTop: 4,
+                }}
+              >
                 {local}
               </strong>
 
@@ -318,33 +373,14 @@ export default async function CartaoPage({ params, searchParams }: PageProps) {
               ) : null}
             </div>
 
-            {isSaveMode ? (
-              <div
-                style={{
-                  marginTop: 18,
-                  padding: 14,
-                  borderRadius: 18,
-                  background: "rgba(215,181,109,.12)",
-                  border: "1px solid rgba(215,181,109,.35)",
-                  color: "#f6d98a",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  lineHeight: 1.45,
-                }}
-              >
-                Para salvar este cartão, pressione a imagem por alguns segundos
-                e escolha “Salvar imagem”, ou tire uma captura de tela.
-              </div>
-            ) : (
-              <CartaoActions
-                whatsappUrl={whatsappUrl}
-                isGrupoPrincipal={isGrupoPrincipal}
-                grupoNome={convidado.grupo}
-                integrantesGrupo={grupoParaEnvio}
-                nomeEvento={nomeEvento}
-                siteUrl={siteUrl}
-              />
-            )}
+            <CartaoActions
+              whatsappUrl={whatsappUrl}
+              isGrupoPrincipal={isGrupoPrincipal}
+              grupoNome={convidado.grupo}
+              integrantesGrupo={grupoParaEnvio}
+              nomeEvento={nomeEvento}
+              siteUrl={siteUrl}
+            />
           </div>
 
           <footer
