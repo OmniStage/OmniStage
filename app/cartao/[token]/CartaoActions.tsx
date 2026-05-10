@@ -43,7 +43,6 @@ export default function CartaoActions({
       : `https://wa.me/?text=${mensagem}`;
 
     window.open(url, "_blank");
-
     localStorage.setItem(`cartao_enviado_${integrante.token}`, "1");
 
     const item = document.getElementById(`status-${integrante.id}`);
@@ -81,8 +80,7 @@ export default function CartaoActions({
               lineHeight: 1.45,
             }}
           >
-            Envie individualmente o cartão de entrada de cada integrante pelo
-            WhatsApp.
+            Envie pelo WhatsApp ou abra o cartão individual para salvar.
           </p>
 
           <div style={{ display: "grid", gap: 10 }}>
@@ -92,6 +90,10 @@ export default function CartaoActions({
                 integrante.token &&
                 localStorage.getItem(`cartao_enviado_${integrante.token}`) ===
                   "1";
+
+              const linkSalvar = integrante.token
+                ? `${siteUrl}/cartao/${encodeURIComponent(integrante.token)}`
+                : "#";
 
               return (
                 <div
@@ -127,24 +129,61 @@ export default function CartaoActions({
                     </small>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => abrirWhatsAppIntegrante(integrante)}
-                    disabled={!integrante.token}
+                  <div
                     style={{
-                      border: "none",
-                      borderRadius: 999,
-                      padding: "10px 14px",
-                      background: "linear-gradient(180deg, #25D366, #128C7E)",
-                      color: "#fff",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: integrante.token ? "pointer" : "not-allowed",
-                      opacity: integrante.token ? 1 : 0.45,
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
                     }}
                   >
-                    Enviar WhatsApp
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => abrirWhatsAppIntegrante(integrante)}
+                      disabled={!integrante.token}
+                      style={{
+                        flex: 1,
+                        minWidth: 110,
+                        border: "none",
+                        borderRadius: 999,
+                        padding: "10px 12px",
+                        background:
+                          "linear-gradient(180deg, #25D366, #128C7E)",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: integrante.token ? "pointer" : "not-allowed",
+                        opacity: integrante.token ? 1 : 0.45,
+                      }}
+                    >
+                      WhatsApp
+                    </button>
+
+                    <a
+                      href={linkSalvar}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        flex: 1,
+                        minWidth: 110,
+                        borderRadius: 999,
+                        padding: "10px 12px",
+                        background:
+                          "linear-gradient(180deg, #e1c178, #cfa958)",
+                        color: "#0d1d3d",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        textDecoration: "none",
+                        textAlign: "center",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: integrante.token ? 1 : 0.45,
+                        pointerEvents: integrante.token ? "auto" : "none",
+                      }}
+                    >
+                      Salvar
+                    </a>
+                  </div>
                 </div>
               );
             })}
