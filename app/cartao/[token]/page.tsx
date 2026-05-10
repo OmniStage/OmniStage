@@ -259,7 +259,9 @@ export default async function CartaoPage({
                 gap: 8,
                 padding: "10px 14px",
                 borderRadius: 999,
-                background: "rgba(255,255,255,.07)",
+                background: "rgba(4,20,47,.72)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 border: "1px solid rgba(255,255,255,.10)",
                 fontSize: 13,
               }}
