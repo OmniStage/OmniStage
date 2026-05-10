@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import CartaoActions from "./CartaoActions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -42,11 +43,8 @@ export default async function CartaoPage({ params }: PageProps) {
   }
 
   const nomeConvidado = convidado.nome || "Convidado";
-
   const nomeEvento = evento.nome || "Evento";
-
   const dataEvento = formatDate(evento.data_evento);
-
   const horario = evento.horario || evento.hora_inicio || "";
 
   const local =
@@ -68,12 +66,28 @@ export default async function CartaoPage({ params }: PageProps) {
 
   const logoUrl = evento.logo_url || evento.logo_image || "";
 
-  const backgroundUrl =
-    evento.background_url || evento.background_image || "";
+  const backgroundUrl = evento.background_url || evento.background_image || "";
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(
-    token
+    token,
   )}`;
+
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://omnistage-six.vercel.app";
+
+  const cartaoUrl = `${siteUrl}/cartao/${encodeURIComponent(token)}`;
+
+  const telefone = String(
+    convidado.telefone || convidado.responsavel_telefone || "",
+  ).replace(/\D/g, "");
+
+  const mensagemWhatsApp = encodeURIComponent(
+    `Olá ${nomeConvidado} ✨\n\nSegue seu cartão de entrada para o evento ${nomeEvento}:\n\n${cartaoUrl}\n\nApresente o QR Code na entrada do evento.`,
+  );
+
+  const whatsappUrl = telefone
+    ? `https://wa.me/${telefone}?text=${mensagemWhatsApp}`
+    : `https://wa.me/?text=${mensagemWhatsApp}`;
 
   return (
     <main
@@ -115,12 +129,7 @@ export default async function CartaoPage({ params }: PageProps) {
           }}
         />
 
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-          }}
-        >
+        <div style={{ position: "relative", zIndex: 1 }}>
           <div
             style={{
               fontSize: 11,
@@ -216,14 +225,7 @@ export default async function CartaoPage({ params }: PageProps) {
                 fontSize: 13,
               }}
             >
-              <strong
-                style={{
-                  color: "#d7b56d",
-                }}
-              >
-                TOKEN
-              </strong>
-
+              <strong style={{ color: "#d7b56d" }}>TOKEN</strong>
               <span>{token}</span>
             </div>
 
@@ -283,12 +285,7 @@ export default async function CartaoPage({ params }: PageProps) {
                 Evento
               </div>
 
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: 15,
-                }}
-              >
+              <strong style={{ display: "block", fontSize: 15 }}>
                 {nomeEvento}
               </strong>
 
@@ -326,32 +323,7 @@ export default async function CartaoPage({ params }: PageProps) {
               ) : null}
             </div>
 
-            <div
-              style={{
-                marginTop: 18,
-                display: "flex",
-                justifyContent: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                type="button"
-                style={{
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "12px 16px",
-                  background:
-                    "linear-gradient(180deg, #e1c178, #cfa958)",
-                  color: "#0d1d3d",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                Imprimir
-              </button>
-            </div>
+            <CartaoActions whatsappUrl={whatsappUrl} />
           </div>
 
           <footer
