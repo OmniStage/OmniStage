@@ -1551,13 +1551,22 @@ Apresente o cartão na entrada do evento.`;
                             </a>
 
                             <a
-                              href={linkCartao}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={goldButtonStyle}
-                            >
-                              Ver cartão
-                            </a>
+  href={linkCartao}
+  target="_blank"
+  rel="noreferrer"
+  style={goldButtonStyle}
+>
+  Cartão HTML
+</a>
+
+<a
+  href={`/cartao/${encodeURIComponent(convidado.token || "")}`}
+  target="_blank"
+  rel="noreferrer"
+  style={goldButtonStyle}
+>
+  Ver cartão
+</a>
                           </div>
                         </div>
 
