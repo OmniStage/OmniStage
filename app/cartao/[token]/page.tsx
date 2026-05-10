@@ -7,6 +7,7 @@ export const revalidate = 0;
 
 type PageProps = {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ save?: string }>;
 };
 
 function formatDate(value?: string | null) {
@@ -15,8 +16,11 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString("pt-BR");
 }
 
-export default async function CartaoPage({ params }: PageProps) {
+export default async function CartaoPage({ params, searchParams }: PageProps) {
   const { token } = await params;
+  const query = searchParams ? await searchParams : {};
+  const isSaveMode = query.save === "1";
+
   const supabase = await createClient();
 
   const { data: convidado, error: convidadoError } = await supabase
@@ -81,14 +85,15 @@ export default async function CartaoPage({ params }: PageProps) {
       convidado.recebe_convite === true ||
       Boolean(convidado.responsavel_telefone));
 
-  const { data: integrantesGrupo } = isGrupoPrincipal
-    ? await supabase
-        .from("convidados")
-        .select("id, nome, telefone, responsavel_telefone, token")
-        .eq("evento_id", convidado.evento_id)
-        .eq("grupo", convidado.grupo)
-        .order("nome", { ascending: true })
-    : { data: [] };
+  const { data: integrantesGrupo } =
+    isGrupoPrincipal && !isSaveMode
+      ? await supabase
+          .from("convidados")
+          .select("id, nome, telefone, responsavel_telefone, token")
+          .eq("evento_id", convidado.evento_id)
+          .eq("grupo", convidado.grupo)
+          .order("nome", { ascending: true })
+      : { data: [] };
 
   const grupoParaEnvio = (integrantesGrupo || []).map((integrante: any) => ({
     id: integrante.id,
@@ -101,7 +106,7 @@ export default async function CartaoPage({ params }: PageProps) {
     <main
       style={{
         minHeight: "100vh",
-        padding: "22px 16px 34px",
+        padding: isSaveMode ? "18px 12px 42px" : "22px 16px 34px",
         display: "grid",
         placeItems: "center",
         background: backgroundUrl
@@ -114,7 +119,7 @@ export default async function CartaoPage({ params }: PageProps) {
       <section
         style={{
           width: "100%",
-          maxWidth: 440,
+          maxWidth: isSaveMode ? 430 : 440,
           borderRadius: 30,
           padding: "26px 22px 24px",
           border: "1px solid rgba(255,255,255,.14)",
@@ -313,14 +318,33 @@ export default async function CartaoPage({ params }: PageProps) {
               ) : null}
             </div>
 
-            <CartaoActions
-              whatsappUrl={whatsappUrl}
-              isGrupoPrincipal={isGrupoPrincipal}
-              grupoNome={convidado.grupo}
-              integrantesGrupo={grupoParaEnvio}
-              nomeEvento={nomeEvento}
-              siteUrl={siteUrl}
-            />
+            {isSaveMode ? (
+              <div
+                style={{
+                  marginTop: 18,
+                  padding: 14,
+                  borderRadius: 18,
+                  background: "rgba(215,181,109,.12)",
+                  border: "1px solid rgba(215,181,109,.35)",
+                  color: "#f6d98a",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  lineHeight: 1.45,
+                }}
+              >
+                Para salvar este cartão, pressione a imagem por alguns segundos
+                e escolha “Salvar imagem”, ou tire uma captura de tela.
+              </div>
+            ) : (
+              <CartaoActions
+                whatsappUrl={whatsappUrl}
+                isGrupoPrincipal={isGrupoPrincipal}
+                grupoNome={convidado.grupo}
+                integrantesGrupo={grupoParaEnvio}
+                nomeEvento={nomeEvento}
+                siteUrl={siteUrl}
+              />
+            )}
           </div>
 
           <footer
