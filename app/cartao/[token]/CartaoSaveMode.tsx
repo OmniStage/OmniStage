@@ -11,6 +11,44 @@ type CartaoSaveModeProps = {
   backgroundUrl: string;
 };
 
+function safeFileName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9.-]/g, "-");
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function roundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
 export default function CartaoSaveMode({
   nomeConvidado,
   nomeEvento,
@@ -20,22 +58,114 @@ export default function CartaoSaveMode({
   backgroundUrl,
 }: CartaoSaveModeProps) {
   const [showSuccess, setShowSuccess] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
+  async function gerarImagemCartao() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1600;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas indisponível.");
+
+    ctx.fillStyle = "#020814";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (backgroundUrl) {
+      const bg = await loadImage(backgroundUrl);
+      ctx.save();
+      roundedRect(ctx, 70, 70, 940, 1460, 44);
+      ctx.clip();
+      ctx.drawImage(bg, 70, 70, 940, 1460);
+      ctx.restore();
+    }
+
+    const gradient = ctx.createLinearGradient(0, 70, 0, 1530);
+    gradient.addColorStop(0, "rgba(5,16,40,0.30)");
+    gradient.addColorStop(1, "rgba(2,8,24,0.80)");
+    ctx.fillStyle = gradient;
+    roundedRect(ctx, 70, 70, 940, 1460, 44);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(246,217,138,0.65)";
+    ctx.lineWidth = 2;
+    roundedRect(ctx, 70, 70, 940, 1460, 44);
+    ctx.stroke();
+
+    if (logoUrl) {
+      const logo = await loadImage(logoUrl);
+      const logoW = 620;
+      const ratio = logo.height / logo.width;
+      const logoH = Math.min(190, logoW * ratio);
+      ctx.drawImage(logo, (1080 - logoW) / 2, 145, logoW, logoH);
+    } else {
+      ctx.fillStyle = "#f6d98a";
+      ctx.font = "900 72px Georgia";
+      ctx.textAlign = "center";
+      ctx.fillText(nomeEvento, 540, 220);
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.font = "900 38px Arial";
+    ctx.letterSpacing = "12px";
+    ctx.textAlign = "center";
+    ctx.fillText("CARTÃO DE ENTRADA", 540, 405);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 62px Georgia";
+    ctx.fillText(nomeConvidado.toUpperCase(), 540, 500);
+
+    const qr = await loadImage(qrUrl);
+
+    ctx.fillStyle = "#ffffff";
+    roundedRect(ctx, 210, 690, 660, 660, 44);
+    ctx.fill();
+
+    ctx.drawImage(qr, 250, 730, 580, 580);
+
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    roundedRect(ctx, 385, 1410, 310, 74, 37);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 2;
+    roundedRect(ctx, 385, 1410, 310, 74, 37);
+    ctx.stroke();
+
+    ctx.fillStyle = "#f6d98a";
+    ctx.font = "900 34px Arial";
+    ctx.letterSpacing = "8px";
+    ctx.fillText(token, 540, 1458);
+
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) reject(new Error("Erro ao gerar imagem."));
+        else resolve(blob);
+      }, "image/png", 1);
+    });
+  }
 
   async function salvarImagem() {
-    const fileName = `${nomeConvidado || "cartao"}-${token}.png`
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9.-]/g, "-");
+    if (salvando) return;
+
+    setSalvando(true);
+
+    const fileName = safeFileName(
+      `${nomeConvidado}-Convite-${nomeEvento}-${token}.png`,
+    );
 
     try {
-      const response = await fetch(qrUrl);
-      const blob = await response.blob();
+      const blob = await gerarImagemCartao();
+      const file = new File([blob], fileName, { type: "image/png" });
 
-      const file = new File([blob], fileName, {
-        type: "image/png",
-      });
+      const isMobile =
+        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      if (
+        isMobile &&
+        navigator.share &&
+        navigator.canShare?.({ files: [file] })
+      ) {
         await navigator.share({
           files: [file],
           title: `Cartão ${nomeEvento}`,
@@ -55,17 +185,22 @@ export default function CartaoSaveMode({
       link.click();
       link.remove();
 
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => URL.revokeObjectURL(url), 1200);
 
       setShowSuccess(true);
-    } catch {
-      alert("Não foi possível salvar automaticamente. Tire uma captura de tela.");
+    } catch (error) {
+      alert("Não foi possível salvar o cartão. Verifique as imagens do evento.");
+    } finally {
+      setSalvando(false);
     }
   }
 
-  function fechar() {
-    setShowSuccess(false);
+  function fecharModoSalvar() {
+    window.location.href = window.location.pathname;
+  }
 
+  function fecharPopup() {
+    setShowSuccess(false);
     setTimeout(() => {
       window.location.href = window.location.pathname;
     }, 150);
@@ -97,8 +232,6 @@ export default function CartaoSaveMode({
               "linear-gradient(180deg, rgba(7,21,47,.96), rgba(2,8,24,.98))",
             border: "1px solid rgba(246,217,138,.42)",
             boxShadow: "0 30px 90px rgba(0,0,0,.62)",
-            position: "relative",
-            overflow: "hidden",
           }}
         >
           <h1
@@ -173,10 +306,7 @@ export default function CartaoSaveMode({
                 <img
                   src={qrUrl}
                   alt={`QR ${nomeConvidado}`}
-                  style={{
-                    width: "100%",
-                    display: "block",
-                  }}
+                  style={{ width: "100%", display: "block" }}
                 />
               </div>
 
@@ -196,6 +326,7 @@ export default function CartaoSaveMode({
           <button
             type="button"
             onClick={salvarImagem}
+            disabled={salvando}
             aria-label="Salvar imagem"
             style={{
               width: 190,
@@ -205,7 +336,8 @@ export default function CartaoSaveMode({
               background:
                 "linear-gradient(180deg,#fbfbfc 0%,#e7e8ec 52%,#d9dbe2 100%)",
               color: "#050505",
-              cursor: "pointer",
+              cursor: salvando ? "wait" : "pointer",
+              opacity: salvando ? 0.72 : 1,
               boxShadow:
                 "0 0 34px rgba(246,217,138,.28), inset 0 2px 8px rgba(255,255,255,.90)",
               display: "flex",
@@ -214,16 +346,9 @@ export default function CartaoSaveMode({
               justifyContent: "center",
               gap: 9,
               margin: "0 auto",
-              WebkitTapHighlightColor: "transparent",
             }}
           >
-            <svg
-              width="58"
-              height="58"
-              viewBox="0 0 64 64"
-              aria-hidden="true"
-              style={{ display: "block" }}
-            >
+            <svg width="58" height="58" viewBox="0 0 64 64">
               <path
                 d="M32 8v30"
                 stroke="#050505"
@@ -256,7 +381,7 @@ export default function CartaoSaveMode({
                 letterSpacing: "-0.04em",
               }}
             >
-              Salvar
+              {salvando ? "Salvando" : "Salvar"}
               <br />
               Imagem
             </div>
@@ -264,9 +389,7 @@ export default function CartaoSaveMode({
 
           <button
             type="button"
-            onClick={() => {
-              window.location.href = window.location.pathname;
-            }}
+            onClick={fecharModoSalvar}
             style={{
               marginTop: 24,
               width: "100%",
@@ -307,7 +430,7 @@ export default function CartaoSaveMode({
         <div
           role="dialog"
           aria-modal="true"
-          onClick={fechar}
+          onClick={fecharPopup}
           style={{
             position: "fixed",
             inset: 0,
@@ -386,7 +509,7 @@ export default function CartaoSaveMode({
 
             <button
               type="button"
-              onClick={fechar}
+              onClick={fecharPopup}
               style={{
                 border: "none",
                 borderRadius: 999,
@@ -396,8 +519,6 @@ export default function CartaoSaveMode({
                 fontWeight: 900,
                 fontSize: 18,
                 cursor: "pointer",
-                position: "relative",
-                zIndex: 1000000,
               }}
             >
               Fechar
