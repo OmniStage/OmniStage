@@ -6,6 +6,7 @@ import { createBrowserClient } from "@supabase/ssr";
 
 type Evento = {
   id: string;
+  slug: string | null;
   nome: string | null;
   tenant_id: string | null;
   lista_presentes_ativa: boolean | null;
@@ -134,8 +135,13 @@ export default function ListaPresentesEventoPage() {
   }
 
   function gerarLinkPublicoLista() {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/lista-presentes/${eventId}`;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "");
+
+    const identificador = evento?.slug || evento?.id || eventId;
+
+    return `${baseUrl}/lista-presentes/${identificador}`;
   }
 
   async function carregarTudo() {
@@ -150,6 +156,7 @@ export default function ListaPresentesEventoPage() {
       .from("eventos")
       .select(`
         id,
+        slug,
         nome,
         tenant_id,
         lista_presentes_ativa,
