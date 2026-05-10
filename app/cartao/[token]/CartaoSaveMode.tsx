@@ -65,6 +65,10 @@ export default function CartaoSaveMode({
 
   function fechar() {
     setShowSuccess(false);
+
+    setTimeout(() => {
+      window.location.href = window.location.pathname;
+    }, 150);
   }
 
   return (
@@ -198,7 +202,8 @@ export default function CartaoSaveMode({
               height: 190,
               borderRadius: 48,
               border: "3px solid rgba(199,174,99,.85)",
-              background: "linear-gradient(180deg,#fbfbfc 0%,#e7e8ec 52%,#d9dbe2 100%)",
+              background:
+                "linear-gradient(180deg,#fbfbfc 0%,#e7e8ec 52%,#d9dbe2 100%)",
               color: "#050505",
               cursor: "pointer",
               boxShadow:
@@ -259,9 +264,9 @@ export default function CartaoSaveMode({
 
           <button
             type="button"
-         onClick={() => {
-  window.location.href = window.location.pathname;
-}}
+            onClick={() => {
+              window.location.href = window.location.pathname;
+            }}
             style={{
               marginTop: 24,
               width: "100%",
@@ -302,6 +307,7 @@ export default function CartaoSaveMode({
         <div
           role="dialog"
           aria-modal="true"
+          onClick={fechar}
           style={{
             position: "fixed",
             inset: 0,
@@ -313,6 +319,7 @@ export default function CartaoSaveMode({
           }}
         >
           <div
+            onClick={(event) => event.stopPropagation()}
             style={{
               width: "100%",
               maxWidth: 420,
