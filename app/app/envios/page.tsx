@@ -29,6 +29,7 @@ type Convidado = {
 type Evento = {
   id: string;
   nome: string | null;
+  tenant_id: string | null;
 };
 
 type Campanha = {
@@ -91,7 +92,7 @@ export default function EnviosPage() {
   async function carregarEventos(eventoPreferencialId?: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome")
+      .select("id, nome, tenant_id")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -350,6 +351,11 @@ export default function EnviosPage() {
       return;
     }
 
+    if (!eventoAtual.tenant_id) {
+      alert("Este evento está sem tenant_id. Atualize o cadastro do evento antes de adicionar à fila.");
+      return;
+    }
+
     const elegiveis = lista.filter((convidado) => {
       const telefoneOk = !!normalizarTelefone(convidado.telefone);
       const enviado = getStatusEnvio(convidado, campanha) === "enviado";
@@ -370,6 +376,7 @@ export default function EnviosPage() {
     setProcessandoMassa(true);
 
     const linhas = elegiveis.map((convidado) => ({
+      tenant_id: eventoAtual.tenant_id,
       evento_id: eventoAtual.id,
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
@@ -493,6 +500,11 @@ export default function EnviosPage() {
       return;
     }
 
+    if (!eventoAtual.tenant_id) {
+      alert("Este evento está sem tenant_id. Atualize o cadastro do evento antes de adicionar à fila.");
+      return;
+    }
+
     const telefone = normalizarTelefone(convidado.telefone);
 
     if (!telefone) {
@@ -501,6 +513,7 @@ export default function EnviosPage() {
     }
 
     const { error } = await supabase.from("envio_fila").insert({
+      tenant_id: eventoAtual.tenant_id,
       evento_id: eventoAtual.id,
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
