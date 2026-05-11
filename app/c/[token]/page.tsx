@@ -238,8 +238,34 @@ function getEventoPreview(evento: Evento, nomes: string[]) {
     hora: horaFormatada || "",
     local_evento: evento.local || "",
     endereco_evento: evento.endereco || "",
-    total_convidados: String(nomes.length || 1),
+    total_convidados: String(Math.max(1, nomes.length || 1)),
+    convidados_quantidade: String(Math.max(1, nomes.length || 1)),
+    texto_total_convidados:
+      Math.max(1, nomes.length || 1) === 1
+        ? "Convite para 1 convidado"
+        : `Convite para ${Math.max(1, nomes.length || 1)} convidados`,
   };
+}
+
+function ajustarBlocosParaConvidados(
+  blocks: VisualBlock[],
+  nomes: string[],
+): VisualBlock[] {
+  const total = Math.max(1, nomes.length || 1);
+
+  return blocks.map((block) => {
+    if (block.type !== "guest_picker") return block;
+
+    const itemHeight = Math.max(28, Math.round((block.font_size || 18) * 1.65));
+    const paddingVertical = 22;
+    const gapTotal = Math.max(0, total - 1) * 6;
+    const alturaNecessaria = paddingVertical + total * itemHeight + gapTotal;
+
+    return {
+      ...block,
+      height: Math.max(block.height || 0, alturaNecessaria),
+    };
+  });
 }
 
 function renderGuestPicker(block: VisualBlock, nomes: string[]) {
@@ -282,8 +308,8 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
         gap: 6,
         padding: "8px 10px",
         boxSizing: "border-box",
-        overflowY: "auto",
-        overflowX: "hidden",
+        overflowY: "visible",
+        overflowX: "visible",
       }}
     >
       {nomesLimpos.map((nome) => (
@@ -676,7 +702,7 @@ export default function ConvitePublicoPage() {
 
     return (
       <ConviteVisualRenderer
-        blocks={renderState.blocks}
+        blocks={ajustarBlocosParaConvidados(renderState.blocks, renderState.nomes)}
         backgroundUrl={getBackgroundUrl(renderState.template, renderState.evento)}
         logoUrl={getLogoUrl(renderState.template, renderState.evento)}
         width={CANVAS_W}
