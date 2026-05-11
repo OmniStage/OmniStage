@@ -485,17 +485,18 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
     return textoSeguro(nomeEvento);
   }
 
-  // Para date_time: ignora block.content e usa sempre data + hora do evento
+  // Para date_time: usa o formato padrão com data e hora
   if (block.type === "date_time") {
-    const partes: string[] = [];
-    if (dataFormatada) partes.push(dataFormatada);
-    if (horarioFormatado) partes.push(horarioFormatado);
-    return textoSeguro(partes.join(" • "));
+    // Usa valores formatados do evento, ou valores de demonstração se não houver evento
+    const data = dataFormatada || "16/05/2026";
+    const hora = horarioFormatado || "21h";
+    return textoSeguro(`${data} • ${hora}`);
   }
 
-  // Para location: ignora block.content e usa sempre o local do evento
+  // Para location: usa o local do evento ou valor de demonstração
   if (block.type === "location") {
-    return textoSeguro(localEvento);
+    const local = localEvento || "Local do Evento";
+    return textoSeguro(local);
   }
 
   if (block.type === "guest_name") {
