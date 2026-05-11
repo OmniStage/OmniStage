@@ -784,7 +784,7 @@ export function renderizarTemplateVisual(
             if (!alvo) return;
 
             el.style.left = "center";
-            el.style.width = "386px";
+            el.style.width = "center";
             el.style.textAlign = "center";
             el.style.alignItems = "center";
             el.style.justifyContent = "center";
