@@ -612,10 +612,11 @@ export function renderizarTemplateVisual(
             font-size:${numberValue(block.font_size, 24)}px;
             font-weight:900;
             display:flex;
+            flex-direction:column;
             align-items:center;
             justify-content:center;
             text-align:center;
-            line-height:1.12;
+            line-height:${isCentralInfo ? "1.08" : "1.12"};
             padding:${padding}px;
             overflow:hidden;
             white-space:pre-wrap;
@@ -783,13 +784,18 @@ export function renderizarTemplateVisual(
 
             if (!alvo) return;
 
-            el.style.left = "center";
-            el.style.width = "center";
-            el.style.textAlign = "center";
-            el.style.alignItems = "center";
-            el.style.justifyContent = "center";
+            el.style.left = "22px";
+            el.style.width = "386px";
+            el.style.right = "auto";
             el.style.marginLeft = "0";
             el.style.marginRight = "0";
+            el.style.display = "flex";
+            el.style.flexDirection = "column";
+            el.style.alignItems = "center";
+            el.style.justifyContent = "center";
+            el.style.textAlign = "center";
+            el.style.lineHeight = "1.08";
+            el.style.whiteSpace = "pre-wrap";
           });
         }
 
@@ -1011,9 +1017,14 @@ export function renderizarTemplateVisual(
           [data-block-type="countdown"] {
             left:22px !important;
             width:386px !important;
+            right:auto !important;
+            display:flex !important;
+            flex-direction:column !important;
             text-align:center !important;
             align-items:center !important;
             justify-content:center !important;
+            line-height:1.08 !important;
+            white-space:pre-wrap !important;
             padding-left:8px !important;
             padding-right:8px !important;
           }
