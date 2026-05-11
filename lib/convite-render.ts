@@ -485,19 +485,17 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
     return textoSeguro(nomeEvento);
   }
 
-  // Para date_time e location: usa o content do bloco se existir
+  // Para date_time: ignora block.content e usa sempre data + hora do evento
   if (block.type === "date_time") {
-    const content = block.content || "{{data_evento}} • {{hora_evento}}";
-    console.log("[v0] DATE_TIME BLOCK CONTENT:", block.content);
-    console.log("[v0] DATE_TIME CONTENT USADO:", content);
-    console.log("[v0] DATE_TIME HORARIO FORMATADO:", horarioFormatado);
-    console.log("[v0] DATE_TIME DATA FORMATADA:", dataFormatada);
-    return textoSeguro(substituirPlaceholders(content));
+    const partes: string[] = [];
+    if (dataFormatada) partes.push(dataFormatada);
+    if (horarioFormatado) partes.push(horarioFormatado);
+    return textoSeguro(partes.join(" • "));
   }
 
+  // Para location: ignora block.content e usa sempre o local do evento
   if (block.type === "location") {
-    const content = block.content || "{{local_evento}}";
-    return textoSeguro(substituirPlaceholders(content));
+    return textoSeguro(localEvento);
   }
 
   if (block.type === "guest_name") {
@@ -619,6 +617,10 @@ export function renderizarTemplateVisual(
       const isTightContent = ["date_time", "location", "horario", "hora"].includes(block.type);
       const lineHeight = isTightContent ? "1.02" : "1.12";
 
+      // Logo: sem overflow hidden e sem border-radius para não cortar a imagem
+      const overflow = isLogo ? "visible" : "hidden";
+      const borderRadius = isLogo ? 0 : numberValue(block.border_radius, 0);
+
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
@@ -636,7 +638,7 @@ export function renderizarTemplateVisual(
             height:${blockHeight}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
-            border-radius:${numberValue(block.border_radius, 0)}px;
+            border-radius:${borderRadius}px;
             color:${block.color || "#ffffff"};
             background:${background};
             font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif !important;
@@ -649,7 +651,7 @@ export function renderizarTemplateVisual(
             text-align:center;
             line-height:${lineHeight};
             padding:${padding}px;
-            overflow:hidden;
+            overflow:${overflow};
             white-space:pre-wrap;
           "
         >

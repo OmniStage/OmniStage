@@ -103,12 +103,7 @@ export default function ConvitePage() {
   const [saving, setSaving] = useState(false);
 
   const eventoAtual = useMemo(() => {
-    const evento = eventos.find((evento) => evento.id === eventoSelecionado) || null;
-    console.log("[v0] EVENTO ATUAL NO APP:", evento);
-    console.log("[v0] HORARIO:", evento?.horario);
-    console.log("[v0] LOCAL:", evento?.local);
-    console.log("[v0] DATA:", evento?.data_evento);
-    return evento;
+    return eventos.find((evento) => evento.id === eventoSelecionado) || null;
   }, [eventos, eventoSelecionado]);
 
   const templateAtual = useMemo(() => {
