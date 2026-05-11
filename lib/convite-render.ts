@@ -488,6 +488,10 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
   // Para date_time e location: usa o content do bloco se existir
   if (block.type === "date_time") {
     const content = block.content || "{{data_evento}} • {{hora_evento}}";
+    console.log("[v0] DATE_TIME BLOCK CONTENT:", block.content);
+    console.log("[v0] DATE_TIME CONTENT USADO:", content);
+    console.log("[v0] DATE_TIME HORARIO FORMATADO:", horarioFormatado);
+    console.log("[v0] DATE_TIME DATA FORMATADA:", dataFormatada);
     return textoSeguro(substituirPlaceholders(content));
   }
 

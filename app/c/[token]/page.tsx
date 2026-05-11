@@ -172,6 +172,11 @@ export default function ConvitePublicoPage() {
       .eq("id", convidadoBase.evento_id)
       .maybeSingle();
 
+    console.log("[v0] EVENTO CARREGADO:", evento);
+    console.log("[v0] HORARIO DO EVENTO:", evento?.horario);
+    console.log("[v0] LOCAL DO EVENTO:", evento?.local);
+    console.log("[v0] DATA DO EVENTO:", evento?.data_evento);
+
     if (!evento?.invite_template_id) {
       setHtmlFinal(htmlErro("Evento sem convite aplicado."));
       setLoading(false);
