@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   preencherTemplate,
-  renderizarTemplateVisual,
+  formatarData,
+  formatarHorario,
   type EventoConvite,
   type VisualBlock,
 } from "@/lib/convite-render";
+import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
 
 type Evento = EventoConvite & {
   status: string | null;
@@ -34,6 +36,9 @@ type Template = {
   tenant_id: string | null;
   categoria?: { nome: string } | { nome: string }[] | null;
 };
+
+const CANVAS_W = 430;
+const CANVAS_H = 920;
 
 function getCategoriaNome(categoria: Template["categoria"]) {
   if (Array.isArray(categoria)) {
@@ -69,19 +74,56 @@ function normalizarBlock(raw: any): VisualBlock {
   };
 }
 
-function gerarHtmlPreview(
-  template: Template | null,
-  evento: Evento | null,
-  blocksByTemplate: Record<string, VisualBlock[]>,
-) {
+function getVisualConfig(template: Template | null) {
+  return (template?.visual_config || {}) as Record<string, any>;
+}
+
+function getBackgroundUrl(template: Template | null, evento: Evento | null) {
+  const visualConfig = getVisualConfig(template);
+
+  return (
+    evento?.background_url ||
+    evento?.background_image ||
+    visualConfig.backgroundPreviewUrl ||
+    template?.background_image ||
+    template?.preview_image ||
+    ""
+  );
+}
+
+function getLogoUrl(template: Template | null, evento: Evento | null) {
+  const visualConfig = getVisualConfig(template);
+
+  return (
+    evento?.logo_url ||
+    evento?.logo_image ||
+    visualConfig.logoPreviewUrl ||
+    template?.logo_image ||
+    ""
+  );
+}
+
+function getEventoPreview(evento: Evento | null) {
+  const dataFormatada = formatarData(evento?.data_evento || null);
+  const horaFormatada = formatarHorario(evento?.horario);
+
+  return {
+    nome_evento: evento?.nome || "Nome do Evento",
+    nome_convidado: "Nome do Convidado",
+    data_evento: dataFormatada || "Data do Evento",
+    hora_evento: horaFormatada || "Horário",
+    horario_evento: horaFormatada || "Horário",
+    local_evento: evento?.local || "Local do Evento",
+    endereco_evento: evento?.endereco || "Endereço do Evento",
+    total_convidados: "4",
+  };
+}
+
+function gerarHtmlPreview(template: Template | null, evento: Evento | null) {
   if (!template) return "";
 
   if (template.editor_mode === "visual") {
-    return renderizarTemplateVisual(
-      template,
-      blocksByTemplate[template.id] || [],
-      evento,
-    );
+    return "";
   }
 
   if (template.html_template) {
@@ -89,6 +131,86 @@ function gerarHtmlPreview(
   }
 
   return "";
+}
+
+function VisualPreviewCard({
+  template,
+  evento,
+  blocks,
+}: {
+  template: Template;
+  evento: Evento | null;
+  blocks: VisualBlock[];
+}) {
+  const visualConfig = getVisualConfig(template);
+  const scale = 0.43;
+
+  return (
+    <div style={templateThumbFrameWrapStyle}>
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: 0,
+          width: CANVAS_W * scale,
+          height: CANVAS_H * scale,
+          transform: "translateX(-50%)",
+        }}
+      >
+        <ConviteVisualRenderer
+          blocks={blocks}
+          backgroundUrl={getBackgroundUrl(template, evento)}
+          logoUrl={getLogoUrl(template, evento)}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          scale={scale}
+          backgroundX={toNumber(visualConfig.backgroundX, 0)}
+          backgroundY={toNumber(visualConfig.backgroundY, 0)}
+          backgroundScale={toNumber(visualConfig.backgroundScale, 1)}
+          backgroundOpacity={toNumber(visualConfig.backgroundOpacity, 1)}
+          glassOpacity={toNumber(visualConfig.glassOpacity, 0.18)}
+          glassBlur={toNumber(visualConfig.glassBlur, 0)}
+          glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
+          blockEffects={visualConfig.blockEffects || {}}
+          evento={getEventoPreview(evento)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function VisualPreviewGrande({
+  template,
+  evento,
+  blocks,
+}: {
+  template: Template;
+  evento: Evento | null;
+  blocks: VisualBlock[];
+}) {
+  const visualConfig = getVisualConfig(template);
+
+  return (
+    <div style={visualPreviewLargeWrapStyle}>
+      <ConviteVisualRenderer
+        blocks={blocks}
+        backgroundUrl={getBackgroundUrl(template, evento)}
+        logoUrl={getLogoUrl(template, evento)}
+        width={CANVAS_W}
+        height={CANVAS_H}
+        scale={1}
+        backgroundX={toNumber(visualConfig.backgroundX, 0)}
+        backgroundY={toNumber(visualConfig.backgroundY, 0)}
+        backgroundScale={toNumber(visualConfig.backgroundScale, 1)}
+        backgroundOpacity={toNumber(visualConfig.backgroundOpacity, 1)}
+        glassOpacity={toNumber(visualConfig.glassOpacity, 0.18)}
+        glassBlur={toNumber(visualConfig.glassBlur, 0)}
+        glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
+        blockEffects={visualConfig.blockEffects || {}}
+        evento={getEventoPreview(evento)}
+      />
+    </div>
+  );
 }
 
 export default function ConvitePage() {
@@ -465,7 +587,8 @@ export default function ConvitePage() {
                 const templateNome = template.nome || template.name || "Modelo";
                 const isVisual = template.editor_mode === "visual";
                 const preview = template.preview_image || template.background_image || "";
-                const previewHtml = gerarHtmlPreview(template, eventoAtual, templateBlocks);
+                const previewHtml = gerarHtmlPreview(template, eventoAtual);
+                const blocks = templateBlocks[template.id] || [];
 
                 return (
                   <button
@@ -480,7 +603,13 @@ export default function ConvitePage() {
                     }}
                     onClick={() => setTemplateSelecionado(template.id)}
                   >
-                    {isVisual || template.html_template ? (
+                    {isVisual && blocks.length ? (
+                      <VisualPreviewCard
+                        template={template}
+                        evento={eventoAtual}
+                        blocks={blocks}
+                      />
+                    ) : template.html_template ? (
                       <div style={templateThumbFrameWrapStyle}>
                         <iframe
                           title={`Preview ${templateNome}`}
@@ -513,10 +642,16 @@ export default function ConvitePage() {
 
             {!templateAtual && <div style={emptyStyle}>Selecione um modelo para visualizar.</div>}
 
-            {templateAtual && gerarHtmlPreview(templateAtual, eventoAtual, templateBlocks) ? (
+            {templateAtual?.editor_mode === "visual" && templateBlocks[templateAtual.id]?.length ? (
+              <VisualPreviewGrande
+                template={templateAtual}
+                evento={eventoAtual}
+                blocks={templateBlocks[templateAtual.id] || []}
+              />
+            ) : templateAtual && gerarHtmlPreview(templateAtual, eventoAtual) ? (
               <iframe
                 title={`Preview ${templateAtual.nome || templateAtual.name}`}
-                srcDoc={gerarHtmlPreview(templateAtual, eventoAtual, templateBlocks)}
+                srcDoc={gerarHtmlPreview(templateAtual, eventoAtual)}
                 style={previewFrameStyle}
               />
             ) : templateAtual?.preview_image || templateAtual?.background_image ? (
@@ -544,14 +679,13 @@ export default function ConvitePage() {
   );
 }
 
-
-const pageStyle: React.CSSProperties = {
+const pageStyle: CSSProperties = {
   color: "#0f172a",
   display: "grid",
   gap: 24,
 };
 
-const heroStyle: React.CSSProperties = {
+const heroStyle: CSSProperties = {
   padding: 34,
   borderRadius: 34,
   border: "1px solid #e2e8f0",
@@ -564,7 +698,7 @@ const heroStyle: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
-const eyebrowStyle: React.CSSProperties = {
+const eyebrowStyle: CSSProperties = {
   color: "#6d28d9",
   fontSize: 13,
   fontWeight: 900,
@@ -573,7 +707,7 @@ const eyebrowStyle: React.CSSProperties = {
   marginBottom: 10,
 };
 
-const titleStyle: React.CSSProperties = {
+const titleStyle: CSSProperties = {
   margin: 0,
   fontSize: 46,
   lineHeight: 1.02,
@@ -582,14 +716,14 @@ const titleStyle: React.CSSProperties = {
   color: "#0f172a",
 };
 
-const subtitleStyle: React.CSSProperties = {
+const subtitleStyle: CSSProperties = {
   margin: "12px 0 0",
   color: "#64748b",
   fontSize: 18,
   lineHeight: 1.45,
 };
 
-const sectionStyle: React.CSSProperties = {
+const sectionStyle: CSSProperties = {
   padding: 28,
   borderRadius: 30,
   border: "1px solid #e2e8f0",
@@ -597,19 +731,19 @@ const sectionStyle: React.CSSProperties = {
   boxShadow: "0 14px 45px rgba(15,23,42,0.07)",
 };
 
-const eventSectionGridStyle: React.CSSProperties = {
+const eventSectionGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 520px)",
   gap: 22,
   alignItems: "end",
 };
 
-const eventSelectWrapStyle: React.CSSProperties = {
+const eventSelectWrapStyle: CSSProperties = {
   display: "grid",
   gap: 8,
 };
 
-const eventInfoBarStyle: React.CSSProperties = {
+const eventInfoBarStyle: CSSProperties = {
   marginTop: 20,
   display: "flex",
   flexWrap: "wrap",
@@ -619,7 +753,7 @@ const eventInfoBarStyle: React.CSSProperties = {
   fontWeight: 800,
 };
 
-const sectionKickerStyle: React.CSSProperties = {
+const sectionKickerStyle: CSSProperties = {
   color: "#6d28d9",
   fontSize: 12,
   fontWeight: 950,
@@ -628,7 +762,7 @@ const sectionKickerStyle: React.CSSProperties = {
   marginBottom: 8,
 };
 
-const sectionTitleStyle: React.CSSProperties = {
+const sectionTitleStyle: CSSProperties = {
   margin: 0,
   color: "#0f172a",
   fontSize: 28,
@@ -637,21 +771,21 @@ const sectionTitleStyle: React.CSSProperties = {
   letterSpacing: "-0.03em",
 };
 
-const sectionDescriptionStyle: React.CSSProperties = {
+const sectionDescriptionStyle: CSSProperties = {
   margin: "8px 0 0",
   color: "#64748b",
   fontSize: 16,
   lineHeight: 1.45,
 };
 
-const labelStyle: React.CSSProperties = {
+const labelStyle: CSSProperties = {
   display: "block",
   color: "#334155",
   fontSize: 14,
   fontWeight: 900,
 };
 
-const sectionHeaderStyle: React.CSSProperties = {
+const sectionHeaderStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: 16,
@@ -660,7 +794,7 @@ const sectionHeaderStyle: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
-const selectStyle: React.CSSProperties = {
+const selectStyle: CSSProperties = {
   width: "100%",
   minHeight: 52,
   padding: "0 16px",
@@ -673,7 +807,7 @@ const selectStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const filterSelectStyle: React.CSSProperties = {
+const filterSelectStyle: CSSProperties = {
   minWidth: 240,
   minHeight: 48,
   padding: "0 16px",
@@ -686,13 +820,13 @@ const filterSelectStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const gridStyle: React.CSSProperties = {
+const gridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
   gap: 22,
 };
 
-const templateCardStyle: React.CSSProperties = {
+const templateCardStyle: CSSProperties = {
   display: "grid",
   textAlign: "left",
   borderRadius: 28,
@@ -704,21 +838,21 @@ const templateCardStyle: React.CSSProperties = {
   transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
 };
 
-const templateNameStyle: React.CSSProperties = {
+const templateNameStyle: CSSProperties = {
   marginTop: 14,
   color: "#0f172a",
   fontSize: 16,
   fontWeight: 950,
 };
 
-const templateCategoryStyle: React.CSSProperties = {
+const templateCategoryStyle: CSSProperties = {
   color: "#64748b",
   marginTop: 5,
   fontSize: 13,
   fontWeight: 750,
 };
 
-const visualBadgeStyle: React.CSSProperties = {
+const visualBadgeStyle: CSSProperties = {
   width: "fit-content",
   marginTop: 10,
   padding: "7px 10px",
@@ -729,7 +863,7 @@ const visualBadgeStyle: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const htmlBadgeStyle: React.CSSProperties = {
+const htmlBadgeStyle: CSSProperties = {
   width: "fit-content",
   marginTop: 10,
   padding: "7px 10px",
@@ -740,7 +874,7 @@ const htmlBadgeStyle: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const templateThumbStyle: React.CSSProperties = {
+const templateThumbStyle: CSSProperties = {
   width: "100%",
   height: 390,
   objectFit: "cover",
@@ -749,7 +883,7 @@ const templateThumbStyle: React.CSSProperties = {
   background: "#f8fafc",
 };
 
-const templateThumbFrameStyle: React.CSSProperties = {
+const templateThumbFrameStyle: CSSProperties = {
   width: 430,
   height: 920,
   border: 0,
@@ -763,7 +897,7 @@ const templateThumbFrameStyle: React.CSSProperties = {
   overflow: "hidden",
 };
 
-const templateThumbFrameWrapStyle: React.CSSProperties = {
+const templateThumbFrameWrapStyle: CSSProperties = {
   width: "100%",
   height: 390,
   borderRadius: 22,
@@ -773,7 +907,7 @@ const templateThumbFrameWrapStyle: React.CSSProperties = {
   position: "relative",
 };
 
-const templateThumbEmptyStyle: React.CSSProperties = {
+const templateThumbEmptyStyle: CSSProperties = {
   width: "100%",
   height: 390,
   borderRadius: 22,
@@ -785,7 +919,7 @@ const templateThumbEmptyStyle: React.CSSProperties = {
   fontWeight: 900,
 };
 
-const emptyStyle: React.CSSProperties = {
+const emptyStyle: CSSProperties = {
   marginTop: 14,
   padding: 20,
   borderRadius: 18,
@@ -795,7 +929,7 @@ const emptyStyle: React.CSSProperties = {
   fontWeight: 800,
 };
 
-const previewFrameStyle: React.CSSProperties = {
+const previewFrameStyle: CSSProperties = {
   width: "100%",
   maxWidth: 460,
   height: 860,
@@ -807,7 +941,7 @@ const previewFrameStyle: React.CSSProperties = {
   boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
 };
 
-const previewImageStyle: React.CSSProperties = {
+const previewImageStyle: CSSProperties = {
   width: "100%",
   maxWidth: 460,
   maxHeight: 860,
@@ -820,7 +954,19 @@ const previewImageStyle: React.CSSProperties = {
   boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
 };
 
-const buttonStyle: React.CSSProperties = {
+const visualPreviewLargeWrapStyle: CSSProperties = {
+  width: CANVAS_W,
+  height: CANVAS_H,
+  maxWidth: "100%",
+  display: "block",
+  margin: "22px auto 0",
+  borderRadius: 34,
+  overflow: "hidden",
+  background: "#020617",
+  boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
+};
+
+const buttonStyle: CSSProperties = {
   width: "fit-content",
   marginTop: 4,
   padding: "17px 24px",
@@ -834,7 +980,7 @@ const buttonStyle: React.CSSProperties = {
   boxShadow: "0 16px 40px rgba(124,58,237,0.26)",
 };
 
-const ghostButtonStyle: React.CSSProperties = {
+const ghostButtonStyle: CSSProperties = {
   padding: "14px 18px",
   borderRadius: 16,
   background: "#7c3aed",
@@ -845,3 +991,4 @@ const ghostButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   boxShadow: "0 14px 34px rgba(124,58,237,0.22)",
 };
+
