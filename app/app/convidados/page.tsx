@@ -407,20 +407,18 @@ export default function ConvidadosPage() {
 
     if (!telefone) return "";
 
+    const eventoAtual = getEventoDoConvidado(convidado);
     const linkConvite = `${window.location.origin}${gerarLinkConvite(convidado)}`;
-    const linkCartao = gerarLinkCartao(convidado);
 
-    const mensagem = `Olá ${convidado.nome} ✨
+    const mensagem = `Olá ${convidado.nome || "Convidado"}
 
-Você está convidado(a) para o evento.
+Você está convidado(a) para o evento ${eventoAtual?.nome || ""}.
 
-Convite digital:
+Acesse seu convite digital e confirme presença:
 ${linkConvite}
 
-Cartão de entrada:
-${linkCartao}
-
-Apresente o cartão na entrada do evento.`;
+Com carinho,
+${eventoAtual?.nome || "OmniStage"}`;
 
     return criarLinkWhatsApp({ telefone, mensagem });
   }
@@ -1626,9 +1624,11 @@ Apresente o cartão na entrada do evento.`;
 
                           <div
                             style={{
-                              marginTop: 10,
+                              marginTop: 12,
                               color: "var(--muted)",
                               fontSize: 13,
+                              textAlign: "right",
+                              width: "100%",
                             }}
                           >
                             Check-in: {convidado.status_checkin || "nao_entrou"}
@@ -2159,17 +2159,22 @@ const guestMainStyle: CSSProperties = {
 };
 
 const eventActionsColumnStyle: CSSProperties = {
-  flex: "1 1 220px",
-  minWidth: 0,
-  textAlign: "left",
+  flex: "0 0 300px",
+  minWidth: 280,
+  marginLeft: "auto",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  textAlign: "right",
 };
 
 const rowActionsStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "flex-start",
+  justifyContent: "flex-end",
   gap: 8,
-  marginTop: 14,
+  marginTop: 18,
   flexWrap: "wrap",
+  width: "100%",
 };
 
 const quickActionsStyle: CSSProperties = {
@@ -2291,27 +2296,30 @@ const responsavelHeaderStyle: CSSProperties = {
 const enviosResumoStyle: CSSProperties = {
   display: "grid",
   gap: 8,
-  marginTop: 12,
-  minWidth: 230,
+  marginTop: 14,
+  width: "100%",
+  maxWidth: 300,
 };
 
 const enviosResumoTituloStyle: CSSProperties = {
   color: "var(--text)",
-  fontSize: 14,
+  fontSize: 15,
   fontWeight: 900,
+  textAlign: "right",
 };
 
 const envioLinhaStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(96px, 1fr) auto",
+  gridTemplateColumns: "minmax(120px, 1fr) auto",
   alignItems: "center",
-  gap: 8,
+  gap: 10,
 };
 
 const envioLinhaLabelStyle: CSSProperties = {
   color: "var(--muted)",
   fontSize: 13,
   fontWeight: 800,
+  textAlign: "left",
 };
 
 const envioLinhaDataStyle: CSSProperties = {
@@ -2320,6 +2328,7 @@ const envioLinhaDataStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   marginTop: -3,
+  textAlign: "right",
 };
 
 const statusStyle: CSSProperties = {
