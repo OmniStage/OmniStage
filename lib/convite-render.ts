@@ -586,7 +586,7 @@ export function renderizarTemplateVisual(
 
       const background = cssValue(block.background);
       const padding = isDivider ? 0 : 8;
-      const blockLeft = isCentralInfo ? 22 : numberValue(block.x, 0);
+      const blockLeft = isCentralInfo ? 215 : numberValue(block.x, 0);
       const blockWidth = isCentralInfo ? 386 : numberValue(block.width, 200);
 
       return `
@@ -602,6 +602,7 @@ export function renderizarTemplateVisual(
             left:${blockLeft}px;
             top:${numberValue(block.y, 0)}px;
             width:${blockWidth}px;
+            ${isCentralInfo ? "transform:translateX(-50%);" : ""}
             height:${numberValue(block.height, 60)}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
@@ -616,7 +617,7 @@ export function renderizarTemplateVisual(
             align-items:center;
             justify-content:center;
             text-align:center;
-            line-height:${isCentralInfo ? "1.08" : "1.12"};
+            line-height:${isCentralInfo ? "1.02" : "1.12"};
             padding:${padding}px;
             overflow:hidden;
             white-space:pre-wrap;
@@ -784,9 +785,10 @@ export function renderizarTemplateVisual(
 
             if (!alvo) return;
 
-            el.style.left = "22px";
+            el.style.left = "50%";
             el.style.width = "386px";
             el.style.right = "auto";
+            el.style.transform = "translateX(-50%)";
             el.style.marginLeft = "0";
             el.style.marginRight = "0";
             el.style.display = "flex";
@@ -794,8 +796,10 @@ export function renderizarTemplateVisual(
             el.style.alignItems = "center";
             el.style.justifyContent = "center";
             el.style.textAlign = "center";
-            el.style.lineHeight = "1.08";
+            el.style.lineHeight = "1.02";
             el.style.whiteSpace = "pre-wrap";
+            el.style.paddingLeft = "8px";
+            el.style.paddingRight = "8px";
           });
         }
 
@@ -1015,15 +1019,16 @@ export function renderizarTemplateVisual(
           [data-block-type="date_time"],
           [data-block-type="location"],
           [data-block-type="countdown"] {
-            left:22px !important;
+            left:50% !important;
             width:386px !important;
             right:auto !important;
+            transform:translateX(-50%) !important;
             display:flex !important;
             flex-direction:column !important;
             text-align:center !important;
             align-items:center !important;
             justify-content:center !important;
-            line-height:1.08 !important;
+            line-height:1.02 !important;
             white-space:pre-wrap !important;
             padding-left:8px !important;
             padding-right:8px !important;
