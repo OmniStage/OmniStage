@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export type ConviteBlock = {
   id: string;
@@ -17,6 +17,19 @@ export type ConviteBlock = {
   border_radius: number;
   z_index: number;
   visible: boolean;
+  label?: string | null;
+  template_id?: string;
+};
+
+type EventoPreview = {
+  nome_evento?: string;
+  nome_convidado?: string;
+  data_evento?: string;
+  hora_evento?: string;
+  horario_evento?: string;
+  local_evento?: string;
+  endereco_evento?: string;
+  total_convidados?: string | number;
 };
 
 type Props = {
@@ -33,7 +46,260 @@ type Props = {
   glassOpacity?: number;
   glassBlur?: number;
   glassTone?: "light" | "dark";
+  evento?: EventoPreview;
+  showSelectionOutline?: boolean;
+  selectedBlockId?: string | null;
+  blockEffects?: Record<string, string>;
+  childrenForBlock?: (block: ConviteBlock) => ReactNode | null;
 };
+
+const DEFAULT_EVENTO: Required<EventoPreview> = {
+  nome_evento: "Valentina XV",
+  nome_convidado: "Ursula Tavares",
+  data_evento: "16/05/2026",
+  hora_evento: "21h",
+  horario_evento: "21h",
+  local_evento: "Guerrah Hall",
+  endereco_evento: "Macaé/RJ",
+  total_convidados: "4",
+};
+
+function normalizarDataISO(dataEvento: string) {
+  const value = String(dataEvento || "").trim();
+
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const brMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const [, dia, mes, ano] = brMatch;
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  return value.slice(0, 10);
+}
+
+function normalizarHorario(horarioEvento?: string | null) {
+  const value = String(horarioEvento || "00:00")
+    .trim()
+    .toLowerCase()
+    .replace("h", ":")
+    .replace(/\s/g, "");
+
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  if (/^\d{1}:\d{2}$/.test(value)) return `0${value}`;
+  if (/^\d{2}$/.test(value)) return `${value}:00`;
+  if (/^\d{1}$/.test(value)) return `0${value}:00`;
+
+  return "00:00";
+}
+
+function getCountdownBrasil(dataEvento?: string | null, horarioEvento?: string | null) {
+  const dataISO = normalizarDataISO(String(dataEvento || ""));
+  const horario = normalizarHorario(horarioEvento);
+
+  if (!dataISO) {
+    return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
+  }
+
+  const target = new Date(`${dataISO}T${horario}:00-03:00`);
+  const now = new Date();
+
+  if (Number.isNaN(target.getTime())) {
+    return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
+  }
+
+  const diff = Math.max(0, target.getTime() - now.getTime());
+  const totalSeconds = Math.floor(diff / 1000);
+
+  return {
+    dias: Math.floor(totalSeconds / 86400),
+    horas: Math.floor((totalSeconds % 86400) / 3600),
+    minutos: Math.floor((totalSeconds % 3600) / 60),
+    segundos: totalSeconds % 60,
+  };
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function aplicarVariaveis(content: string | null, evento?: EventoPreview) {
+  const e = { ...DEFAULT_EVENTO, ...(evento || {}) };
+  const countdown = getCountdownBrasil(e.data_evento, e.horario_evento || e.hora_evento);
+  const total = String(e.total_convidados || "4");
+  const textoTotal = Number(total) === 1 ? "Convite para 1 convidado" : `Convite para ${total} convidados`;
+
+  return String(content || "")
+    .replaceAll("{{nome_evento}}", e.nome_evento)
+    .replaceAll("{{EVENTO_NOME}}", e.nome_evento)
+    .replaceAll("{{evento_nome}}", e.nome_evento)
+    .replaceAll("{{nome_convidado}}", e.nome_convidado)
+    .replaceAll("{{data_evento}}", e.data_evento)
+    .replaceAll("{{DATA_EVENTO}}", e.data_evento)
+    .replaceAll("{{hora_evento}}", e.hora_evento)
+    .replaceAll("{{horario_evento}}", e.horario_evento || e.hora_evento)
+    .replaceAll("{{local_evento}}", e.local_evento)
+    .replaceAll("{{LOCAL_EVENTO}}", e.local_evento)
+    .replaceAll("{{endereco_evento}}", e.endereco_evento)
+    .replaceAll("{{dias_para_evento}}", String(countdown.dias))
+    .replaceAll("{{contador_evento}}", `${pad2(countdown.dias)} ${pad2(countdown.horas)} ${pad2(countdown.minutos)} ${pad2(countdown.segundos)}`)
+    .replaceAll("{{link_rsvp}}", "Confirmar presença")
+    .replaceAll("{{google_maps_url}}", "Ver localização")
+    .replaceAll("{{waze_url}}", "Abrir no Waze")
+    .replaceAll("{{calendario_url}}", "Adicionar ao calendário")
+    .replaceAll("{{total_convidados}}", total)
+    .replaceAll("{{convidados_quantidade}}", total)
+    .replaceAll("{{texto_total_convidados}}", textoTotal)
+    .replaceAll("{{qr_code}}", "QR")
+    .replaceAll("{{logo_evento}}", "");
+}
+
+function getEffectStyle(effect?: string): CSSProperties {
+  if (effect === "glow") {
+    return {
+      boxShadow: "0 0 22px rgba(247,212,119,.58), 0 0 48px rgba(124,58,237,.22)",
+      filter: "drop-shadow(0 0 10px rgba(247,212,119,.36))",
+    };
+  }
+
+  if (effect === "float") {
+    return {
+      transform: "translateY(-3px)",
+      boxShadow: "0 14px 32px rgba(15,23,42,.24)",
+    };
+  }
+
+  if (effect === "pulse") {
+    return {
+      transform: "scale(1.015)",
+      boxShadow: "0 0 0 5px rgba(255,255,255,.08)",
+    };
+  }
+
+  if (effect === "shine") {
+    return {
+      boxShadow: "inset 0 0 0 1px rgba(255,255,255,.18), 0 14px 32px rgba(255,255,255,.10)",
+      backgroundImage: "linear-gradient(110deg, transparent 0%, rgba(255,255,255,.22) 48%, transparent 56%)",
+      backgroundBlendMode: "screen",
+    };
+  }
+
+  return {};
+}
+
+function CountdownBlock({ block, evento }: { block: ConviteBlock; evento?: EventoPreview }) {
+  const e = { ...DEFAULT_EVENTO, ...(evento || {}) };
+  const countdown = getCountdownBrasil(e.data_evento, e.horario_evento || e.hora_evento);
+
+  const itemStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+  };
+
+  const numberStyle: CSSProperties = {
+    display: "block",
+    fontSize: Math.max(block.font_size || 28, 28),
+    lineHeight: 0.9,
+    fontWeight: 950,
+    color: block.color || "#f7d477",
+    letterSpacing: "0.02em",
+  };
+
+  const labelStyle: CSSProperties = {
+    display: "block",
+    marginTop: 7,
+    fontSize: Math.max(8, Math.round((block.font_size || 28) * 0.28)),
+    lineHeight: 1,
+    fontWeight: 950,
+    letterSpacing: "0.16em",
+    color: "#ffffff",
+    opacity: 0.86,
+  };
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+      }}
+    >
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.dias)}</strong>
+        <span style={labelStyle}>DIAS</span>
+      </div>
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.horas)}</strong>
+        <span style={labelStyle}>HORAS</span>
+      </div>
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.minutos)}</strong>
+        <span style={labelStyle}>MIN</span>
+      </div>
+      <div style={itemStyle}>
+        <strong style={numberStyle}>{pad2(countdown.segundos)}</strong>
+        <span style={labelStyle}>SEG</span>
+      </div>
+    </div>
+  );
+}
+
+function GuestPickerBlock({ block }: { block: ConviteBlock }) {
+  const nomesDemo = ["URSULA JOSÉ", "VITOR JOSÉ"];
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        justifyContent: "flex-start",
+        gap: 14,
+        padding: 10,
+        boxSizing: "border-box",
+      }}
+    >
+      {nomesDemo.map((nome) => (
+        <label
+          key={nome}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            color: block.color || "#ffffff",
+            fontFamily: block.font_family || "Inter",
+            fontSize: block.font_size,
+            fontWeight: 900,
+            lineHeight: 1.15,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked
+            readOnly
+            style={{
+              width: Math.max(18, Math.round((block.font_size || 18) * 1.15)),
+              height: Math.max(18, Math.round((block.font_size || 18) * 1.15)),
+              accentColor: "#f7d477",
+              flexShrink: 0,
+            }}
+          />
+          <span>{nome}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export default function ConviteVisualRenderer({
   blocks,
@@ -49,6 +315,11 @@ export default function ConviteVisualRenderer({
   glassOpacity = 0.18,
   glassBlur = 0,
   glassTone = "dark",
+  evento,
+  showSelectionOutline = false,
+  selectedBlockId = null,
+  blockEffects = {},
+  childrenForBlock,
 }: Props) {
   return (
     <div
@@ -57,7 +328,8 @@ export default function ConviteVisualRenderer({
         height: height * scale,
         overflow: "hidden",
         position: "relative",
-        borderRadius: 24,
+        borderRadius: Math.max(0, 24 * scale),
+        background: "#020617",
       }}
     >
       <div
@@ -88,6 +360,8 @@ export default function ConviteVisualRenderer({
               transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
               opacity: backgroundOpacity,
               zIndex: 0,
+              pointerEvents: "none",
+              userSelect: "none",
             }}
           />
         )}
@@ -97,65 +371,103 @@ export default function ConviteVisualRenderer({
             position: "absolute",
             inset: 0,
             zIndex: 1,
+            pointerEvents: "none",
             background:
               glassTone === "light"
                 ? `rgba(255,255,255,${glassOpacity})`
                 : `rgba(2,6,23,${glassOpacity})`,
-            backdropFilter: glassBlur
-              ? `blur(${glassBlur}px)`
-              : "none",
+            backdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
+            WebkitBackdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
           }}
         />
 
         {blocks
           .filter((b) => b.visible !== false)
-          .sort((a, b) => a.z_index - b.z_index)
+          .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
           .map((block) => {
+            const isSelected = selectedBlockId === block.id;
+            const isLogo = block.type === "logo";
+            const isDivider = block.type === "divider";
+            const effectStyle = getEffectStyle(blockEffects[block.id]);
+
             const shared: CSSProperties = {
               position: "absolute",
               left: block.x,
               top: block.y,
               width: block.width,
               height: block.height,
-              zIndex: block.z_index + 10,
+              zIndex: (block.z_index || 1) + 10,
               boxSizing: "border-box",
-              borderRadius: block.border_radius,
-              color: block.color,
-              background: block.background || "transparent",
-              fontFamily: block.font_family,
+              borderRadius: isLogo ? 0 : block.border_radius,
+              color: block.color || "#ffffff",
+              background: isLogo ? "transparent" : block.background || "transparent",
+              fontFamily: `${block.font_family || "Inter"}, Arial, sans-serif`,
               fontSize: block.font_size,
               fontWeight: 900,
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              alignItems: block.type === "guest_picker" ? "stretch" : "center",
+              justifyContent: block.type === "guest_picker" ? "flex-start" : "center",
               textAlign: "center",
               lineHeight: 1.12,
-              padding: block.type === "divider" ? 0 : 8,
+              padding: isDivider || isLogo ? 0 : 8,
               whiteSpace: "pre-wrap",
+              overflow: isLogo ? "visible" : "hidden",
+              outline: showSelectionOutline
+                ? isSelected
+                  ? "2px solid #a78bfa"
+                  : "1px dashed rgba(255,255,255,.36)"
+                : "none",
+              boxShadow: showSelectionOutline && isSelected ? "0 0 0 4px rgba(124,58,237,.18)" : undefined,
+              userSelect: showSelectionOutline ? "none" : undefined,
+              ...effectStyle,
             };
+
+            const customChildren = childrenForBlock?.(block);
+            if (customChildren) {
+              return (
+                <div key={block.id} style={shared}>
+                  {customChildren}
+                </div>
+              );
+            }
 
             if (block.type === "logo") {
               return (
-                <div
-                  key={block.id}
-                  style={{
-                    ...shared,
-                    background: "transparent",
-                    overflow: "visible",
-                  }}
-                >
+                <div key={block.id} style={shared}>
                   {logoUrl ? (
                     <img
                       src={logoUrl}
-                      alt=""
+                      alt="Logo do evento"
                       style={{
                         width: "100%",
                         height: "100%",
                         objectFit: "contain",
                         display: "block",
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                        boxShadow: "none",
+                        borderRadius: 0,
+                        pointerEvents: "none",
                       }}
                     />
-                  ) : null}
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "grid",
+                        placeItems: "center",
+                        background: "transparent",
+                      }}
+                    >
+                      <div style={{ fontSize: Math.max(12, block.font_size || 12), opacity: 0.92 }}>
+                        LOGO
+                        <br />
+                        EVENTO
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -174,15 +486,32 @@ export default function ConviteVisualRenderer({
                       borderRadius: 8,
                       background:
                         "linear-gradient(90deg,#111 10px,transparent 10px) 0 0/22px 22px, linear-gradient(#111 10px,transparent 10px) 0 0/22px 22px, #fff",
+                      opacity: 0.92,
                     }}
                   />
                 </div>
               );
             }
 
+            if (block.type === "countdown") {
+              return (
+                <div key={block.id} style={shared}>
+                  <CountdownBlock block={block} evento={evento} />
+                </div>
+              );
+            }
+
+            if (block.type === "guest_picker") {
+              return (
+                <div key={block.id} style={shared}>
+                  <GuestPickerBlock block={block} />
+                </div>
+              );
+            }
+
             return (
               <div key={block.id} style={shared}>
-                {block.content}
+                {aplicarVariaveis(block.content, evento)}
               </div>
             );
           })}
