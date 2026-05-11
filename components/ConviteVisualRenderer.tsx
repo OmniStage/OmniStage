@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 export type ConviteBlock = {
   id: string;
@@ -213,35 +213,14 @@ function getEffectStyle(effect?: string): CSSProperties {
 }
 
 function CountdownBlock({ block, evento }: { block: ConviteBlock; evento?: EventoPreview }) {
-  const e = useMemo(() => ({ ...DEFAULT_EVENTO, ...(evento || {}) }), [evento]);
-
-  const horaResolvida = useMemo(() => {
-    return (
-      normalizarTextoHorario(e.hora_evento) ||
-      normalizarTextoHorario(e.horario_evento) ||
-      normalizarTextoHorario(e.horario) ||
-      normalizarTextoHorario(e.hora) ||
-      DEFAULT_EVENTO.hora_evento
-    );
-  }, [e.hora_evento, e.horario_evento, e.horario, e.hora]);
-
-  const [countdown, setCountdown] = useState(() =>
-    getCountdownBrasil(e.data_evento, horaResolvida),
-  );
-
-  useEffect(() => {
-    function atualizarCountdown() {
-      setCountdown(getCountdownBrasil(e.data_evento, horaResolvida));
-    }
-
-    atualizarCountdown();
-
-    const timer = window.setInterval(atualizarCountdown, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [e.data_evento, horaResolvida]);
+  const e = { ...DEFAULT_EVENTO, ...(evento || {}) };
+  const horaResolvida =
+    normalizarTextoHorario(e.hora_evento) ||
+    normalizarTextoHorario(e.horario_evento) ||
+    normalizarTextoHorario(e.horario) ||
+    normalizarTextoHorario(e.hora) ||
+    DEFAULT_EVENTO.hora_evento;
+  const countdown = getCountdownBrasil(e.data_evento, horaResolvida);
 
   const itemStyle: CSSProperties = {
     display: "flex",
@@ -372,6 +351,18 @@ export default function ConviteVisualRenderer({
   blockEffects = {},
   childrenForBlock,
 }: Props) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setTick((current) => current + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
   return (
     <div
       style={{
