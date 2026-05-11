@@ -557,19 +557,20 @@ export default function ConvitePublicoPage() {
       - No restante do app esta tabela usa a coluna evento_id.
     */
     if (!templateId && evento?.id) {
-      const { data: vinculoPorEventoId, error: vinculoEventoIdError } = await supabase
+      const { data: vinculosPorEventoId, error: vinculoEventoIdError } = await supabase
         .from("event_invite_templates")
         .select("template_id")
         .eq("evento_id", evento.id)
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
       if (vinculoEventoIdError) {
         console.error("Erro ao buscar vínculo por evento_id:", vinculoEventoIdError);
       }
 
-      if (vinculoPorEventoId?.template_id) {
-        templateId = vinculoPorEventoId.template_id;
+      const primeiroVinculo = vinculosPorEventoId?.[0];
+
+      if (primeiroVinculo?.template_id) {
+        templateId = primeiroVinculo.template_id;
       }
     }
 
@@ -578,19 +579,20 @@ export default function ConvitePublicoPage() {
       Se a coluna não existir, apenas registra erro e segue.
     */
     if (!templateId && evento?.id) {
-      const { data: vinculoPorEventId, error: vinculoEventIdError } = await supabase
+      const { data: vinculosPorEventId, error: vinculoEventIdError } = await supabase
         .from("event_invite_templates")
         .select("template_id")
         .eq("event_id", evento.id)
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
       if (vinculoEventIdError) {
         console.error("Fallback event_id indisponível:", vinculoEventIdError);
       }
 
-      if (vinculoPorEventId?.template_id) {
-        templateId = vinculoPorEventId.template_id;
+      const primeiroVinculo = vinculosPorEventId?.[0];
+
+      if (primeiroVinculo?.template_id) {
+        templateId = primeiroVinculo.template_id;
       }
     }
 
