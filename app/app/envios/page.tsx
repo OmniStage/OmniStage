@@ -80,6 +80,7 @@ export default function EnviosPage() {
   const [filaEnvios, setFilaEnvios] = useState<ItemFila[]>([]);
   const [envioPendenteConfirmacao, setEnvioPendenteConfirmacao] = useState<Convidado | null>(null);
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
+  const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null);
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
@@ -535,6 +536,68 @@ export default function EnviosPage() {
     }
 
     await registrarHistoricoEnvio(convidado, "enviado", "Marcado manualmente como enviado.");
+  }
+
+  async function cancelarEnvioConfirmado(convidado: Convidado) {
+    if (!eventoAtual?.id) return;
+
+    const confirmar = window.confirm(
+      `Cancelar o envio marcado para ${convidado.nome || "este convidado"}? Ele voltará para pendente desta campanha.`
+    );
+
+    if (!confirmar) return;
+
+    setCancelandoEnvioId(convidado.id);
+
+    const payload = {
+      [campanha.statusColumn]: "pendente",
+      [campanha.dataColumn]: null,
+    };
+
+    const { error } = await supabase
+      .from("convidados")
+      .update(payload)
+      .eq("id", convidado.id);
+
+    if (error) {
+      setCancelandoEnvioId(null);
+      alert("Erro ao cancelar envio: " + error.message);
+      return;
+    }
+
+    const agora = new Date().toISOString();
+
+    await supabase
+      .from("envio_fila")
+      .update({
+        status: "pendente",
+        processado_em: null,
+        updated_at: agora,
+      })
+      .eq("evento_id", eventoAtual.id)
+      .eq("convidado_id", convidado.id)
+      .eq("tipo_envio", tipoEnvio);
+
+    setConvidados((current) =>
+      current.map((item) =>
+        item.id === convidado.id
+          ? {
+              ...item,
+              [campanha.statusColumn]: "pendente",
+              [campanha.dataColumn]: null,
+            }
+          : item
+      )
+    );
+
+    await carregarFila(eventoAtual.id);
+    await registrarHistoricoEnvio(
+      convidado,
+      "pendente",
+      "Envio cancelado pelo operador e retornado para pendente."
+    );
+
+    setCancelandoEnvioId(null);
   }
 
   async function registrarHistoricoEnvio(
@@ -1059,18 +1122,28 @@ export default function EnviosPage() {
                     {estaNaFila ? "Na fila" : "Adicionar à fila"}
                   </button>
 
-                  <button
-                    className="envio-action"
-                    onClick={() => marcarComoEnviado(convidado)}
-                    disabled={enviado}
-                    style={
-                      enviado
-                        ? { ...secondaryButtonStyle, opacity: 0.45, cursor: "not-allowed" }
-                        : secondaryButtonStyle
-                    }
-                  >
-                    Marcar enviado
-                  </button>
+                  {enviado ? (
+                    <button
+                      className="envio-action"
+                      onClick={() => cancelarEnvioConfirmado(convidado)}
+                      disabled={cancelandoEnvioId === convidado.id}
+                      style={
+                        cancelandoEnvioId === convidado.id
+                          ? { ...cancelButtonStyle, opacity: 0.55, cursor: "wait" }
+                          : cancelButtonStyle
+                      }
+                    >
+                      {cancelandoEnvioId === convidado.id ? "Cancelando..." : "Cancelar envio"}
+                    </button>
+                  ) : (
+                    <button
+                      className="envio-action"
+                      onClick={() => marcarComoEnviado(convidado)}
+                      style={secondaryButtonStyle}
+                    >
+                      Marcar enviado
+                    </button>
+                  )}
                 </div>
               </article>
             );
@@ -1393,6 +1466,7 @@ const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "
 const enviarFilaButtonStyle: React.CSSProperties = { border: "none", background: "#2563eb", color: "#fff", padding: "10px 15px", borderRadius: 999, fontWeight: 950, cursor: "pointer", boxShadow: "0 10px 24px rgba(37,99,235,0.22)" };
 const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "#dbeafe", color: "#1d4ed8", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const cancelButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.22)", background: "#fee2e2", color: "#b91c1c", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
 const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
