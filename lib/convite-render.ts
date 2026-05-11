@@ -97,6 +97,14 @@ export function criarDataEvento(evento: EventoConvite | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function calcularDiasParaEvento(dataEvento: string | null | undefined): number {
+  if (!dataEvento) return 0;
+  const date = new Date(`${dataEvento}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return 0;
+  const diff = date.getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
 function calcularCountdown(dataEvento: Date | null) {
   if (!dataEvento) {
     return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
@@ -433,9 +441,35 @@ function renderizarConteudoDinamico(
 }
 
 function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | null) {
+  // Formatar dados do evento para substituir placeholders
   const dataFormatada = formatarData(evento?.data_evento || null);
   const horarioFormatado = formatarHorario(evento?.horario);
-  const localEvento = evento?.local || evento?.endereco || "";
+  const localEvento = evento?.local || "";
+  const enderecoEvento = evento?.endereco || "";
+  const nomeEvento = evento?.nome || "Nome do Evento";
+  const diasParaEvento = calcularDiasParaEvento(evento?.data_evento);
+  
+  // Funcao para substituir placeholders no conteudo (igual ao admin)
+  function substituirPlaceholders(content: string): string {
+    return String(content || "")
+      .replaceAll("{{nome_evento}}", nomeEvento)
+      .replaceAll("{{nome_convidado}}", "Nome do Convidado")
+      .replaceAll("{{data_evento}}", dataFormatada)
+      .replaceAll("{{hora_evento}}", horarioFormatado)
+      .replaceAll("{{horario_evento}}", horarioFormatado)
+      .replaceAll("{{local_evento}}", localEvento)
+      .replaceAll("{{endereco_evento}}", enderecoEvento)
+      .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
+      .replaceAll("{{contador_evento}}", String(diasParaEvento))
+      .replaceAll("{{link_rsvp}}", "Confirmar presença")
+      .replaceAll("{{total_convidados}}", "4")
+      .replaceAll("{{convidados_quantidade}}", "4")
+      .replaceAll("{{texto_total_convidados}}", "Convite para 4 convidados")
+      .replaceAll("{{google_maps_url}}", "Ver localização")
+      .replaceAll("{{waze_url}}", "Abrir no Waze")
+      .replaceAll("{{calendario_url}}", "Adicionar ao calendário")
+      .replaceAll("{{qr_code}}", "QR");
+  }
 
   if (block.type === "logo") {
     const logo = evento?.logo_url || evento?.logo_image || "";
@@ -448,26 +482,19 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
   }
 
   if (block.type === "event_name") {
-    return textoSeguro(evento?.nome || "Nome do Evento");
+    return textoSeguro(nomeEvento);
   }
 
+  // Para date_time e location: usa o content do bloco se existir
   if (block.type === "date_time") {
-  return `
-    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
-      ${textoSeguro(
-        [dataFormatada, horarioFormatado].filter(Boolean).join(" • ")
-      )}
-    </div>
-  `;
-}
+    const content = block.content || "{{data_evento}} • {{hora_evento}}";
+    return textoSeguro(substituirPlaceholders(content));
+  }
 
   if (block.type === "location") {
-  return `
-    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
-      ${textoSeguro(localEvento || "Local do Evento")}
-    </div>
-  `;
-}
+    const content = block.content || "{{local_evento}}";
+    return textoSeguro(substituirPlaceholders(content));
+  }
 
   if (block.type === "guest_name") {
     return textoSeguro("Nome do Convidado");
@@ -587,19 +614,13 @@ export function renderizarTemplateVisual(
       const isTightContent = ["date_time", "location", "horario", "hora"].includes(block.type);
       const lineHeight = isTightContent ? "1.02" : "1.12";
 
-      // Logo com tamanho garantido
-      const isLogo = block.type === "logo";
-      const effectiveHeight = isLogo ? Math.max(blockHeight, 120) : blockHeight;
-
-
-
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
           data-block-label="${escapeHtml(block.label || "")}"
           data-block-content="${escapeHtml(block.content || "")}"
           data-base-y="${blockTop}"
-          data-base-height="${effectiveHeight}"
+          data-base-height="${blockHeight}"
           data-debug-x="${block.x}"
           data-debug-width="${block.width}"
           style="
@@ -607,7 +628,7 @@ export function renderizarTemplateVisual(
             left:${blockLeft}px;
             top:${blockTop}px;
             width:${blockWidth}px;
-            height:${effectiveHeight}px;
+            height:${blockHeight}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
             border-radius:${numberValue(block.border_radius, 0)}px;
