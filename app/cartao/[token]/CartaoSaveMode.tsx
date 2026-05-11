@@ -211,9 +211,13 @@ export default function CartaoSaveMode({
           minHeight: "100vh",
           padding: "26px 16px",
           display: "grid",
-          placeItems: "center",
-          background: backgroundUrl
-            ? `linear-gradient(180deg, rgba(2,8,20,.50), rgba(2,8,20,.98)), url("${backgroundUrl}") center/cover no-repeat`
+          placeItems: "center",background: backgroundUrl
+  ? `linear-gradient(
+      180deg,
+      rgba(5,16,40,.24),
+      rgba(2,8,24,.42)
+    ),
+    url("${backgroundUrl}") center/cover no-repeat`
             : "#020814",
           color: "#fff",
           fontFamily: "Arial, Helvetica, sans-serif",
