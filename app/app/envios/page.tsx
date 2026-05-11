@@ -547,9 +547,15 @@ export default function EnviosPage() {
 
     if (!confirmar) return;
 
+    const agora = new Date().toISOString();
+
     const { error } = await supabase
       .from("envio_fila")
-      .delete()
+      .update({
+        status: "cancelado",
+        erro: "Removido manualmente da fila pelo operador.",
+        updated_at: agora,
+      })
       .eq("evento_id", eventoAtual.id)
       .eq("convidado_id", convidado.id)
       .eq("tipo_envio", tipoEnvio)
@@ -559,6 +565,17 @@ export default function EnviosPage() {
       alert("Erro ao retirar da fila: " + error.message);
       return;
     }
+
+    setFilaEnvios((current) =>
+      current.filter(
+        (item) =>
+          !(
+            item.convidado_id === convidado.id &&
+            item.tipo_envio === tipoEnvio &&
+            item.status === "pendente"
+          ),
+      ),
+    );
 
     await carregarFila(eventoAtual.id);
 
