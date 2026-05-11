@@ -449,6 +449,7 @@ export default function ConviteVisualRenderer({
   const [somAtivo, setSomAtivo] = useState(true);
   const [somLiberado, setSomLiberado] = useState(false);
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
+  const [backgroundPronto, setBackgroundPronto] = useState(!backgroundUrl);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -459,6 +460,36 @@ export default function ConviteVisualRenderer({
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!backgroundUrl) {
+      setBackgroundPronto(true);
+      return;
+    }
+
+    let cancelado = false;
+    setBackgroundPronto(false);
+
+    const image = new Image();
+
+    image.onload = () => {
+      if (!cancelado) {
+        setBackgroundPronto(true);
+      }
+    };
+
+    image.onerror = () => {
+      if (!cancelado) {
+        setBackgroundPronto(true);
+      }
+    };
+
+    image.src = backgroundUrl;
+
+    return () => {
+      cancelado = true;
+    };
+  }, [backgroundUrl]);
 
   useEffect(() => {
     if (!enableConfirmationEffects || !showSoundToggle || !somAtivo || somLiberado) {
@@ -522,9 +553,45 @@ export default function ConviteVisualRenderer({
         overflow: "hidden",
         position: "relative",
         borderRadius: Math.max(0, 24 * scale),
-        background: "#020617",
+        background: "#000000",
       }}
     >
+      <style jsx global>{`
+        @keyframes omniInviteSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
+
+      {!backgroundPronto && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 9997,
+            display: "grid",
+            placeItems: "center",
+            background: "#000000",
+          }}
+        >
+          <div
+            style={{
+              width: Math.max(28, 42 * scale),
+              height: Math.max(28, 42 * scale),
+              borderRadius: "50%",
+              border: `${Math.max(2, 3 * scale)}px solid rgba(255,255,255,0.14)`,
+              borderTop: `${Math.max(2, 3 * scale)}px solid rgba(167,139,250,0.95)`,
+              animation: "omniInviteSpin .8s linear infinite",
+              boxShadow: "0 0 30px rgba(124,58,237,0.24)",
+            }}
+          />
+        </div>
+      )}
+
       {enableConfirmationEffects && (
         <style jsx global>{`
           @keyframes omniConfirmPop {
@@ -601,14 +668,17 @@ export default function ConviteVisualRenderer({
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           overflow: "hidden",
-          background:
-            "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
+          background: "#000000",
+          opacity: backgroundPronto ? 1 : 0,
+          transition: "opacity .42s ease",
         }}
       >
         {backgroundUrl && (
           <img
             src={backgroundUrl}
             alt=""
+            loading="eager"
+            decoding="async"
             style={{
               position: "absolute",
               left: "50%",
