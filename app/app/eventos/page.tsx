@@ -50,6 +50,11 @@ type Evento = {
   logo_url?: string | null;
   background_url?: string | null;
   musica_url?: string | null;
+
+  card_background_url?: string | null;
+  checklist_card_background_url?: string | null;
+  usar_card_background_personalizado?: boolean | null;
+  usar_checklist_card_background_personalizado?: boolean | null;
 };
 
 const TIPOS_EVENTO = ["Esportivo", "Social", "Empresarial", "Cultural"];
@@ -85,6 +90,11 @@ const emptyForm = {
   logo_url: "",
   background_url: "",
   musica_url: "",
+
+  card_background_url: "",
+  checklist_card_background_url: "",
+  usar_card_background_personalizado: false,
+  usar_checklist_card_background_personalizado: false,
 };
 
 type FormEvento = typeof emptyForm;
@@ -173,6 +183,13 @@ export default function AppEventosPage() {
       logo_url: evento.logo_url || "",
       background_url: evento.background_url || "",
       musica_url: evento.musica_url || "",
+
+      card_background_url: evento.card_background_url || "",
+      checklist_card_background_url: evento.checklist_card_background_url || "",
+      usar_card_background_personalizado:
+        evento.usar_card_background_personalizado ?? false,
+      usar_checklist_card_background_personalizado:
+        evento.usar_checklist_card_background_personalizado ?? false,
     });
 
     setFormAberto(true);
@@ -276,7 +293,11 @@ export default function AppEventosPage() {
         mapa_url,
         logo_url,
         background_url,
-        musica_url
+        musica_url,
+        card_background_url,
+        checklist_card_background_url,
+        usar_card_background_personalizado,
+        usar_checklist_card_background_personalizado
       `)
       .eq("tenant_id", idTenant)
       .order("created_at", { ascending: false });
@@ -415,6 +436,13 @@ export default function AppEventosPage() {
       logo_url: form.logo_url || null,
       background_url: form.background_url || null,
       musica_url: form.musica_url || null,
+
+      card_background_url: form.card_background_url || null,
+      checklist_card_background_url: form.checklist_card_background_url || null,
+      usar_card_background_personalizado:
+        form.usar_card_background_personalizado,
+      usar_checklist_card_background_personalizado:
+        form.usar_checklist_card_background_personalizado,
     };
 
     if (modo === "criar") {
@@ -483,7 +511,12 @@ export default function AppEventosPage() {
 
   async function uploadArquivo(
     file: File,
-    campo: "logo_url" | "background_url" | "musica_url"
+    campo:
+      | "logo_url"
+      | "background_url"
+      | "musica_url"
+      | "card_background_url"
+      | "checklist_card_background_url"
   ) {
     if (!tenantId) {
       alert("Nenhum tenant selecionado.");
@@ -915,6 +948,47 @@ export default function AppEventosPage() {
           word-break: break-all;
         }
 
+        .visual-options {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(260px, 1fr));
+          gap: 16px;
+          margin-top: 18px;
+        }
+
+        .visual-toggle-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 16px;
+          border-radius: 20px;
+          border: 1px solid rgba(203,213,225,.95);
+          background: #ffffff;
+          color: #334155;
+          font-weight: 850;
+        }
+
+        .visual-toggle-card input {
+          margin-top: 3px;
+          width: 18px;
+          height: 18px;
+          accent-color: #7c3aed;
+        }
+
+        .visual-toggle-card strong {
+          display: block;
+          color: #0f172a;
+          font-size: 14px;
+          font-weight: 950;
+        }
+
+        .visual-toggle-card span {
+          display: block;
+          margin-top: 4px;
+          color: #64748b;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
         .form-actions {
           display: flex;
           gap: 14px;
@@ -953,7 +1027,7 @@ export default function AppEventosPage() {
         }
 
         @media (max-width: 1100px) {
-          .form-grid, .form-grid-4, .upload-grid, .filters {
+          .form-grid, .form-grid-4, .upload-grid, .filters, .visual-options {
             grid-template-columns: 1fr;
           }
         }
@@ -1347,6 +1421,65 @@ export default function AppEventosPage() {
                 value={form.musica_url}
                 onFile={(file) => uploadArquivo(file, "musica_url")}
               />
+
+              <UploadField
+                label="Arte do cartão de entrada"
+                accept="image/*"
+                value={form.card_background_url}
+                onFile={(file) => uploadArquivo(file, "card_background_url")}
+              />
+
+              <UploadField
+                label="Arte do card principal do checklist"
+                accept="image/*"
+                value={form.checklist_card_background_url}
+                onFile={(file) =>
+                  uploadArquivo(file, "checklist_card_background_url")
+                }
+              />
+            </div>
+
+            <div className="visual-options">
+              <label className="visual-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={form.usar_card_background_personalizado}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      usar_card_background_personalizado: e.target.checked,
+                    }))
+                  }
+                />
+                <div>
+                  <strong>Usar arte personalizada no cartão de entrada</strong>
+                  <span>
+                    Quando marcado, o cartão usa a arte exclusiva enviada acima.
+                    Se desmarcado, usa o background principal do evento.
+                  </span>
+                </div>
+              </label>
+
+              <label className="visual-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={form.usar_checklist_card_background_personalizado}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      usar_checklist_card_background_personalizado:
+                        e.target.checked,
+                    }))
+                  }
+                />
+                <div>
+                  <strong>Usar arte personalizada no primeiro card do checklist</strong>
+                  <span>
+                    Quando marcado, o primeiro card do checklist usa a arte
+                    exclusiva enviada acima.
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 
