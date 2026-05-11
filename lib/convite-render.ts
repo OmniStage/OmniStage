@@ -449,6 +449,17 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
   const nomeEvento = evento?.nome || "Nome do Evento";
   const diasParaEvento = calcularDiasParaEvento(evento?.data_evento);
   
+  // DEBUG: Log dos dados do evento
+  if (block.type === "date_time") {
+    console.log("[v0] DATE_TIME BLOCK:", {
+      blockContent: block.content,
+      eventoHorario: evento?.horario,
+      horarioFormatado,
+      dataFormatada,
+      localEvento,
+    });
+  }
+  
   // Funcao para substituir placeholders no conteudo (igual ao admin)
   function substituirPlaceholders(content: string): string {
     return String(content || "")
