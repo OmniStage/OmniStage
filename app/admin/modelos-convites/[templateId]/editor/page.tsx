@@ -2179,59 +2179,15 @@ export default function EditorModeloConvitePage({
             <div style={emptyBox}>Carregando editor...</div>
           ) : (
             <div style={phoneFrame}>
-              <div style={canvas}>
-                {backgroundPreviewUrl && (
-                  <img
-                    src={backgroundPreviewUrl}
-                    alt="Background do convite"
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      top: "50%",
-                      width: CANVAS_W,
-                      height: CANVAS_H,
-                      objectFit: "cover",
-                      transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
-                      opacity: backgroundOpacity,
-                      zIndex: 0,
-                      pointerEvents: "none",
-                      userSelect: "none",
-                      filter:
-                        backgroundEffect === "parallax"
-                          ? "saturate(1.04) contrast(1.02)"
-                          : undefined,
-                      transition: "transform 220ms ease, filter 220ms ease",
-                    }}
-                  />
-                )}
-
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    zIndex: 1,
-                    pointerEvents: "none",
-                    background:
-                      glassTone === "light"
-                        ? `rgba(255,255,255,${glassOpacity})`
-                        : `rgba(2,6,23,${glassOpacity})`,
-                    backdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
-                  }}
-                />
-
-                {previewAoVivo && musicaPreviewUrl && (
-                  <div style={musicBadge}>
-                    {musicaTocando ? "♪ Música tocando" : "♪ Música disponível"}
-                  </div>
-                )}
-
-                {previewAoVivo ? (
+              {previewAoVivo ? (
+                <div style={{ width: CANVAS_W, height: CANVAS_H, position: "relative" }}>
                   <ConviteVisualRenderer
                     blocks={blocks}
                     backgroundUrl={backgroundPreviewUrl}
                     logoUrl={logoPreviewUrl}
                     width={CANVAS_W}
                     height={CANVAS_H}
+                    scale={1}
                     backgroundX={backgroundX}
                     backgroundY={backgroundY}
                     backgroundScale={backgroundScale}
@@ -2241,59 +2197,104 @@ export default function EditorModeloConvitePage({
                     glassTone={glassTone}
                     blockEffects={blockEffects}
                   />
-                ) : (
-                  <>
-                    {blocks
-                      .filter((b) => b.visible)
-                      .sort((a, b) => a.z_index - b.z_index)
-                      .map((block) => {
-                        const selected = selectedId === block.id;
 
-                        return (
-                          <Rnd
-                            key={block.id}
-                            lockAspectRatio={block.type === "logo"}
-                            size={{
-                              width: block.width,
-                              height: block.height,
-                            }}
-                            position={{
-                              x: block.x,
-                              y: block.y,
-                            }}
-                            bounds="parent"
-                            onMouseDown={() => setSelectedId(block.id)}
-                            onDragStop={(_, d) => {
-                              updateBlock(block.id, {
-                                x: Math.round(d.x),
-                                y: Math.round(d.y),
-                              });
-                            }}
-                            onResizeStop={(_, __, ref, ___, position) => {
-                              updateBlock(block.id, {
-                                width: Math.round(ref.offsetWidth),
-                                height: Math.round(ref.offsetHeight),
-                                x: Math.round(position.x),
-                                y: Math.round(position.y),
-                              });
-                            }}
-                            style={{
-                              zIndex: block.z_index,
-                            }}
-                          >
-                            {renderBlock(
-                              block,
-                              selected,
-                              (content) => updateBlock(block.id, { content }),
-                              logoPreviewUrl,
-                              blockEffects[block.id] || "none",
-                            )}
-                          </Rnd>
-                        );
-                      })}
-                  </>
-                )}
-              </div>
+                  {musicaPreviewUrl && (
+                    <div style={musicBadge}>
+                      {musicaTocando ? "♪ Música tocando" : "♪ Música disponível"}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={canvas}>
+                  {backgroundPreviewUrl && (
+                    <img
+                      src={backgroundPreviewUrl}
+                      alt="Background do convite"
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        top: "50%",
+                        width: CANVAS_W,
+                        height: CANVAS_H,
+                        objectFit: "cover",
+                        transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
+                        opacity: backgroundOpacity,
+                        zIndex: 0,
+                        pointerEvents: "none",
+                        userSelect: "none",
+                        filter:
+                          backgroundEffect === "parallax"
+                            ? "saturate(1.04) contrast(1.02)"
+                            : undefined,
+                        transition: "transform 220ms ease, filter 220ms ease",
+                      }}
+                    />
+                  )}
+
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      zIndex: 1,
+                      pointerEvents: "none",
+                      background:
+                        glassTone === "light"
+                          ? `rgba(255,255,255,${glassOpacity})`
+                          : `rgba(2,6,23,${glassOpacity})`,
+                      backdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
+                    }}
+                  />
+
+                  {blocks
+                    .filter((b) => b.visible)
+                    .sort((a, b) => a.z_index - b.z_index)
+                    .map((block) => {
+                      const selected = selectedId === block.id;
+
+                      return (
+                        <Rnd
+                          key={block.id}
+                          lockAspectRatio={block.type === "logo"}
+                          size={{
+                            width: block.width,
+                            height: block.height,
+                          }}
+                          position={{
+                            x: block.x,
+                            y: block.y,
+                          }}
+                          bounds="parent"
+                          onMouseDown={() => setSelectedId(block.id)}
+                          onDragStop={(_, d) => {
+                            updateBlock(block.id, {
+                              x: Math.round(d.x),
+                              y: Math.round(d.y),
+                            });
+                          }}
+                          onResizeStop={(_, __, ref, ___, position) => {
+                            updateBlock(block.id, {
+                              width: Math.round(ref.offsetWidth),
+                              height: Math.round(ref.offsetHeight),
+                              x: Math.round(position.x),
+                              y: Math.round(position.y),
+                            });
+                          }}
+                          style={{
+                            zIndex: block.z_index,
+                          }}
+                        >
+                          {renderBlock(
+                            block,
+                            selected,
+                            (content) => updateBlock(block.id, { content }),
+                            logoPreviewUrl,
+                            blockEffects[block.id] || "none",
+                          )}
+                        </Rnd>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           )}
         </section>
