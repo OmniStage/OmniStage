@@ -27,6 +27,8 @@ type EventoPreview = {
   data_evento?: string;
   hora_evento?: string;
   horario_evento?: string;
+  horario?: string;
+  hora?: string;
   local_evento?: string;
   endereco_evento?: string;
   total_convidados?: string | number;
@@ -59,6 +61,8 @@ const DEFAULT_EVENTO: Required<EventoPreview> = {
   data_evento: "16/05/2026",
   hora_evento: "21h",
   horario_evento: "21h",
+  horario: "21h",
+  hora: "21h",
   local_evento: "Guerrah Hall",
   endereco_evento: "Macaé/RJ",
   total_convidados: "4",
@@ -124,9 +128,27 @@ function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
+function normalizarTextoHorario(value?: string | null) {
+  const raw = String(value || "").trim();
+
+  if (!raw || raw.toLowerCase() === "horário" || raw.toLowerCase() === "horario") {
+    return "";
+  }
+
+  return raw;
+}
+
 function aplicarVariaveis(content: string | null, evento?: EventoPreview) {
   const e = { ...DEFAULT_EVENTO, ...(evento || {}) };
-  const countdown = getCountdownBrasil(e.data_evento, e.horario_evento || e.hora_evento);
+
+  const horaResolvida =
+    normalizarTextoHorario(e.hora_evento) ||
+    normalizarTextoHorario(e.horario_evento) ||
+    normalizarTextoHorario(e.horario) ||
+    normalizarTextoHorario(e.hora) ||
+    DEFAULT_EVENTO.hora_evento;
+
+  const countdown = getCountdownBrasil(e.data_evento, horaResolvida);
   const total = String(e.total_convidados || "4");
   const textoTotal = Number(total) === 1 ? "Convite para 1 convidado" : `Convite para ${total} convidados`;
 
@@ -137,8 +159,10 @@ function aplicarVariaveis(content: string | null, evento?: EventoPreview) {
     .replaceAll("{{nome_convidado}}", e.nome_convidado)
     .replaceAll("{{data_evento}}", e.data_evento)
     .replaceAll("{{DATA_EVENTO}}", e.data_evento)
-    .replaceAll("{{hora_evento}}", e.hora_evento)
-    .replaceAll("{{horario_evento}}", e.horario_evento || e.hora_evento)
+    .replaceAll("{{hora_evento}}", horaResolvida)
+    .replaceAll("{{horario_evento}}", horaResolvida)
+    .replaceAll("{{horario}}", horaResolvida)
+    .replaceAll("{{hora}}", horaResolvida)
     .replaceAll("{{local_evento}}", e.local_evento)
     .replaceAll("{{LOCAL_EVENTO}}", e.local_evento)
     .replaceAll("{{endereco_evento}}", e.endereco_evento)
@@ -190,7 +214,13 @@ function getEffectStyle(effect?: string): CSSProperties {
 
 function CountdownBlock({ block, evento }: { block: ConviteBlock; evento?: EventoPreview }) {
   const e = { ...DEFAULT_EVENTO, ...(evento || {}) };
-  const countdown = getCountdownBrasil(e.data_evento, e.horario_evento || e.hora_evento);
+  const horaResolvida =
+    normalizarTextoHorario(e.hora_evento) ||
+    normalizarTextoHorario(e.horario_evento) ||
+    normalizarTextoHorario(e.horario) ||
+    normalizarTextoHorario(e.hora) ||
+    DEFAULT_EVENTO.hora_evento;
+  const countdown = getCountdownBrasil(e.data_evento, horaResolvida);
 
   const itemStyle: CSSProperties = {
     display: "flex",
