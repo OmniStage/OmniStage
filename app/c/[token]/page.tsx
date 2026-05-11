@@ -211,6 +211,8 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
     .replaceAll("{{DATA_EVENTO}}", dataFormatada || "")
     .replaceAll("{{hora_evento}}", horarioFormatado || "")
     .replaceAll("{{horario_evento}}", horarioFormatado || "")
+    .replaceAll("{{horario}}", horarioFormatado || "")
+    .replaceAll("{{hora}}", horarioFormatado || "")
     .replaceAll("{{local_evento}}", evento.local || "")
     .replaceAll("{{LOCAL_EVENTO}}", evento.local || "")
     .replaceAll("{{endereco_evento}}", evento.endereco || "")
@@ -236,6 +238,8 @@ function getEventoPreview(evento: Evento, nomes: string[]) {
     data_evento: dataFormatada || "",
     hora_evento: horaFormatada || "",
     horario_evento: horaFormatada || "",
+    horario: horaFormatada || "",
+    hora: horaFormatada || "",
     local_evento: evento.local || "",
     endereco_evento: evento.endereco || "",
     total_convidados: String(nomes.length || 1),
@@ -374,7 +378,7 @@ function renderBotaoVisual(block: VisualBlock, evento: Evento, nomes: string[]) 
 }
 
 function getChildrenForVisualBlock(evento: Evento, nomes: string[]) {
-  return (block: VisualBlock): ReactNode | null => {
+  return (block: any): ReactNode | null => {
     if (block.type === "guest_picker") {
       return renderGuestPicker(block, nomes);
     }
