@@ -162,6 +162,123 @@ function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
+async function cropTransparentImageFile(file: File): Promise<{
+  file: File;
+  width: number;
+  height: number;
+}> {
+  if (!file.type.startsWith("image/") || file.type.includes("svg")) {
+    return { file, width: 1, height: 1 };
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
+
+    const sourceCanvas = document.createElement("canvas");
+    const sourceCtx = sourceCanvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+
+    if (!sourceCtx || !image.naturalWidth || !image.naturalHeight) {
+      return {
+        file,
+        width: image.naturalWidth || 1,
+        height: image.naturalHeight || 1,
+      };
+    }
+
+    sourceCanvas.width = image.naturalWidth;
+    sourceCanvas.height = image.naturalHeight;
+    sourceCtx.drawImage(image, 0, 0);
+
+    const imageData = sourceCtx.getImageData(
+      0,
+      0,
+      sourceCanvas.width,
+      sourceCanvas.height,
+    );
+
+    const { data, width, height } = imageData;
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const alpha = data[(y * width + x) * 4 + 3];
+
+        if (alpha > 8) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) {
+      return { file, width, height };
+    }
+
+    const cropW = maxX - minX + 1;
+    const cropH = maxY - minY + 1;
+    const cropIsSameSize = cropW === width && cropH === height;
+
+    if (cropIsSameSize) {
+      return { file, width, height };
+    }
+
+    const outputCanvas = document.createElement("canvas");
+    const outputCtx = outputCanvas.getContext("2d");
+
+    if (!outputCtx) {
+      return { file, width: cropW, height: cropH };
+    }
+
+    outputCanvas.width = cropW;
+    outputCanvas.height = cropH;
+    outputCtx.drawImage(
+      sourceCanvas,
+      minX,
+      minY,
+      cropW,
+      cropH,
+      0,
+      0,
+      cropW,
+      cropH,
+    );
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      outputCanvas.toBlob(resolve, "image/png");
+    });
+
+    if (!blob) {
+      return { file, width: cropW, height: cropH };
+    }
+
+    const croppedFile = new File(
+      [blob],
+      file.name.replace(/\.[^/.]+$/, "") + "-crop.png",
+      { type: "image/png" },
+    );
+
+    return { file: croppedFile, width: cropW, height: cropH };
+  } catch {
+    return { file, width: 1, height: 1 };
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
 const DEMO_EVENTO = {
   nome_evento: "Valentina XV",
   nome_convidado: "Ursula Tavares",
@@ -424,49 +541,49 @@ function renderPreviewBlock(
       ...getEditorEffectStyle("none"),
     };
 
-  return (
-    <div key={block.id} style={logoWrapperStyle}>
-      {logoPreviewUrl ? (
-        <img
-          src={logoPreviewUrl}
-          alt="Logo do evento"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            display: "block",
-            background: "transparent",
-            border: "none",
-            boxShadow: "none",
-            borderRadius: 0,
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "grid",
-            placeItems: "center",
-            borderRadius: block.border_radius,
-            background: "transparent",
-          }}
-        >
+    return (
+      <div key={block.id} style={logoWrapperStyle}>
+        {logoPreviewUrl ? (
+          <img
+            src={logoPreviewUrl}
+            alt="Logo do evento"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+              background: "transparent",
+              border: "none",
+              boxShadow: "none",
+              borderRadius: 0,
+            }}
+          />
+        ) : (
           <div
             style={{
-              fontSize: Math.max(12, block.font_size),
-              opacity: 0.92,
+              width: "100%",
+              height: "100%",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: block.border_radius,
+              background: "transparent",
             }}
           >
-            LOGO
-            <br />
-            EVENTO
+            <div
+              style={{
+                fontSize: Math.max(12, block.font_size),
+                opacity: 0.92,
+              }}
+            >
+              LOGO
+              <br />
+              EVENTO
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        )}
+      </div>
+    );
+  }
 
   if (block.type === "qr") {
     return (
@@ -687,15 +804,9 @@ function defaultBlock(
   return base;
 }
 
-
 function defaultActionBlock(
   templateId: string,
-  action:
-    | "rsvp"
-    | "maps"
-    | "waze"
-    | "calendar"
-    | "guest_total",
+  action: "rsvp" | "maps" | "waze" | "calendar" | "guest_total",
   nextZ: number,
 ): ConviteBlock {
   const buttonBaseBlock = {
@@ -765,7 +876,6 @@ function defaultActionBlock(
   };
 }
 
-
 function renderBlock(
   block: ConviteBlock,
   selected: boolean,
@@ -803,64 +913,39 @@ function renderBlock(
   }
 
   if (block.type === "logo") {
-  const logoEditorStyle: CSSProperties = {
-    ...shared,
-
-    background: "transparent",
-    border: "none",
-
-    padding: 0,
-    margin: 0,
-
-    overflow: "hidden",
-
-    borderRadius: 0,
-
-    outline: selected
-      ? "2px solid #a855f7"
-      : "1px dashed rgba(255,255,255,.18)",
-
-    boxShadow: selected
-      ? "0 0 0 3px rgba(168,85,247,.18)"
-      : "none",
-
-    backdropFilter: "none",
-    WebkitBackdropFilter: "none",
-
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-
-    ...getEditorEffectStyle("none"),
-  };
+    const logoEditorStyle: CSSProperties = {
+      ...shared,
+      background: "transparent",
+      border: "none",
+      outline: "none",
+      boxShadow: "none",
+      backdropFilter: "none",
+      WebkitBackdropFilter: "none",
+      padding: 0,
+      overflow: "visible",
+      borderRadius: 0,
+      ...getEditorEffectStyle("none"),
+    };
 
     return (
       <div style={logoEditorStyle}>
         {logoPreviewUrl ? (
           <img
-  src={logoPreviewUrl}
-  alt="Logo do evento"
-  style={{
-    width: "100%",
-    height: "100%",
-
-    objectFit: "contain",
-
-    display: "block",
-
-    margin: 0,
-    padding: 0,
-
-    background: "transparent",
-
-    border: "none",
-    outline: "none",
-    boxShadow: "none",
-    borderRadius: 0,
-
-    pointerEvents: "none",
-  }}
-/>
+            src={logoPreviewUrl}
+            alt="Logo do evento"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              boxShadow: "none",
+              borderRadius: 0,
+              pointerEvents: "none",
+            }}
+          />
         ) : (
           <div
             style={{
@@ -1225,8 +1310,12 @@ export default function EditorModeloConvitePage({
     file: File,
     tipo: "background" | "logo" | "musica",
   ) {
-    const ext = file.name.split(".").pop() || "asset";
-    const safeName = file.name
+    const logoCrop =
+      tipo === "logo" ? await cropTransparentImageFile(file) : null;
+    const fileToUpload = logoCrop?.file || file;
+
+    const ext = fileToUpload.name.split(".").pop() || "asset";
+    const safeName = fileToUpload.name
       .replace(/\.[^/.]+$/, "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -1239,7 +1328,7 @@ export default function EditorModeloConvitePage({
 
     const { error } = await supabase.storage
       .from("invite-assets")
-      .upload(filePath, file, {
+      .upload(filePath, fileToUpload, {
         cacheControl: "3600",
         upsert: true,
       });
@@ -1262,6 +1351,36 @@ export default function EditorModeloConvitePage({
 
     if (tipo === "logo") {
       setLogoPreviewUrl(publicUrl);
+
+      if (logoCrop?.width && logoCrop?.height) {
+        const ratio = logoCrop.width / logoCrop.height;
+
+        if (Number.isFinite(ratio) && ratio > 0) {
+          setBlocks((prev) =>
+            prev.map((block) => {
+              if (block.type !== "logo") return block;
+
+              const nextWidth = Math.min(CANVAS_W, Math.max(80, block.width));
+              const nextHeight = Math.round(nextWidth / ratio);
+
+              if (nextHeight <= CANVAS_H) {
+                return {
+                  ...block,
+                  width: nextWidth,
+                  height: Math.max(40, nextHeight),
+                };
+              }
+
+              return {
+                ...block,
+                width: Math.max(80, Math.round(CANVAS_H * ratio)),
+                height: CANVAS_H,
+              };
+            }),
+          );
+        }
+      }
+
       await salvarConfiguracaoVisual({ logoPreviewUrl: publicUrl });
     }
 
@@ -1809,18 +1928,22 @@ export default function EditorModeloConvitePage({
                 >
                   ↓
                 </button>
-                <button
-                  style={quickButton}
-                  onClick={() => redimensionarSelecionado(-10)}
-                >
-                  Tamanho -
-                </button>
-                <button
-                  style={quickButton}
-                  onClick={() => redimensionarSelecionado(10)}
-                >
-                  Tamanho +
-                </button>
+                {selectedBlock.type !== "logo" && (
+                  <>
+                    <button
+                      style={quickButton}
+                      onClick={() => redimensionarSelecionado(-10)}
+                    >
+                      Tamanho -
+                    </button>
+                    <button
+                      style={quickButton}
+                      onClick={() => redimensionarSelecionado(10)}
+                    >
+                      Tamanho +
+                    </button>
+                  </>
+                )}
               </div>
 
               <label style={field}>
@@ -1952,35 +2075,37 @@ export default function EditorModeloConvitePage({
                 </label>
               </div>
 
-              <div style={twoCols}>
-                <label style={field}>
-                  <span style={label}>Largura</span>
-                  <input
-                    type="number"
-                    value={selectedBlock.width}
-                    onChange={(e) =>
-                      updateBlock(selectedBlock.id, {
-                        width: Number(e.target.value),
-                      })
-                    }
-                    style={input}
-                  />
-                </label>
+              {selectedBlock.type !== "logo" && (
+                <div style={twoCols}>
+                  <label style={field}>
+                    <span style={label}>Largura</span>
+                    <input
+                      type="number"
+                      value={selectedBlock.width}
+                      onChange={(e) =>
+                        updateBlock(selectedBlock.id, {
+                          width: Number(e.target.value),
+                        })
+                      }
+                      style={input}
+                    />
+                  </label>
 
-                <label style={field}>
-                  <span style={label}>Altura</span>
-                  <input
-                    type="number"
-                    value={selectedBlock.height}
-                    onChange={(e) =>
-                      updateBlock(selectedBlock.id, {
-                        height: Number(e.target.value),
-                      })
-                    }
-                    style={input}
-                  />
-                </label>
-              </div>
+                  <label style={field}>
+                    <span style={label}>Altura</span>
+                    <input
+                      type="number"
+                      value={selectedBlock.height}
+                      onChange={(e) =>
+                        updateBlock(selectedBlock.id, {
+                          height: Number(e.target.value),
+                        })
+                      }
+                      style={input}
+                    />
+                  </label>
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button style={smallButton} onClick={duplicateSelected}>
@@ -2123,6 +2248,7 @@ export default function EditorModeloConvitePage({
                         return (
                           <Rnd
                             key={block.id}
+                            lockAspectRatio={block.type === "logo"}
                             size={{
                               width: block.width,
                               height: block.height,
