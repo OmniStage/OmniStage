@@ -53,6 +53,9 @@ type Props = {
   selectedBlockId?: string | null;
   blockEffects?: Record<string, string>;
   childrenForBlock?: (block: ConviteBlock) => ReactNode | null;
+  enableConfirmationEffects?: boolean;
+  showSoundToggle?: boolean;
+  onConfirmPresence?: () => void;
 };
 
 const DEFAULT_EVENTO: Required<EventoPreview> = {
@@ -179,6 +182,92 @@ function aplicarVariaveis(content: string | null, evento?: EventoPreview) {
     .replaceAll("{{logo_evento}}", "");
 }
 
+function detectarAcaoBotao(content: string | null) {
+  const texto = String(content || "").toLowerCase();
+
+  if (
+    texto.includes("confirmar") ||
+    texto.includes("presença") ||
+    texto.includes("presenca") ||
+    texto.includes("rsvp")
+  ) {
+    return "rsvp";
+  }
+
+  if (
+    texto.includes("localização") ||
+    texto.includes("localizacao") ||
+    texto.includes("mapa") ||
+    texto.includes("google maps") ||
+    texto.includes("ver local")
+  ) {
+    return "maps";
+  }
+
+  if (texto.includes("waze") || texto.includes("trânsito") || texto.includes("transito")) {
+    return "waze";
+  }
+
+  if (texto.includes("calendário") || texto.includes("calendario") || texto.includes("agenda")) {
+    return "calendar";
+  }
+
+  return "none";
+}
+
+function tocarSomConfirmacao() {
+  if (typeof window === "undefined") return;
+
+  const AudioContextClass =
+    window.AudioContext || (window as any).webkitAudioContext;
+
+  if (!AudioContextClass) return;
+
+  const audioContext = new AudioContextClass();
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(
+    990,
+    audioContext.currentTime + 0.12,
+  );
+
+  gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.2, audioContext.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.32);
+}
+
+function tentarLiberarSomSilencioso() {
+  if (typeof window === "undefined") return;
+
+  const AudioContextClass =
+    window.AudioContext || (window as any).webkitAudioContext;
+
+  if (!AudioContextClass) return;
+
+  const audioContext = new AudioContextClass();
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+  gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.04);
+}
+
 function getEffectStyle(effect?: string): CSSProperties {
   if (effect === "glow") {
     return {
@@ -278,6 +367,78 @@ function CountdownBlock({ block, evento }: { block: ConviteBlock; evento?: Event
         <strong style={numberStyle}>{pad2(countdown.segundos)}</strong>
         <span style={labelStyle}>SEG</span>
       </div>
+
+      {enableConfirmationEffects && confirmacaoAberta && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 9998,
+            display: "grid",
+            placeItems: "center",
+            pointerEvents: "none",
+            background:
+              "radial-gradient(circle at center, rgba(124,58,237,.28), transparent 44%)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(340px, calc(100% - 42px))",
+              borderRadius: 28,
+              padding: "26px 22px",
+              display: "grid",
+              justifyItems: "center",
+              gap: 10,
+              textAlign: "center",
+              color: "#ffffff",
+              background:
+                "linear-gradient(135deg, rgba(124,58,237,.94), rgba(20,184,166,.9))",
+              border: "1px solid rgba(255,255,255,.28)",
+              boxShadow:
+                "0 24px 90px rgba(124,58,237,.38), 0 0 0 8px rgba(255,255,255,.08)",
+              animation: "omniConfirmPop .34s ease-out",
+            }}
+          >
+            <div
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: "rgba(255,255,255,.96)",
+                color: "#16a34a",
+                fontSize: 34,
+                fontWeight: 950,
+                boxShadow: "0 12px 34px rgba(0,0,0,.2)",
+              }}
+            >
+              ✓
+            </div>
+
+            <strong
+              style={{
+                fontSize: 24,
+                lineHeight: 1.05,
+                fontWeight: 950,
+              }}
+            >
+              Presença confirmada
+            </strong>
+
+            <span
+              style={{
+                fontSize: 14,
+                lineHeight: 1.35,
+                fontWeight: 800,
+                opacity: 0.92,
+              }}
+            >
+              Sua confirmação foi registrada no convite.
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -350,8 +511,14 @@ export default function ConviteVisualRenderer({
   selectedBlockId = null,
   blockEffects = {},
   childrenForBlock,
+  enableConfirmationEffects = false,
+  showSoundToggle = false,
+  onConfirmPresence,
 }: Props) {
   const [, setTick] = useState(0);
+  const [somAtivo, setSomAtivo] = useState(true);
+  const [somLiberado, setSomLiberado] = useState(false);
+  const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -362,6 +529,60 @@ export default function ConviteVisualRenderer({
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!enableConfirmationEffects || !showSoundToggle || !somAtivo || somLiberado) {
+      return;
+    }
+
+    function liberarSom() {
+      if (!somAtivo || somLiberado) return;
+
+      try {
+        tentarLiberarSomSilencioso();
+        setSomLiberado(true);
+      } catch {
+        // O navegador pode manter o áudio bloqueado até uma interação mais explícita.
+      }
+    }
+
+    window.addEventListener("pointerdown", liberarSom, { passive: true });
+    window.addEventListener("touchstart", liberarSom, { passive: true });
+    window.addEventListener("keydown", liberarSom);
+    window.addEventListener("scroll", liberarSom, { passive: true });
+    window.addEventListener("mousemove", liberarSom, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", liberarSom);
+      window.removeEventListener("touchstart", liberarSom);
+      window.removeEventListener("keydown", liberarSom);
+      window.removeEventListener("scroll", liberarSom);
+      window.removeEventListener("mousemove", liberarSom);
+    };
+  }, [enableConfirmationEffects, showSoundToggle, somAtivo, somLiberado]);
+
+  function executarSomConfirmacao() {
+    if (!enableConfirmationEffects || !somAtivo) return;
+
+    try {
+      tocarSomConfirmacao();
+      setSomLiberado(true);
+    } catch {
+      // Sem bloqueio visual caso o navegador não libere o áudio.
+    }
+  }
+
+  function abrirConfirmacaoVisual() {
+    if (!enableConfirmationEffects) return;
+
+    executarSomConfirmacao();
+    setConfirmacaoAberta(true);
+    onConfirmPresence?.();
+
+    window.setTimeout(() => {
+      setConfirmacaoAberta(false);
+    }, 3200);
+  }
 
   return (
     <div
@@ -374,6 +595,72 @@ export default function ConviteVisualRenderer({
         background: "#020617",
       }}
     >
+      {enableConfirmationEffects && (
+        <style jsx global>{`
+          @keyframes omniConfirmPop {
+            0% {
+              opacity: 0;
+              transform: translateY(16px) scale(.92);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+
+          @keyframes omniButtonGlow {
+            0%, 100% {
+              filter: drop-shadow(0 0 0 rgba(247,212,119,0));
+            }
+            50% {
+              filter: drop-shadow(0 0 14px rgba(247,212,119,.72));
+            }
+          }
+        `}</style>
+      )}
+
+      {enableConfirmationEffects && showSoundToggle && (
+        <button
+          type="button"
+          onClick={() => {
+            setSomAtivo((current) => {
+              const next = !current;
+
+              if (next) {
+                window.setTimeout(() => {
+                  try {
+                    tocarSomConfirmacao();
+                    setSomLiberado(true);
+                  } catch {
+                    // Pode depender da próxima interação do usuário.
+                  }
+                }, 0);
+              }
+
+              return next;
+            });
+          }}
+          style={{
+            position: "absolute",
+            top: 10 * scale,
+            right: 10 * scale,
+            zIndex: 9999,
+            border: "1px solid rgba(255,255,255,.24)",
+            borderRadius: 999,
+            padding: `${8 * scale}px ${12 * scale}px`,
+            background: "rgba(2,6,23,.72)",
+            color: "#ffffff",
+            fontSize: Math.max(10, 12 * scale),
+            fontWeight: 900,
+            boxShadow: "0 12px 34px rgba(0,0,0,.25)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            cursor: "pointer",
+          }}
+        >
+          {somAtivo ? "🔊 Som" : "🔇 Som"}
+        </button>
+      )}
       <div
         style={{
           width,
@@ -548,6 +835,39 @@ export default function ConviteVisualRenderer({
                 <div key={block.id} style={shared}>
                   <GuestPickerBlock block={block} />
                 </div>
+              );
+            }
+
+            if (
+              enableConfirmationEffects &&
+              (block.type === "button" || detectarAcaoBotao(block.content) === "rsvp")
+            ) {
+              const acao = detectarAcaoBotao(block.content);
+              const isConfirmacao = acao === "rsvp";
+              const label = aplicarVariaveis(block.content, evento);
+
+              return (
+                <button
+                  key={block.id}
+                  type="button"
+                  onClick={() => {
+                    if (isConfirmacao) {
+                      abrirConfirmacaoVisual();
+                    } else {
+                      executarSomConfirmacao();
+                    }
+                  }}
+                  style={{
+                    ...shared,
+                    border: "none",
+                    cursor: "pointer",
+                    animation: isConfirmacao
+                      ? "omniButtonGlow 2.2s ease-in-out infinite"
+                      : undefined,
+                  }}
+                >
+                  {label}
+                </button>
               );
             }
 
