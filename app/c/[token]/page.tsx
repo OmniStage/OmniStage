@@ -548,29 +548,47 @@ export default function ConvitePublicoPage() {
       .eq("id", convidadoBase.evento_id)
       .maybeSingle();
 
-    if (!evento?.invite_template_id) {
-      setRenderState({ kind: "html", html: htmlErro("Evento sem convite aplicado.") });
-      setLoading(false);
-      return;
-    }
+    let templateId = evento?.invite_template_id || null;
 
-    const { data: template } = await supabase
-      .from("invite_templates")
-      .select(
-        `
-        id,
-        nome,
-        name,
-        html_template,
-        editor_mode,
-        preview_image,
-        background_image,
-        logo_image,
-        visual_config
-      `,
-      )
-      .eq("id", evento.invite_template_id)
-      .maybeSingle();
+if (!templateId && evento?.id) {
+  const { data: eventTemplate } = await supabase
+    .from("event_invite_templates")
+    .select("template_id")
+    .eq("event_id", evento.id)
+    .maybeSingle();
+
+  if (eventTemplate?.template_id) {
+    templateId = eventTemplate.template_id;
+  }
+}
+
+if (!templateId) {
+  setRenderState({
+    kind: "html",
+    html: htmlErro("Evento sem convite aplicado."),
+  });
+
+  setLoading(false);
+  return;
+}
+
+const { data: template } = await supabase
+  .from("invite_templates")
+  .select(
+    `
+    id,
+    nome,
+    name,
+    html_template,
+    editor_mode,
+    preview_image,
+    background_image,
+    logo_image,
+    visual_config
+  `,
+  )
+  .eq("id", templateId)
+  .maybeSingle();
 
     if (!template) {
       setRenderState({ kind: "html", html: htmlErro("Modelo de convite não encontrado.") });
