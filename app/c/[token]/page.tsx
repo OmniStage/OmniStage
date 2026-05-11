@@ -550,45 +550,78 @@ export default function ConvitePublicoPage() {
 
     let templateId = evento?.invite_template_id || null;
 
-if (!templateId && evento?.id) {
-  const { data: eventTemplate } = await supabase
-    .from("event_invite_templates")
-    .select("template_id")
-    .eq("event_id", evento.id)
-    .maybeSingle();
+    /*
+      Compatibilidade:
+      - Alguns eventos salvam o modelo direto em eventos.invite_template_id.
+      - Outros ficam vinculados pela tabela event_invite_templates.
+      - No restante do app esta tabela usa a coluna evento_id.
+    */
+    if (!templateId && evento?.id) {
+      const { data: vinculoPorEventoId, error: vinculoEventoIdError } = await supabase
+        .from("event_invite_templates")
+        .select("template_id")
+        .eq("evento_id", evento.id)
+        .limit(1)
+        .maybeSingle();
 
-  if (eventTemplate?.template_id) {
-    templateId = eventTemplate.template_id;
-  }
-}
+      if (vinculoEventoIdError) {
+        console.error("Erro ao buscar vínculo por evento_id:", vinculoEventoIdError);
+      }
 
-if (!templateId) {
-  setRenderState({
-    kind: "html",
-    html: htmlErro("Evento sem convite aplicado."),
-  });
+      if (vinculoPorEventoId?.template_id) {
+        templateId = vinculoPorEventoId.template_id;
+      }
+    }
 
-  setLoading(false);
-  return;
-}
+    /*
+      Fallback extra para projetos que tenham criado a coluna como event_id.
+      Se a coluna não existir, apenas registra erro e segue.
+    */
+    if (!templateId && evento?.id) {
+      const { data: vinculoPorEventId, error: vinculoEventIdError } = await supabase
+        .from("event_invite_templates")
+        .select("template_id")
+        .eq("event_id", evento.id)
+        .limit(1)
+        .maybeSingle();
 
-const { data: template } = await supabase
-  .from("invite_templates")
-  .select(
-    `
-    id,
-    nome,
-    name,
-    html_template,
-    editor_mode,
-    preview_image,
-    background_image,
-    logo_image,
-    visual_config
-  `,
-  )
-  .eq("id", templateId)
-  .maybeSingle();
+      if (vinculoEventIdError) {
+        console.error("Fallback event_id indisponível:", vinculoEventIdError);
+      }
+
+      if (vinculoPorEventId?.template_id) {
+        templateId = vinculoPorEventId.template_id;
+      }
+    }
+
+    if (!templateId) {
+      console.error("Evento sem modelo aplicado:", {
+        evento_id: evento?.id,
+        invite_template_id: evento?.invite_template_id,
+      });
+
+      setRenderState({ kind: "html", html: htmlErro("Evento sem convite aplicado.") });
+      setLoading(false);
+      return;
+    }
+
+    const { data: template } = await supabase
+      .from("invite_templates")
+      .select(
+        `
+        id,
+        nome,
+        name,
+        html_template,
+        editor_mode,
+        preview_image,
+        background_image,
+        logo_image,
+        visual_config
+      `,
+      )
+      .eq("id", templateId)
+      .maybeSingle();
 
     if (!template) {
       setRenderState({ kind: "html", html: htmlErro("Modelo de convite não encontrado.") });
