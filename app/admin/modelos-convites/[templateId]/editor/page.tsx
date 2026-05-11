@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import { supabase } from "@/lib/supabase";
+import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
 
 type EffectType = "none" | "glow" | "float" | "pulse" | "shine";
 
@@ -2225,18 +2226,21 @@ export default function EditorModeloConvitePage({
                 )}
 
                 {previewAoVivo ? (
-                  <>
-                    {blocks
-                      .filter((b) => b.visible)
-                      .sort((a, b) => a.z_index - b.z_index)
-                      .map((block) =>
-                        renderPreviewBlock(
-                          block,
-                          logoPreviewUrl,
-                          blockEffects[block.id] || "none",
-                        ),
-                      )}
-                  </>
+                  <ConviteVisualRenderer
+                    blocks={blocks}
+                    backgroundUrl={backgroundPreviewUrl}
+                    logoUrl={logoPreviewUrl}
+                    width={CANVAS_W}
+                    height={CANVAS_H}
+                    backgroundX={backgroundX}
+                    backgroundY={backgroundY}
+                    backgroundScale={backgroundScale}
+                    backgroundOpacity={backgroundOpacity}
+                    glassOpacity={glassOpacity}
+                    glassBlur={glassBlur}
+                    glassTone={glassTone}
+                    blockEffects={blockEffects}
+                  />
                 ) : (
                   <>
                     {blocks
