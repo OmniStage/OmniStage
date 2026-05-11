@@ -103,19 +103,42 @@ function getLogoUrl(template: Template | null, evento: Evento | null) {
   );
 }
 
-function getEventoPreview(evento: Evento | null) {
+function getEventoPreview(
+  evento: Evento | null,
+  totalConvidados?: number,
+) {
   const dataFormatada = formatarData(evento?.data_evento || null);
-  const horaFormatada = formatarHorario(evento?.horario);
+
+  const horaFormatada =
+    formatarHorario(evento?.horario) ||
+    String(evento?.horario || "")
+      .trim()
+      .replace("Horário", "")
+      .replace("horário", "");
+
+  const total = Number(totalConvidados || 0);
 
   return {
     nome_evento: evento?.nome || "Nome do Evento",
+
     nome_convidado: "Nome do Convidado",
-    data_evento: dataFormatada || "Data do Evento",
-    hora_evento: horaFormatada || "Horário",
-    horario_evento: horaFormatada || "Horário",
+
+    data_evento: dataFormatada || "",
+
+    hora_evento: horaFormatada || "",
+
+    horario_evento: horaFormatada || "",
+
+    horario: horaFormatada || "",
+
+    hora: horaFormatada || "",
+
     local_evento: evento?.local || "Local do Evento",
-    endereco_evento: evento?.endereco || "Endereço do Evento",
-    total_convidados: "4",
+
+    endereco_evento:
+      evento?.endereco || "Endereço do Evento",
+
+    total_convidados: total || 1,
   };
 }
 
@@ -172,7 +195,10 @@ function VisualPreviewCard({
           glassBlur={toNumber(visualConfig.glassBlur, 0)}
           glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
           blockEffects={visualConfig.blockEffects || {}}
-          evento={getEventoPreview(evento)}
+          evento={getEventoPreview(
+  evento,
+  guestCounts[evento?.id || ""] || 0,
+)}
         />
       </div>
     </div>
@@ -207,7 +233,10 @@ function VisualPreviewGrande({
         glassBlur={toNumber(visualConfig.glassBlur, 0)}
         glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
         blockEffects={visualConfig.blockEffects || {}}
-        evento={getEventoPreview(evento)}
+        evento={getEventoPreview(
+  evento,
+  guestCounts[evento?.id || ""] || 0,
+)}
       />
     </div>
   );
@@ -223,7 +252,9 @@ export default function ConvitePage() {
   const [temaSelecionado, setTemaSelecionado] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
+const [guestCounts, setGuestCounts] = useState<
+  Record<string, number>
+>({});
   const eventoAtual = useMemo(() => {
     return eventos.find((evento) => evento.id === eventoSelecionado) || null;
   }, [eventos, eventoSelecionado]);
@@ -384,6 +415,27 @@ export default function ConvitePage() {
     }
 
     const eventosRows = (eventosData || []) as Evento[];
+    const eventoIds = eventosRows.map((e) => e.id);
+
+if (eventoIds.length) {
+  const { data: convidadosCount } = await supabase
+    .from("convidados")
+    .select("evento_id")
+    .in("evento_id", eventoIds);
+
+  const counts: Record<string, number> = {};
+
+  for (const item of convidadosCount || []) {
+    const eventoId = item.evento_id;
+
+    if (!eventoId) continue;
+
+    counts[eventoId] =
+      (counts[eventoId] || 0) + 1;
+  }
+
+  setGuestCounts(counts);
+}
     setEventos(eventosRows);
 
     const eventoInicial = eventosRows[0];
