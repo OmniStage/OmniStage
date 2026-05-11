@@ -410,40 +410,31 @@ function renderPreviewBlock(
   }
 
   if (block.type === "logo") {
-  return (
-    <div
-  key={block.id}
-  style={{
-    position: "absolute",
-    left: block.x,
-    top: block.y,
-    width: block.width,
-    height: block.height,
-    zIndex: block.z_index || 1,
-
+  const logoWrapperStyle: CSSProperties = {
+    ...shared,
     background: "transparent",
     border: "none",
     boxShadow: "none",
     backdropFilter: "none",
     WebkitBackdropFilter: "none",
-
     padding: 0,
-    overflow: "visible",
-  }}
->
+  };
+
+  return (
+    <div key={block.id} style={logoWrapperStyle}>
       {logoPreviewUrl ? (
         <img
           src={logoPreviewUrl}
           alt="Logo do evento"
           style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            width: "auto",
-            height: "auto",
+            width: "100%",
+            height: "100%",
             objectFit: "contain",
             display: "block",
-            margin: "0 auto",
-            borderRadius: block.border_radius,
+            background: "transparent",
+            border: "none",
+            boxShadow: "none",
+            borderRadius: 0,
           }}
         />
       ) : (
@@ -454,8 +445,7 @@ function renderPreviewBlock(
             display: "grid",
             placeItems: "center",
             borderRadius: block.border_radius,
-            background:
-              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+            background: "transparent",
           }}
         >
           <div
