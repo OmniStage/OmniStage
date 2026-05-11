@@ -117,7 +117,6 @@ function criarTextoBuscaLocal(evento: Evento | null) {
 
 function criarMapsUrl(evento: Evento | null) {
   if (!evento) return "";
-  if (evento.google_maps_url) return evento.google_maps_url;
   if (evento.mapa_url) return evento.mapa_url;
 
   const query = criarTextoBuscaLocal(evento);
@@ -128,7 +127,6 @@ function criarMapsUrl(evento: Evento | null) {
 
 function criarWazeUrl(evento: Evento | null) {
   if (!evento) return "";
-  if (evento.waze_url) return evento.waze_url;
 
   const query = criarTextoBuscaLocal(evento);
   return query ? `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes` : "";
@@ -148,9 +146,7 @@ function criarCalendarUrl(evento: Evento | null) {
   }
 
   const local = evento.local || evento.endereco || "";
-  const details = evento.link_convite
-    ? `Convite digital: ${evento.link_convite}`
-    : "Convite digital OmniStage";
+  const details = "Convite digital OmniStage";
 
   return (
     "https://calendar.google.com/calendar/render?action=TEMPLATE" +
@@ -344,7 +340,7 @@ function renderBotaoVisual(block: VisualBlock, evento: Evento, nomes: string[]) 
         : acao === "calendar"
           ? criarCalendarUrl(evento)
           : acao === "rsvp"
-            ? evento.link_rsvp || "#confirmar-presenca"
+            ? "#confirmar-presenca"
             : "";
 
   const finalLabel = label || fallbackLabel;
@@ -520,7 +516,7 @@ export default function ConvitePublicoPage() {
       return;
     }
 
-    const { data: evento } = await supabase
+    const { data: evento, error: eventoError } = await supabase
       .from("eventos")
       .select(
         `
@@ -537,16 +533,22 @@ export default function ConvitePublicoPage() {
         logo_image,
         logo_url,
         music_file,
-        musica_url,
-        link_rsvp,
-        link_convite,
-        google_maps_url,
-        waze_url,
-        total_convidados
+        musica_url
       `,
       )
       .eq("id", convidadoBase.evento_id)
       .maybeSingle();
+
+    if (eventoError || !evento) {
+      console.error("Erro ao buscar evento do convite:", {
+        evento_id: convidadoBase.evento_id,
+        erro: eventoError,
+      });
+
+      setRenderState({ kind: "html", html: htmlErro("Evento do convite não encontrado.") });
+      setLoading(false);
+      return;
+    }
 
     let templateId = evento?.invite_template_id || null;
 
@@ -556,11 +558,12 @@ export default function ConvitePublicoPage() {
       - Outros ficam vinculados pela tabela event_invite_templates.
       - No restante do app esta tabela usa a coluna evento_id.
     */
-    if (!templateId && evento?.id) {
+    if (!templateId && evento.id) {
       const { data: vinculosPorEventoId, error: vinculoEventoIdError } = await supabase
         .from("event_invite_templates")
         .select("template_id")
         .eq("evento_id", evento.id)
+        .order("created_at", { ascending: false })
         .limit(1);
 
       if (vinculoEventoIdError) {
@@ -574,35 +577,16 @@ export default function ConvitePublicoPage() {
       }
     }
 
-    /*
-      Fallback extra para projetos que tenham criado a coluna como event_id.
-      Se a coluna não existir, apenas registra erro e segue.
-    */
-    if (!templateId && evento?.id) {
-      const { data: vinculosPorEventId, error: vinculoEventIdError } = await supabase
-        .from("event_invite_templates")
-        .select("template_id")
-        .eq("event_id", evento.id)
-        .limit(1);
-
-      if (vinculoEventIdError) {
-        console.error("Fallback event_id indisponível:", vinculoEventIdError);
-      }
-
-      const primeiroVinculo = vinculosPorEventId?.[0];
-
-      if (primeiroVinculo?.template_id) {
-        templateId = primeiroVinculo.template_id;
-      }
-    }
-
     if (!templateId) {
       console.error("Evento sem modelo aplicado:", {
         evento_id: evento?.id,
         invite_template_id: evento?.invite_template_id,
       });
 
-      setRenderState({ kind: "html", html: htmlErro("Evento sem convite aplicado.") });
+      setRenderState({
+        kind: "html",
+        html: htmlErro(`Evento sem convite aplicado. Evento: ${evento.id}`),
+      });
       setLoading(false);
       return;
     }
