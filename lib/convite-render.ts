@@ -61,9 +61,10 @@ export function formatarData(data: string | null) {
   const date = new Date(`${data}T00:00:00`);
   if (Number.isNaN(date.getTime())) return data;
 
+  // Formato curto igual ao admin: DD/MM/YYYY
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
-    month: "long",
+    month: "2-digit",
     year: "numeric",
   }).format(date);
 }
@@ -569,7 +570,7 @@ export function renderizarTemplateVisual(
     .sort((a, b) => numberValue(a.y, 0) - numberValue(b.y, 0));
 
   // Renderiza blocos usando as posições originais definidas no editor admin
-  // Não força mais centralização - respeita x, y, width, height do bloco
+  // Respeita x, y, width, height do bloco como salvo no banco
   const blocosHtml = blocosNormais
     .map((block) => {
       const isDivider = block.type === "divider";
@@ -578,21 +579,27 @@ export function renderizarTemplateVisual(
 
       // Usa posições originais do bloco (como definido no admin)
       const blockLeft = numberValue(block.x, 0);
+      const blockTop = numberValue(block.y, 0);
       const blockWidth = numberValue(block.width, 200);
+      const blockHeight = numberValue(block.height, 60);
+
+
 
       return `
         <div
           data-block-type="${escapeHtml(block.type)}"
           data-block-label="${escapeHtml(block.label || "")}"
           data-block-content="${escapeHtml(block.content || "")}"
-          data-base-y="${numberValue(block.y, 0)}"
-          data-base-height="${numberValue(block.height, 60)}"
+          data-base-y="${blockTop}"
+          data-base-height="${blockHeight}"
+          data-debug-x="${block.x}"
+          data-debug-width="${block.width}"
           style="
             position:absolute;
             left:${blockLeft}px;
-            top:${numberValue(block.y, 0)}px;
+            top:${blockTop}px;
             width:${blockWidth}px;
-            height:${numberValue(block.height, 60)}px;
+            height:${blockHeight}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
             border-radius:${numberValue(block.border_radius, 0)}px;
@@ -608,8 +615,8 @@ export function renderizarTemplateVisual(
             text-align:center;
             line-height:1.12;
             padding:${padding}px;
-            overflow:hidden;
-            white-space:pre-wrap;
+            overflow:visible;
+            white-space:nowrap;
           "
         >
           ${renderizarConteudoBloco(block, evento)}
