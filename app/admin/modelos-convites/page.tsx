@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 import { preencherTemplate } from "@/lib/convite-render";
+import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
 
 function useViewportWidth() {
   const [width, setWidth] = useState(1440);
@@ -331,8 +332,6 @@ function VisualTemplatePreview({
   const [scale, setScale] = useState(0.42);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
-  const eventoDemo = criarEventoDemo(template);
-  const countdown = getCountdownBrasil(eventoDemo.data_evento, eventoDemo.horario);
   const visualConfig = (template?.visual_config || {}) as any;
 
   const backgroundUrl =
@@ -343,21 +342,17 @@ function VisualTemplatePreview({
     "";
 
   const logoUrl =
-    visualConfig.logoPreviewUrl || template?.logo_image || template?.logo_url || "";
-
-  const backgroundX = toNumber(visualConfig.backgroundX, 0);
-  const backgroundY = toNumber(visualConfig.backgroundY, 0);
-  const backgroundScale = toNumber(visualConfig.backgroundScale, 1);
-  const backgroundOpacity = toNumber(visualConfig.backgroundOpacity, 1);
-  const glassOpacity = toNumber(visualConfig.glassOpacity, 0.18);
-  const glassBlur = toNumber(visualConfig.glassBlur, 0);
-  const glassTone = visualConfig.glassTone === "light" ? "light" : "dark";
+    visualConfig.logoPreviewUrl ||
+    template?.logo_image ||
+    template?.logo_url ||
+    "";
 
   useEffect(() => {
     if (!container) return;
 
     function resize() {
       if (!container) return;
+
       const availableWidth = Math.max(container.clientWidth - 28, 160);
       const availableHeight = Math.max(maxHeight - 28, 260);
       const nextScale = Math.min(
@@ -365,6 +360,7 @@ function VisualTemplatePreview({
         availableHeight / CANVAS_H,
         0.52
       );
+
       setScale(nextScale);
     }
 
@@ -373,221 +369,6 @@ function VisualTemplatePreview({
     observer.observe(container);
     return () => observer.disconnect();
   }, [container, maxHeight]);
-
-  function renderCountdownBlock(block: VisualBlock) {
-    const itemStyle: CSSProperties = {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: 0,
-    };
-
-    const numberStyle: CSSProperties = {
-      display: "block",
-      fontSize: Math.max(block.font_size || 28, 28),
-      lineHeight: 0.9,
-      fontWeight: 950,
-      color: block.color || "#f7d477",
-      letterSpacing: "0.02em",
-    };
-
-    const labelStyle: CSSProperties = {
-      display: "block",
-      marginTop: 7,
-      fontSize: Math.max(8, Math.round((block.font_size || 28) * 0.28)),
-      lineHeight: 1,
-      fontWeight: 950,
-      letterSpacing: "0.16em",
-      color: "#ffffff",
-      opacity: 0.86,
-    };
-
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
-        <div style={itemStyle}>
-          <strong style={numberStyle}>{pad2(countdown.dias)}</strong>
-          <span style={labelStyle}>DIAS</span>
-        </div>
-        <div style={itemStyle}>
-          <strong style={numberStyle}>{pad2(countdown.horas)}</strong>
-          <span style={labelStyle}>HORAS</span>
-        </div>
-        <div style={itemStyle}>
-          <strong style={numberStyle}>{pad2(countdown.minutos)}</strong>
-          <span style={labelStyle}>MIN</span>
-        </div>
-        <div style={itemStyle}>
-          <strong style={numberStyle}>{pad2(countdown.segundos)}</strong>
-          <span style={labelStyle}>SEG</span>
-        </div>
-      </div>
-    );
-  }
-
-  function renderGuestPickerBlock(block: VisualBlock) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
-          justifyContent: "flex-start",
-          gap: 6,
-          padding: "8px 10px",
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-      >
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: block.color || "#ffffff",
-            fontFamily: block.font_family || "Inter",
-            fontSize: block.font_size,
-            fontWeight: 900,
-            lineHeight: 1.05,
-            minHeight: 26,
-          }}
-        >
-          <input
-            type="checkbox"
-            checked
-            readOnly
-            style={{
-              width: 17,
-              height: 17,
-              accentColor: "#f7d477",
-              flexShrink: 0,
-            }}
-          />
-          <span>Nome do Convidado</span>
-        </label>
-      </div>
-    );
-  }
-
-  function renderBlock(block: VisualBlock) {
-    const isDivider = block.type === "divider";
-    const isLogo = block.type === "logo";
-    const isTightContent = ["date_time", "location", "horario", "hora"].includes(
-      block.type
-    );
-
-    const shared: CSSProperties = {
-      position: "absolute",
-      left: block.x,
-      top: block.y,
-      width: block.width,
-      height: block.height,
-      zIndex: (block.z_index || 1) + 10,
-      boxSizing: "border-box",
-      borderRadius: isLogo ? 0 : block.border_radius,
-      color: block.color || "#ffffff",
-      background: isLogo ? "transparent" : block.background || "transparent",
-      fontFamily: block.font_family || "Inter",
-      fontSize: block.font_size,
-      fontWeight: 900,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      textAlign: "center",
-      lineHeight: isTightContent ? 1.02 : 1.12,
-      padding: isDivider || isLogo ? 0 : 8,
-      overflow: "hidden",
-      whiteSpace: "pre-wrap",
-    };
-
-    if (block.type === "logo") {
-      return (
-        <div key={block.id} style={{ ...shared, overflow: "visible" }}>
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt="Logo do evento"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                display: "block",
-                background: "transparent",
-                border: "none",
-                boxShadow: "none",
-                borderRadius: 0,
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "grid",
-                placeItems: "center",
-                background: "transparent",
-              }}
-            >
-              <div style={{ fontSize: Math.max(12, block.font_size || 16), opacity: 0.92 }}>
-                LOGO
-                <br />
-                EVENTO
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (block.type === "countdown") {
-      return <div key={block.id} style={shared}>{renderCountdownBlock(block)}</div>;
-    }
-
-    if (block.type === "guest_picker") {
-      return (
-        <div key={block.id} style={{ ...shared, alignItems: "stretch", justifyContent: "flex-start", padding: 8 }}>
-          {renderGuestPickerBlock(block)}
-        </div>
-      );
-    }
-
-    if (block.type === "qr") {
-      return (
-        <div key={block.id} style={shared}>
-          <div
-            style={{
-              width: "78%",
-              height: "78%",
-              borderRadius: 8,
-              background:
-                "linear-gradient(90deg,#111 10px,transparent 10px) 0 0/22px 22px, linear-gradient(#111 10px,transparent 10px) 0 0/22px 22px, #fff",
-              opacity: 0.92,
-            }}
-          />
-        </div>
-      );
-    }
-
-    if (isDivider) return <div key={block.id} style={shared} />;
-
-    return <div key={block.id} style={shared}>{renderPreviewText(block.content, eventoDemo)}</div>;
-  }
-
-  const scaledWidth = Math.round(CANVAS_W * scale);
-  const scaledHeight = Math.round(CANVAS_H * scale);
 
   return (
     <div
@@ -598,74 +379,47 @@ function VisualTemplatePreview({
         overflow: "hidden",
         borderRadius: 18,
         border: "1px solid #dbe3ef",
-        background: "radial-gradient(circle at 50% 0%, #f8fafc 0, #eef2ff 55%, #e2e8f0 100%)",
+        background:
+          "radial-gradient(circle at 50% 0%, #f8fafc 0, #eef2ff 55%, #e2e8f0 100%)",
         display: "grid",
         placeItems: "center",
       }}
     >
       <div
         style={{
-          width: scaledWidth,
-          height: scaledHeight,
-          position: "relative",
+          width: Math.round(CANVAS_W * scale),
+          height: Math.round(CANVAS_H * scale),
           borderRadius: Math.max(14, Math.round(34 * scale)),
           overflow: "hidden",
           background: "#020617",
           boxShadow: "0 18px 48px rgba(15,23,42,.22)",
         }}
       >
-        <div
-          style={{
-            width: CANVAS_W,
-            height: CANVAS_H,
-            position: "absolute",
-            left: 0,
-            top: 0,
-            overflow: "hidden",
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            background: "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
+        <ConviteVisualRenderer
+          blocks={blocks}
+          backgroundUrl={backgroundUrl}
+          logoUrl={logoUrl}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          scale={scale}
+          backgroundX={toNumber(visualConfig.backgroundX, 0)}
+          backgroundY={toNumber(visualConfig.backgroundY, 0)}
+          backgroundScale={toNumber(visualConfig.backgroundScale, 1)}
+          backgroundOpacity={toNumber(visualConfig.backgroundOpacity, 1)}
+          glassOpacity={toNumber(visualConfig.glassOpacity, 0.18)}
+          glassBlur={toNumber(visualConfig.glassBlur, 0)}
+          glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
+          evento={{
+            nome_evento: template?.nome || template?.name || "Nome do Evento",
+            nome_convidado: "Nome do Convidado",
+            data_evento: "16/05/2026",
+            hora_evento: "21h",
+            horario_evento: "21h",
+            local_evento: "Local do Evento",
+            endereco_evento: "Endereço do Evento",
+            total_convidados: "4",
           }}
-        >
-          {backgroundUrl && (
-            <img
-              src={backgroundUrl}
-              alt="Background"
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: CANVAS_W,
-                height: CANVAS_H,
-                objectFit: "cover",
-                transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
-                opacity: backgroundOpacity,
-                zIndex: 0,
-                pointerEvents: "none",
-                userSelect: "none",
-              }}
-            />
-          )}
-
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 1,
-              pointerEvents: "none",
-              background:
-                glassTone === "light"
-                  ? `rgba(255,255,255,${glassOpacity})`
-                  : `rgba(2,6,23,${glassOpacity})`,
-              backdropFilter: glassBlur ? `blur(${glassBlur}px)` : "none",
-            }}
-          />
-
-          {blocks
-            .filter((b) => b.visible !== false)
-            .sort((a, b) => (a.z_index || 1) - (b.z_index || 1))
-            .map(renderBlock)}
-        </div>
+        />
       </div>
     </div>
   );
