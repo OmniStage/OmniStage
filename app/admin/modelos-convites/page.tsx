@@ -256,7 +256,40 @@ function toNumber(value: unknown, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function renderDemoContent(content: string | null, evento?: any) {
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function getCountdownBrasil(
+  dataEvento?: string | null,
+  horarioEvento?: string | null
+) {
+  const dataISO = normalizarDataISO(String(dataEvento || ""));
+  const horario = normalizarHorario(horarioEvento);
+
+  if (!dataISO) {
+    return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
+  }
+
+  const target = new Date(`${dataISO}T${horario}:00-03:00`);
+  const now = new Date();
+
+  if (Number.isNaN(target.getTime())) {
+    return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
+  }
+
+  const diff = Math.max(0, target.getTime() - now.getTime());
+  const totalSeconds = Math.floor(diff / 1000);
+
+  return {
+    dias: Math.floor(totalSeconds / 86400),
+    horas: Math.floor((totalSeconds % 86400) / 3600),
+    minutos: Math.floor((totalSeconds % 3600) / 60),
+    segundos: totalSeconds % 60,
+  };
+}
+
+function renderPreviewText(content: string | null, evento?: any) {
   const eventData = evento || criarEventoDemo();
   const diasParaEvento = getDiasRestantesBrasil(
     eventData.data_evento,
@@ -264,7 +297,7 @@ function renderDemoContent(content: string | null, evento?: any) {
   );
 
   return String(content || "")
-    .replaceAll("{{nome_evento}}", "Nome do Evento")
+    .replaceAll("{{nome_evento}}", eventData.nome || "Nome do Evento")
     .replaceAll("{{nome_convidado}}", "Nome do Convidado")
     .replaceAll("{{data_evento}}", "16/05/2026")
     .replaceAll("{{hora_evento}}", "21h")
@@ -274,10 +307,17 @@ function renderDemoContent(content: string | null, evento?: any) {
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
     .replaceAll("{{qr_code}}", "QR")
     .replaceAll("{{logo_evento}}", "Logo Evento")
-    .replaceAll("{{dias_para_evento}}", String(diasParaEvento));
+    .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
+    .replaceAll("{{contador_evento}}", String(diasParaEvento))
+    .replaceAll("{{total_convidados}}", "4")
+    .replaceAll("{{convidados_quantidade}}", "4")
+    .replaceAll("{{texto_total_convidados}}", "Convite para 4 convidados")
+    .replaceAll("{{google_maps_url}}", "Ver localização")
+    .replaceAll("{{waze_url}}", "Abrir no Waze")
+    .replaceAll("{{calendario_url}}", "Adicionar ao calendário");
 }
 
-function MiniVisualPreview({
+function VisualTemplatePreview({
   blocks,
   template,
   maxHeight = 420,
@@ -286,18 +326,15 @@ function MiniVisualPreview({
   template?: any;
   maxHeight?: number;
 }) {
-  const baseWidth = 430;
-  const baseHeight = 920;
+  const CANVAS_W = 430;
+  const CANVAS_H = 920;
   const [scale, setScale] = useState(0.42);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
   const eventoDemo = criarEventoDemo(template);
-  const diasParaEvento = getDiasRestantesBrasil(
-    eventoDemo.data_evento,
-    eventoDemo.horario
-  );
-
+  const countdown = getCountdownBrasil(eventoDemo.data_evento, eventoDemo.horario);
   const visualConfig = (template?.visual_config || {}) as any;
+
   const backgroundUrl =
     visualConfig.backgroundPreviewUrl ||
     template?.background_image ||
@@ -306,10 +343,7 @@ function MiniVisualPreview({
     "";
 
   const logoUrl =
-    visualConfig.logoPreviewUrl ||
-    template?.logo_image ||
-    template?.logo_url ||
-    "";
+    visualConfig.logoPreviewUrl || template?.logo_image || template?.logo_url || "";
 
   const backgroundX = toNumber(visualConfig.backgroundX, 0);
   const backgroundY = toNumber(visualConfig.backgroundY, 0);
@@ -324,15 +358,13 @@ function MiniVisualPreview({
 
     function resize() {
       if (!container) return;
-
       const availableWidth = Math.max(container.clientWidth - 28, 160);
       const availableHeight = Math.max(maxHeight - 28, 260);
       const nextScale = Math.min(
-        availableWidth / baseWidth,
-        availableHeight / baseHeight,
+        availableWidth / CANVAS_W,
+        availableHeight / CANVAS_H,
         0.52
       );
-
       setScale(nextScale);
     }
 
@@ -342,11 +374,119 @@ function MiniVisualPreview({
     return () => observer.disconnect();
   }, [container, maxHeight]);
 
+  function renderCountdownBlock(block: VisualBlock) {
+    const itemStyle: CSSProperties = {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 0,
+    };
+
+    const numberStyle: CSSProperties = {
+      display: "block",
+      fontSize: Math.max(block.font_size || 28, 28),
+      lineHeight: 0.9,
+      fontWeight: 950,
+      color: block.color || "#f7d477",
+      letterSpacing: "0.02em",
+    };
+
+    const labelStyle: CSSProperties = {
+      display: "block",
+      marginTop: 7,
+      fontSize: Math.max(8, Math.round((block.font_size || 28) * 0.28)),
+      lineHeight: 1,
+      fontWeight: 950,
+      letterSpacing: "0.16em",
+      color: "#ffffff",
+      opacity: 0.86,
+    };
+
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        <div style={itemStyle}>
+          <strong style={numberStyle}>{pad2(countdown.dias)}</strong>
+          <span style={labelStyle}>DIAS</span>
+        </div>
+        <div style={itemStyle}>
+          <strong style={numberStyle}>{pad2(countdown.horas)}</strong>
+          <span style={labelStyle}>HORAS</span>
+        </div>
+        <div style={itemStyle}>
+          <strong style={numberStyle}>{pad2(countdown.minutos)}</strong>
+          <span style={labelStyle}>MIN</span>
+        </div>
+        <div style={itemStyle}>
+          <strong style={numberStyle}>{pad2(countdown.segundos)}</strong>
+          <span style={labelStyle}>SEG</span>
+        </div>
+      </div>
+    );
+  }
+
+  function renderGuestPickerBlock(block: VisualBlock) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          justifyContent: "flex-start",
+          gap: 6,
+          padding: "8px 10px",
+          boxSizing: "border-box",
+          overflow: "hidden",
+        }}
+      >
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: block.color || "#ffffff",
+            fontFamily: block.font_family || "Inter",
+            fontSize: block.font_size,
+            fontWeight: 900,
+            lineHeight: 1.05,
+            minHeight: 26,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked
+            readOnly
+            style={{
+              width: 17,
+              height: 17,
+              accentColor: "#f7d477",
+              flexShrink: 0,
+            }}
+          />
+          <span>Nome do Convidado</span>
+        </label>
+      </div>
+    );
+  }
+
   function renderBlock(block: VisualBlock) {
-    const isLogo = block.type === "logo";
-    const isQr = block.type === "qr";
     const isDivider = block.type === "divider";
-    const isCountdown = block.type === "countdown";
+    const isLogo = block.type === "logo";
+    const isTightContent = ["date_time", "location", "horario", "hora"].includes(
+      block.type
+    );
 
     const shared: CSSProperties = {
       position: "absolute",
@@ -356,25 +496,26 @@ function MiniVisualPreview({
       height: block.height,
       zIndex: (block.z_index || 1) + 10,
       boxSizing: "border-box",
-      borderRadius: block.border_radius,
+      borderRadius: isLogo ? 0 : block.border_radius,
       color: block.color || "#ffffff",
-      background: block.background || "transparent",
+      background: isLogo ? "transparent" : block.background || "transparent",
       fontFamily: block.font_family || "Inter",
       fontSize: block.font_size,
       fontWeight: 900,
       display: "flex",
+      flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       textAlign: "center",
-      lineHeight: 1.12,
-      padding: isDivider ? 0 : 8,
+      lineHeight: isTightContent ? 1.02 : 1.12,
+      padding: isDivider || isLogo ? 0 : 8,
       overflow: "hidden",
       whiteSpace: "pre-wrap",
     };
 
-    if (isLogo) {
+    if (block.type === "logo") {
       return (
-        <div key={block.id} style={shared}>
+        <div key={block.id} style={{ ...shared, overflow: "visible" }}>
           {logoUrl ? (
             <img
               src={logoUrl}
@@ -384,7 +525,10 @@ function MiniVisualPreview({
                 height: "100%",
                 objectFit: "contain",
                 display: "block",
-                borderRadius: block.border_radius,
+                background: "transparent",
+                border: "none",
+                boxShadow: "none",
+                borderRadius: 0,
               }}
             />
           ) : (
@@ -394,17 +538,10 @@ function MiniVisualPreview({
                 height: "100%",
                 display: "grid",
                 placeItems: "center",
-                borderRadius: block.border_radius,
-                background:
-                  "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+                background: "transparent",
               }}
             >
-              <div
-                style={{
-                  fontSize: Math.max(10, Math.min(block.font_size || 14, 18)),
-                  opacity: 0.92,
-                }}
-              >
+              <div style={{ fontSize: Math.max(12, block.font_size || 16), opacity: 0.92 }}>
                 LOGO
                 <br />
                 EVENTO
@@ -415,7 +552,19 @@ function MiniVisualPreview({
       );
     }
 
-    if (isQr) {
+    if (block.type === "countdown") {
+      return <div key={block.id} style={shared}>{renderCountdownBlock(block)}</div>;
+    }
+
+    if (block.type === "guest_picker") {
+      return (
+        <div key={block.id} style={{ ...shared, alignItems: "stretch", justifyContent: "flex-start", padding: 8 }}>
+          {renderGuestPickerBlock(block)}
+        </div>
+      );
+    }
+
+    if (block.type === "qr") {
       return (
         <div key={block.id} style={shared}>
           <div
@@ -432,52 +581,13 @@ function MiniVisualPreview({
       );
     }
 
-    if (isCountdown) {
-      return (
-        <div
-          key={block.id}
-          style={{
-            ...shared,
-            flexDirection: "column",
-            gap: 4,
-          }}
-        >
-          <strong
-            style={{
-              display: "block",
-              fontSize: Math.max(block.font_size, 28),
-              lineHeight: 1,
-            }}
-          >
-            {diasParaEvento}
-          </strong>
-          <span
-            style={{
-              display: "block",
-              fontSize: Math.max(10, Math.round(block.font_size * 0.42)),
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              opacity: 0.9,
-            }}
-          >
-            {diasParaEvento === 1 ? "dia para o evento" : "dias para o evento"}
-          </span>
-        </div>
-      );
-    }
-
     if (isDivider) return <div key={block.id} style={shared} />;
 
-    return (
-      <div key={block.id} style={shared}>
-        {renderDemoContent(block.content, eventoDemo)}
-      </div>
-    );
+    return <div key={block.id} style={shared}>{renderPreviewText(block.content, eventoDemo)}</div>;
   }
 
-  const scaledWidth = Math.round(baseWidth * scale);
-  const scaledHeight = Math.round(baseHeight * scale);
+  const scaledWidth = Math.round(CANVAS_W * scale);
+  const scaledHeight = Math.round(CANVAS_H * scale);
 
   return (
     <div
@@ -488,8 +598,7 @@ function MiniVisualPreview({
         overflow: "hidden",
         borderRadius: 18,
         border: "1px solid #dbe3ef",
-        background:
-          "radial-gradient(circle at 50% 0%, #f8fafc 0, #eef2ff 55%, #e2e8f0 100%)",
+        background: "radial-gradient(circle at 50% 0%, #f8fafc 0, #eef2ff 55%, #e2e8f0 100%)",
         display: "grid",
         placeItems: "center",
       }}
@@ -507,16 +616,15 @@ function MiniVisualPreview({
       >
         <div
           style={{
-            width: baseWidth,
-            height: baseHeight,
+            width: CANVAS_W,
+            height: CANVAS_H,
             position: "absolute",
             left: 0,
             top: 0,
             overflow: "hidden",
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            background:
-              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
+            background: "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
           }}
         >
           {backgroundUrl && (
@@ -527,12 +635,14 @@ function MiniVisualPreview({
                 position: "absolute",
                 left: "50%",
                 top: "50%",
-                width: baseWidth,
-                height: baseHeight,
+                width: CANVAS_W,
+                height: CANVAS_H,
                 objectFit: "cover",
                 transform: `translate(calc(-50% + ${backgroundX}px), calc(-50% + ${backgroundY}px)) scale(${backgroundScale})`,
                 opacity: backgroundOpacity,
                 zIndex: 0,
+                pointerEvents: "none",
+                userSelect: "none",
               }}
             />
           )}
@@ -1222,7 +1332,7 @@ export default function ModelosConvitePage() {
 
               <div style={{ marginTop: 14 }}>
                 {t.editor_mode === "visual" && templateBlocks[t.id]?.length ? (
-                  <MiniVisualPreview
+                  <VisualTemplatePreview
                     blocks={templateBlocks[t.id]}
                     template={t}
                     maxHeight={isMobile ? 360 : 420}
