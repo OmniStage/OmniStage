@@ -538,6 +538,37 @@ export default function EnviosPage() {
     await registrarHistoricoEnvio(convidado, "enviado", "Marcado manualmente como enviado.");
   }
 
+  async function removerDaFila(convidado: Convidado) {
+    if (!eventoAtual?.id) return;
+
+    const confirmar = window.confirm(
+      `Retirar ${convidado.nome || "este convidado"} da fila de envio?`
+    );
+
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("envio_fila")
+      .delete()
+      .eq("evento_id", eventoAtual.id)
+      .eq("convidado_id", convidado.id)
+      .eq("tipo_envio", tipoEnvio)
+      .eq("status", "pendente");
+
+    if (error) {
+      alert("Erro ao retirar da fila: " + error.message);
+      return;
+    }
+
+    await carregarFila(eventoAtual.id);
+
+    await registrarHistoricoEnvio(
+      convidado,
+      "pendente",
+      "Convidado removido manualmente da fila de envio."
+    );
+  }
+
   async function cancelarEnvioConfirmado(convidado: Convidado) {
     if (!eventoAtual?.id) return;
 
@@ -1109,18 +1140,28 @@ export default function EnviosPage() {
                     Copiar mensagem
                   </button>
 
-                  <button
-                    className="envio-action"
-                    onClick={() => adicionarFilaEnvio(convidado)}
-                    disabled={!telefoneOk || estaNaFila || enviado}
-                    style={
-                      telefoneOk && !estaNaFila && !enviado
-                        ? filaButtonStyle
-                        : { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
-                    }
-                  >
-                    {estaNaFila ? "Na fila" : "Adicionar à fila"}
-                  </button>
+                  {estaNaFila && !enviado ? (
+                    <button
+                      className="envio-action"
+                      onClick={() => removerDaFila(convidado)}
+                      style={removeFilaButtonStyle}
+                    >
+                      Retirar da fila
+                    </button>
+                  ) : (
+                    <button
+                      className="envio-action"
+                      onClick={() => adicionarFilaEnvio(convidado)}
+                      disabled={!telefoneOk || enviado}
+                      style={
+                        telefoneOk && !enviado
+                          ? filaButtonStyle
+                          : { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                      }
+                    >
+                      Adicionar à fila
+                    </button>
+                  )}
 
                   {enviado ? (
                     <button
@@ -1465,6 +1506,7 @@ const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center
 const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "#16a34a", color: "#fff", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const enviarFilaButtonStyle: React.CSSProperties = { border: "none", background: "#2563eb", color: "#fff", padding: "10px 15px", borderRadius: 999, fontWeight: 950, cursor: "pointer", boxShadow: "0 10px 24px rgba(37,99,235,0.22)" };
 const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "#dbeafe", color: "#1d4ed8", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const removeFilaButtonStyle: React.CSSProperties = { border: "1px solid rgba(239,68,68,0.22)", background: "#fee2e2", color: "#b91c1c", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const cancelButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.22)", background: "#fee2e2", color: "#b91c1c", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
