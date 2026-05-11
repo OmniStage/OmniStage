@@ -601,8 +601,9 @@ export function renderizarTemplateVisual(
   const blocosHtml = blocosNormais
     .map((block) => {
       const isDivider = block.type === "divider";
-      const background = cssValue(block.background);
-      const padding = isDivider ? 0 : 8;
+      const isLogo = block.type === "logo";
+      const background = isLogo ? "transparent" : cssValue(block.background);
+      const padding = isDivider || isLogo ? 0 : 8;
 
       // Usa posições originais do bloco (como definido no admin)
       const blockLeft = numberValue(block.x, 0);
@@ -644,7 +645,7 @@ export function renderizarTemplateVisual(
             text-align:center;
             line-height:${lineHeight};
             padding:${padding}px;
-            overflow:visible;
+            overflow:hidden;
             white-space:pre-wrap;
           "
         >
