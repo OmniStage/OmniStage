@@ -410,47 +410,50 @@ function renderPreviewBlock(
   }
 
   if (block.type === "logo") {
-    return (
-      <div key={block.id} style={shared}>
-        {logoPreviewUrl ? (
-          <img
-            src={logoPreviewUrl}
-            alt="Logo do evento"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-              borderRadius: block.border_radius,
-            }}
-          />
-        ) : (
+  return (
+    <div key={block.id} style={shared}>
+      {logoPreviewUrl ? (
+        <img
+          src={logoPreviewUrl}
+          alt="Logo do evento"
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            width: "auto",
+            height: "auto",
+            objectFit: "contain",
+            display: "block",
+            margin: "0 auto",
+            borderRadius: block.border_radius,
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+            borderRadius: block.border_radius,
+            background:
+              "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+          }}
+        >
           <div
             style={{
-              width: "100%",
-              height: "100%",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: block.border_radius,
-              background:
-                "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+              fontSize: Math.max(12, block.font_size),
+              opacity: 0.92,
             }}
           >
-            <div
-              style={{
-                fontSize: Math.max(12, block.font_size),
-                opacity: 0.92,
-              }}
-            >
-              LOGO
-              <br />
-              EVENTO
-            </div>
+            LOGO
+            <br />
+            EVENTO
           </div>
-        )}
-      </div>
-    );
-  }
+        </div>
+      )}
+    </div>
+  );
+}
 
   if (block.type === "qr") {
     return (
