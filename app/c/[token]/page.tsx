@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   preencherTemplate,
   injetarConvidadosNoConvite,
-  renderizarTemplateVisual,
+  formatarData,
+  formatarHorario,
+  criarDataEvento,
   type EventoConvite,
   type VisualBlock,
 } from "@/lib/convite-render";
+import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
+
+const CANVAS_W = 430;
+const CANVAS_H = 920;
 
 type Convidado = {
   id: string;
@@ -36,11 +42,384 @@ type Template = {
   visual_config: any;
 };
 
+type RenderState =
+  | {
+      kind: "html";
+      html: string;
+    }
+  | {
+      kind: "visual";
+      evento: Evento;
+      template: Template;
+      blocks: VisualBlock[];
+      nomes: string[];
+    };
+
+function toNumber(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizarBlock(raw: any): VisualBlock {
+  return {
+    id: String(raw.id),
+    template_id: String(raw.template_id),
+    type: raw.type || "text",
+    label: raw.label || null,
+    content: raw.content || "",
+    x: toNumber(raw.x, 0),
+    y: toNumber(raw.y, 0),
+    width: toNumber(raw.width, 200),
+    height: toNumber(raw.height, 60),
+    font_size: toNumber(raw.font_size, 24),
+    font_family: raw.font_family || "Inter",
+    color: raw.color || "#ffffff",
+    background: raw.background || null,
+    border_radius: toNumber(raw.border_radius, 0),
+    z_index: toNumber(raw.z_index, 1),
+    visible: raw.visible !== false,
+  };
+}
+
+function getVisualConfig(template: Template | null) {
+  return (template?.visual_config || {}) as Record<string, any>;
+}
+
+function getBackgroundUrl(template: Template | null, evento: Evento | null) {
+  const visualConfig = getVisualConfig(template);
+
+  return (
+    evento?.background_url ||
+    evento?.background_image ||
+    visualConfig.backgroundPreviewUrl ||
+    template?.background_image ||
+    template?.preview_image ||
+    ""
+  );
+}
+
+function getLogoUrl(template: Template | null, evento: Evento | null) {
+  const visualConfig = getVisualConfig(template);
+
+  return (
+    evento?.logo_url ||
+    evento?.logo_image ||
+    visualConfig.logoPreviewUrl ||
+    template?.logo_image ||
+    ""
+  );
+}
+
+function criarTextoBuscaLocal(evento: Evento | null) {
+  if (!evento) return "";
+  return [evento.local, evento.endereco].filter(Boolean).join(" ").trim();
+}
+
+function criarMapsUrl(evento: Evento | null) {
+  if (!evento) return "";
+  if (evento.google_maps_url) return evento.google_maps_url;
+  if (evento.mapa_url) return evento.mapa_url;
+
+  const query = criarTextoBuscaLocal(evento);
+  return query
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+    : "";
+}
+
+function criarWazeUrl(evento: Evento | null) {
+  if (!evento) return "";
+  if (evento.waze_url) return evento.waze_url;
+
+  const query = criarTextoBuscaLocal(evento);
+  return query ? `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes` : "";
+}
+
+function criarCalendarUrl(evento: Evento | null) {
+  const dataEvento = criarDataEvento(evento);
+  if (!evento || !dataEvento) return "";
+
+  const end = new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000);
+
+  function toGoogleDate(date: Date) {
+    return date
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}Z$/, "Z");
+  }
+
+  const local = evento.local || evento.endereco || "";
+  const details = evento.link_convite
+    ? `Convite digital: ${evento.link_convite}`
+    : "Convite digital OmniStage";
+
+  return (
+    "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+    "&text=" +
+    encodeURIComponent(evento.nome || "Evento") +
+    "&dates=" +
+    toGoogleDate(dataEvento) +
+    "/" +
+    toGoogleDate(end) +
+    "&location=" +
+    encodeURIComponent(local) +
+    "&details=" +
+    encodeURIComponent(details)
+  );
+}
+
+function detectarAcaoBotao(content: string | null) {
+  const texto = String(content || "").toLowerCase();
+
+  if (texto.includes("waze") || texto.includes("trânsito") || texto.includes("transito")) {
+    return "waze";
+  }
+
+  if (
+    texto.includes("localização") ||
+    texto.includes("localizacao") ||
+    texto.includes("mapa") ||
+    texto.includes("google maps") ||
+    texto.includes("ver local")
+  ) {
+    return "maps";
+  }
+
+  if (texto.includes("calendário") || texto.includes("calendario") || texto.includes("agenda")) {
+    return "calendar";
+  }
+
+  if (texto.includes("confirmar") || texto.includes("presença") || texto.includes("presenca") || texto.includes("rsvp")) {
+    return "rsvp";
+  }
+
+  return "none";
+}
+
+function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes: string[]) {
+  const nomePrincipal = nomes[0] || "Convidado";
+  const total = nomes.length || 1;
+  const dataFormatada = formatarData(evento.data_evento || null);
+  const horarioFormatado = formatarHorario(evento.horario);
+  const textoTotal = total === 1 ? "Convite para 1 convidado" : `Convite para ${total} convidados`;
+
+  return String(content || "")
+    .replaceAll("{{nome_evento}}", evento.nome || "Evento")
+    .replaceAll("{{EVENTO_NOME}}", evento.nome || "Evento")
+    .replaceAll("{{evento_nome}}", evento.nome || "Evento")
+    .replaceAll("{{nome_convidado}}", nomePrincipal)
+    .replaceAll("{{data_evento}}", dataFormatada || "")
+    .replaceAll("{{DATA_EVENTO}}", dataFormatada || "")
+    .replaceAll("{{hora_evento}}", horarioFormatado || "")
+    .replaceAll("{{horario_evento}}", horarioFormatado || "")
+    .replaceAll("{{local_evento}}", evento.local || "")
+    .replaceAll("{{LOCAL_EVENTO}}", evento.local || "")
+    .replaceAll("{{endereco_evento}}", evento.endereco || "")
+    .replaceAll("{{total_convidados}}", String(total))
+    .replaceAll("{{convidados_quantidade}}", String(total))
+    .replaceAll("{{texto_total_convidados}}", textoTotal)
+    .replaceAll("{{link_rsvp}}", "Confirmar presença")
+    .replaceAll("{{google_maps_url}}", "Ver localização")
+    .replaceAll("{{waze_url}}", "Abrir no Waze")
+    .replaceAll("{{calendario_url}}", "Adicionar ao calendário")
+    .replaceAll("{{qr_code}}", "QR")
+    .replaceAll("{{logo_evento}}", "");
+}
+
+function getEventoPreview(evento: Evento, nomes: string[]) {
+  const nomePrincipal = nomes[0] || "Convidado";
+  const dataFormatada = formatarData(evento.data_evento || null);
+  const horaFormatada = formatarHorario(evento.horario);
+
+  return {
+    nome_evento: evento.nome || "Evento",
+    nome_convidado: nomePrincipal,
+    data_evento: dataFormatada || "",
+    hora_evento: horaFormatada || "",
+    horario_evento: horaFormatada || "",
+    local_evento: evento.local || "",
+    endereco_evento: evento.endereco || "",
+    total_convidados: String(nomes.length || 1),
+  };
+}
+
+function renderGuestPicker(block: VisualBlock, nomes: string[]) {
+  const nomesLimpos = nomes.length ? nomes : ["Convidado"];
+  const isGrupo = nomesLimpos.length > 1;
+
+  if (!isGrupo) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "8px 10px",
+          boxSizing: "border-box",
+          color: block.color || "#ffffff",
+          fontFamily: block.font_family || "Inter",
+          fontSize: block.font_size,
+          fontWeight: 900,
+          lineHeight: 1.05,
+          textAlign: "center",
+        }}
+      >
+        <span>{nomesLimpos[0]}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        justifyContent: "flex-start",
+        gap: 6,
+        padding: "8px 10px",
+        boxSizing: "border-box",
+        overflowY: "auto",
+        overflowX: "hidden",
+      }}
+    >
+      {nomesLimpos.map((nome) => (
+        <label
+          key={nome}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: block.color || "#ffffff",
+            fontFamily: block.font_family || "Inter",
+            fontSize: block.font_size,
+            fontWeight: 900,
+            lineHeight: 1.05,
+            minHeight: 26,
+          }}
+        >
+          <input
+            type="checkbox"
+            defaultChecked
+            name="guest-confirmation"
+            style={{
+              width: 17,
+              height: 17,
+              accentColor: "#f7d477",
+              flexShrink: 0,
+            }}
+          />
+          <span>{nome}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function renderBotaoVisual(block: VisualBlock, evento: Evento, nomes: string[]) {
+  const acao = detectarAcaoBotao(block.content);
+  const label = aplicarVariaveisPublicas(block.content || "", evento, nomes).trim();
+
+  const fallbackLabel =
+    acao === "maps"
+      ? "Ver localização"
+      : acao === "waze"
+        ? "Abrir no Waze"
+        : acao === "calendar"
+          ? "Adicionar ao calendário"
+          : "Confirmar presença";
+
+  const href =
+    acao === "waze"
+      ? criarWazeUrl(evento)
+      : acao === "maps"
+        ? criarMapsUrl(evento)
+        : acao === "calendar"
+          ? criarCalendarUrl(evento)
+          : acao === "rsvp"
+            ? evento.link_rsvp || "#confirmar-presenca"
+            : "";
+
+  const finalLabel = label || fallbackLabel;
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target={acao === "rsvp" ? "_self" : "_blank"}
+        rel="noopener noreferrer"
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          textDecoration: "none",
+          color: "inherit",
+          font: "inherit",
+          fontWeight: "inherit",
+          borderRadius: "inherit",
+        }}
+      >
+        {finalLabel}
+      </a>
+    );
+  }
+
+  return <span>{finalLabel}</span>;
+}
+
+function getChildrenForVisualBlock(evento: Evento, nomes: string[]) {
+  return (block: VisualBlock): ReactNode | null => {
+    if (block.type === "guest_picker") {
+      return renderGuestPicker(block, nomes);
+    }
+
+    if (block.type === "guest_name") {
+      return nomes.length > 1 ? <span /> : <span>{nomes[0] || "Convidado"}</span>;
+    }
+
+    if (block.type === "button") {
+      return renderBotaoVisual(block, evento, nomes);
+    }
+
+    return null;
+  };
+}
+
+
+function useViewportScale() {
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    function update() {
+      const width = window.innerWidth || CANVAS_W;
+      setScale(Math.min(1, width / CANVAS_W));
+    }
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return scale;
+}
+
 export default function ConvitePublicoPage() {
   const params = useParams();
   const token = String(params.token || "");
+  const visualScale = useViewportScale();
 
-  const [htmlFinal, setHtmlFinal] = useState("");
+  const [renderState, setRenderState] = useState<RenderState | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,7 +442,7 @@ export default function ConvitePublicoPage() {
       .filter(Boolean);
 
     if (!tokens.length) {
-      setHtmlFinal(htmlErro("Convite inválido."));
+      setRenderState({ kind: "html", html: htmlErro("Convite inválido.") });
       setLoading(false);
       return;
     }
@@ -83,12 +462,9 @@ export default function ConvitePublicoPage() {
       .in("token", tokens)
       .order("nome", { ascending: true });
 
-    console.log("TOKENS URL:", tokens);
-    console.log("CONVIDADOS RETORNADOS:", convidadosPorToken);
-
     if (convidadosError || !convidadosPorToken?.length) {
       console.error("Erro ao buscar convidados:", convidadosError);
-      setHtmlFinal(htmlErro("Convite não encontrado."));
+      setRenderState({ kind: "html", html: htmlErro("Convite não encontrado.") });
       setLoading(false);
       return;
     }
@@ -106,12 +482,6 @@ export default function ConvitePublicoPage() {
       ? convidadosOrdenados
       : (convidadosPorToken as Convidado[]);
 
-    /*
-      Regra:
-      - Se a URL tiver vários tokens separados por vírgula, usa exatamente esses tokens.
-      - Se a URL tiver apenas 1 token e esse convidado tiver grupo, carrega todos do mesmo grupo.
-      - Não usa tipo_convite para bloquear grupo, porque alguns responsáveis podem estar cadastrados como individual.
-    */
     if (tokens.length === 1 && convidadoBase?.grupo) {
       const grupoBase = String(convidadoBase.grupo || "").trim();
 
@@ -131,9 +501,6 @@ export default function ConvitePublicoPage() {
         .eq("grupo", grupoBase)
         .order("nome", { ascending: true });
 
-      console.log("GRUPO BASE:", grupoBase);
-      console.log("CONVIDADOS DO GRUPO:", convidadosGrupo);
-
       if (grupoError) {
         console.error("Erro ao buscar grupo:", grupoError);
       }
@@ -144,7 +511,7 @@ export default function ConvitePublicoPage() {
     }
 
     if (!convidadoBase?.evento_id) {
-      setHtmlFinal(htmlErro("Convite inválido."));
+      setRenderState({ kind: "html", html: htmlErro("Convite inválido.") });
       setLoading(false);
       return;
     }
@@ -166,14 +533,19 @@ export default function ConvitePublicoPage() {
         logo_image,
         logo_url,
         music_file,
-        musica_url
+        musica_url,
+        link_rsvp,
+        link_convite,
+        google_maps_url,
+        waze_url,
+        total_convidados
       `,
       )
       .eq("id", convidadoBase.evento_id)
       .maybeSingle();
 
     if (!evento?.invite_template_id) {
-      setHtmlFinal(htmlErro("Evento sem convite aplicado."));
+      setRenderState({ kind: "html", html: htmlErro("Evento sem convite aplicado.") });
       setLoading(false);
       return;
     }
@@ -197,7 +569,7 @@ export default function ConvitePublicoPage() {
       .maybeSingle();
 
     if (!template) {
-      setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
+      setRenderState({ kind: "html", html: htmlErro("Modelo de convite não encontrado.") });
       setLoading(false);
       return;
     }
@@ -206,9 +578,10 @@ export default function ConvitePublicoPage() {
       .map((item) => item.nome)
       .filter(Boolean);
 
-    console.log("NOMES INJETADOS NO CONVITE:", nomesDoConvite);
+    const nomesFinais = nomesDoConvite.length
+      ? nomesDoConvite
+      : [convidadoBase.nome || "Convidado"];
 
-    let htmlDoEvento = "";
     const isVisual = template.editor_mode === "visual";
 
     if (isVisual) {
@@ -219,40 +592,68 @@ export default function ConvitePublicoPage() {
         .order("z_index", { ascending: true });
 
       if (blocksError) {
-        setHtmlFinal(htmlErro("Erro ao carregar blocos do convite."));
+        setRenderState({ kind: "html", html: htmlErro("Erro ao carregar blocos do convite.") });
         setLoading(false);
         return;
       }
 
-      htmlDoEvento = renderizarTemplateVisual(
-        template as Template,
-        (blocksData || []) as VisualBlock[],
-        evento as Evento,
-      );
+      setRenderState({
+        kind: "visual",
+        evento: evento as Evento,
+        template: template as Template,
+        blocks: (blocksData || []).map(normalizarBlock),
+        nomes: nomesFinais,
+      });
+      setLoading(false);
+      return;
+    }
 
-      htmlDoEvento = injetarConvidadosNoConvite(
-        htmlDoEvento,
-        nomesDoConvite.length ? nomesDoConvite : [convidadoBase.nome || "Convidado"],
-      );
-    } else if (template.html_template?.trim()) {
-      htmlDoEvento = preencherTemplate(
+    if (template.html_template?.trim()) {
+      let htmlDoEvento = preencherTemplate(
         template.html_template,
         evento as Evento,
       );
 
       htmlDoEvento = injetarConvidadosNoConvite(
         htmlDoEvento,
-        nomesDoConvite.length ? nomesDoConvite : [convidadoBase.nome || "Convidado"],
+        nomesFinais,
       );
-    } else {
-      setHtmlFinal(htmlErro("Modelo de convite não encontrado."));
+
+      setRenderState({ kind: "html", html: htmlDoEvento });
       setLoading(false);
       return;
     }
 
-    setHtmlFinal(htmlDoEvento);
+    setRenderState({ kind: "html", html: htmlErro("Modelo de convite não encontrado.") });
     setLoading(false);
   }
+
+  const visualConfig = renderState?.kind === "visual" ? getVisualConfig(renderState.template) : {};
+
+  const visualContent = useMemo(() => {
+    if (renderState?.kind !== "visual") return null;
+
+    return (
+      <ConviteVisualRenderer
+        blocks={renderState.blocks}
+        backgroundUrl={getBackgroundUrl(renderState.template, renderState.evento)}
+        logoUrl={getLogoUrl(renderState.template, renderState.evento)}
+        width={CANVAS_W}
+        height={CANVAS_H}
+        scale={visualScale}
+        backgroundX={toNumber(visualConfig.backgroundX, 0)}
+        backgroundY={toNumber(visualConfig.backgroundY, 0)}
+        backgroundScale={toNumber(visualConfig.backgroundScale, 1)}
+        backgroundOpacity={toNumber(visualConfig.backgroundOpacity, 1)}
+        glassOpacity={toNumber(visualConfig.glassOpacity, 0.18)}
+        glassBlur={toNumber(visualConfig.glassBlur, 0)}
+        glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
+        blockEffects={visualConfig.blockEffects || {}}
+        evento={getEventoPreview(renderState.evento, renderState.nomes)}
+        childrenForBlock={getChildrenForVisualBlock(renderState.evento, renderState.nomes)}
+      />
+    );
+  }, [renderState, visualConfig, visualScale]);
 
   if (loading) {
     return (
@@ -271,10 +672,18 @@ export default function ConvitePublicoPage() {
     );
   }
 
+  if (renderState?.kind === "visual") {
+    return (
+      <main style={visualPageStyle}>
+        <div style={{ ...visualShellStyle, width: CANVAS_W * visualScale, minHeight: CANVAS_H * visualScale }}>{visualContent}</div>
+      </main>
+    );
+  }
+
   return (
     <iframe
       title="Convite digital"
-      srcDoc={htmlFinal}
+      srcDoc={renderState?.kind === "html" ? renderState.html : htmlErro("Convite não encontrado.")}
       style={{
         width: "100%",
         height: "100vh",
@@ -284,6 +693,26 @@ export default function ConvitePublicoPage() {
     />
   );
 }
+
+const visualPageStyle: CSSProperties = {
+  minHeight: "100vh",
+  width: "100%",
+  margin: 0,
+  background: "#020617",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "flex-start",
+  overflowX: "hidden",
+  overflowY: "auto",
+};
+
+const visualShellStyle: CSSProperties = {
+  width: CANVAS_W,
+  minHeight: CANVAS_H,
+  maxWidth: "100%",
+  overflow: "hidden",
+  background: "#020617",
+};
 
 function htmlErro(message: string) {
   return `
