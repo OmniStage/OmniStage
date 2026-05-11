@@ -411,7 +411,26 @@ function renderPreviewBlock(
 
   if (block.type === "logo") {
   return (
-    <div key={block.id} style={shared}>
+    <div
+  key={block.id}
+  style={{
+    position: "absolute",
+    left: block.x,
+    top: block.y,
+    width: block.width,
+    height: block.height,
+    zIndex: block.z_index || 1,
+
+    background: "transparent",
+    border: "none",
+    boxShadow: "none",
+    backdropFilter: "none",
+    WebkitBackdropFilter: "none",
+
+    padding: 0,
+    overflow: "visible",
+  }}
+>
       {logoPreviewUrl ? (
         <img
           src={logoPreviewUrl}
