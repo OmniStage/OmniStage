@@ -160,10 +160,12 @@ function VisualPreviewCard({
   template,
   evento,
   blocks,
+  totalConvidados = 0,
 }: {
   template: Template;
   evento: Evento | null;
   blocks: VisualBlock[];
+  totalConvidados?: number;
 }) {
   const visualConfig = getVisualConfig(template);
   const scale = 0.43;
@@ -195,10 +197,7 @@ function VisualPreviewCard({
           glassBlur={toNumber(visualConfig.glassBlur, 0)}
           glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
           blockEffects={visualConfig.blockEffects || {}}
-          evento={getEventoPreview(
-  evento,
-  guestCounts[evento?.id || ""] || 0,
-)}
+          evento={getEventoPreview(evento, totalConvidados)}
         />
       </div>
     </div>
@@ -209,10 +208,12 @@ function VisualPreviewGrande({
   template,
   evento,
   blocks,
+  totalConvidados = 0,
 }: {
   template: Template;
   evento: Evento | null;
   blocks: VisualBlock[];
+  totalConvidados?: number;
 }) {
   const visualConfig = getVisualConfig(template);
 
@@ -233,10 +234,7 @@ function VisualPreviewGrande({
         glassBlur={toNumber(visualConfig.glassBlur, 0)}
         glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
         blockEffects={visualConfig.blockEffects || {}}
-        evento={getEventoPreview(
-  evento,
-  guestCounts[evento?.id || ""] || 0,
-)}
+        evento={getEventoPreview(evento, totalConvidados)}
       />
     </div>
   );
@@ -252,9 +250,8 @@ export default function ConvitePage() {
   const [temaSelecionado, setTemaSelecionado] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-const [guestCounts, setGuestCounts] = useState<
-  Record<string, number>
->({});
+  const [guestCounts, setGuestCounts] = useState<Record<string, number>>({});
+
   const eventoAtual = useMemo(() => {
     return eventos.find((evento) => evento.id === eventoSelecionado) || null;
   }, [eventos, eventoSelecionado]);
@@ -417,25 +414,32 @@ const [guestCounts, setGuestCounts] = useState<
     const eventosRows = (eventosData || []) as Evento[];
     const eventoIds = eventosRows.map((e) => e.id);
 
-if (eventoIds.length) {
-  const { data: convidadosCount } = await supabase
-    .from("convidados")
-    .select("evento_id")
-    .in("evento_id", eventoIds);
+    if (eventoIds.length) {
+      const { data: convidadosCount, error: convidadosCountError } = await supabase
+        .from("convidados")
+        .select("evento_id")
+        .in("evento_id", eventoIds);
 
-  const counts: Record<string, number> = {};
+      if (convidadosCountError) {
+        console.error("Erro ao contar convidados:", convidadosCountError);
+        setGuestCounts({});
+      } else {
+        const counts: Record<string, number> = {};
 
-  for (const item of convidadosCount || []) {
-    const eventoId = item.evento_id;
+        for (const item of convidadosCount || []) {
+          const eventoId = item.evento_id;
 
-    if (!eventoId) continue;
+          if (!eventoId) continue;
 
-    counts[eventoId] =
-      (counts[eventoId] || 0) + 1;
-  }
+          counts[eventoId] = (counts[eventoId] || 0) + 1;
+        }
 
-  setGuestCounts(counts);
-}
+        setGuestCounts(counts);
+      }
+    } else {
+      setGuestCounts({});
+    }
+
     setEventos(eventosRows);
 
     const eventoInicial = eventosRows[0];
@@ -660,6 +664,7 @@ if (eventoIds.length) {
                         template={template}
                         evento={eventoAtual}
                         blocks={blocks}
+                        totalConvidados={guestCounts[eventoAtual?.id || ""] || 0}
                       />
                     ) : template.html_template ? (
                       <div style={templateThumbFrameWrapStyle}>
@@ -699,6 +704,7 @@ if (eventoIds.length) {
                 template={templateAtual}
                 evento={eventoAtual}
                 blocks={templateBlocks[templateAtual.id] || []}
+                totalConvidados={guestCounts[eventoAtual?.id || ""] || 0}
               />
             ) : templateAtual && gerarHtmlPreview(templateAtual, eventoAtual) ? (
               <iframe
