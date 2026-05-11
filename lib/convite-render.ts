@@ -1021,26 +1021,36 @@ export function renderizarTemplateVisual(
             gap:6px !important;
             padding:0 !important;
             overflow:visible !important;
-          }
-
           [data-central-info="true"],
-          [data-block-type="date_time"],
-          [data-block-type="location"],
-          [data-block-type="countdown"] {
-            left:50% !important;
-            width:386px !important;
-            right:auto !important;
-            transform:translateX(-50%) !important;
-            display:flex !important;
-            flex-direction:column !important;
-            text-align:center !important;
-            align-items:center !important;
-            justify-content:center !important;
-            line-height:1.02 !important;
-            white-space:pre-wrap !important;
-            padding-left:8px !important;
-            padding-right:8px !important;
-          }
+[data-block-type="date_time"],
+[data-block-type="location"],
+[data-block-type="countdown"] {
+
+  left:50% !important;
+  width:86% !important;
+  max-width:386px !important;
+
+  right:auto !important;
+  transform:translateX(-50%) !important;
+
+  display:flex !important;
+  flex-direction:column !important;
+
+  align-items:center !important;
+  justify-content:center !important;
+
+  text-align:center !important;
+
+  box-sizing:border-box !important;
+
+  margin:0 auto !important;
+
+  line-height:1.02 !important;
+  white-space:pre-wrap !important;
+
+  padding-left:8px !important;
+  padding-right:8px !important;
+}
 
           [data-central-info="true"],
           [data-block-type="location"] {
