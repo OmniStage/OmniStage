@@ -495,7 +495,7 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
 
   // Para location: usa o local do evento ou valor de demonstração
   if (block.type === "location") {
-    const local = localEvento || "Local do Evento";
+    const local = localEvento || "Guerrah Hall";
     return textoSeguro(local);
   }
 

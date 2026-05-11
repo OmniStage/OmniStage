@@ -26,8 +26,8 @@ function criarEventoDemo(t?: any) {
     nome: t?.nome || t?.name || "Nome do Evento",
     data_evento: "2026-05-16",
     horario: "21:00",
-    local: "Local do Evento",
-    endereco: "Endereço do Evento",
+    local: "Guerrah Hall",
+    endereco: "Rua das Festas, 123",
     mapa_url: "",
 
     background_image:
@@ -264,13 +264,13 @@ function renderDemoContent(content: string | null, evento?: any) {
   );
 
   return String(content || "")
-    .replaceAll("{{nome_evento}}", "Nome do Evento")
+    .replaceAll("{{nome_evento}}", eventData.nome || "Nome do Evento")
     .replaceAll("{{nome_convidado}}", "Nome do Convidado")
     .replaceAll("{{data_evento}}", "16/05/2026")
     .replaceAll("{{hora_evento}}", "21h")
     .replaceAll("{{horario_evento}}", "21h")
-    .replaceAll("{{local_evento}}", "Local do Evento")
-    .replaceAll("{{endereco_evento}}", "Endereço do Evento")
+    .replaceAll("{{local_evento}}", eventData.local || "Guerrah Hall")
+    .replaceAll("{{endereco_evento}}", eventData.endereco || "Rua das Festas, 123")
     .replaceAll("{{link_rsvp}}", "Confirmar presença")
     .replaceAll("{{qr_code}}", "QR")
     .replaceAll("{{logo_evento}}", "Logo Evento")
@@ -374,7 +374,7 @@ function MiniVisualPreview({
 
     if (isLogo) {
       return (
-        <div key={block.id} style={shared}>
+        <div key={block.id} style={{ ...shared, overflow: "visible", padding: 0, background: "transparent", borderRadius: 0 }}>
           {logoUrl ? (
             <img
               src={logoUrl}
@@ -384,7 +384,10 @@ function MiniVisualPreview({
                 height: "100%",
                 objectFit: "contain",
                 display: "block",
-                borderRadius: block.border_radius,
+                background: "transparent",
+                border: "none",
+                boxShadow: "none",
+                borderRadius: 0,
               }}
             />
           ) : (
@@ -433,36 +436,66 @@ function MiniVisualPreview({
     }
 
     if (isCountdown) {
+      // Calcular countdown completo igual ao editor
+      const pad2 = (n: number) => String(n).padStart(2, "0");
+      const countdownParts = [
+        { key: "dias", label: "DIAS", value: diasParaEvento },
+        { key: "horas", label: "HORAS", value: 7 },
+        { key: "minutos", label: "MIN", value: 35 },
+        { key: "segundos", label: "SEG", value: 44 },
+      ];
+
       return (
         <div
           key={block.id}
           style={{
             ...shared,
-            flexDirection: "column",
-            gap: 4,
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
           }}
         >
-          <strong
-            style={{
-              display: "block",
-              fontSize: Math.max(block.font_size, 28),
-              lineHeight: 1,
-            }}
-          >
-            {diasParaEvento}
-          </strong>
-          <span
-            style={{
-              display: "block",
-              fontSize: Math.max(10, Math.round(block.font_size * 0.42)),
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              opacity: 0.9,
-            }}
-          >
-            {diasParaEvento === 1 ? "dia para o evento" : "dias para o evento"}
-          </span>
+          {countdownParts.map(({ key, label, value }) => (
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 0,
+              }}
+            >
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: Math.max(block.font_size || 28, 28),
+                  lineHeight: 0.9,
+                  fontWeight: 950,
+                  color: block.color || "#f7d477",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {pad2(value)}
+              </strong>
+              <span
+                style={{
+                  display: "block",
+                  marginTop: 7,
+                  fontSize: Math.max(8, Math.round((block.font_size || 28) * 0.28)),
+                  lineHeight: 1,
+                  fontWeight: 950,
+                  letterSpacing: "0.16em",
+                  color: "#fff",
+                  opacity: 0.86,
+                }}
+              >
+                {label}
+              </span>
+            </div>
+          ))}
         </div>
       );
     }
