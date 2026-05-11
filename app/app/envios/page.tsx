@@ -977,11 +977,13 @@ export default function EnviosPage() {
                     disabled={!telefoneOk}
                     style={
                       telefoneOk
-                        ? whatsappButtonStyle
+                        ? estaNaFila
+                          ? enviarFilaButtonStyle
+                          : whatsappButtonStyle
                         : { ...whatsappButtonStyle, opacity: 0.45, cursor: "not-allowed" }
                     }
                   >
-                    WhatsApp
+                    {estaNaFila ? "Enviar WhatsApp" : "WhatsApp"}
                   </button>
 
                   <button
@@ -1211,7 +1213,7 @@ const eventSelectorPanelStyle: React.CSSProperties = {
   background: "var(--card)",
   border: "1px solid var(--line)",
   borderRadius: 22,
-  padding: 20,
+  padding: 24,
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -1223,17 +1225,18 @@ const eventSelectorPanelStyle: React.CSSProperties = {
 const eventSelectStyle: React.CSSProperties = {
   minWidth: 280,
   flex: "0 1 420px",
-  padding: "13px 14px",
-  borderRadius: 14,
+  padding: "16px 17px",
+  borderRadius: 16,
   border: "1px solid var(--line)",
   background: "#fff",
   color: "var(--text)",
+  fontSize: 19,
   fontWeight: 900,
   outline: "none",
 };
 
 const campaignSelectorStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 };
-const campaignButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", padding: 16, borderRadius: 18, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 5, fontWeight: 900, boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
+const campaignButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", padding: 19, borderRadius: 20, cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 6, fontSize: 19, lineHeight: 1.25, fontWeight: 900, boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
 const campaignHeaderStyle: React.CSSProperties = { border: "1px solid", borderRadius: 22, padding: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" };
 const campaignHeaderActionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
 const campaignBadgeStyle: React.CSSProperties = { padding: "8px 12px", borderRadius: 999, fontSize: 13, fontWeight: 900 };
@@ -1257,7 +1260,7 @@ const templateWarningStyle: React.CSSProperties = {
 const editorGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(280px, 1.05fr) minmax(280px, 0.95fr)", gap: 18 };
 const editorColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
 const previewColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
-const fieldLabelStyle: React.CSSProperties = { color: "var(--text)", fontSize: 13, fontWeight: 900 };
+const fieldLabelStyle: React.CSSProperties = { color: "var(--text)", fontSize: 16, fontWeight: 900 };
 const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 300, resize: "vertical", border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "#ffffff", color: "var(--text)", fontSize: 14, lineHeight: 1.5, outline: "none", fontFamily: "Arial, Helvetica, sans-serif" };
 const variablesBoxStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "#f8fafc" };
 const variablesTitleStyle: React.CSSProperties = { display: "block", marginBottom: 10, color: "var(--text)", fontSize: 13 };
@@ -1277,7 +1280,7 @@ const metricDetailStyle: React.CSSProperties = { margin: "8px 0 0", color: "var(
 const panelStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 22, padding: 24, boxShadow: "0 14px 40px rgba(15,23,42,0.05)" };
 const panelHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" };
 const panelTitleStyle: React.CSSProperties = { margin: 0, fontSize: 20, fontWeight: 900, color: "var(--text)" };
-const panelTextStyle: React.CSSProperties = { margin: "6px 0 0", color: "var(--muted)" };
+const panelTextStyle: React.CSSProperties = { margin: "7px 0 0", color: "var(--muted)", fontSize: 19, lineHeight: 1.35 };
 const counterStyle: React.CSSProperties = { padding: "9px 13px", borderRadius: 999, background: "rgba(109,40,217,0.08)", color: "#6d28d9", fontSize: 13, fontWeight: 900 };
 const tabsStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 18 };
 const tabStyle: React.CSSProperties = { padding: "9px 14px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontWeight: 800, cursor: "pointer" };
@@ -1293,6 +1296,7 @@ const messagePreviewStyle: React.CSSProperties = { margin: "10px 0 0", color: "v
 const sentDateStyle: React.CSSProperties = { marginTop: 8, color: "var(--muted)", fontWeight: 800 };
 const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" };
 const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "#16a34a", color: "#fff", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const enviarFilaButtonStyle: React.CSSProperties = { border: "none", background: "#2563eb", color: "#fff", padding: "10px 15px", borderRadius: 999, fontWeight: 950, cursor: "pointer", boxShadow: "0 10px 24px rgba(37,99,235,0.22)" };
 const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "#dbeafe", color: "#1d4ed8", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
