@@ -220,7 +220,7 @@ export default async function CartaoPage({
               marginTop: 20,
               border: "1px solid rgba(255,255,255,.18)",
               background: "rgba(2,8,24,.12)",
-              backdropFilter: "blur(1px)",
+              backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(1px)",
               borderRadius: 24,
               padding: "18px 16px 20px",
