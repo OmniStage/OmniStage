@@ -1730,7 +1730,8 @@ function getPageStyle(
   return {
     ...themeVars,
     minHeight: "100vh",
-    padding: 24,
+    padding: "clamp(14px, 3vw, 24px)",
+    overflowX: "hidden",
     background: "var(--page-bg)",
     color: "var(--text)",
     transition: "background 180ms ease, color 180ms ease",
@@ -1738,8 +1739,8 @@ function getPageStyle(
 }
 
 const heroCardStyle: CSSProperties = {
-  padding: 30,
-  borderRadius: 34,
+  padding: "clamp(18px, 4vw, 30px)",
+  borderRadius: "clamp(22px, 4vw, 34px)",
   border: "1px solid var(--border)",
   background: "linear-gradient(135deg, var(--section-bg), var(--soft-bg))",
   boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
@@ -1822,8 +1823,8 @@ const themeSelectStyle: CSSProperties = {
 
 const sectionStyle: CSSProperties = {
   marginTop: 24,
-  padding: 30,
-  borderRadius: 34,
+  padding: "clamp(18px, 4vw, 30px)",
+  borderRadius: "clamp(22px, 4vw, 34px)",
   border: "1px solid var(--border)",
   background: "var(--section-bg)",
   boxShadow: "0 14px 45px rgba(15,23,42,0.07), 0 2px 10px rgba(15,23,42,0.04)",
@@ -1869,7 +1870,7 @@ const formBlockHeaderStyle: CSSProperties = {
 
 const formBlockGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
   gap: 16,
 };
 
@@ -1890,7 +1891,7 @@ const subBlockHeaderStyle: CSSProperties = {
 
 const formGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
   gap: 18,
 };
 
@@ -1905,6 +1906,7 @@ const fieldStyle: CSSProperties = {
 
 const inputStyle: CSSProperties = {
   width: "100%",
+  boxSizing: "border-box",
   minHeight: 54,
   padding: "0 18px",
   borderRadius: 18,
@@ -1933,6 +1935,7 @@ const formActionsStyle: CSSProperties = {
 
 const buttonStyle: CSSProperties = {
   padding: "15px 22px",
+  maxWidth: "100%",
   minHeight: 54,
   borderRadius: 999,
   background: "var(--primary-bg)",
@@ -1946,6 +1949,7 @@ const buttonStyle: CSSProperties = {
 
 const secondaryButtonStyle: CSSProperties = {
   padding: "14px 20px",
+  maxWidth: "100%",
   minHeight: 54,
   borderRadius: 999,
   background: "var(--card-bg)",
@@ -1958,18 +1962,18 @@ const secondaryButtonStyle: CSSProperties = {
 
 const filtersStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns:
-    "minmax(260px, 1fr) minmax(160px, 200px) minmax(160px, 200px) minmax(160px, 200px)",
-  gap: 14,
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
+  gap: 12,
   marginBottom: 20,
+  width: "100%",
 };
 
 const groupCardLargeStyle: CSSProperties = {
   display: "grid",
   gap: 18,
   background: "var(--card-bg)",
-  padding: 26,
-  borderRadius: 28,
+  padding: "clamp(16px, 4vw, 26px)",
+  borderRadius: "clamp(20px, 4vw, 28px)",
   border: "1px solid var(--border)",
   boxShadow: "0 14px 42px rgba(15,23,42,0.08)",
 };
@@ -1981,6 +1985,7 @@ const groupCardHeaderStyle: CSSProperties = {
   gap: 14,
   paddingBottom: 16,
   borderBottom: "1px solid var(--border)",
+  flexWrap: "wrap",
 };
 
 const groupHeaderStyle: CSSProperties = {
@@ -2039,15 +2044,20 @@ const groupMemberRowStyle: CSSProperties = {
   justifyContent: "space-between",
   alignItems: "stretch",
   gap: 18,
-  padding: 18,
+  padding: "clamp(14px, 4vw, 18px)",
   borderRadius: 16,
   border: "1px solid var(--border)",
   background: "var(--soft-bg)",
+  flexWrap: "wrap",
+  minWidth: 0,
+  overflow: "hidden",
 };
 
 const groupMemberInfoStyle: CSSProperties = {
-  flex: 1,
-  minWidth: 280,
+  flex: "1 1 320px",
+  minWidth: 0,
+  maxWidth: "100%",
+  overflowWrap: "anywhere",
 };
 
 const eventCardStyle: CSSProperties = {
@@ -2067,13 +2077,14 @@ const guestMainStyle: CSSProperties = {
 };
 
 const eventActionsColumnStyle: CSSProperties = {
-  minWidth: 230,
-  textAlign: "right",
+  flex: "1 1 220px",
+  minWidth: 0,
+  textAlign: "left",
 };
 
 const rowActionsStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "flex-end",
+  justifyContent: "flex-start",
   gap: 8,
   marginTop: 14,
   flexWrap: "wrap",
@@ -2084,6 +2095,7 @@ const quickActionsStyle: CSSProperties = {
   gap: 10,
   flexWrap: "wrap",
   marginTop: 18,
+  maxWidth: "100%",
 };
 
 const smallButtonStyle: CSSProperties = {
@@ -2106,6 +2118,12 @@ const goldButtonStyle: CSSProperties = {
   cursor: "pointer",
   textDecoration: "none",
   fontSize: 14,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  maxWidth: "100%",
+  textAlign: "center",
+  whiteSpace: "normal",
 };
 
 const giftButtonStyle: CSSProperties = {
@@ -2118,6 +2136,12 @@ const giftButtonStyle: CSSProperties = {
   cursor: "pointer",
   textDecoration: "none",
   fontSize: 14,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  maxWidth: "100%",
+  textAlign: "center",
+  whiteSpace: "normal",
 };
 
 const toggleFieldStyle: CSSProperties = {
@@ -2196,4 +2220,3 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
-   
