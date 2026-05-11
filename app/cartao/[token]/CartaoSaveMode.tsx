@@ -227,7 +227,9 @@ export default function CartaoSaveMode({
             padding: "34px 24px 26px",
             textAlign: "center",
             background:
-              "linear-gradient(180deg, rgba(7,21,47,.96), rgba(2,8,24,.98))",
+            "linear-gradient(180deg, rgba(7,21,47,.58), rgba(2,8,24,.74))",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
             border: "1px solid rgba(246,217,138,.42)",
             boxShadow: "0 30px 90px rgba(0,0,0,.62)",
           }}
