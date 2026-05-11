@@ -78,6 +78,8 @@ export default function EnviosPage() {
   const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
   const [processandoMassa, setProcessandoMassa] = useState(false);
   const [filaEnvios, setFilaEnvios] = useState<ItemFila[]>([]);
+  const [envioPendenteConfirmacao, setEnvioPendenteConfirmacao] = useState<Convidado | null>(null);
+  const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
@@ -516,6 +518,22 @@ export default function EnviosPage() {
       )
     );
 
+    if (eventoAtual?.id) {
+      await supabase
+        .from("envio_fila")
+        .update({
+          status: "enviado",
+          processado_em: agora,
+          updated_at: agora,
+        })
+        .eq("evento_id", eventoAtual.id)
+        .eq("convidado_id", convidado.id)
+        .eq("tipo_envio", tipoEnvio)
+        .eq("status", "pendente");
+
+      await carregarFila(eventoAtual.id);
+    }
+
     await registrarHistoricoEnvio(convidado, "enviado", "Marcado manualmente como enviado.");
   }
 
@@ -595,6 +613,40 @@ export default function EnviosPage() {
 
     registrarHistoricoEnvio(convidado, "pendente", "WhatsApp aberto para envio manual.");
     window.open(link, "_blank", "noopener,noreferrer");
+  }
+
+  function iniciarEnvioWhatsApp(convidado: Convidado) {
+    const telefone = normalizarTelefone(convidado.telefone);
+
+    if (!telefone) {
+      alert("Este convidado não tem telefone cadastrado.");
+      return;
+    }
+
+    abrirWhatsApp(convidado);
+    setEnvioPendenteConfirmacao(convidado);
+  }
+
+  async function confirmarEnvioWhatsApp() {
+    if (!envioPendenteConfirmacao || confirmandoEnvio) return;
+
+    setConfirmandoEnvio(true);
+    await marcarComoEnviado(envioPendenteConfirmacao);
+    setConfirmandoEnvio(false);
+    setEnvioPendenteConfirmacao(null);
+  }
+
+  async function cancelarConfirmacaoEnvio() {
+    if (envioPendenteConfirmacao) {
+      await registrarHistoricoEnvio(
+        envioPendenteConfirmacao,
+        "erro",
+        "Envio cancelado pelo operador após abrir o WhatsApp."
+      );
+    }
+
+    setEnvioPendenteConfirmacao(null);
+    setConfirmandoEnvio(false);
   }
 
   async function copiarMensagem(convidado: Convidado) {
@@ -973,7 +1025,7 @@ export default function EnviosPage() {
 
                   <button
                     className="envio-action"
-                    onClick={() => abrirWhatsApp(convidado)}
+                    onClick={() => iniciarEnvioWhatsApp(convidado)}
                     disabled={!telefoneOk}
                     style={
                       telefoneOk
@@ -1029,6 +1081,48 @@ export default function EnviosPage() {
           )}
         </div>
       </section>
+
+      {envioPendenteConfirmacao && (
+        <div style={sendConfirmOverlayStyle}>
+          <div style={sendConfirmModalStyle}>
+            <span style={sendConfirmEyebrowStyle}>WhatsApp aberto</span>
+
+            <h3 style={sendConfirmTitleStyle}>
+              Você enviou a mensagem?
+            </h3>
+
+            <p style={sendConfirmTextStyle}>
+              Confirme apenas se a mensagem foi enviada no WhatsApp para{" "}
+              <strong>{envioPendenteConfirmacao.nome || "este convidado"}</strong>.
+              Se você abriu o WhatsApp mas não enviou, cancele para manter o convidado na fila.
+            </p>
+
+            <div style={sendConfirmActionsStyle}>
+              <button
+                type="button"
+                onClick={cancelarConfirmacaoEnvio}
+                disabled={confirmandoEnvio}
+                style={sendCancelButtonStyle}
+              >
+                Cancelar envio
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmarEnvioWhatsApp}
+                disabled={confirmandoEnvio}
+                style={
+                  confirmandoEnvio
+                    ? { ...sendConfirmButtonStyle, opacity: 0.65, cursor: "wait" }
+                    : sendConfirmButtonStyle
+                }
+              >
+                {confirmandoEnvio ? "Marcando..." : "Sim, marque como enviado"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1303,4 +1397,81 @@ const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)",
 const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
 const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
 const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 12, fontWeight: 900 };
+
+const sendConfirmOverlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  display: "grid",
+  placeItems: "center",
+  padding: 20,
+  background: "rgba(15,23,42,0.36)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+};
+
+const sendConfirmModalStyle: React.CSSProperties = {
+  width: "min(520px, 100%)",
+  borderRadius: 26,
+  padding: 24,
+  background: "#ffffff",
+  border: "1px solid rgba(226,232,240,0.95)",
+  boxShadow: "0 28px 90px rgba(15,23,42,0.26)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const sendConfirmEyebrowStyle: React.CSSProperties = {
+  color: "#2563eb",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+};
+
+const sendConfirmTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 24,
+  fontWeight: 950,
+};
+
+const sendConfirmTextStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#64748b",
+  fontSize: 15,
+  lineHeight: 1.5,
+  fontWeight: 700,
+};
+
+const sendConfirmActionsStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 8,
+};
+
+const sendCancelButtonStyle: React.CSSProperties = {
+  border: "1px solid rgba(148,163,184,0.5)",
+  background: "#ffffff",
+  color: "#334155",
+  padding: "12px 15px",
+  borderRadius: 999,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const sendConfirmButtonStyle: React.CSSProperties = {
+  border: "none",
+  background: "#16a34a",
+  color: "#ffffff",
+  padding: "12px 16px",
+  borderRadius: 999,
+  fontWeight: 950,
+  cursor: "pointer",
+  boxShadow: "0 12px 30px rgba(22,163,74,0.22)",
+};
+
 const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed var(--line)", color: "var(--muted)" };
