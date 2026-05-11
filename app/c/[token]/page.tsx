@@ -53,6 +53,7 @@ type RenderState =
       template: Template;
       blocks: VisualBlock[];
       nomes: string[];
+      convidadoIds: string[];
     };
 
 function toNumber(value: unknown, fallback: number) {
@@ -189,6 +190,59 @@ function detectarAcaoBotao(content: string | null) {
   }
 
   return "none";
+}
+
+function tocarSomConfirmacao() {
+  if (typeof window === "undefined") return;
+
+  const AudioContextClass =
+    window.AudioContext || (window as any).webkitAudioContext;
+
+  if (!AudioContextClass) return;
+
+  const audioContext = new AudioContextClass();
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+  oscillator.frequency.exponentialRampToValueAtTime(
+    990,
+    audioContext.currentTime + 0.12,
+  );
+
+  gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.32);
+}
+
+function tentarLiberarSomSilencioso() {
+  if (typeof window === "undefined") return;
+
+  const AudioContextClass =
+    window.AudioContext || (window as any).webkitAudioContext;
+
+  if (!AudioContextClass) return;
+
+  const audioContext = new AudioContextClass();
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+  gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.04);
 }
 
 function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes: string[]) {
@@ -345,7 +399,13 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
   );
 }
 
-function renderBotaoVisual(block: VisualBlock, evento: Evento, nomes: string[]) {
+function renderBotaoVisual(
+  block: VisualBlock,
+  evento: Evento,
+  nomes: string[],
+  onConfirmarPresenca?: () => void,
+  onAcaoBotao?: () => void,
+) {
   const acao = detectarAcaoBotao(block.content);
   const label = aplicarVariaveisPublicas(block.content || "", evento, nomes).trim();
 
@@ -377,6 +437,14 @@ function renderBotaoVisual(block: VisualBlock, evento: Evento, nomes: string[]) 
         href={href}
         target={acao === "rsvp" ? "_self" : "_blank"}
         rel="noopener noreferrer"
+        onClick={(event) => {
+          onAcaoBotao?.();
+
+          if (acao === "rsvp") {
+            event.preventDefault();
+            onConfirmarPresenca?.();
+          }
+        }}
         style={{
           width: "100%",
           height: "100%",
@@ -399,7 +467,12 @@ function renderBotaoVisual(block: VisualBlock, evento: Evento, nomes: string[]) 
   return <span>{finalLabel}</span>;
 }
 
-function getChildrenForVisualBlock(evento: Evento, nomes: string[]) {
+function getChildrenForVisualBlock(
+  evento: Evento,
+  nomes: string[],
+  onConfirmarPresenca?: () => void,
+  onAcaoBotao?: () => void,
+) {
   return (block: any): ReactNode | null => {
     if (block.type === "guest_picker") {
       return renderGuestPicker(block, nomes);
@@ -410,7 +483,13 @@ function getChildrenForVisualBlock(evento: Evento, nomes: string[]) {
     }
 
     if (block.type === "button") {
-      return renderBotaoVisual(block, evento, nomes);
+      return renderBotaoVisual(
+        block,
+        evento,
+        nomes,
+        onConfirmarPresenca,
+        onAcaoBotao,
+      );
     }
 
     return null;
@@ -447,11 +526,85 @@ export default function ConvitePublicoPage() {
 
   const [renderState, setRenderState] = useState<RenderState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [somAtivo, setSomAtivo] = useState(true);
+  const [somLiberado, setSomLiberado] = useState(false);
+  const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
+  const [confirmandoPresenca, setConfirmandoPresenca] = useState(false);
 
   useEffect(() => {
     if (token) carregarConvite(token);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    if (!somAtivo || somLiberado) return;
+
+    function liberarSom() {
+      if (!somAtivo || somLiberado) return;
+
+      try {
+        tentarLiberarSomSilencioso();
+        setSomLiberado(true);
+      } catch {
+        // O navegador pode manter o áudio bloqueado até uma interação mais explícita.
+      }
+    }
+
+    window.addEventListener("pointerdown", liberarSom, { passive: true });
+    window.addEventListener("touchstart", liberarSom, { passive: true });
+    window.addEventListener("keydown", liberarSom);
+    window.addEventListener("scroll", liberarSom, { passive: true });
+    window.addEventListener("mousemove", liberarSom, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", liberarSom);
+      window.removeEventListener("touchstart", liberarSom);
+      window.removeEventListener("keydown", liberarSom);
+      window.removeEventListener("scroll", liberarSom);
+      window.removeEventListener("mousemove", liberarSom);
+    };
+  }, [somAtivo, somLiberado]);
+
+  function executarSomAcao() {
+    if (!somAtivo) return;
+
+    try {
+      tocarSomConfirmacao();
+      setSomLiberado(true);
+    } catch {
+      // Sem bloqueio visual caso o navegador não libere o áudio.
+    }
+  }
+
+  async function confirmarPresenca() {
+    if (renderState?.kind !== "visual" || confirmandoPresenca) return;
+
+    executarSomAcao();
+    setConfirmacaoAberta(true);
+    setConfirmandoPresenca(true);
+
+    const ids = renderState.convidadoIds.filter(Boolean);
+
+    if (ids.length) {
+      const { error } = await supabase
+        .from("convidados")
+        .update({
+          status_rsvp: "confirmado",
+          data_resposta: new Date().toISOString(),
+        })
+        .in("id", ids);
+
+      if (error) {
+        console.error("Erro ao confirmar presença:", error);
+      }
+    }
+
+    setConfirmandoPresenca(false);
+
+    window.setTimeout(() => {
+      setConfirmacaoAberta(false);
+    }, 3200);
+  }
 
   async function carregarConvite(tokenUrl: string) {
     setLoading(true);
@@ -670,6 +823,7 @@ export default function ConvitePublicoPage() {
         template: template as Template,
         blocks: (blocksData || []).map(normalizarBlock),
         nomes: nomesFinais,
+        convidadoIds: convidadosDoConvite.map((item) => item.id).filter(Boolean),
       });
       setLoading(false);
       return;
@@ -717,10 +871,18 @@ export default function ConvitePublicoPage() {
         glassTone={visualConfig.glassTone === "light" ? "light" : "dark"}
         blockEffects={visualConfig.blockEffects || {}}
         evento={getEventoPreview(renderState.evento, renderState.nomes)}
-        childrenForBlock={getChildrenForVisualBlock(renderState.evento, renderState.nomes)}
+        childrenForBlock={getChildrenForVisualBlock(
+          renderState.evento,
+          renderState.nomes,
+          confirmarPresenca,
+          executarSomAcao,
+        )}
+        enableConfirmationEffects
+        showSoundToggle={false}
+        onConfirmPresence={confirmarPresenca}
       />
     );
-  }, [renderState, visualConfig, visualScale]);
+  }, [renderState, visualConfig, visualScale, confirmandoPresenca, somAtivo, somLiberado]);
 
   if (loading) {
     return (
@@ -742,7 +904,69 @@ export default function ConvitePublicoPage() {
   if (renderState?.kind === "visual") {
     return (
       <main style={visualPageStyle}>
-        <div style={{ ...visualShellStyle, width: CANVAS_W * visualScale, minHeight: CANVAS_H * visualScale }}>{visualContent}</div>
+        <style jsx global>{`
+          @keyframes omniConfirmPop {
+            0% {
+              opacity: 0;
+              transform: translateY(16px) scale(.92);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        `}</style>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSomAtivo((current) => {
+              const next = !current;
+
+              if (next) {
+                window.setTimeout(() => {
+                  try {
+                    tocarSomConfirmacao();
+                    setSomLiberado(true);
+                  } catch {
+                    // Pode depender da próxima interação do usuário.
+                  }
+                }, 0);
+              }
+
+              return next;
+            });
+          }}
+          style={soundToggleStyle}
+        >
+          {somAtivo ? "🔊 Som ligado" : "🔇 Som desligado"}
+        </button>
+
+        <div
+          style={{
+            ...visualShellStyle,
+            width: CANVAS_W * visualScale,
+            minHeight: CANVAS_H * visualScale,
+          }}
+        >
+          {visualContent}
+        </div>
+
+        {confirmacaoAberta && (
+          <div style={confirmationOverlayStyle}>
+            <div style={confirmationCardStyle}>
+              <div style={confirmationIconStyle}>✓</div>
+              <strong style={confirmationTitleStyle}>
+                {confirmandoPresenca ? "Confirmando presença..." : "Presença confirmada"}
+              </strong>
+              <span style={confirmationTextStyle}>
+                {confirmandoPresenca
+                  ? "Estamos registrando sua confirmação."
+                  : "Sua confirmação foi registrada no convite."}
+              </span>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -779,6 +1003,78 @@ const visualShellStyle: CSSProperties = {
   maxWidth: "100%",
   overflow: "hidden",
   background: "#020617",
+};
+
+const soundToggleStyle: CSSProperties = {
+  position: "fixed",
+  top: 14,
+  right: 14,
+  zIndex: 9999,
+  border: "1px solid rgba(255,255,255,.22)",
+  borderRadius: 999,
+  padding: "10px 14px",
+  background: "rgba(2,6,23,.72)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  boxShadow: "0 12px 34px rgba(0,0,0,.25)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  cursor: "pointer",
+};
+
+const confirmationOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9998,
+  display: "grid",
+  placeItems: "center",
+  pointerEvents: "none",
+  background:
+    "radial-gradient(circle at center, rgba(124,58,237,.28), transparent 44%)",
+};
+
+const confirmationCardStyle: CSSProperties = {
+  width: "min(340px, calc(100vw - 42px))",
+  borderRadius: 28,
+  padding: "26px 22px",
+  display: "grid",
+  justifyItems: "center",
+  gap: 10,
+  textAlign: "center",
+  color: "#ffffff",
+  background:
+    "linear-gradient(135deg, rgba(124,58,237,.92), rgba(20,184,166,.88))",
+  border: "1px solid rgba(255,255,255,.28)",
+  boxShadow:
+    "0 24px 90px rgba(124,58,237,.38), 0 0 0 8px rgba(255,255,255,.08)",
+  animation: "omniConfirmPop .34s ease-out",
+};
+
+const confirmationIconStyle: CSSProperties = {
+  width: 58,
+  height: 58,
+  borderRadius: 999,
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(255,255,255,.96)",
+  color: "#16a34a",
+  fontSize: 34,
+  fontWeight: 950,
+  boxShadow: "0 12px 34px rgba(0,0,0,.2)",
+};
+
+const confirmationTitleStyle: CSSProperties = {
+  fontSize: 24,
+  lineHeight: 1.05,
+  fontWeight: 950,
+};
+
+const confirmationTextStyle: CSSProperties = {
+  fontSize: 14,
+  lineHeight: 1.35,
+  fontWeight: 800,
+  opacity: 0.92,
 };
 
 function htmlErro(message: string) {
