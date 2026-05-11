@@ -1620,6 +1620,14 @@ ${eventoAtual?.nome || "OmniStage"}`;
                               status={convidado.status_envio_cartao}
                               data={convidado.data_envio_cartao}
                             />
+
+                            {listaPresentesAtiva(convidado) && (
+                              <EnvioLinha
+                                label="Lista presentes"
+                                status="pendente"
+                                data={null}
+                              />
+                            )}
                           </div>
 
                           <div
@@ -2159,8 +2167,8 @@ const guestMainStyle: CSSProperties = {
 };
 
 const eventActionsColumnStyle: CSSProperties = {
-  flex: "0 0 300px",
-  minWidth: 280,
+  flex: "0 0 280px",
+  minWidth: 260,
   marginLeft: "auto",
   display: "flex",
   flexDirection: "column",
@@ -2298,20 +2306,22 @@ const enviosResumoStyle: CSSProperties = {
   gap: 8,
   marginTop: 14,
   width: "100%",
-  maxWidth: 300,
+  maxWidth: 240,
+  marginLeft: "auto",
 };
 
 const enviosResumoTituloStyle: CSSProperties = {
   color: "var(--text)",
   fontSize: 15,
   fontWeight: 900,
-  textAlign: "right",
+  textAlign: "left",
 };
 
 const envioLinhaStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(120px, 1fr) auto",
+  gridTemplateColumns: "128px auto",
   alignItems: "center",
+  justifyContent: "start",
   gap: 10,
 };
 
@@ -2328,7 +2338,7 @@ const envioLinhaDataStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   marginTop: -3,
-  textAlign: "right",
+  textAlign: "left",
 };
 
 const statusStyle: CSSProperties = {
