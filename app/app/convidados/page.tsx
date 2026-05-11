@@ -8,6 +8,7 @@ type Evento = {
   id: string;
   nome: string;
   slug: string | null;
+  lista_presentes_ativa: boolean | null;
   lista_presentes_mensagem: string | null;
 };
 
@@ -29,6 +30,12 @@ type Convidado = {
   observacoes: string | null;
   status_rsvp: string | null;
   status_envio: string | null;
+  status_envio_convite: string | null;
+  data_envio_convite: string | null;
+  status_envio_lembrete_rsvp: string | null;
+  data_envio_lembrete_rsvp: string | null;
+  status_envio_cartao: string | null;
+  data_envio_cartao: string | null;
   status_checkin: string | null;
   token: string | null;
   evento_id: string | null;
@@ -347,8 +354,18 @@ export default function ConvidadosPage() {
     return eventos.find((evento) => evento.id === idEvento) || null;
   }
 
+  function listaPresentesAtiva(convidado: Convidado) {
+    const eventoAtual = getEventoDoConvidado(convidado);
+    return eventoAtual?.lista_presentes_ativa === true;
+  }
+
   function gerarLinkListaPresentes(convidado: Convidado) {
     const eventoAtual = getEventoDoConvidado(convidado);
+
+    if (eventoAtual?.lista_presentes_ativa !== true) {
+      return "";
+    }
+
     const identificador =
       eventoAtual?.slug || eventoAtual?.id || convidado.evento_id || eventoId;
 
@@ -442,7 +459,7 @@ Apresente o cartão na entrada do evento.`;
   async function carregarEventos(tenant: string) {
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome, slug, lista_presentes_mensagem")
+      .select("id, nome, slug, lista_presentes_ativa, lista_presentes_mensagem")
       .eq("tenant_id", tenant)
       .order("created_at", { ascending: false });
 
@@ -482,6 +499,12 @@ Apresente o cartão na entrada do evento.`;
         observacoes,
         status_rsvp,
         status_envio,
+        status_envio_convite,
+        data_envio_convite,
+        status_envio_lembrete_rsvp,
+        data_envio_lembrete_rsvp,
+        status_envio_cartao,
+        data_envio_cartao,
         status_checkin,
         token,
         evento_id,
@@ -1512,7 +1535,7 @@ Apresente o cartão na entrada do evento.`;
                               </button>
                             )}
 
-                            {linkWhatsAppListaPresentes ? (
+                            {listaPresentesAtiva(convidado) && linkWhatsAppListaPresentes ? (
                               <a
                                 href={linkWhatsAppListaPresentes}
                                 target="_blank"
@@ -1521,7 +1544,7 @@ Apresente o cartão na entrada do evento.`;
                               >
                                 Enviar lista de presentes
                               </a>
-                            ) : (
+                            ) : listaPresentesAtiva(convidado) ? (
                               <button
                                 disabled
                                 style={{
@@ -1532,9 +1555,9 @@ Apresente o cartão na entrada do evento.`;
                               >
                                 Enviar lista de presentes
                               </button>
-                            )}
+                            ) : null}
 
-                            {linkListaPresentes && (
+                            {listaPresentesAtiva(convidado) && linkListaPresentes && (
                               <a
                                 href={linkListaPresentes}
                                 target="_blank"
@@ -1579,10 +1602,26 @@ Apresente o cartão na entrada do evento.`;
                             RSVP: {labelRsvp(convidado.status_rsvp)}
                           </span>
 
-                          <div style={{ marginTop: 10 }}>
-                            <span style={getEnvioStyle(convidado.status_envio)}>
-                              Envio: {labelEnvio(convidado.status_envio)}
-                            </span>
+                          <div style={enviosResumoStyle}>
+                            <strong style={enviosResumoTituloStyle}>Envios</strong>
+
+                            <EnvioLinha
+                              label="Convite"
+                              status={convidado.status_envio_convite || convidado.status_envio}
+                              data={convidado.data_envio_convite}
+                            />
+
+                            <EnvioLinha
+                              label="Lembrete RSVP"
+                              status={convidado.status_envio_lembrete_rsvp}
+                              data={convidado.data_envio_lembrete_rsvp}
+                            />
+
+                            <EnvioLinha
+                              label="Cartão"
+                              status={convidado.status_envio_cartao}
+                              data={convidado.data_envio_cartao}
+                            />
                           </div>
 
                           <div
@@ -1626,6 +1665,34 @@ Apresente o cartão na entrada do evento.`;
   );
 }
 
+function EnvioLinha({
+  label,
+  status,
+  data,
+}: {
+  label: string;
+  status: string | null;
+  data: string | null;
+}) {
+  const enviado = status === "enviado";
+
+  return (
+    <div style={envioLinhaStyle}>
+      <span style={envioLinhaLabelStyle}>{label}</span>
+
+      <span style={getEnvioStyle(status)}>
+        {labelEnvio(status)}
+      </span>
+
+      {enviado && data && (
+        <small style={envioLinhaDataStyle}>
+          {formatarDataHoraCurta(data)}
+        </small>
+      )}
+    </div>
+  );
+}
+
 function labelRsvp(status: string | null) {
   if (status === "confirmado") return "Confirmado";
   if (status === "nao") return "Não vai";
@@ -1636,6 +1703,21 @@ function labelEnvio(status: string | null) {
   if (status === "enviado") return "Enviado";
   if (status === "erro") return "Erro";
   return "Pendente";
+}
+
+function formatarDataHoraCurta(data: string | null) {
+  if (!data) return "";
+
+  const parsed = new Date(data);
+
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return parsed.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function getRsvpStyle(status: string | null): CSSProperties {
@@ -2204,6 +2286,40 @@ const responsavelHeaderStyle: CSSProperties = {
   display: "grid",
   gap: 4,
   color: "var(--text)",
+};
+
+const enviosResumoStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  marginTop: 12,
+  minWidth: 230,
+};
+
+const enviosResumoTituloStyle: CSSProperties = {
+  color: "var(--text)",
+  fontSize: 14,
+  fontWeight: 900,
+};
+
+const envioLinhaStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(96px, 1fr) auto",
+  alignItems: "center",
+  gap: 8,
+};
+
+const envioLinhaLabelStyle: CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
+const envioLinhaDataStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  color: "var(--muted)",
+  fontSize: 11,
+  fontWeight: 700,
+  marginTop: -3,
 };
 
 const statusStyle: CSSProperties = {
