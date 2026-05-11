@@ -410,15 +410,19 @@ function renderPreviewBlock(
   }
 
   if (block.type === "logo") {
-  const logoWrapperStyle: CSSProperties = {
-    ...shared,
-    background: "transparent",
-    border: "none",
-    boxShadow: "none",
-    backdropFilter: "none",
-    WebkitBackdropFilter: "none",
-    padding: 0,
-  };
+    const logoWrapperStyle: CSSProperties = {
+      ...shared,
+      background: "transparent",
+      border: "none",
+      outline: "none",
+      boxShadow: "none",
+      backdropFilter: "none",
+      WebkitBackdropFilter: "none",
+      padding: 0,
+      overflow: "visible",
+      borderRadius: 0,
+      ...getEditorEffectStyle("none"),
+    };
 
   return (
     <div key={block.id} style={logoWrapperStyle}>
@@ -612,8 +616,8 @@ function defaultBlock(
       height: 140,
       font_size: 16,
       color: "#ffffff",
-      background: "rgba(255,255,255,.12)",
-      border_radius: 24,
+      background: null,
+      border_radius: 0,
     };
   }
 
@@ -799,8 +803,22 @@ function renderBlock(
   }
 
   if (block.type === "logo") {
+    const logoEditorStyle: CSSProperties = {
+      ...shared,
+      background: "transparent",
+      border: "none",
+      outline: "none",
+      boxShadow: "none",
+      backdropFilter: "none",
+      WebkitBackdropFilter: "none",
+      padding: 0,
+      overflow: "visible",
+      borderRadius: 0,
+      ...getEditorEffectStyle("none"),
+    };
+
     return (
-      <div style={shared}>
+      <div style={logoEditorStyle}>
         {logoPreviewUrl ? (
           <img
             src={logoPreviewUrl}
@@ -810,7 +828,11 @@ function renderBlock(
               height: "100%",
               objectFit: "contain",
               display: "block",
-              borderRadius: block.border_radius,
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              boxShadow: "none",
+              borderRadius: 0,
               pointerEvents: "none",
             }}
           />
@@ -821,9 +843,9 @@ function renderBlock(
               height: "100%",
               display: "grid",
               placeItems: "center",
-              borderRadius: block.border_radius,
-              background:
-                "radial-gradient(circle at 50% 0%, rgba(255,255,255,.26), rgba(255,255,255,.08))",
+              borderRadius: 0,
+              background: "transparent",
+              outline: selected ? "1px dashed rgba(255,255,255,.42)" : "none",
             }}
           >
             <div
@@ -1252,8 +1274,8 @@ export default function EditorModeloConvitePage({
       font_size: b.font_size,
       font_family: b.font_family,
       color: b.color,
-      background: b.background,
-      border_radius: b.border_radius,
+      background: b.type === "logo" ? null : b.background,
+      border_radius: b.type === "logo" ? 0 : b.border_radius,
       z_index: b.z_index || index + 1,
       visible: b.visible,
     }));
