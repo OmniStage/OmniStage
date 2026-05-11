@@ -583,6 +583,14 @@ export function renderizarTemplateVisual(
       const blockWidth = numberValue(block.width, 200);
       const blockHeight = numberValue(block.height, 60);
 
+      // Line-height reduzido para data, hora, local (mais compacto)
+      const isTightContent = ["date_time", "location", "horario", "hora"].includes(block.type);
+      const lineHeight = isTightContent ? "1.02" : "1.12";
+
+      // Logo com tamanho garantido
+      const isLogo = block.type === "logo";
+      const effectiveHeight = isLogo ? Math.max(blockHeight, 120) : blockHeight;
+
 
 
       return `
@@ -591,7 +599,7 @@ export function renderizarTemplateVisual(
           data-block-label="${escapeHtml(block.label || "")}"
           data-block-content="${escapeHtml(block.content || "")}"
           data-base-y="${blockTop}"
-          data-base-height="${blockHeight}"
+          data-base-height="${effectiveHeight}"
           data-debug-x="${block.x}"
           data-debug-width="${block.width}"
           style="
@@ -599,24 +607,24 @@ export function renderizarTemplateVisual(
             left:${blockLeft}px;
             top:${blockTop}px;
             width:${blockWidth}px;
-            height:${blockHeight}px;
+            height:${effectiveHeight}px;
             z-index:${(block.z_index || 1) + 10};
             box-sizing:border-box;
             border-radius:${numberValue(block.border_radius, 0)}px;
             color:${block.color || "#ffffff"};
             background:${background};
-            font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif;
-            font-size:${numberValue(block.font_size, 24)}px;
-            font-weight:900;
+            font-family:${escapeHtml(block.font_family || "Inter")}, Arial, sans-serif !important;
+            font-size:${numberValue(block.font_size, 24)}px !important;
+            font-weight:900 !important;
             display:flex;
             flex-direction:column;
             align-items:center;
             justify-content:center;
             text-align:center;
-            line-height:1.12;
+            line-height:${lineHeight};
             padding:${padding}px;
             overflow:visible;
-            white-space:nowrap;
+            white-space:pre-wrap;
           "
         >
           ${renderizarConteudoBloco(block, evento)}
@@ -1433,4 +1441,5 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
