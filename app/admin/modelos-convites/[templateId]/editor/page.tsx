@@ -803,39 +803,64 @@ function renderBlock(
   }
 
   if (block.type === "logo") {
-    const logoEditorStyle: CSSProperties = {
-      ...shared,
-      background: "transparent",
-      border: "none",
-      outline: "none",
-      boxShadow: "none",
-      backdropFilter: "none",
-      WebkitBackdropFilter: "none",
-      padding: 0,
-      overflow: "visible",
-      borderRadius: 0,
-      ...getEditorEffectStyle("none"),
-    };
+  const logoEditorStyle: CSSProperties = {
+    ...shared,
+
+    background: "transparent",
+    border: "none",
+
+    padding: 0,
+    margin: 0,
+
+    overflow: "hidden",
+
+    borderRadius: 0,
+
+    outline: selected
+      ? "2px solid #a855f7"
+      : "1px dashed rgba(255,255,255,.18)",
+
+    boxShadow: selected
+      ? "0 0 0 3px rgba(168,85,247,.18)"
+      : "none",
+
+    backdropFilter: "none",
+    WebkitBackdropFilter: "none",
+
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+
+    ...getEditorEffectStyle("none"),
+  };
 
     return (
       <div style={logoEditorStyle}>
         {logoPreviewUrl ? (
           <img
-            src={logoPreviewUrl}
-            alt="Logo do evento"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              boxShadow: "none",
-              borderRadius: 0,
-              pointerEvents: "none",
-            }}
-          />
+  src={logoPreviewUrl}
+  alt="Logo do evento"
+  style={{
+    width: "100%",
+    height: "100%",
+
+    objectFit: "contain",
+
+    display: "block",
+
+    margin: 0,
+    padding: 0,
+
+    background: "transparent",
+
+    border: "none",
+    outline: "none",
+    boxShadow: "none",
+    borderRadius: 0,
+
+    pointerEvents: "none",
+  }}
+/>
         ) : (
           <div
             style={{
