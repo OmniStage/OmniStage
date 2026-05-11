@@ -451,14 +451,22 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
   }
 
   if (block.type === "date_time") {
-    return textoSeguro(
-      [dataFormatada, horarioFormatado].filter(Boolean).join(" • ")
-    );
-  }
+  return `
+    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+      ${textoSeguro(
+        [dataFormatada, horarioFormatado].filter(Boolean).join(" • ")
+      )}
+    </div>
+  `;
+}
 
   if (block.type === "location") {
-    return textoSeguro(localEvento || "Local do Evento");
-  }
+  return `
+    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+      ${textoSeguro(localEvento || "Local do Evento")}
+    </div>
+  `;
+}
 
   if (block.type === "guest_name") {
     return textoSeguro("Nome do Convidado");
