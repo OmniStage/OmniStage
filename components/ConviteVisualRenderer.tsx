@@ -368,77 +368,7 @@ function CountdownBlock({ block, evento }: { block: ConviteBlock; evento?: Event
         <span style={labelStyle}>SEG</span>
       </div>
 
-      {enableConfirmationEffects && confirmacaoAberta && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 9998,
-            display: "grid",
-            placeItems: "center",
-            pointerEvents: "none",
-            background:
-              "radial-gradient(circle at center, rgba(124,58,237,.28), transparent 44%)",
-          }}
-        >
-          <div
-            style={{
-              width: "min(340px, calc(100% - 42px))",
-              borderRadius: 28,
-              padding: "26px 22px",
-              display: "grid",
-              justifyItems: "center",
-              gap: 10,
-              textAlign: "center",
-              color: "#ffffff",
-              background:
-                "linear-gradient(135deg, rgba(124,58,237,.94), rgba(20,184,166,.9))",
-              border: "1px solid rgba(255,255,255,.28)",
-              boxShadow:
-                "0 24px 90px rgba(124,58,237,.38), 0 0 0 8px rgba(255,255,255,.08)",
-              animation: "omniConfirmPop .34s ease-out",
-            }}
-          >
-            <div
-              style={{
-                width: 58,
-                height: 58,
-                borderRadius: 999,
-                display: "grid",
-                placeItems: "center",
-                background: "rgba(255,255,255,.96)",
-                color: "#16a34a",
-                fontSize: 34,
-                fontWeight: 950,
-                boxShadow: "0 12px 34px rgba(0,0,0,.2)",
-              }}
-            >
-              ✓
-            </div>
 
-            <strong
-              style={{
-                fontSize: 24,
-                lineHeight: 1.05,
-                fontWeight: 950,
-              }}
-            >
-              Presença confirmada
-            </strong>
-
-            <span
-              style={{
-                fontSize: 14,
-                lineHeight: 1.35,
-                fontWeight: 800,
-                opacity: 0.92,
-              }}
-            >
-              Sua confirmação foi registrada no convite.
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -878,6 +808,78 @@ export default function ConviteVisualRenderer({
             );
           })}
       </div>
+
+      {enableConfirmationEffects && confirmacaoAberta && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 9998,
+            display: "grid",
+            placeItems: "center",
+            pointerEvents: "none",
+            background:
+              "radial-gradient(circle at center, rgba(124,58,237,.28), transparent 44%)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(340px, calc(100% - 42px))",
+              borderRadius: 28,
+              padding: "26px 22px",
+              display: "grid",
+              justifyItems: "center",
+              gap: 10,
+              textAlign: "center",
+              color: "#ffffff",
+              background:
+                "linear-gradient(135deg, rgba(124,58,237,.94), rgba(20,184,166,.9))",
+              border: "1px solid rgba(255,255,255,.28)",
+              boxShadow:
+                "0 24px 90px rgba(124,58,237,.38), 0 0 0 8px rgba(255,255,255,.08)",
+              animation: "omniConfirmPop .34s ease-out",
+            }}
+          >
+            <div
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: 999,
+                display: "grid",
+                placeItems: "center",
+                background: "rgba(255,255,255,.96)",
+                color: "#16a34a",
+                fontSize: 34,
+                fontWeight: 950,
+                boxShadow: "0 12px 34px rgba(0,0,0,.2)",
+              }}
+            >
+              ✓
+            </div>
+
+            <strong
+              style={{
+                fontSize: 24,
+                lineHeight: 1.05,
+                fontWeight: 950,
+              }}
+            >
+              Presença confirmada
+            </strong>
+
+            <span
+              style={{
+                fontSize: 14,
+                lineHeight: 1.35,
+                fontWeight: 800,
+                opacity: 0.92,
+              }}
+            >
+              Sua confirmação foi registrada no convite.
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
