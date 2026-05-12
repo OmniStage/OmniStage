@@ -28,6 +28,10 @@ type Convidado = {
 
 type Evento = EventoConvite & {
   invite_template_id: string | null;
+  data_inicio?: string | null;
+  hora_inicio?: string | null;
+  data_termino?: string | null;
+  hora_termino?: string | null;
 };
 
 type Template = {
@@ -59,6 +63,10 @@ type RenderState =
 function toNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getHoraEvento(evento: Evento | null) {
+  return evento?.hora_inicio || evento?.horario || null;
 }
 
 function normalizarBlock(raw: any): VisualBlock {
@@ -249,7 +257,7 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
   const nomePrincipal = nomes[0] || "Convidado";
   const total = nomes.length || 1;
   const dataFormatada = formatarData(evento.data_evento || null);
-  const horarioFormatado = formatarHorario(evento.horario);
+  const horarioFormatado = formatarHorario(getHoraEvento(evento));
   const textoTotal = total === 1 ? "Convite para 1 convidado" : `Convite para ${total} convidados`;
 
   return String(content || "")
@@ -280,7 +288,7 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
 function getEventoPreview(evento: Evento, nomes: string[]) {
   const nomePrincipal = nomes[0] || "Convidado";
   const dataFormatada = formatarData(evento.data_evento || null);
-  const horaFormatada = formatarHorario(evento.horario);
+  const horaFormatada = formatarHorario(getHoraEvento(evento));
 
   return {
     nome_evento: evento.nome || "Evento",
@@ -702,6 +710,10 @@ export default function ConvitePublicoPage() {
         id,
         nome,
         data_evento,
+        data_inicio,
+        hora_inicio,
+        data_termino,
+        hora_termino,
         local,
         invite_template_id,
         horario,
@@ -729,7 +741,12 @@ export default function ConvitePublicoPage() {
       return;
     }
 
-    let templateId = evento?.invite_template_id || null;
+    const eventoNormalizado = {
+      ...(evento as Evento),
+      horario: getHoraEvento(evento as Evento),
+    } as Evento;
+
+    let templateId = eventoNormalizado?.invite_template_id || null;
 
     /*
       Compatibilidade:
@@ -819,7 +836,7 @@ export default function ConvitePublicoPage() {
 
       setRenderState({
         kind: "visual",
-        evento: evento as Evento,
+        evento: eventoNormalizado,
         template: template as Template,
         blocks: (blocksData || []).map(normalizarBlock),
         nomes: nomesFinais,
@@ -832,7 +849,7 @@ export default function ConvitePublicoPage() {
     if (template.html_template?.trim()) {
       let htmlDoEvento = preencherTemplate(
         template.html_template,
-        evento as Evento,
+        eventoNormalizado,
       );
 
       htmlDoEvento = injetarConvidadosNoConvite(
