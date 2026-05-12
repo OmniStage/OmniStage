@@ -10,6 +10,9 @@ type Convidado = {
   id: string;
   nome: string | null;
   telefone: string | null;
+  responsavel?: string | null;
+  responsavel_telefone?: string | null;
+  crianca?: boolean | null;
   email?: string | null;
   grupo: string | null;
   status_rsvp: string | null;
@@ -160,6 +163,9 @@ export default function EnviosPage() {
         id,
         nome,
         telefone,
+        responsavel,
+        responsavel_telefone,
+        crianca,
         email,
         grupo,
         status_rsvp,
@@ -255,13 +261,21 @@ export default function EnviosPage() {
     const termo = busca.trim().toLowerCase();
 
     return publicoCampanha.filter((convidado) => {
-      const telefoneLimpo = normalizarTelefone(convidado.telefone);
+      const telefoneLimpo = getTelefoneEnvio(convidado);
       const enviado = getStatusEnvio(convidado, campanha) === "enviado";
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       const buscaOk =
         !termo ||
-        [convidado.nome, convidado.grupo, convidado.telefone, convidado.email, convidado.token]
+        [
+          convidado.nome,
+          convidado.grupo,
+          convidado.telefone,
+          convidado.responsavel,
+          convidado.responsavel_telefone,
+          convidado.email,
+          convidado.token,
+        ]
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
@@ -287,7 +301,7 @@ export default function EnviosPage() {
 
   const pendentesComTelefoneFiltrados = useMemo(() => {
     return convidadosFiltrados.filter((convidado) => {
-      const telefoneOk = !!normalizarTelefone(convidado.telefone);
+      const telefoneOk = !!getTelefoneEnvio(convidado);
       const enviado = getStatusEnvio(convidado, campanha) === "enviado";
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
       return telefoneOk && !enviado && !estaNaFila;
@@ -309,11 +323,11 @@ export default function EnviosPage() {
   const stats = useMemo(() => {
     const total = publicoCampanha.length;
     const enviados = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado").length;
-    const semTelefone = publicoCampanha.filter((c) => !normalizarTelefone(c.telefone)).length;
+    const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvio(c)).length;
     const naFila = publicoCampanha.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio)).length;
     const aEnviar = publicoCampanha.filter((c) => {
       const enviado = getStatusEnvio(c, campanha) === "enviado";
-      const telefoneOk = !!normalizarTelefone(c.telefone);
+      const telefoneOk = !!getTelefoneEnvio(c);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio);
 
       return !enviado && telefoneOk && !estaNaFila;
@@ -400,7 +414,7 @@ export default function EnviosPage() {
     }
 
     const elegiveis = lista.filter((convidado) => {
-      const telefoneOk = !!normalizarTelefone(convidado.telefone);
+      const telefoneOk = !!getTelefoneEnvio(convidado);
       const enviado = getStatusEnvio(convidado, campanha) === "enviado";
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
@@ -426,7 +440,7 @@ export default function EnviosPage() {
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
-      telefone: normalizarTelefone(convidado.telefone),
+      telefone: getTelefoneEnvio(convidado),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status: "pendente",
     }));
@@ -444,7 +458,7 @@ export default function EnviosPage() {
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
-      telefone: normalizarTelefone(convidado.telefone),
+      telefone: getTelefoneEnvio(convidado),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status: "pendente",
       detalhe: "Adicionado à fila por ação em massa.",
@@ -660,7 +674,7 @@ export default function EnviosPage() {
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
-      telefone: normalizarTelefone(convidado.telefone),
+      telefone: getTelefoneEnvio(convidado),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status,
       detalhe: detalhe || null,
@@ -678,7 +692,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const telefone = normalizarTelefone(convidado.telefone);
+    const telefone = getTelefoneEnvio(convidado);
 
     if (!telefone) {
       alert("Este convidado não tem telefone cadastrado.");
@@ -712,7 +726,7 @@ export default function EnviosPage() {
   }
 
   function abrirWhatsApp(convidado: Convidado) {
-    const telefone = normalizarTelefone(convidado.telefone);
+    const telefone = getTelefoneEnvio(convidado);
 
     if (!telefone) {
       alert("Este convidado não tem telefone cadastrado.");
@@ -727,7 +741,7 @@ export default function EnviosPage() {
   }
 
   function iniciarEnvioWhatsApp(convidado: Convidado) {
-    const telefone = normalizarTelefone(convidado.telefone);
+    const telefone = getTelefoneEnvio(convidado);
 
     if (!telefone) {
       alert("Este convidado não tem telefone cadastrado.");
@@ -1091,7 +1105,9 @@ export default function EnviosPage() {
 
         <div style={listStyle}>
           {convidadosFiltrados.map((convidado) => {
-            const telefoneOk = !!normalizarTelefone(convidado.telefone);
+            const telefoneOk = !!getTelefoneEnvio(convidado);
+            const envioViaResponsavel = isEnvioViaResponsavel(convidado);
+            const telefoneExibicao = getTelefoneEnvio(convidado);
             const enviado = getStatusEnvio(convidado, campanha) === "enviado";
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
             const dataEnvio = getDataEnvio(convidado, campanha);
@@ -1109,8 +1125,14 @@ export default function EnviosPage() {
                 <div style={guestInfoStyle}>
                   <strong style={guestNameStyle}>{convidado.nome || "Sem nome"}</strong>
                   <span style={guestMetaStyle}>
-                    {convidado.grupo || "Sem grupo"} · {convidado.telefone || "Sem telefone"}
+                    {convidado.grupo || "Sem grupo"} · {telefoneExibicao || "Sem telefone"}
                   </span>
+
+                  {envioViaResponsavel && (
+                    <span style={responsavelBadgeStyle}>
+                      Envio via responsável: {convidado.responsavel || "Responsável"}
+                    </span>
+                  )}
 
                   <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual)}</p>
 
@@ -1269,7 +1291,7 @@ const campanhas: Record<TipoEnvio, Campanha> = {
     dataColumn: "data_envio_convite",
     cor: "#6d28d9",
     corSuave: "#ede9fe",
-    filtrarPublico: (convidado) => !!normalizarTelefone(convidado.telefone),
+    filtrarPublico: (convidado) => !!getTelefoneEnvio(convidado),
     templatePadrao: `Olá {{nome}} ✨
 
 Você está convidado(a) para o evento {{evento}}.
@@ -1294,7 +1316,7 @@ OmniStage`,
     cor: "#f59e0b",
     corSuave: "#fef3c7",
     filtrarPublico: (convidado) =>
-      convidado.status_rsvp === "pendente" && !!normalizarTelefone(convidado.telefone),
+      convidado.status_rsvp === "pendente" && !!getTelefoneEnvio(convidado),
     templatePadrao: `Olá {{nome}} ✨
 
 Passando para lembrar que você ainda não confirmou presença no evento {{evento}}.
@@ -1319,7 +1341,7 @@ OmniStage`,
     cor: "#16a34a",
     corSuave: "#dcfce7",
     filtrarPublico: (convidado) =>
-      convidado.status_rsvp === "confirmado" && !!normalizarTelefone(convidado.telefone),
+      convidado.status_rsvp === "confirmado" && !!getTelefoneEnvio(convidado),
     templatePadrao: `Olá {{nome}} ✨
 
 Ficamos muito felizes com sua confirmação.
@@ -1389,6 +1411,14 @@ function normalizarTelefone(telefone: string | null | undefined) {
   return (telefone || "").replace(/\D/g, "");
 }
 
+function getTelefoneEnvio(convidado: Convidado) {
+  return normalizarTelefone(convidado.telefone) || normalizarTelefone(convidado.responsavel_telefone);
+}
+
+function isEnvioViaResponsavel(convidado: Convidado) {
+  return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
+}
+
 function gerarLinkConvite(convidado: Convidado) {
   const token = encodeURIComponent(convidado.token || "");
   if (typeof window === "undefined") return `/c/${token}`;
@@ -1409,7 +1439,7 @@ function montarMensagem(template: string, convidado: Convidado, evento?: Evento 
     .replaceAll("{{grupo}}", convidado.grupo || "")
     .replaceAll("{{evento}}", nomeEvento)
     .replaceAll("{{nome_evento}}", nomeEvento)
-    .replaceAll("{{telefone}}", convidado.telefone || "")
+    .replaceAll("{{telefone}}", convidado.telefone || convidado.responsavel_telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
     .replaceAll("{{token}}", convidado.token || "")
     .replaceAll("{{link_convite}}", gerarLinkConvite(convidado))
@@ -1517,6 +1547,7 @@ const cardStyle: React.CSSProperties = { border: "1px solid var(--line)", border
 const guestInfoStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, flex: 1, minWidth: 280 };
 const guestNameStyle: React.CSSProperties = { color: "var(--text)", fontSize: 17, fontWeight: 900 };
 const guestMetaStyle: React.CSSProperties = { color: "var(--muted)", fontSize: 13, fontWeight: 700 };
+const responsavelBadgeStyle: React.CSSProperties = { width: "fit-content", marginTop: 2, padding: "6px 9px", borderRadius: 999, background: "#f5f3ff", color: "#6d28d9", border: "1px solid rgba(109,40,217,0.18)", fontSize: 12, fontWeight: 900 };
 const messagePreviewStyle: React.CSSProperties = { margin: "10px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.45, whiteSpace: "pre-line" };
 const sentDateStyle: React.CSSProperties = { marginTop: 8, color: "var(--muted)", fontWeight: 800 };
 const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" };
