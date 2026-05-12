@@ -40,6 +40,11 @@ type Convidado = {
   token: string | null;
   evento_id: string | null;
   created_at: string | null;
+  legacy_id?: string | number | null;
+  origem_importacao?: string | null;
+  import_batch_id?: string | null;
+  data_hora_rsvp?: string | null;
+  data_hora_envio?: string | null;
 };
 
 type ConvidadoForm = {
@@ -211,8 +216,19 @@ export default function ConvidadosPage() {
     const filtrados = convidados.filter((convidado) => {
       const rsvpOk =
         filtroRsvp === "todos" || convidado.status_rsvp === filtroRsvp;
+      const statusConviteFiltro = getStatusConviteExibicao(convidado) || "pendente";
       const envioOk =
-        filtroEnvio === "todos" || convidado.status_envio === filtroEnvio;
+        filtroEnvio === "todos" ||
+        (filtroEnvio === "pendente" &&
+          statusConviteFiltro !== "enviado" &&
+          statusConviteFiltro !== "enviado_manual" &&
+          statusConviteFiltro !== "erro") ||
+        (filtroEnvio === "enviado" &&
+          (statusConviteFiltro === "enviado" ||
+            statusConviteFiltro === "enviado_manual")) ||
+        (filtroEnvio === "enviado_manual" &&
+          statusConviteFiltro === "enviado_manual") ||
+        (filtroEnvio === "erro" && statusConviteFiltro === "erro");
       const temGrupo = Boolean((convidado.grupo || "").trim());
       const tipoOk =
         filtroTipo === "todos" ||
@@ -237,6 +253,13 @@ export default function ConvidadosPage() {
           convidado.tipo_convite,
           convidado.status_rsvp,
           convidado.status_envio,
+          convidado.status_envio_convite,
+          getStatusConviteExibicao(convidado),
+          convidado.legacy_id,
+          convidado.origem_importacao,
+          convidado.import_batch_id,
+          convidado.data_hora_rsvp,
+          convidado.data_hora_envio,
         ]
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
@@ -443,7 +466,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
     const conviteJaEnviado =
       convidado.status_envio_convite === "enviado" ||
-      convidado.status_envio === "enviado";
+      convidado.status_envio_convite === "enviado_manual" ||
+      convidado.status_envio === "enviado" ||
+      convidado.status_envio === "enviado_manual";
 
     if (conviteJaEnviado) {
       const confirmarReenvio = window.confirm(
@@ -482,9 +507,15 @@ ${eventoAtual?.nome || "OmniStage"}`);
       const { error } = await supabase
         .from("convidados")
         .update({
-          status_envio: "enviado",
-          status_envio_convite: "enviado",
+          status_envio: "enviado_manual",
+          status_envio_convite: "enviado_manual",
           data_envio_convite: agora,
+          ...(convidado.status_rsvp === "confirmado"
+            ? {
+                status_envio_lembrete_rsvp: "nao_necessario",
+                data_envio_lembrete_rsvp: null,
+              }
+            : {}),
         })
         .eq("id", convidado.id)
         .eq("tenant_id", tenantId)
@@ -502,7 +533,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         telefone,
         mensagem,
         status: "enviado",
-        detalhe: "Enviado pelo card do convidado.",
+        detalhe: "Enviado Card Convidado.",
       });
 
       await supabase
@@ -522,16 +553,22 @@ ${eventoAtual?.nome || "OmniStage"}`);
           item.id === convidado.id
             ? {
                 ...item,
-                status_envio: "enviado",
-                status_envio_convite: "enviado",
+                status_envio: "enviado_manual",
+                status_envio_convite: "enviado_manual",
                 data_envio_convite: agora,
+                ...(convidado.status_rsvp === "confirmado"
+                  ? {
+                      status_envio_lembrete_rsvp: "nao_necessario",
+                      data_envio_lembrete_rsvp: null,
+                    }
+                  : {}),
               }
             : item,
         ),
       );
 
       setEnvioConvitePendenteConfirmacao(null);
-      alert("Convite marcado como enviado pelo card do convidado.");
+      alert("Convite marcado como Enviado Card Convidado.");
     } catch (error) {
       alert(
         error instanceof Error
@@ -631,7 +668,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
         status_checkin,
         token,
         evento_id,
-        created_at
+        created_at,
+        legacy_id,
+        origem_importacao,
+        import_batch_id,
+        data_hora_rsvp,
+        data_hora_envio
       `,
       )
       .eq("tenant_id", tenant)
@@ -830,7 +872,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
       status_envio: convidado.status_envio || "pendente",
     });
     setFormAberto(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function excluirConvidado(convidado: Convidado) {
@@ -857,6 +898,128 @@ ${eventoAtual?.nome || "OmniStage"}`);
       current.filter((item) => item.id !== convidado.id),
     );
     alert("Convidado excluído.");
+  }
+
+  function convidadoTemDadosImportados(convidado: Convidado) {
+    return Boolean(
+      convidado.legacy_id ||
+        convidado.origem_importacao ||
+        convidado.import_batch_id ||
+        convidado.data_hora_rsvp ||
+        convidado.data_hora_envio,
+    );
+  }
+
+  function labelOrigemImportacao(valor: string | null | undefined) {
+    if (!valor) return "Importação";
+
+    if (valor === "smart_paste") return "Lista inteligente";
+    if (valor === "csv") return "CSV";
+    if (valor === "google_sheets") return "Google Sheets";
+    if (valor === "vcf") return "VCF";
+
+    return valor;
+  }
+
+  function getStatusConviteExibicao(convidado: Convidado) {
+    const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+
+    if (statusAtual === "enviado" || statusAtual === "enviado_manual" || statusAtual === "erro") {
+      return statusAtual;
+    }
+
+    if (convidado.data_envio_convite || convidado.data_hora_envio) {
+      return "enviado";
+    }
+
+    return statusAtual || "pendente";
+  }
+
+  function getDataConviteExibicao(convidado: Convidado) {
+    return convidado.data_envio_convite || convidado.data_hora_envio || null;
+  }
+
+  function getOrigemConviteExibicao(convidado: Convidado) {
+    const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+
+    if (convidado.data_hora_envio && statusAtual !== "enviado") {
+      return "Envio importado";
+    }
+
+    return undefined;
+  }
+
+
+  function normalizarStatusEnvioConviteCard(convidado: Convidado) {
+    const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+
+    if (statusAtual === "enviado" || statusAtual === "enviado_manual") {
+      return null;
+    }
+
+    if (!getTelefoneEnvioConvidado(convidado)) {
+      return null;
+    }
+
+    return {
+      status_envio: "enviado_manual",
+      status_envio_convite: "enviado_manual",
+      data_envio_convite: new Date().toISOString(),
+      ...(convidado.status_rsvp === "confirmado"
+        ? {
+            status_envio_lembrete_rsvp: "nao_necessario",
+            data_envio_lembrete_rsvp: null,
+          }
+        : {}),
+    };
+  }
+
+  async function sincronizarEnviosCardPendentes() {
+    if (!tenantId || !eventoId) return;
+
+    const candidatos = convidados.filter((convidado) => {
+      const payload = normalizarStatusEnvioConviteCard(convidado);
+      return Boolean(payload);
+    });
+
+    if (candidatos.length === 0) return;
+
+    const confirmar = window.confirm(
+      `Encontramos ${candidatos.length} convidado(s) com telefone/responsável e convite ainda pendente. Deseja marcar como Enviado Card Convidado para remover da fila de envio?`,
+    );
+
+    if (!confirmar) return;
+
+    setLoading(true);
+
+    try {
+      for (const convidado of candidatos) {
+        const payload = normalizarStatusEnvioConviteCard(convidado);
+        if (!payload) continue;
+
+        const { error } = await supabase
+          .from("convidados")
+          .update(payload)
+          .eq("id", convidado.id)
+          .eq("tenant_id", tenantId)
+          .eq("evento_id", convidado.evento_id || eventoId);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      await carregarConvidados(tenantId, eventoId);
+      alert(`${candidatos.length} convidado(s) marcados como Enviado Card Convidado.`);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao sincronizar envios pelo card.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -935,6 +1098,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
               style={secondaryButtonStyle}
             >
               Importar lista inteligente
+            </button>
+
+            <button
+              onClick={sincronizarEnviosCardPendentes}
+              disabled={loading || !tenantId || !eventoId}
+              style={secondaryButtonStyle}
+            >
+              Sincronizar enviados pelo card
             </button>
           </div>
         </div>
@@ -1053,7 +1224,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         </section>
       )}
 
-      {formAberto && !editandoId && (
+      {formAberto && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
             <div>
@@ -1398,6 +1569,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                   >
                     <option value="pendente">Pendente</option>
                     <option value="enviado">Enviado</option>
+                    <option value="enviado_manual">Enviado Card Convidado</option>
                     <option value="erro">Erro</option>
                   </select>
                 </label>
@@ -1459,6 +1631,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
             <option value="todos">Todos envios</option>
             <option value="pendente">Pendente</option>
             <option value="enviado">Enviado</option>
+            <option value="enviado_manual">Card Convidado</option>
             <option value="erro">Erro</option>
           </select>
 
@@ -1616,6 +1789,49 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             </strong>
                           </div>
 
+                          {convidadoTemDadosImportados(convidado) && (
+                            <details style={importInfoStyle}>
+                              <summary style={importInfoSummaryStyle}>
+                                <div style={importInfoHeaderStyle}>
+                                  <span style={importBadgeStyle}>Dados importados</span>
+                                  <strong>Origem / Importação</strong>
+                                  <span style={importInfoHintStyle}>Clique para ver histórico</span>
+                                </div>
+                              </summary>
+
+                              <div style={importInfoGridStyle}>
+                                <span>
+                                  <strong>Origem:</strong>{" "}
+                                  {labelOrigemImportacao(convidado.origem_importacao)}
+                                </span>
+
+                                <span>
+                                  <strong>ID importação:</strong>{" "}
+                                  {convidado.import_batch_id || "-"}
+                                </span>
+
+                                <span>
+                                  <strong>Legacy ID:</strong>{" "}
+                                  {convidado.legacy_id || "-"}
+                                </span>
+
+                                {convidado.data_hora_envio && (
+                                  <span>
+                                    <strong>Envio importado:</strong>{" "}
+                                    {formatarDataHoraCurta(convidado.data_hora_envio) || convidado.data_hora_envio}
+                                  </span>
+                                )}
+
+                                {convidado.data_hora_rsvp && (
+                                  <span>
+                                    <strong>RSVP importado:</strong>{" "}
+                                    {formatarDataHoraCurta(convidado.data_hora_rsvp) || convidado.data_hora_rsvp}
+                                  </span>
+                                )}
+                              </div>
+                            </details>
+                          )}
+
                           {convidado.observacoes && (
                             <p
                               style={{
@@ -1729,20 +1945,23 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
                             <EnvioLinha
                               label="Convite"
-                              status={convidado.status_envio_convite || convidado.status_envio}
-                              data={convidado.data_envio_convite}
-                              origem={
-                                convidado.status_envio_convite === "enviado" &&
-                                convidado.status_envio === "enviado"
-                                  ? "Enviado pelo Card do Convidado"
-                                  : undefined
-                              }
+                              status={getStatusConviteExibicao(convidado)}
+                              data={getDataConviteExibicao(convidado)}
+                              origem={getOrigemConviteExibicao(convidado)}
                             />
 
                             <EnvioLinha
                               label="Lembrete RSVP"
-                              status={convidado.status_envio_lembrete_rsvp}
-                              data={convidado.data_envio_lembrete_rsvp}
+                              status={
+                                convidado.status_rsvp === "confirmado"
+                                  ? "nao_necessario"
+                                  : convidado.status_envio_lembrete_rsvp
+                              }
+                              data={
+                                convidado.status_rsvp === "confirmado"
+                                  ? null
+                                  : convidado.data_envio_lembrete_rsvp
+                              }
                             />
 
                             <EnvioLinha
@@ -1790,374 +2009,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             </button>
                           </div>
                         </div>
-
-                        {editandoId === convidado.id && (
-                          <div style={inlineEditPanelStyle}>
-                            <div style={inlineEditHeaderStyle}>
-                              <div>
-                                <div style={sectionKickerStyle}>Atualizar cadastro</div>
-                                <h2 style={cardTitleStyle}>Editar convidado</h2>
-                              </div>
-
-                              <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
-                                Fechar
-                              </button>
-                            </div>
-
-<div style={stackedFormStyle}>
-            <section style={formBlockCardStyle}>
-              <div style={formBlockHeaderStyle}>
-                <span>01</span>
-                <div>
-                  <strong>Dados do convidado</strong>
-                  <p>Informe os dados principais de quem estará no evento.</p>
-                </div>
-              </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Nome do convidado</span>
-                  <input
-                    value={form.nome}
-                    onChange={(event) => updateForm("nome", event.target.value)}
-                    placeholder="Ex: Maria Silva"
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Telefone do convidado</span>
-                  <input
-                    value={form.telefone}
-                    onChange={(event) => updateForm("telefone", event.target.value)}
-                    placeholder="Ex: (22) 99999-9999"
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>E-mail</span>
-                  <input
-                    value={form.email}
-                    onChange={(event) => updateForm("email", event.target.value)}
-                    placeholder="email@email.com"
-                    style={inputStyle}
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section style={formBlockCardStyle}>
-              <div style={formBlockHeaderStyle}>
-                <span>02</span>
-                <div>
-                  <strong>Perfil do convidado</strong>
-                  <p>Defina se é adulto ou criança. Quando for criança sem grupo, informe quem receberá o convite.</p>
-                </div>
-              </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Tipo de convidado</span>
-                  <select
-                    value={form.crianca === "sim" ? "crianca" : "adulto"}
-                    onChange={(event) => {
-                      const isCrianca = event.target.value === "crianca";
-                      setForm((current) => ({
-                        ...current,
-                        crianca: isCrianca ? "sim" : "",
-                        idade_crianca: isCrianca ? current.idade_crianca : "",
-                        responsavel: isCrianca ? current.responsavel : "",
-                        responsavel_telefone: isCrianca ? current.responsavel_telefone : "",
-                        mae: isCrianca ? current.mae : "",
-                        contato_principal:
-                          isCrianca && !current.grupo.trim() ? false : current.contato_principal,
-                        recebe_convite:
-                          isCrianca && !current.grupo.trim() && current.responsavel.trim()
-                            ? true
-                            : current.recebe_convite,
-                      }));
-                    }}
-                    style={inputStyle}
-                  >
-                    <option value="adulto">Adulto</option>
-                    <option value="crianca">Criança</option>
-                  </select>
-                </label>
-
-                {form.crianca === "sim" && (
-                  <label style={fieldStyle}>
-                    <span>Idade da criança</span>
-                    <input
-                      value={form.idade_crianca}
-                      onChange={(event) =>
-                        updateForm("idade_crianca", event.target.value)
-                      }
-                      placeholder="Ex: 7"
-                      type="number"
-                      min="0"
-                      style={inputStyle}
-                    />
-                  </label>
-                )}
-              </div>
-
-              {form.crianca === "sim" && !form.grupo.trim() && (
-                <div style={responsavelSubBlockStyle}>
-                  <div style={subBlockHeaderStyle}>
-                    <strong>Responsável pelo envio</strong>
-                    <span>
-                      Criança sem grupo/família: o convite será enviado para este responsável.
-                    </span>
-                  </div>
-
-                  <div style={formBlockGridStyle}>
-                    <label style={fieldStyle}>
-                      <span>Nome do responsável</span>
-                      <input
-                        value={form.responsavel}
-                        onChange={(event) => {
-                          const responsavel = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            responsavel,
-                            mae: responsavel,
-                            crianca: "sim",
-                            recebe_convite: Boolean(responsavel.trim()),
-                            contato_principal: false,
-                            tipo_convite: "individual",
-                          }));
-                        }}
-                        placeholder="Ex: Jessica Amaral"
-                        style={inputStyle}
-                      />
-                    </label>
-
-                    <label style={fieldStyle}>
-                      <span>Telefone do responsável</span>
-                      <input
-                        value={form.responsavel_telefone}
-                        onChange={(event) =>
-                          updateForm("responsavel_telefone", event.target.value)
-                        }
-                        placeholder="Ex: (22) 99999-9999"
-                        style={inputStyle}
-                      />
-                    </label>
-                  </div>
-
-                  <div style={formBlockGridStyle}>
-                    <label style={toggleFieldStyle}>
-                      <input
-                        type="checkbox"
-                        checked={form.recebe_convite}
-                        onChange={(event) =>
-                          updateFormBoolean("recebe_convite", event.target.checked)
-                        }
-                        style={checkboxInputStyle}
-                      />
-                      <div style={toggleTextStyle}>
-                        <strong>Recebe comunicação</strong>
-                        <span>Usado no envio: o responsável recebe o convite/comunicação da criança.</span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section style={formBlockCardStyle}>
-              <div style={formBlockHeaderStyle}>
-                <span>03</span>
-                <div>
-                  <strong>Perfil do convite</strong>
-                  <p>Defina se este convite será individual ou para um grupo/família. Os campos de grupo aparecem somente quando necessário.</p>
-                </div>
-              </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Tipo do convite</span>
-                  <select
-                    value={form.tipo_convite}
-                    onChange={(event) => {
-                      const tipo = event.target.value;
-
-                      setForm((current) => ({
-                        ...current,
-                        tipo_convite: tipo,
-                        grupo: tipo === "grupo" ? current.grupo : "",
-                        contato_principal: tipo === "grupo" ? current.contato_principal : false,
-                        recebe_convite:
-                          tipo === "individual"
-                            ? true
-                            : current.recebe_convite,
-                      }));
-                    }}
-                    style={inputStyle}
-                  >
-                    <option value="individual">Individual</option>
-                    <option value="grupo">Grupo / Família</option>
-                  </select>
-                </label>
-              </div>
-
-              {form.tipo_convite === "grupo" && (
-                <>
-                  <div style={formBlockGridStyle}>
-                    <label style={fieldStyle}>
-                      <span>Nome do grupo/família</span>
-                      <input
-                        value={form.grupo}
-                        onChange={(event) => {
-                          const grupo = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            grupo,
-                            tipo_convite: "grupo",
-                          }));
-                        }}
-                        placeholder="Ex: Família Silva"
-                        style={inputStyle}
-                      />
-                    </label>
-                  </div>
-
-                  <div style={formBlockGridStyle}>
-                    <label style={toggleFieldStyle}>
-                      <input
-                        type="checkbox"
-                        checked={form.contato_principal}
-                        onChange={(event) => {
-                          const checked = event.target.checked;
-                          setForm((current) => ({
-                            ...current,
-                            contato_principal: checked,
-                            recebe_convite: checked ? true : current.recebe_convite,
-                          }));
-                        }}
-                        style={checkboxInputStyle}
-                      />
-                      <div style={toggleTextStyle}>
-                        <strong>Contato principal</strong>
-                        <span>Identifica quem representa o grupo/família no envio.</span>
-                      </div>
-                    </label>
-
-                    <label style={toggleFieldStyle}>
-                      <input
-                        type="checkbox"
-                        checked={form.recebe_convite}
-                        onChange={(event) =>
-                          updateFormBoolean("recebe_convite", event.target.checked)
-                        }
-                        style={checkboxInputStyle}
-                      />
-                      <div style={toggleTextStyle}>
-                        <strong>Recebe comunicação</strong>
-                        <span>Usado no envio: esta pessoa recebe o convite/comunicação do grupo.</span>
-                      </div>
-                    </label>
-                  </div>
-                </>
-              )}
-            </section>
-
-            <section style={formBlockCardStyle}>
-              <div style={formBlockHeaderStyle}>
-                <span>04</span>
-                <div>
-                  <strong>Extras do evento</strong>
-                  <p>Campos opcionais para brindes, kits, observações internas e detalhes operacionais.</p>
-                </div>
-              </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Tamanho do chinelo</span>
-                  <input
-                    value={form.tamanho_chinelo}
-                    onChange={(event) => updateForm("tamanho_chinelo", event.target.value)}
-                    placeholder="Ex: 35/36"
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-                  <span>Observações</span>
-                  <textarea
-                    value={form.observacoes}
-                    onChange={(event) =>
-                      updateForm("observacoes", event.target.value)
-                    }
-                    placeholder="Observações internas sobre o convidado"
-                    style={textareaStyle}
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section style={formBlockCardStyle}>
-              <div style={formBlockHeaderStyle}>
-                <span>05</span>
-                <div>
-                  <strong>Status</strong>
-                  <p>Acompanhe o RSVP e o andamento do envio deste convidado.</p>
-                </div>
-              </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Status RSVP</span>
-                  <select
-                    value={form.status_rsvp}
-                    onChange={(event) =>
-                      updateForm("status_rsvp", event.target.value)
-                    }
-                    style={inputStyle}
-                  >
-                    <option value="pendente">Pendente</option>
-                    <option value="confirmado">Confirmado</option>
-                    <option value="nao">Não vai</option>
-                  </select>
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Status envio</span>
-                  <select
-                    value={form.status_envio}
-                    onChange={(event) =>
-                      updateForm("status_envio", event.target.value)
-                    }
-                    style={inputStyle}
-                  >
-                    <option value="pendente">Pendente</option>
-                    <option value="enviado">Enviado</option>
-                    <option value="erro">Erro</option>
-                  </select>
-                </label>
-              </div>
-            </section>
-          </div>
-
-          <div style={formActionsStyle}>
-            <button
-              onClick={salvarConvidado}
-              disabled={loading}
-              style={buttonStyle}
-            >
-              {loading
-                ? "Salvando..."
-                : editandoId
-                  ? "Salvar alterações"
-                  : "Criar convidado"}
-            </button>
-            <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
-              Cancelar
-            </button>
-          </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -2224,7 +2075,7 @@ function EnvioLinha({
   data: string | null;
   origem?: string;
 }) {
-  const enviado = status === "enviado";
+  const enviado = status === "enviado" || status === "enviado_manual";
 
   return (
     <div style={envioLinhaStyle}>
@@ -2257,6 +2108,8 @@ function labelRsvp(status: string | null) {
 
 function labelEnvio(status: string | null) {
   if (status === "enviado") return "Enviado";
+  if (status === "enviado_manual") return "Enviado Card Convidado";
+  if (status === "nao_necessario") return "Não necessário";
   if (status === "erro") return "Erro";
   return "Pendente";
 }
@@ -2306,6 +2159,22 @@ function getEnvioStyle(status: string | null): CSSProperties {
       ...statusStyle,
       background: "#dbeafe",
       color: "#1d4ed8",
+    };
+  }
+
+  if (status === "enviado_manual") {
+    return {
+      ...statusStyle,
+      background: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (status === "nao_necessario") {
+    return {
+      ...statusStyle,
+      background: "#ecfccb",
+      color: "#3f6212",
     };
   }
 
@@ -2813,6 +2682,58 @@ const toggleTextStyle: CSSProperties = {
   lineHeight: 1.22,
 };
 
+const importInfoStyle: CSSProperties = {
+  display: "grid",
+  gap: 0,
+  marginTop: 12,
+  borderRadius: 16,
+  border: "1px solid var(--accent-border)",
+  background: "linear-gradient(135deg, var(--group-soft), var(--card-bg))",
+  color: "var(--text-secondary)",
+  fontSize: 12,
+  lineHeight: 1.35,
+  overflow: "hidden",
+};
+
+const importInfoSummaryStyle: CSSProperties = {
+  listStyle: "none",
+  cursor: "pointer",
+  padding: 13,
+};
+
+const importInfoHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  color: "var(--text)",
+};
+
+const importInfoHintStyle: CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 11,
+  fontWeight: 800,
+};
+
+const importBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: "#ede9fe",
+  color: "#7c3aed",
+  fontSize: 11,
+  fontWeight: 900,
+};
+
+const importInfoGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
+  gap: "6px 12px",
+  padding: "0 13px 13px",
+};
+
 const sendIdentityStyle: CSSProperties = {
   display: "flex",
   gap: 8,
@@ -2911,26 +2832,6 @@ const envioOrigemCardStyle: CSSProperties = {
   fontWeight: 900,
   marginTop: -2,
   textAlign: "left",
-};
-
-const inlineEditPanelStyle: CSSProperties = {
-  flex: "1 1 100%",
-  width: "100%",
-  marginTop: 20,
-  padding: "clamp(16px, 3vw, 22px)",
-  borderRadius: 24,
-  border: "1px solid var(--accent-border)",
-  background: "linear-gradient(135deg, var(--card-bg), var(--soft-bg))",
-  boxShadow: "0 16px 44px rgba(15,23,42,0.08)",
-};
-
-const inlineEditHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 18,
-  flexWrap: "wrap",
 };
 
 const sendConfirmOverlayStyle: CSSProperties = {
