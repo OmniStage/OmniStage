@@ -80,7 +80,7 @@ export default function CartaoActions({
               lineHeight: 1.45,
             }}
           >
-            Envie pelo WhatsApp ou abra o cartão individual para salvar.
+            Envie pelo WhatsApp, visualize ou abra o cartão individual para salvar.
           </p>
 
           <div style={{ display: "grid", gap: 10 }}>
@@ -91,10 +91,12 @@ export default function CartaoActions({
                 localStorage.getItem(`cartao_enviado_${integrante.token}`) ===
                   "1";
 
-             const linkSalvar = integrante.token
-  ? `${siteUrl}/cartao/${encodeURIComponent(
-      integrante.token,
-    )}?save=1`
+              const linkVisualizar = integrante.token
+                ? `${siteUrl}/cartao/${encodeURIComponent(integrante.token)}?preview=1`
+                : "#";
+
+              const linkSalvar = integrante.token
+                ? `${siteUrl}/cartao/${encodeURIComponent(integrante.token)}?save=1`
                 : "#";
 
               return (
@@ -133,9 +135,10 @@ export default function CartaoActions({
 
                   <div
                     style={{
-                      display: "flex",
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(105px, 1fr))",
                       gap: 8,
-                      flexWrap: "wrap",
                     }}
                   >
                     <button
@@ -143,8 +146,6 @@ export default function CartaoActions({
                       onClick={() => abrirWhatsAppIntegrante(integrante)}
                       disabled={!integrante.token}
                       style={{
-                        flex: 1,
-                        minWidth: 110,
                         border: "none",
                         borderRadius: 999,
                         padding: "10px 12px",
@@ -161,12 +162,34 @@ export default function CartaoActions({
                     </button>
 
                     <a
+                      href={linkVisualizar}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        borderRadius: 999,
+                        padding: "10px 12px",
+                        background:
+                          "linear-gradient(180deg, #ffffff, #dbeafe)",
+                        color: "#0d1d3d",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        textDecoration: "none",
+                        textAlign: "center",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: integrante.token ? 1 : 0.45,
+                        pointerEvents: integrante.token ? "auto" : "none",
+                      }}
+                    >
+                      Visualizar
+                    </a>
+
+                    <a
                       href={linkSalvar}
                       target="_blank"
                       rel="noreferrer"
                       style={{
-                        flex: 1,
-                        minWidth: 110,
                         borderRadius: 999,
                         padding: "10px 12px",
                         background:
