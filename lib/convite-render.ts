@@ -1,4 +1,4 @@
-xport type EventoConvite = {
+export type EventoConvite = {
   id: string;
   nome: string;
   data_evento: string | null;
