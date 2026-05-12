@@ -195,6 +195,9 @@ export default function ConvidadosPage() {
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
   const [systemDark, setSystemDark] = useState(false);
+  const [envioConvitePendenteConfirmacao, setEnvioConvitePendenteConfirmacao] =
+    useState<Convidado | null>(null);
+  const [confirmandoEnvioConvite, setConfirmandoEnvioConvite] = useState(false);
 
   const [importAberto, setImportAberto] = useState(false);
   const [importText, setImportText] = useState("");
@@ -400,17 +403,15 @@ export default function ConvidadosPage() {
     return criarLinkWhatsApp({ telefone, mensagem });
   }
 
-  function gerarLinkWhatsApp(convidado: Convidado) {
-    const telefone = normalizarTelefone(
-      convidado.telefone || convidado.responsavel_telefone,
-    );
+  function getTelefoneEnvioConvidado(convidado: Convidado) {
+    return normalizarTelefone(convidado.telefone || convidado.responsavel_telefone);
+  }
 
-    if (!telefone) return "";
-
+  function montarMensagemConviteWhatsApp(convidado: Convidado) {
     const eventoAtual = getEventoDoConvidado(convidado);
     const linkConvite = `${window.location.origin}${gerarLinkConvite(convidado)}`;
 
-    const mensagem = `Olá ${convidado.nome || "Convidado"}
+    return limparTextoWhatsApp(`Olá ${convidado.nome || "Convidado"}
 
 Você está convidado(a) para o evento ${eventoAtual?.nome || ""}.
 
@@ -418,9 +419,133 @@ Acesse seu convite digital e confirme presença:
 ${linkConvite}
 
 Com carinho,
-${eventoAtual?.nome || "OmniStage"}`;
+${eventoAtual?.nome || "OmniStage"}`);
+  }
 
-    return criarLinkWhatsApp({ telefone, mensagem });
+  function gerarLinkWhatsApp(convidado: Convidado) {
+    const telefone = getTelefoneEnvioConvidado(convidado);
+
+    if (!telefone) return "";
+
+    return criarLinkWhatsApp({
+      telefone,
+      mensagem: montarMensagemConviteWhatsApp(convidado),
+    });
+  }
+
+  function abrirWhatsAppConvitePeloCard(convidado: Convidado) {
+    const linkWhatsApp = gerarLinkWhatsApp(convidado);
+
+    if (!linkWhatsApp) {
+      alert("Este convidado não tem telefone próprio nem telefone do responsável.");
+      return;
+    }
+
+    const conviteJaEnviado =
+      convidado.status_envio_convite === "enviado" ||
+      convidado.status_envio === "enviado";
+
+    if (conviteJaEnviado) {
+      const confirmarReenvio = window.confirm(
+        "Este convite já está marcado como enviado. Deseja abrir o WhatsApp mesmo assim?",
+      );
+
+      if (!confirmarReenvio) return;
+    }
+
+    window.open(linkWhatsApp, "_blank", "noopener,noreferrer");
+    setEnvioConvitePendenteConfirmacao(convidado);
+  }
+
+  async function confirmarEnvioConvitePeloCard() {
+    if (!envioConvitePendenteConfirmacao || confirmandoEnvioConvite) return;
+
+    const convidado = envioConvitePendenteConfirmacao;
+    const agora = new Date().toISOString();
+    const telefone = getTelefoneEnvioConvidado(convidado);
+    const mensagem = montarMensagemConviteWhatsApp(convidado);
+    const eventoDoConvidado = convidado.evento_id || eventoId;
+
+    if (!tenantId || !eventoDoConvidado) {
+      alert("Não foi possível identificar a empresa ou o evento deste convidado.");
+      return;
+    }
+
+    if (!telefone) {
+      alert("Este convidado não tem telefone próprio nem telefone do responsável.");
+      return;
+    }
+
+    setConfirmandoEnvioConvite(true);
+
+    try {
+      const { error } = await supabase
+        .from("convidados")
+        .update({
+          status_envio: "enviado",
+          status_envio_convite: "enviado",
+          data_envio_convite: agora,
+        })
+        .eq("id", convidado.id)
+        .eq("tenant_id", tenantId)
+        .eq("evento_id", eventoDoConvidado);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      await supabase.from("envio_historico").insert({
+        evento_id: eventoDoConvidado,
+        convidado_id: convidado.id,
+        tipo_envio: "convite",
+        canal: "whatsapp",
+        telefone,
+        mensagem,
+        status: "enviado",
+        detalhe: "Enviado pelo card do convidado.",
+      });
+
+      await supabase
+        .from("envio_fila")
+        .update({
+          status: "enviado",
+          processado_em: agora,
+          updated_at: agora,
+        })
+        .eq("evento_id", eventoDoConvidado)
+        .eq("convidado_id", convidado.id)
+        .eq("tipo_envio", "convite")
+        .eq("status", "pendente");
+
+      setConvidados((current) =>
+        current.map((item) =>
+          item.id === convidado.id
+            ? {
+                ...item,
+                status_envio: "enviado",
+                status_envio_convite: "enviado",
+                data_envio_convite: agora,
+              }
+            : item,
+        ),
+      );
+
+      setEnvioConvitePendenteConfirmacao(null);
+      alert("Convite marcado como enviado pelo card do convidado.");
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao marcar convite como enviado.",
+      );
+    } finally {
+      setConfirmandoEnvioConvite(false);
+    }
+  }
+
+  function cancelarConfirmacaoEnvioConvitePeloCard() {
+    setEnvioConvitePendenteConfirmacao(null);
+    setConfirmandoEnvioConvite(false);
   }
 
   async function copiarNome(nome: string) {
@@ -1512,14 +1637,13 @@ ${eventoAtual?.nome || "OmniStage"}`;
                             </button>
 
                             {linkWhatsApp ? (
-                              <a
-                                href={linkWhatsApp}
-                                target="_blank"
-                                rel="noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => abrirWhatsAppConvitePeloCard(convidado)}
                                 style={goldButtonStyle}
                               >
                                 WhatsApp
-                              </a>
+                              </button>
                             ) : (
                               <button
                                 disabled
@@ -1607,6 +1731,12 @@ ${eventoAtual?.nome || "OmniStage"}`;
                               label="Convite"
                               status={convidado.status_envio_convite || convidado.status_envio}
                               data={convidado.data_envio_convite}
+                              origem={
+                                convidado.status_envio_convite === "enviado" &&
+                                convidado.status_envio === "enviado"
+                                  ? "Enviado pelo Card do Convidado"
+                                  : undefined
+                              }
                             />
 
                             <EnvioLinha
@@ -1669,6 +1799,48 @@ ${eventoAtual?.nome || "OmniStage"}`;
           })}
         </div>
       </section>
+
+      {envioConvitePendenteConfirmacao && (
+        <div style={sendConfirmOverlayStyle}>
+          <div style={sendConfirmModalStyle}>
+            <span style={sendConfirmEyebrowStyle}>WhatsApp aberto</span>
+
+            <h3 style={sendConfirmTitleStyle}>
+              Você enviou o convite?
+            </h3>
+
+            <p style={sendConfirmTextStyle}>
+              Confirme apenas se a mensagem foi enviada no WhatsApp para {" "}
+              <strong>{envioConvitePendenteConfirmacao.nome || "este convidado"}</strong>.
+              Ao confirmar, o sistema marca como enviado, registra o horário e retira este convidado da fila “A enviar”.
+            </p>
+
+            <div style={sendConfirmActionsStyle}>
+              <button
+                type="button"
+                onClick={cancelarConfirmacaoEnvioConvitePeloCard}
+                disabled={confirmandoEnvioConvite}
+                style={sendCancelButtonStyle}
+              >
+                Não enviei
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmarEnvioConvitePeloCard}
+                disabled={confirmandoEnvioConvite}
+                style={
+                  confirmandoEnvioConvite
+                    ? { ...sendConfirmButtonStyle, opacity: 0.65, cursor: "wait" }
+                    : sendConfirmButtonStyle
+                }
+              >
+                {confirmandoEnvioConvite ? "Marcando..." : "Sim, marque como enviado"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -1677,10 +1849,12 @@ function EnvioLinha({
   label,
   status,
   data,
+  origem,
 }: {
   label: string;
   status: string | null;
   data: string | null;
+  origem?: string;
 }) {
   const enviado = status === "enviado";
 
@@ -1695,6 +1869,12 @@ function EnvioLinha({
       {enviado && data && (
         <small style={envioLinhaDataStyle}>
           {formatarDataHoraCurta(data)}
+        </small>
+      )}
+
+      {enviado && origem && (
+        <small style={envioOrigemCardStyle}>
+          {origem}
         </small>
       )}
     </div>
@@ -2347,6 +2527,98 @@ const statusStyle: CSSProperties = {
   borderRadius: 999,
   fontWeight: 800,
   fontSize: 12,
+};
+
+const envioOrigemCardStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  justifySelf: "start",
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "#dcfce7",
+  color: "#166534",
+  fontSize: 11,
+  fontWeight: 900,
+  marginTop: -2,
+  textAlign: "left",
+};
+
+const sendConfirmOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  display: "grid",
+  placeItems: "center",
+  padding: 20,
+  background: "rgba(15,23,42,0.36)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+};
+
+const sendConfirmModalStyle: CSSProperties = {
+  width: "min(520px, 100%)",
+  borderRadius: 26,
+  padding: 24,
+  background: "#ffffff",
+  border: "1px solid rgba(226,232,240,0.95)",
+  boxShadow: "0 28px 90px rgba(15,23,42,0.26)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const sendConfirmEyebrowStyle: CSSProperties = {
+  color: "#2563eb",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+};
+
+const sendConfirmTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 24,
+  fontWeight: 950,
+};
+
+const sendConfirmTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#64748b",
+  fontSize: 15,
+  lineHeight: 1.5,
+  fontWeight: 700,
+};
+
+const sendConfirmActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 8,
+};
+
+const sendCancelButtonStyle: CSSProperties = {
+  border: "1px solid rgba(148,163,184,0.5)",
+  background: "#ffffff",
+  color: "#334155",
+  padding: "12px 15px",
+  borderRadius: 999,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const sendConfirmButtonStyle: CSSProperties = {
+  border: "none",
+  background: "#16a34a",
+  color: "#ffffff",
+  padding: "12px 16px",
+  borderRadius: 999,
+  fontWeight: 950,
+  cursor: "pointer",
+  boxShadow: "0 12px 30px rgba(22,163,74,0.22)",
 };
 
 const emptyStyle: CSSProperties = {
