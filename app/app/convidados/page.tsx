@@ -2967,3 +2967,4 @@ const emptyStyle: CSSProperties = {
   borderRadius: 12,
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
+};
