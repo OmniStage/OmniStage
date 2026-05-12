@@ -7,7 +7,16 @@ export type EventoConvite = {
   tenant_id?: string | null;
   invite_template_id?: string | null;
   created_at?: string | null;
+
+  // Campos antigos/compatíveis
   horario?: string | null;
+
+  // Campos atuais do cadastro do evento
+  data_inicio?: string | null;
+  hora_inicio?: string | null;
+  data_termino?: string | null;
+  hora_termino?: string | null;
+
   endereco?: string | null;
   mapa_url?: string | null;
 
@@ -55,28 +64,55 @@ export type ConviteTemplateVisual = {
   visual_config?: any;
 };
 
+export function obterDataEvento(evento: EventoConvite | null) {
+  return evento?.data_inicio || evento?.data_evento || null;
+}
+
+export function obterHorarioEvento(evento: EventoConvite | null) {
+  return evento?.hora_inicio || evento?.horario || null;
+}
+
+export function obterHorarioTerminoEvento(evento: EventoConvite | null) {
+  return evento?.hora_termino || null;
+}
+
+export function obterDataTerminoEvento(evento: EventoConvite | null) {
+  return evento?.data_termino || obterDataEvento(evento);
+}
+
 export function formatarData(data: string | null) {
   if (!data) return "";
 
-  const date = new Date(`${data}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return data;
+  const limpa = String(data).trim();
 
-  // Formato curto igual ao admin: DD/MM/YYYY
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
+  // Evita new Date() para não sofrer conversão de fuso no servidor/navegador.
+  const matchIso = limpa.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (matchIso) {
+    const [, ano, mes, dia] = matchIso;
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  const matchBr = limpa.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (matchBr) return limpa.slice(0, 10);
+
+  return limpa;
 }
 
 export function normalizarHorario(horario: string | null | undefined) {
   if (!horario) return "20:00";
 
-  const match = horario.match(/(\d{1,2})(?::|h)?(\d{2})?/i);
+  const texto = String(horario).trim();
+
+  // Aceita HH:mm:ss, HH:mm, HHhmm, HHh e também ISO com T19:30.
+  const matchIso = texto.match(/T(\d{1,2}):(\d{2})/i);
+  const match = matchIso || texto.match(/(\d{1,2})(?::|h)?(\d{2})?/i);
   if (!match) return "20:00";
 
-  const horas = match[1].padStart(2, "0");
-  const minutos = (match[2] || "00").padStart(2, "0");
+  const horasNumero = Math.min(23, Math.max(0, Number(match[1])));
+  const minutosNumero = Math.min(59, Math.max(0, Number(match[2] || "00")));
+
+  const horas = String(horasNumero).padStart(2, "0");
+  const minutos = String(minutosNumero).padStart(2, "0");
 
   return `${horas}:${minutos}`;
 }
@@ -89,19 +125,42 @@ export function formatarHorario(horario: string | null | undefined) {
 }
 
 export function criarDataEvento(evento: EventoConvite | null) {
-  if (!evento?.data_evento) return null;
+  const data = obterDataEvento(evento);
+  if (!data) return null;
 
-  const horario = normalizarHorario(
-    (evento as any)?.hora_inicio ||
-    evento?.horario
-  );
-
-  // IMPORTANTE:
-  // sem timezone fixo (-03:00),
-  // para evitar conversão dupla no navegador
-  const date = new Date(`${evento.data_evento}T${horario}:00`);
+  // Só usa Date para contador/calendário. A exibição da hora continua sendo texto puro.
+  const horario = normalizarHorario(obterHorarioEvento(evento));
+  const date = new Date(`${data}T${horario}:00`);
 
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function criarDataTerminoEvento(evento: EventoConvite | null) {
+  const dataInicio = criarDataEvento(evento);
+  if (!evento || !dataInicio) return null;
+
+  const horaTermino = obterHorarioTerminoEvento(evento);
+
+  if (horaTermino) {
+    const dataFim = obterDataTerminoEvento(evento);
+    const horarioFim = normalizarHorario(horaTermino);
+    const date = new Date(`${dataFim}T${horarioFim}:00`);
+
+    if (!Number.isNaN(date.getTime())) {
+      const dataTerminoInformada = Boolean(evento.data_termino);
+
+      // Se foi informada somente a hora de término e ela é menor/igual ao início,
+      // considera que o evento termina na madrugada do dia seguinte.
+      if (!dataTerminoInformada && date.getTime() <= dataInicio.getTime()) {
+        date.setDate(date.getDate() + 1);
+      }
+
+      return date;
+    }
+  }
+
+  // Fallback antigo para eventos sem hora de término cadastrada.
+  return new Date(dataInicio.getTime() + 4 * 60 * 60 * 1000);
 }
 
 function calcularDiasParaEvento(dataEvento: string | null | undefined): number {
@@ -160,7 +219,8 @@ function criarCalendarUrl(evento: EventoConvite | null) {
   const dataEvento = criarDataEvento(evento);
   if (!evento || !dataEvento) return "";
 
-  const end = new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000);
+  const end = criarDataTerminoEvento(evento);
+  if (!end) return "";
 
   function toGoogleDate(date: Date) {
     return date
@@ -271,10 +331,18 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
   if (!evento) return html;
 
   const dataEvento = criarDataEvento(evento);
-  const dataFormatada = formatarData(evento.data_evento);
-  const horarioFormatado = formatarHorario(evento.horario);
+  const dataTerminoEvento = criarDataTerminoEvento(evento);
+  const dataFormatada = formatarData(obterDataEvento(evento));
+  const dataTerminoFormatada = evento.data_termino
+    ? formatarData(evento.data_termino)
+    : "";
+  const horarioFormatado = formatarHorario(obterHorarioEvento(evento));
+  const horarioTerminoFormatado = obterHorarioTerminoEvento(evento)
+    ? formatarHorario(obterHorarioTerminoEvento(evento))
+    : "";
   const local = evento.local || evento.endereco || "";
   const eventoDataIso = dataEvento?.toISOString() || "";
+  const eventoTerminoIso = dataTerminoEvento?.toISOString() || "";
   const countdown = calcularCountdown(dataEvento);
 
   const backgroundEvento =
@@ -303,6 +371,19 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     HORA_EVENTO: horarioFormatado,
     horario: horarioFormatado,
     HORARIO: horarioFormatado,
+
+    data_termino: dataTerminoFormatada,
+    DATA_TERMINO: dataTerminoFormatada,
+    data_termino_evento: dataTerminoFormatada,
+    DATA_TERMINO_EVENTO: dataTerminoFormatada,
+    hora_termino: horarioTerminoFormatado,
+    HORA_TERMINO: horarioTerminoFormatado,
+    horario_termino: horarioTerminoFormatado,
+    HORARIO_TERMINO: horarioTerminoFormatado,
+    hora_termino_evento: horarioTerminoFormatado,
+    HORA_TERMINO_EVENTO: horarioTerminoFormatado,
+    horario_termino_evento: horarioTerminoFormatado,
+    HORARIO_TERMINO_EVENTO: horarioTerminoFormatado,
 
     data_horario_evento: [dataFormatada, horarioFormatado]
       .filter(Boolean)
@@ -359,6 +440,8 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
 
     data_iso_evento: eventoDataIso,
     DATA_ISO_EVENTO: eventoDataIso,
+    data_iso_termino_evento: eventoTerminoIso,
+    DATA_ISO_TERMINO_EVENTO: eventoTerminoIso,
 
     dias_para_evento: String(countdown.dias),
     DIAS_PARA_EVENTO: String(countdown.dias),
@@ -375,6 +458,8 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     .replaceAll("Valentina XV", evento.nome || "Evento")
     .replaceAll("Guerrah Hall", local || "Local do evento")
     .replaceAll("16 de maio de 2026", dataFormatada || "Data do evento")
+    .replaceAll("19h30", horarioFormatado || "Horário")
+    .replaceAll("19:30", horarioFormatado || "Horário")
     .replaceAll("20h", horarioFormatado || "Horário")
     .replaceAll("21h", horarioFormatado || "Horário")
     .replace(
@@ -392,8 +477,8 @@ export function preencherTemplate(html: string, evento: EventoConvite | null) {
     .replace(
       /const EVENT_END = new Date\(["'].*?["']\);/g,
       `const EVENT_END = new Date(${JSON.stringify(
-        dataEvento
-          ? new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000).toISOString()
+        dataTerminoEvento
+          ? dataTerminoEvento.toISOString()
           : ""
       )});`
     );
@@ -449,12 +534,18 @@ function renderizarConteudoDinamico(
 
 function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | null) {
   // Formatar dados do evento para substituir placeholders
-  const dataFormatada = formatarData(evento?.data_evento || null);
-  const horarioFormatado = formatarHorario(evento?.horario);
+  const dataFormatada = formatarData(obterDataEvento(evento));
+  const dataTerminoFormatada = evento?.data_termino
+    ? formatarData(evento.data_termino)
+    : "";
+  const horarioFormatado = formatarHorario(obterHorarioEvento(evento));
+  const horarioTerminoFormatado = obterHorarioTerminoEvento(evento)
+    ? formatarHorario(obterHorarioTerminoEvento(evento))
+    : "";
   const localEvento = evento?.local || "";
   const enderecoEvento = evento?.endereco || "";
   const nomeEvento = evento?.nome || "Nome do Evento";
-  const diasParaEvento = calcularDiasParaEvento(evento?.data_evento);
+  const diasParaEvento = calcularDiasParaEvento(obterDataEvento(evento));
   
   // Funcao para substituir placeholders no conteudo (igual ao admin)
   function substituirPlaceholders(content: string): string {
@@ -464,6 +555,12 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
       .replaceAll("{{data_evento}}", dataFormatada)
       .replaceAll("{{hora_evento}}", horarioFormatado)
       .replaceAll("{{horario_evento}}", horarioFormatado)
+      .replaceAll("{{hora_termino}}", horarioTerminoFormatado)
+      .replaceAll("{{horario_termino}}", horarioTerminoFormatado)
+      .replaceAll("{{hora_termino_evento}}", horarioTerminoFormatado)
+      .replaceAll("{{horario_termino_evento}}", horarioTerminoFormatado)
+      .replaceAll("{{data_termino}}", dataTerminoFormatada)
+      .replaceAll("{{data_termino_evento}}", dataTerminoFormatada)
       .replaceAll("{{local_evento}}", localEvento)
       .replaceAll("{{endereco_evento}}", enderecoEvento)
       .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
@@ -1049,10 +1146,15 @@ export function renderizarTemplateVisual(
 
 function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
   const dataEvento = criarDataEvento(evento);
-  const dataFormatada = formatarData(evento.data_evento);
-  const horarioFormatado = formatarHorario(evento.horario);
+  const dataTerminoEvento = criarDataTerminoEvento(evento);
+  const dataFormatada = formatarData(obterDataEvento(evento));
+  const horarioFormatado = formatarHorario(obterHorarioEvento(evento));
+  const horarioTerminoFormatado = obterHorarioTerminoEvento(evento)
+    ? formatarHorario(obterHorarioTerminoEvento(evento))
+    : "";
   const local = evento.local || evento.endereco || "";
   const eventTimestamp = dataEvento?.getTime() || 0;
+  const eventEndTimestamp = dataTerminoEvento?.getTime() || 0;
 
   const logoEvento = evento.logo_url || evento.logo_image || "";
   const backgroundEvento =
@@ -1065,12 +1167,14 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
         nome: evento.nome || "",
         data: dataFormatada,
         horario: horarioFormatado,
+        horarioTermino: horarioTerminoFormatado,
         local,
         mapa: evento.mapa_url || "",
         logo: logoEvento,
         fundo: backgroundEvento,
         musica: musicaEvento,
         timestamp: eventTimestamp,
+        endTimestamp: eventEndTimestamp,
       })};
 
       window.addEventListener("DOMContentLoaded", function () {
@@ -1222,7 +1326,9 @@ function aplicarCompatibilidadeTemplate(html: string, evento: EventoConvite) {
 
           if (calendarLink && eventData.nome && eventData.timestamp) {
             var start = new Date(eventData.timestamp);
-            var end = new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
+            var end = eventData.endTimestamp
+              ? new Date(eventData.endTimestamp)
+              : new Date(eventData.timestamp + 4 * 60 * 60 * 1000);
 
             function toGoogleDate(date) {
               return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
