@@ -482,9 +482,15 @@ ${eventoAtual?.nome || "OmniStage"}`);
       const { error } = await supabase
         .from("convidados")
         .update({
-          status_envio: "enviado",
-          status_envio_convite: "enviado",
+          status_envio: "enviado_manual",
+          status_envio_convite: "enviado_manual",
           data_envio_convite: agora,
+          ...(convidado.status_rsvp === "confirmado"
+            ? {
+                status_envio_lembrete_rsvp: "nao_necessario",
+                data_envio_lembrete_rsvp: null,
+              }
+            : {}),
         })
         .eq("id", convidado.id)
         .eq("tenant_id", tenantId)
@@ -502,7 +508,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         telefone,
         mensagem,
         status: "enviado",
-        detalhe: "Enviado pelo card do convidado.",
+        detalhe: "Enviado Card Convidado.",
       });
 
       await supabase
@@ -522,16 +528,22 @@ ${eventoAtual?.nome || "OmniStage"}`);
           item.id === convidado.id
             ? {
                 ...item,
-                status_envio: "enviado",
-                status_envio_convite: "enviado",
+                status_envio: "enviado_manual",
+                status_envio_convite: "enviado_manual",
                 data_envio_convite: agora,
+                ...(convidado.status_rsvp === "confirmado"
+                  ? {
+                      status_envio_lembrete_rsvp: "nao_necessario",
+                      data_envio_lembrete_rsvp: null,
+                    }
+                  : {}),
               }
             : item,
         ),
       );
 
       setEnvioConvitePendenteConfirmacao(null);
-      alert("Convite marcado como enviado pelo card do convidado.");
+      alert("Convite marcado como Enviado Card Convidado.");
     } catch (error) {
       alert(
         error instanceof Error
@@ -1732,17 +1744,25 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               status={convidado.status_envio_convite || convidado.status_envio}
                               data={convidado.data_envio_convite}
                               origem={
-                                convidado.status_envio_convite === "enviado" &&
-                                convidado.status_envio === "enviado"
-                                  ? "Enviado pelo Card do Convidado"
+                                convidado.status_envio_convite === "enviado_manual" ||
+                                convidado.status_envio === "enviado_manual"
+                                  ? "Enviado Card Convidado"
                                   : undefined
                               }
                             />
 
                             <EnvioLinha
                               label="Lembrete RSVP"
-                              status={convidado.status_envio_lembrete_rsvp}
-                              data={convidado.data_envio_lembrete_rsvp}
+                              status={
+                                convidado.status_rsvp === "confirmado"
+                                  ? "nao_necessario"
+                                  : convidado.status_envio_lembrete_rsvp
+                              }
+                              data={
+                                convidado.status_rsvp === "confirmado"
+                                  ? null
+                                  : convidado.data_envio_lembrete_rsvp
+                              }
                             />
 
                             <EnvioLinha
@@ -1856,7 +1876,7 @@ function EnvioLinha({
   data: string | null;
   origem?: string;
 }) {
-  const enviado = status === "enviado";
+  const enviado = status === "enviado" || status === "enviado_manual";
 
   return (
     <div style={envioLinhaStyle}>
@@ -1889,6 +1909,8 @@ function labelRsvp(status: string | null) {
 
 function labelEnvio(status: string | null) {
   if (status === "enviado") return "Enviado";
+  if (status === "enviado_manual") return "Enviado Card Convidado";
+  if (status === "nao_necessario") return "Não necessário";
   if (status === "erro") return "Erro";
   return "Pendente";
 }
@@ -1938,6 +1960,22 @@ function getEnvioStyle(status: string | null): CSSProperties {
       ...statusStyle,
       background: "#dbeafe",
       color: "#1d4ed8",
+    };
+  }
+
+  if (status === "enviado_manual") {
+    return {
+      ...statusStyle,
+      background: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (status === "nao_necessario") {
+    return {
+      ...statusStyle,
+      background: "#ecfccb",
+      color: "#3f6212",
     };
   }
 
