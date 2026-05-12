@@ -28,6 +28,10 @@ type Convidado = {
 
 type Evento = EventoConvite & {
   invite_template_id: string | null;
+  data_inicio?: string | null;
+  hora_inicio?: string | null;
+  data_termino?: string | null;
+  hora_termino?: string | null;
 };
 
 type Template = {
@@ -59,6 +63,45 @@ type RenderState =
 function toNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getHoraEvento(evento: Evento | null) {
+  return evento?.hora_inicio || evento?.horario || null;
+}
+
+function getHoraTerminoEvento(evento: Evento | null) {
+  return evento?.hora_termino || null;
+}
+
+function criarDataTerminoEvento(evento: Evento | null) {
+  const dataInicio = criarDataEvento(evento);
+  if (!evento || !dataInicio) return null;
+
+  const horaTermino = getHoraTerminoEvento(evento);
+
+  if (horaTermino) {
+    const dataFim = evento.data_termino || evento.data_evento;
+    const horarioFim = String(horaTermino || "").trim();
+    const horarioNormalizado = horarioFim.match(/^(\d{1,2})(?::|h)?(\d{2})?/i);
+
+    if (dataFim && horarioNormalizado) {
+      const horas = horarioNormalizado[1].padStart(2, "0");
+      const minutos = (horarioNormalizado[2] || "00").padStart(2, "0");
+      const date = new Date(`${dataFim}T${horas}:${minutos}:00`);
+
+      if (!Number.isNaN(date.getTime())) {
+        const dataTerminoInformada = Boolean(evento.data_termino);
+
+        if (!dataTerminoInformada && date.getTime() <= dataInicio.getTime()) {
+          date.setDate(date.getDate() + 1);
+        }
+
+        return date;
+      }
+    }
+  }
+
+  return new Date(dataInicio.getTime() + 4 * 60 * 60 * 1000);
 }
 
 function normalizarBlock(raw: any): VisualBlock {
@@ -137,7 +180,7 @@ function criarCalendarUrl(evento: Evento | null) {
   const dataEvento = criarDataEvento(evento);
   if (!evento || !dataEvento) return "";
 
-  const end = new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000);
+  const end = criarDataTerminoEvento(evento) || new Date(dataEvento.getTime() + 4 * 60 * 60 * 1000);
 
   function toGoogleDate(date: Date) {
     return date
@@ -249,7 +292,13 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
   const nomePrincipal = nomes[0] || "Convidado";
   const total = nomes.length || 1;
   const dataFormatada = formatarData(evento.data_evento || null);
-  const horarioFormatado = formatarHorario(evento.horario);
+  const horarioFormatado = formatarHorario(getHoraEvento(evento));
+  const horarioTerminoFormatado = getHoraTerminoEvento(evento)
+    ? formatarHorario(getHoraTerminoEvento(evento))
+    : "";
+  const dataTerminoFormatada = evento.data_termino
+    ? formatarData(evento.data_termino)
+    : "";
   const textoTotal = total === 1 ? "Convite para 1 convidado" : `Convite para ${total} convidados`;
 
   return String(content || "")
@@ -263,6 +312,12 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
     .replaceAll("{{horario_evento}}", horarioFormatado || "")
     .replaceAll("{{horario}}", horarioFormatado || "")
     .replaceAll("{{hora}}", horarioFormatado || "")
+    .replaceAll("{{hora_termino}}", horarioTerminoFormatado || "")
+    .replaceAll("{{horario_termino}}", horarioTerminoFormatado || "")
+    .replaceAll("{{hora_termino_evento}}", horarioTerminoFormatado || "")
+    .replaceAll("{{horario_termino_evento}}", horarioTerminoFormatado || "")
+    .replaceAll("{{data_termino}}", dataTerminoFormatada || "")
+    .replaceAll("{{data_termino_evento}}", dataTerminoFormatada || "")
     .replaceAll("{{local_evento}}", evento.local || "")
     .replaceAll("{{LOCAL_EVENTO}}", evento.local || "")
     .replaceAll("{{endereco_evento}}", evento.endereco || "")
@@ -280,7 +335,13 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
 function getEventoPreview(evento: Evento, nomes: string[]) {
   const nomePrincipal = nomes[0] || "Convidado";
   const dataFormatada = formatarData(evento.data_evento || null);
-  const horaFormatada = formatarHorario(evento.horario);
+  const dataTerminoFormatada = evento.data_termino
+    ? formatarData(evento.data_termino)
+    : "";
+  const horaFormatada = formatarHorario(getHoraEvento(evento));
+  const horaTerminoFormatada = getHoraTerminoEvento(evento)
+    ? formatarHorario(getHoraTerminoEvento(evento))
+    : "";
 
   return {
     nome_evento: evento.nome || "Evento",
@@ -290,6 +351,12 @@ function getEventoPreview(evento: Evento, nomes: string[]) {
     horario_evento: horaFormatada || "",
     horario: horaFormatada || "",
     hora: horaFormatada || "",
+    hora_termino: horaTerminoFormatada || "",
+    horario_termino: horaTerminoFormatada || "",
+    hora_termino_evento: horaTerminoFormatada || "",
+    horario_termino_evento: horaTerminoFormatada || "",
+    data_termino: dataTerminoFormatada || "",
+    data_termino_evento: dataTerminoFormatada || "",
     local_evento: evento.local || "",
     endereco_evento: evento.endereco || "",
     total_convidados: String(Math.max(1, nomes.length || 1)),
@@ -702,6 +769,10 @@ export default function ConvitePublicoPage() {
         id,
         nome,
         data_evento,
+        data_inicio,
+        hora_inicio,
+        data_termino,
+        hora_termino,
         local,
         invite_template_id,
         horario,
@@ -729,7 +800,12 @@ export default function ConvitePublicoPage() {
       return;
     }
 
-    let templateId = evento?.invite_template_id || null;
+    const eventoNormalizado = {
+      ...(evento as Evento),
+      horario: getHoraEvento(evento as Evento),
+    } as Evento;
+
+    let templateId = eventoNormalizado?.invite_template_id || null;
 
     /*
       Compatibilidade:
@@ -819,7 +895,7 @@ export default function ConvitePublicoPage() {
 
       setRenderState({
         kind: "visual",
-        evento: evento as Evento,
+        evento: eventoNormalizado,
         template: template as Template,
         blocks: (blocksData || []).map(normalizarBlock),
         nomes: nomesFinais,
@@ -832,7 +908,7 @@ export default function ConvitePublicoPage() {
     if (template.html_template?.trim()) {
       let htmlDoEvento = preencherTemplate(
         template.html_template,
-        evento as Evento,
+        eventoNormalizado,
       );
 
       htmlDoEvento = injetarConvidadosNoConvite(
