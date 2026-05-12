@@ -453,7 +453,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
     const conviteJaEnviado =
       convidado.status_envio_convite === "enviado" ||
-      convidado.status_envio === "enviado";
+      convidado.status_envio_convite === "enviado_manual" ||
+      convidado.status_envio === "enviado" ||
+      convidado.status_envio === "enviado_manual";
 
     if (conviteJaEnviado) {
       const confirmarReenvio = window.confirm(
@@ -939,6 +941,79 @@ ${eventoAtual?.nome || "OmniStage"}`);
     return undefined;
   }
 
+
+  function normalizarStatusEnvioConviteCard(convidado: Convidado) {
+    const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+
+    if (statusAtual === "enviado" || statusAtual === "enviado_manual") {
+      return null;
+    }
+
+    if (!getTelefoneEnvioConvidado(convidado)) {
+      return null;
+    }
+
+    return {
+      status_envio: "enviado_manual",
+      status_envio_convite: "enviado_manual",
+      data_envio_convite: new Date().toISOString(),
+      ...(convidado.status_rsvp === "confirmado"
+        ? {
+            status_envio_lembrete_rsvp: "nao_necessario",
+            data_envio_lembrete_rsvp: null,
+          }
+        : {}),
+    };
+  }
+
+  async function sincronizarEnviosCardPendentes() {
+    if (!tenantId || !eventoId) return;
+
+    const candidatos = convidados.filter((convidado) => {
+      const payload = normalizarStatusEnvioConviteCard(convidado);
+      return Boolean(payload);
+    });
+
+    if (candidatos.length === 0) return;
+
+    const confirmar = window.confirm(
+      `Encontramos ${candidatos.length} convidado(s) com telefone/responsável e convite ainda pendente. Deseja marcar como Enviado Card Convidado para remover da fila de envio?`,
+    );
+
+    if (!confirmar) return;
+
+    setLoading(true);
+
+    try {
+      for (const convidado of candidatos) {
+        const payload = normalizarStatusEnvioConviteCard(convidado);
+        if (!payload) continue;
+
+        const { error } = await supabase
+          .from("convidados")
+          .update(payload)
+          .eq("id", convidado.id)
+          .eq("tenant_id", tenantId)
+          .eq("evento_id", convidado.evento_id || eventoId);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      await carregarConvidados(tenantId, eventoId);
+      alert(`${candidatos.length} convidado(s) marcados como Enviado Card Convidado.`);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao sincronizar envios pelo card.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -1015,6 +1090,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
               style={secondaryButtonStyle}
             >
               Importar lista inteligente
+            </button>
+
+            <button
+              onClick={sincronizarEnviosCardPendentes}
+              disabled={loading || !tenantId || !eventoId}
+              style={secondaryButtonStyle}
+            >
+              Sincronizar enviados pelo card
             </button>
           </div>
         </div>
