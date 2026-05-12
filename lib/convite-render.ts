@@ -91,8 +91,15 @@ export function formatarHorario(horario: string | null | undefined) {
 export function criarDataEvento(evento: EventoConvite | null) {
   if (!evento?.data_evento) return null;
 
-  const horario = normalizarHorario(evento.horario);
-  const date = new Date(`${evento.data_evento}T${horario}:00-03:00`);
+  const horario = normalizarHorario(
+    (evento as any)?.hora_inicio ||
+    evento?.horario
+  );
+
+  // IMPORTANTE:
+  // sem timezone fixo (-03:00),
+  // para evitar conversão dupla no navegador
+  const date = new Date(`${evento.data_evento}T${horario}:00`);
 
   return Number.isNaN(date.getTime()) ? null : date;
 }
