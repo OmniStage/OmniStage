@@ -88,6 +88,34 @@ type ImportPreviewRow = {
   is_duplicate?: boolean;
 };
 
+type PresentePreEvento = {
+  id: string;
+  gift_item_id: string | null;
+  convidado_id: string | null;
+  token_convite: string | null;
+  nome_presenteador: string | null;
+  mensagem: string | null;
+  valor_presenteado: number | null;
+  created_at: string | null;
+  origem: string | null;
+  status: string | null;
+  gift_items?:
+    | {
+        nome?: string | null;
+        tipo?: string | null;
+      }
+    | {
+        nome?: string | null;
+        tipo?: string | null;
+      }[]
+    | null;
+};
+
+type PresentePreEventoCard = PresentePreEvento & {
+  convidado_nome?: string | null;
+  convidado_original_id?: string | null;
+};
+
 const initialForm: ConvidadoForm = {
   nome: "",
   telefone: "",
@@ -190,6 +218,7 @@ export default function ConvidadosPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
+  const [presentesPreEvento, setPresentesPreEvento] = useState<PresentePreEvento[]>([]);
   const [form, setForm] = useState<ConvidadoForm>(initialForm);
   const [loading, setLoading] = useState(false);
   const [formAberto, setFormAberto] = useState(false);
@@ -311,6 +340,59 @@ export default function ConvidadosPage() {
       integrantes,
     }));
   }, [convidadosFiltrados]);
+
+  const presentesDiretosPorConvidado = useMemo(() => {
+    const mapa = new Map<string, PresentePreEventoCard[]>();
+
+    presentesPreEvento.forEach((presente) => {
+      if (!presente.convidado_id) return;
+
+      const atual = mapa.get(presente.convidado_id) || [];
+      mapa.set(presente.convidado_id, [...atual, presente]);
+    });
+
+    return mapa;
+  }, [presentesPreEvento]);
+
+  const presentesHistoricoPorConvidado = useMemo(() => {
+    const convidadosPorId = new Map(convidados.map((convidado) => [convidado.id, convidado]));
+    const mapa = new Map<string, PresentePreEventoCard[]>();
+
+    presentesPreEvento.forEach((presente) => {
+      if (!presente.convidado_id) return;
+
+      const convidadoDoPresente = convidadosPorId.get(presente.convidado_id);
+      if (!convidadoDoPresente) return;
+
+      const grupoDoPresente = (convidadoDoPresente.grupo || "").trim();
+      const donoHistorico = grupoDoPresente
+        ? convidados.find(
+            (item) =>
+              item.evento_id === convidadoDoPresente.evento_id &&
+              (item.grupo || "").trim() === grupoDoPresente &&
+              item.contato_principal,
+          ) ||
+          convidados.find(
+            (item) =>
+              item.evento_id === convidadoDoPresente.evento_id &&
+              (item.grupo || "").trim() === grupoDoPresente &&
+              item.recebe_convite,
+          ) ||
+          convidadoDoPresente
+        : convidadoDoPresente;
+
+      const presenteComContexto: PresentePreEventoCard = {
+        ...presente,
+        convidado_nome: convidadoDoPresente.nome,
+        convidado_original_id: convidadoDoPresente.id,
+      };
+
+      const atual = mapa.get(donoHistorico.id) || [];
+      mapa.set(donoHistorico.id, [...atual, presenteComContexto]);
+    });
+
+    return mapa;
+  }, [convidados, presentesPreEvento]);
 
   function updateForm(field: keyof ConvidadoForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -648,6 +730,73 @@ ${eventoAtual?.nome || "OmniStage"}`);
     }
   }
 
+  async function carregarPresentesPreEvento(evento: string) {
+    if (!evento) {
+      setPresentesPreEvento([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("gift_reservations")
+      .select(
+        `
+        id,
+        gift_item_id,
+        convidado_id,
+        token_convite,
+        nome_presenteador,
+        mensagem,
+        valor_presenteado,
+        created_at,
+        origem,
+        status
+      `,
+      )
+      .eq("evento_id", evento)
+      .in("status", ["presenteado", "presenteado_evento"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao carregar presentes pré-evento:", error.message);
+      setPresentesPreEvento([]);
+      return;
+    }
+
+    const reservas = (data || []) as PresentePreEvento[];
+    const giftItemIds = Array.from(
+      new Set(reservas.map((presente) => presente.gift_item_id).filter(Boolean) as string[]),
+    );
+
+    if (giftItemIds.length === 0) {
+      setPresentesPreEvento(reservas);
+      return;
+    }
+
+    const { data: giftItemsData, error: giftItemsError } = await supabase
+      .from("gift_items")
+      .select("id, nome, tipo")
+      .in("id", giftItemIds);
+
+    if (giftItemsError) {
+      console.error("Erro ao carregar itens dos presentes:", giftItemsError.message);
+      setPresentesPreEvento(reservas);
+      return;
+    }
+
+    const itensPorId = new Map(
+      (giftItemsData || []).map((item: any) => [item.id, { nome: item.nome, tipo: item.tipo }]),
+    );
+
+    setPresentesPreEvento(
+      reservas.map((presente) => ({
+        ...presente,
+        gift_items: presente.gift_item_id
+          ? itensPorId.get(presente.gift_item_id) || null
+          : null,
+      })),
+    );
+  }
+
   async function carregarConvidados(tenant: string, evento: string) {
     const { data, error } = await supabase
       .from("convidados")
@@ -699,6 +848,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
     }
 
     setConvidados((data || []) as Convidado[]);
+    await carregarPresentesPreEvento(evento);
   }
 
   async function iniciarTela() {
@@ -720,6 +870,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       await carregarConvidados(tenantId, id);
     } else {
       setConvidados([]);
+      setPresentesPreEvento([]);
     }
   }
 
@@ -1751,6 +1902,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     const linkCartao = gerarLinkCartao(convidado);
                     const linkConvite = gerarLinkConvite(convidado);
                     const linkListaPresentes = gerarLinkListaPresentes(convidado);
+                    const presentesDiretos =
+                      presentesDiretosPorConvidado.get(convidado.id) || [];
+                    const presentesHistorico =
+                      presentesHistoricoPorConvidado.get(convidado.id) || [];
+                    const convidadoPresenteouPreEvento =
+                      presentesDiretos.length > 0 || presentesHistorico.length > 0;
 
                     return (
                       <div key={convidado.id} style={groupMemberRowStyle}>
@@ -1815,6 +1972,68 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                 <span>Recebe comunicação</span>
                               )}
                             </div>
+                          )}
+
+                          {convidadoPresenteouPreEvento && (
+                            <div style={giftStatusRowStyle}>
+                              <span style={giftStatusBadgeStyle}>
+                                🎁 Presenteou antes do evento
+                              </span>
+                            </div>
+                          )}
+
+                          {presentesHistorico.length > 0 && (
+                            <details style={giftDetailsStyle}>
+                              <summary style={giftDetailsSummaryStyle}>
+                                <div style={giftDetailsHeaderStyle}>
+                                  <span style={giftDetailsBadgeStyle}>Presentes</span>
+                                  <strong>Histórico pré-evento</strong>
+                                  <span style={giftDetailsHintStyle}>
+                                    {presentesHistorico.length} presente
+                                    {presentesHistorico.length === 1 ? "" : "s"} · Clique para ver
+                                  </span>
+                                </div>
+                              </summary>
+
+                              <div style={giftDetailsListStyle}>
+                                {presentesHistorico.map((presente) => (
+                                  <div key={presente.id} style={giftDetailsItemStyle}>
+                                    {mostrarGrupo &&
+                                      presente.convidado_original_id &&
+                                      presente.convidado_original_id !== convidado.id && (
+                                        <span style={giftLinkedGuestStyle}>
+                                          Integrante vinculado: {presente.convidado_nome || "-"}
+                                        </span>
+                                      )}
+
+                                    <span>
+                                      <strong>Presenteador:</strong>{" "}
+                                      {presente.nome_presenteador || "-"}
+                                    </span>
+
+                                    <span>
+                                      <strong>Presente escolhido:</strong>{" "}
+                                      {getNomeGiftItem(presente)}
+                                    </span>
+
+                                    <span>
+                                      <strong>Valor:</strong>{" "}
+                                      {formatarMoedaPresente(presente.valor_presenteado)}
+                                    </span>
+
+                                    <span>
+                                      <strong>Mensagem:</strong>{" "}
+                                      {presente.mensagem || "Sem mensagem"}
+                                    </span>
+
+                                    <span>
+                                      <strong>Data:</strong>{" "}
+                                      {formatarDataHoraCurta(presente.created_at) || "-"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
                           )}
 
                           <div
@@ -2168,6 +2387,25 @@ function formatarDataHoraCurta(data: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatarMoedaPresente(valor: number | null | undefined) {
+  if (valor === null || valor === undefined || Number.isNaN(Number(valor))) {
+    return "Valor não informado";
+  }
+
+  return Number(valor).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function getNomeGiftItem(presente: PresentePreEventoCard) {
+  const item = Array.isArray(presente.gift_items)
+    ? presente.gift_items[0]
+    : presente.gift_items;
+
+  return item?.nome || "Presente em valor";
 }
 
 function getRsvpStyle(status: string | null): CSSProperties {
@@ -2783,6 +3021,97 @@ const sendIdentityStyle: CSSProperties = {
   color: "var(--accent)",
   fontSize: 12,
   fontWeight: 900,
+};
+
+const giftStatusRowStyle: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 10,
+};
+
+const giftStatusBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "#ecfdf5",
+  color: "#047857",
+  fontSize: 12,
+  fontWeight: 950,
+  border: "1px solid rgba(16,185,129,0.28)",
+};
+
+const giftDetailsStyle: CSSProperties = {
+  display: "grid",
+  gap: 0,
+  marginTop: 12,
+  borderRadius: 16,
+  border: "1px solid rgba(16,185,129,0.28)",
+  background: "linear-gradient(135deg, rgba(16,185,129,0.10), var(--card-bg))",
+  color: "var(--text-secondary)",
+  fontSize: 12,
+  lineHeight: 1.35,
+  overflow: "hidden",
+};
+
+const giftDetailsSummaryStyle: CSSProperties = {
+  listStyle: "none",
+  cursor: "pointer",
+  padding: 13,
+};
+
+const giftDetailsHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  color: "var(--text)",
+};
+
+const giftDetailsBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: "#dcfce7",
+  color: "#047857",
+  fontSize: 11,
+  fontWeight: 950,
+};
+
+const giftDetailsHintStyle: CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 11,
+  fontWeight: 800,
+};
+
+const giftDetailsListStyle: CSSProperties = {
+  display: "grid",
+  gap: 10,
+  padding: "0 13px 13px",
+};
+
+const giftDetailsItemStyle: CSSProperties = {
+  display: "grid",
+  gap: 5,
+  padding: 12,
+  borderRadius: 14,
+  background: "var(--card-bg)",
+  border: "1px solid var(--border)",
+};
+
+const giftLinkedGuestStyle: CSSProperties = {
+  display: "inline-flex",
+  width: "fit-content",
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: "var(--group-soft)",
+  color: "var(--accent)",
+  fontSize: 11,
+  fontWeight: 950,
 };
 
 const formSectionDividerStyle: CSSProperties = {
