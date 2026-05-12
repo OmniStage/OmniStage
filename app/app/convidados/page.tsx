@@ -319,6 +319,36 @@ export default function ConvidadosPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function getConvidadoCardElement(id: string | null) {
+    if (!id || typeof document === "undefined") return null;
+    return document.getElementById(`convidado-card-${id}`);
+  }
+
+  function getConvidadoCardTop(id: string | null) {
+    return getConvidadoCardElement(id)?.getBoundingClientRect().top ?? null;
+  }
+
+  function restaurarPosicaoConvidado(id: string | null, topAntes: number | null) {
+    if (!id || topAntes === null || typeof window === "undefined") return;
+
+    const restaurar = () => {
+      const topDepois = getConvidadoCardTop(id);
+      if (topDepois === null) return;
+
+      window.scrollBy({
+        top: topDepois - topAntes,
+        left: 0,
+        behavior: "auto",
+      });
+    };
+
+    requestAnimationFrame(() => {
+      restaurar();
+      requestAnimationFrame(restaurar);
+      window.setTimeout(restaurar, 80);
+    });
+  }
+
   function limparFormulario() {
     setForm(initialForm);
     setEditandoId(null);
@@ -331,48 +361,11 @@ export default function ConvidadosPage() {
 
   function cancelarFormulario() {
     const idEditandoAtual = editandoId;
-    const posicaoAntes = getPosicaoCardConvidado(idEditandoAtual);
+    const topAntes = getConvidadoCardTop(idEditandoAtual);
 
     limparFormulario();
     setFormAberto(false);
-    preservarCardNaMesmaPosicao(idEditandoAtual, posicaoAntes);
-  }
-
-  function getPosicaoCardConvidado(convidadoId: string | null) {
-    if (!convidadoId || typeof window === "undefined") return null;
-
-    const elemento = document.querySelector(
-      `[data-convidado-card-id="${convidadoId}"]`,
-    );
-
-    if (!elemento) return null;
-
-    return elemento.getBoundingClientRect().top;
-  }
-
-  function preservarCardNaMesmaPosicao(
-    convidadoId: string | null,
-    posicaoAntes: number | null,
-  ) {
-    if (!convidadoId || posicaoAntes === null || typeof window === "undefined") {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const elemento = document.querySelector(
-          `[data-convidado-card-id="${convidadoId}"]`,
-        );
-
-        if (!elemento) return;
-
-        const posicaoDepois = elemento.getBoundingClientRect().top;
-        window.scrollBy({
-          top: posicaoDepois - posicaoAntes,
-          behavior: "auto",
-        });
-      });
-    });
+    restaurarPosicaoConvidado(idEditandoAtual, topAntes);
   }
 
   function gerarToken() {
@@ -754,9 +747,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
   }
 
   async function salvarConvidado() {
-    const idEditandoAtual = editandoId;
-    const posicaoAntes = getPosicaoCardConvidado(idEditandoAtual);
-
     if (!form.nome.trim()) {
       alert("Digite o nome do convidado.");
       return;
@@ -766,6 +756,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
       alert("Selecione um evento.");
       return;
     }
+
+    const idEditandoAtual = editandoId;
+    const topAntes = getConvidadoCardTop(idEditandoAtual);
 
     setLoading(true);
 
@@ -840,7 +833,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       limparFormulario();
       setFormAberto(false);
       await carregarConvidados(tenantId, eventoId);
-      preservarCardNaMesmaPosicao(idEditandoAtual, posicaoAntes);
+      restaurarPosicaoConvidado(idEditandoAtual, topAntes);
       alert(idEditandoAtual ? "Convidado atualizado." : "Convidado criado.");
     } catch (error) {
       alert(
@@ -895,7 +888,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
   }
 
   function editarConvidado(convidado: Convidado) {
-    const posicaoAntes = getPosicaoCardConvidado(convidado.id);
+    const topAntes = getConvidadoCardTop(convidado.id);
 
     setEditandoId(convidado.id);
     setForm({
@@ -919,7 +912,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       status_envio: convidado.status_envio || "pendente",
     });
     setFormAberto(true);
-    preservarCardNaMesmaPosicao(convidado.id, posicaoAntes);
+    restaurarPosicaoConvidado(convidado.id, topAntes);
   }
 
   async function excluirConvidado(convidado: Convidado) {
@@ -1762,7 +1755,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     return (
                       <div
                         key={convidado.id}
-                        data-convidado-card-id={convidado.id}
+                        id={`convidado-card-${convidado.id}`}
                         style={groupMemberRowStyle}
                       >
                         <div style={groupMemberInfoStyle}>
