@@ -16,6 +16,9 @@ export type EventoConvite = {
   hora_inicio?: string | null;
   data_termino?: string | null;
   hora_termino?: string | null;
+  horario_termino?: string | null;
+  hora_fim?: string | null;
+  horario_fim?: string | null;
 
   endereco?: string | null;
   mapa_url?: string | null;
@@ -73,7 +76,13 @@ export function obterHorarioEvento(evento: EventoConvite | null) {
 }
 
 export function obterHorarioTerminoEvento(evento: EventoConvite | null) {
-  return evento?.hora_termino || null;
+  return (
+    evento?.hora_termino ||
+    evento?.horario_termino ||
+    evento?.hora_fim ||
+    evento?.horario_fim ||
+    null
+  );
 }
 
 export function obterDataTerminoEvento(evento: EventoConvite | null) {
@@ -556,11 +565,17 @@ function renderizarConteudoBloco(block: VisualBlock, evento: EventoConvite | nul
       .replaceAll("{{hora_evento}}", horarioFormatado)
       .replaceAll("{{horario_evento}}", horarioFormatado)
       .replaceAll("{{hora_termino}}", horarioTerminoFormatado)
+      .replaceAll("{{HORA_TERMINO}}", horarioTerminoFormatado)
       .replaceAll("{{horario_termino}}", horarioTerminoFormatado)
+      .replaceAll("{{HORARIO_TERMINO}}", horarioTerminoFormatado)
       .replaceAll("{{hora_termino_evento}}", horarioTerminoFormatado)
+      .replaceAll("{{HORA_TERMINO_EVENTO}}", horarioTerminoFormatado)
       .replaceAll("{{horario_termino_evento}}", horarioTerminoFormatado)
+      .replaceAll("{{HORARIO_TERMINO_EVENTO}}", horarioTerminoFormatado)
       .replaceAll("{{data_termino}}", dataTerminoFormatada)
+      .replaceAll("{{DATA_TERMINO}}", dataTerminoFormatada)
       .replaceAll("{{data_termino_evento}}", dataTerminoFormatada)
+      .replaceAll("{{DATA_TERMINO_EVENTO}}", dataTerminoFormatada)
       .replaceAll("{{local_evento}}", localEvento)
       .replaceAll("{{endereco_evento}}", enderecoEvento)
       .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
@@ -677,6 +692,13 @@ export function renderizarTemplateVisual(
   const glassOpacity = numberValue(visualConfig.glassOpacity, 0.18);
   const glassBlur = numberValue(visualConfig.glassBlur, 0);
   const glassTone = visualConfig.glassTone === "light" ? "light" : "dark";
+
+  const dataTerminoFormatada = evento?.data_termino
+    ? formatarData(evento.data_termino)
+    : "";
+  const horarioTerminoFormatado = obterHorarioTerminoEvento(evento)
+    ? formatarHorario(obterHorarioTerminoEvento(evento))
+    : "";
 
   const blocosVisiveis = blocks
     .filter((block) => block.visible !== false)
@@ -912,6 +934,51 @@ export function renderizarTemplateVisual(
     </script>
   `;
 
+  const placeholderFallbackScript = `
+    <script>
+      window.addEventListener("DOMContentLoaded", function () {
+        var replacements = ${JSON.stringify({
+          "{{hora_termino}}": horarioTerminoFormatado,
+          "{{HORA_TERMINO}}": horarioTerminoFormatado,
+          "{{horario_termino}}": horarioTerminoFormatado,
+          "{{HORARIO_TERMINO}}": horarioTerminoFormatado,
+          "{{hora_termino_evento}}": horarioTerminoFormatado,
+          "{{HORA_TERMINO_EVENTO}}": horarioTerminoFormatado,
+          "{{horario_termino_evento}}": horarioTerminoFormatado,
+          "{{HORARIO_TERMINO_EVENTO}}": horarioTerminoFormatado,
+          "{{data_termino}}": dataTerminoFormatada,
+          "{{DATA_TERMINO}}": dataTerminoFormatada,
+          "{{data_termino_evento}}": dataTerminoFormatada,
+          "{{DATA_TERMINO_EVENTO}}": dataTerminoFormatada,
+        })};
+
+        function replaceTextNode(node) {
+          if (!node || !node.nodeValue) return;
+          var value = node.nodeValue;
+          Object.keys(replacements).forEach(function (key) {
+            value = value.split(key).join(replacements[key] || "");
+          });
+          node.nodeValue = value;
+        }
+
+        function walk(node) {
+          if (!node) return;
+          if (node.nodeType === Node.TEXT_NODE) {
+            replaceTextNode(node);
+            return;
+          }
+
+          if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_NODE) return;
+          if (node.tagName === "SCRIPT" || node.tagName === "STYLE") return;
+
+          Array.from(node.childNodes || []).forEach(walk);
+        }
+
+        walk(document.body);
+      });
+    </script>
+  `;
+
   return `
     <!doctype html>
     <html lang="pt-BR">
@@ -1137,6 +1204,7 @@ export function renderizarTemplateVisual(
           </div>
         </div>
 
+        ${placeholderFallbackScript}
         ${countdownScript}
         ${responsiveScaleScript}
       </body>
