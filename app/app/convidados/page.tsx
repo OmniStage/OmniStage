@@ -216,8 +216,19 @@ export default function ConvidadosPage() {
     const filtrados = convidados.filter((convidado) => {
       const rsvpOk =
         filtroRsvp === "todos" || convidado.status_rsvp === filtroRsvp;
+      const statusConviteFiltro = getStatusConviteExibicao(convidado) || "pendente";
       const envioOk =
-        filtroEnvio === "todos" || convidado.status_envio === filtroEnvio;
+        filtroEnvio === "todos" ||
+        (filtroEnvio === "pendente" &&
+          statusConviteFiltro !== "enviado" &&
+          statusConviteFiltro !== "enviado_manual" &&
+          statusConviteFiltro !== "erro") ||
+        (filtroEnvio === "enviado" &&
+          (statusConviteFiltro === "enviado" ||
+            statusConviteFiltro === "enviado_manual")) ||
+        (filtroEnvio === "enviado_manual" &&
+          statusConviteFiltro === "enviado_manual") ||
+        (filtroEnvio === "erro" && statusConviteFiltro === "erro");
       const temGrupo = Boolean((convidado.grupo || "").trim());
       const tipoOk =
         filtroTipo === "todos" ||
@@ -242,6 +253,8 @@ export default function ConvidadosPage() {
           convidado.tipo_convite,
           convidado.status_rsvp,
           convidado.status_envio,
+          convidado.status_envio_convite,
+          getStatusConviteExibicao(convidado),
           convidado.legacy_id,
           convidado.origem_importacao,
           convidado.import_batch_id,
@@ -859,7 +872,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
       status_envio: convidado.status_envio || "pendente",
     });
     setFormAberto(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function excluirConvidado(convidado: Convidado) {
@@ -912,15 +924,15 @@ ${eventoAtual?.nome || "OmniStage"}`);
   function getStatusConviteExibicao(convidado: Convidado) {
     const statusAtual = convidado.status_envio_convite || convidado.status_envio;
 
-    if (statusAtual === "enviado" || statusAtual === "enviado_manual") {
+    if (statusAtual === "enviado" || statusAtual === "enviado_manual" || statusAtual === "erro") {
       return statusAtual;
     }
 
-    if (convidado.data_hora_envio) {
+    if (convidado.data_envio_convite || convidado.data_hora_envio) {
       return "enviado";
     }
 
-    return statusAtual;
+    return statusAtual || "pendente";
   }
 
   function getDataConviteExibicao(convidado: Convidado) {
@@ -929,10 +941,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
   function getOrigemConviteExibicao(convidado: Convidado) {
     const statusAtual = convidado.status_envio_convite || convidado.status_envio;
-
-    if (statusAtual === "enviado_manual") {
-      return "Enviado Card Convidado";
-    }
 
     if (convidado.data_hora_envio && statusAtual !== "enviado") {
       return "Envio importado";
@@ -1561,6 +1569,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                   >
                     <option value="pendente">Pendente</option>
                     <option value="enviado">Enviado</option>
+                    <option value="enviado_manual">Enviado Card Convidado</option>
                     <option value="erro">Erro</option>
                   </select>
                 </label>
@@ -1622,6 +1631,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
             <option value="todos">Todos envios</option>
             <option value="pendente">Pendente</option>
             <option value="enviado">Enviado</option>
+            <option value="enviado_manual">Card Convidado</option>
             <option value="erro">Erro</option>
           </select>
 
