@@ -907,6 +907,38 @@ ${eventoAtual?.nome || "OmniStage"}`);
     return valor;
   }
 
+  function getStatusConviteExibicao(convidado: Convidado) {
+    const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+
+    if (statusAtual === "enviado" || statusAtual === "enviado_manual") {
+      return statusAtual;
+    }
+
+    if (convidado.data_hora_envio) {
+      return "enviado";
+    }
+
+    return statusAtual;
+  }
+
+  function getDataConviteExibicao(convidado: Convidado) {
+    return convidado.data_envio_convite || convidado.data_hora_envio || null;
+  }
+
+  function getOrigemConviteExibicao(convidado: Convidado) {
+    const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+
+    if (statusAtual === "enviado_manual") {
+      return "Enviado Card Convidado";
+    }
+
+    if (convidado.data_hora_envio && statusAtual !== "enviado") {
+      return "Envio importado";
+    }
+
+    return undefined;
+  }
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -1665,11 +1697,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           </div>
 
                           {convidadoTemDadosImportados(convidado) && (
-                            <div style={importInfoStyle}>
-                              <div style={importInfoHeaderStyle}>
-                                <span style={importBadgeStyle}>Dados importados</span>
-                                <strong>Origem / Importação</strong>
-                              </div>
+                            <details style={importInfoStyle}>
+                              <summary style={importInfoSummaryStyle}>
+                                <div style={importInfoHeaderStyle}>
+                                  <span style={importBadgeStyle}>Dados importados</span>
+                                  <strong>Origem / Importação</strong>
+                                  <span style={importInfoHintStyle}>Clique para ver histórico</span>
+                                </div>
+                              </summary>
 
                               <div style={importInfoGridStyle}>
                                 <span>
@@ -1690,18 +1725,18 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                 {convidado.data_hora_envio && (
                                   <span>
                                     <strong>Envio importado:</strong>{" "}
-                                    {convidado.data_hora_envio}
+                                    {formatarDataHoraCurta(convidado.data_hora_envio) || convidado.data_hora_envio}
                                   </span>
                                 )}
 
                                 {convidado.data_hora_rsvp && (
                                   <span>
                                     <strong>RSVP importado:</strong>{" "}
-                                    {convidado.data_hora_rsvp}
+                                    {formatarDataHoraCurta(convidado.data_hora_rsvp) || convidado.data_hora_rsvp}
                                   </span>
                                 )}
                               </div>
-                            </div>
+                            </details>
                           )}
 
                           {convidado.observacoes && (
@@ -1817,14 +1852,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
                             <EnvioLinha
                               label="Convite"
-                              status={convidado.status_envio_convite || convidado.status_envio}
-                              data={convidado.data_envio_convite}
-                              origem={
-                                convidado.status_envio_convite === "enviado_manual" ||
-                                convidado.status_envio === "enviado_manual"
-                                  ? "Enviado Card Convidado"
-                                  : undefined
-                              }
+                              status={getStatusConviteExibicao(convidado)}
+                              data={getDataConviteExibicao(convidado)}
+                              origem={getOrigemConviteExibicao(convidado)}
                             />
 
                             <EnvioLinha
@@ -2561,15 +2591,21 @@ const toggleTextStyle: CSSProperties = {
 
 const importInfoStyle: CSSProperties = {
   display: "grid",
-  gap: 9,
+  gap: 0,
   marginTop: 12,
-  padding: 13,
   borderRadius: 16,
   border: "1px solid var(--accent-border)",
   background: "linear-gradient(135deg, var(--group-soft), var(--card-bg))",
   color: "var(--text-secondary)",
   fontSize: 12,
   lineHeight: 1.35,
+  overflow: "hidden",
+};
+
+const importInfoSummaryStyle: CSSProperties = {
+  listStyle: "none",
+  cursor: "pointer",
+  padding: 13,
 };
 
 const importInfoHeaderStyle: CSSProperties = {
@@ -2578,6 +2614,12 @@ const importInfoHeaderStyle: CSSProperties = {
   gap: 8,
   flexWrap: "wrap",
   color: "var(--text)",
+};
+
+const importInfoHintStyle: CSSProperties = {
+  color: "var(--muted)",
+  fontSize: 11,
+  fontWeight: 800,
 };
 
 const importBadgeStyle: CSSProperties = {
@@ -2596,6 +2638,7 @@ const importInfoGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
   gap: "6px 12px",
+  padding: "0 13px 13px",
 };
 
 const sendIdentityStyle: CSSProperties = {
