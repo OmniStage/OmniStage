@@ -326,7 +326,7 @@ export default function ConvidadosPage() {
 
   function abrirCriacao() {
     limparFormulario();
-    setFormAberto(true);
+    setFormAberto(false);
   }
 
   function cancelarFormulario() {
@@ -1224,7 +1224,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         </section>
       )}
 
-      {formAberto && (
+      {formAberto && !editandoId && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
             <div>
@@ -2009,6 +2009,265 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             </button>
                           </div>
                         </div>
+
+                        {editandoId === convidado.id && (
+                          <div style={inlineEditCardStyle}>
+                            <div style={inlineEditHeaderStyle}>
+                              <div>
+                                <span style={sectionKickerStyle}>Editar no card</span>
+                                <h3 style={inlineEditTitleStyle}>Editar convidado</h3>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={cancelarFormulario}
+                                style={secondaryButtonStyle}
+                              >
+                                Fechar edição
+                              </button>
+                            </div>
+
+                            <div style={inlineEditGridStyle}>
+                              <label style={fieldStyle}>
+                                <span>Nome do convidado</span>
+                                <input
+                                  value={form.nome}
+                                  onChange={(event) => updateForm("nome", event.target.value)}
+                                  placeholder="Ex: Maria Silva"
+                                  style={inputStyle}
+                                />
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>Telefone do convidado</span>
+                                <input
+                                  value={form.telefone}
+                                  onChange={(event) => updateForm("telefone", event.target.value)}
+                                  placeholder="Ex: (22) 99999-9999"
+                                  style={inputStyle}
+                                />
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>E-mail</span>
+                                <input
+                                  value={form.email}
+                                  onChange={(event) => updateForm("email", event.target.value)}
+                                  placeholder="email@email.com"
+                                  style={inputStyle}
+                                />
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>Tipo de convidado</span>
+                                <select
+                                  value={form.crianca === "sim" ? "crianca" : "adulto"}
+                                  onChange={(event) => {
+                                    const isCrianca = event.target.value === "crianca";
+                                    setForm((current) => ({
+                                      ...current,
+                                      crianca: isCrianca ? "sim" : "",
+                                      idade_crianca: isCrianca ? current.idade_crianca : "",
+                                      responsavel: isCrianca ? current.responsavel : "",
+                                      responsavel_telefone: isCrianca ? current.responsavel_telefone : "",
+                                      mae: isCrianca ? current.mae : "",
+                                      contato_principal:
+                                        isCrianca && !current.grupo.trim() ? false : current.contato_principal,
+                                      recebe_convite:
+                                        isCrianca && !current.grupo.trim() && current.responsavel.trim()
+                                          ? true
+                                          : current.recebe_convite,
+                                    }));
+                                  }}
+                                  style={inputStyle}
+                                >
+                                  <option value="adulto">Adulto</option>
+                                  <option value="crianca">Criança</option>
+                                </select>
+                              </label>
+
+                              {form.crianca === "sim" && (
+                                <label style={fieldStyle}>
+                                  <span>Idade da criança</span>
+                                  <input
+                                    value={form.idade_crianca}
+                                    onChange={(event) => updateForm("idade_crianca", event.target.value)}
+                                    placeholder="Ex: 7"
+                                    type="number"
+                                    min="0"
+                                    style={inputStyle}
+                                  />
+                                </label>
+                              )}
+
+                              <label style={fieldStyle}>
+                                <span>Nome do responsável</span>
+                                <input
+                                  value={form.responsavel}
+                                  onChange={(event) => {
+                                    const responsavel = event.target.value;
+                                    setForm((current) => ({
+                                      ...current,
+                                      responsavel,
+                                      mae: current.crianca === "sim" ? responsavel : current.mae,
+                                      recebe_convite:
+                                        current.crianca === "sim" && !current.grupo.trim()
+                                          ? Boolean(responsavel.trim())
+                                          : current.recebe_convite,
+                                    }));
+                                  }}
+                                  placeholder="Ex: Jessica Amaral"
+                                  style={inputStyle}
+                                />
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>Telefone do responsável</span>
+                                <input
+                                  value={form.responsavel_telefone}
+                                  onChange={(event) => updateForm("responsavel_telefone", event.target.value)}
+                                  placeholder="Ex: (22) 99999-9999"
+                                  style={inputStyle}
+                                />
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>Tipo do convite</span>
+                                <select
+                                  value={form.tipo_convite}
+                                  onChange={(event) => {
+                                    const tipo = event.target.value;
+                                    setForm((current) => ({
+                                      ...current,
+                                      tipo_convite: tipo,
+                                      grupo: tipo === "grupo" ? current.grupo : "",
+                                      contato_principal: tipo === "grupo" ? current.contato_principal : false,
+                                      recebe_convite: tipo === "individual" ? true : current.recebe_convite,
+                                    }));
+                                  }}
+                                  style={inputStyle}
+                                >
+                                  <option value="individual">Individual</option>
+                                  <option value="grupo">Grupo / Família</option>
+                                </select>
+                              </label>
+
+                              {form.tipo_convite === "grupo" && (
+                                <label style={fieldStyle}>
+                                  <span>Nome do grupo/família</span>
+                                  <input
+                                    value={form.grupo}
+                                    onChange={(event) => updateForm("grupo", event.target.value)}
+                                    placeholder="Ex: Família Silva"
+                                    style={inputStyle}
+                                  />
+                                </label>
+                              )}
+
+                              <label style={fieldStyle}>
+                                <span>Tamanho do chinelo</span>
+                                <input
+                                  value={form.tamanho_chinelo}
+                                  onChange={(event) => updateForm("tamanho_chinelo", event.target.value)}
+                                  placeholder="Ex: 35/36"
+                                  style={inputStyle}
+                                />
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>Status RSVP</span>
+                                <select
+                                  value={form.status_rsvp}
+                                  onChange={(event) => updateForm("status_rsvp", event.target.value)}
+                                  style={inputStyle}
+                                >
+                                  <option value="pendente">Pendente</option>
+                                  <option value="confirmado">Confirmado</option>
+                                  <option value="nao">Não vai</option>
+                                </select>
+                              </label>
+
+                              <label style={fieldStyle}>
+                                <span>Status envio</span>
+                                <select
+                                  value={form.status_envio}
+                                  onChange={(event) => updateForm("status_envio", event.target.value)}
+                                  style={inputStyle}
+                                >
+                                  <option value="pendente">Pendente</option>
+                                  <option value="enviado">Enviado</option>
+                                  <option value="enviado_manual">Enviado Card Convidado</option>
+                                  <option value="erro">Erro</option>
+                                </select>
+                              </label>
+
+                              <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+                                <span>Observações</span>
+                                <textarea
+                                  value={form.observacoes}
+                                  onChange={(event) => updateForm("observacoes", event.target.value)}
+                                  placeholder="Observações internas sobre o convidado"
+                                  style={textareaStyle}
+                                />
+                              </label>
+                            </div>
+
+                            <div style={inlineEditToggleGridStyle}>
+                              <label style={toggleFieldStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={form.contato_principal}
+                                  onChange={(event) => {
+                                    const checked = event.target.checked;
+                                    setForm((current) => ({
+                                      ...current,
+                                      contato_principal: checked,
+                                      recebe_convite: checked ? true : current.recebe_convite,
+                                    }));
+                                  }}
+                                  style={checkboxInputStyle}
+                                />
+                                <div style={toggleTextStyle}>
+                                  <strong>Contato principal</strong>
+                                  <span>Identifica quem representa o grupo/família no envio.</span>
+                                </div>
+                              </label>
+
+                              <label style={toggleFieldStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={form.recebe_convite}
+                                  onChange={(event) => updateFormBoolean("recebe_convite", event.target.checked)}
+                                  style={checkboxInputStyle}
+                                />
+                                <div style={toggleTextStyle}>
+                                  <strong>Recebe comunicação</strong>
+                                  <span>Usado no envio: esta pessoa recebe o convite/comunicação.</span>
+                                </div>
+                              </label>
+                            </div>
+
+                            <div style={inlineEditActionsStyle}>
+                              <button
+                                type="button"
+                                onClick={salvarConvidado}
+                                disabled={loading}
+                                style={buttonStyle}
+                              >
+                                {loading ? "Salvando..." : "Salvar alterações"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={cancelarFormulario}
+                                style={secondaryButtonStyle}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     );
                   })}
@@ -2732,6 +2991,56 @@ const importInfoGridStyle: CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
   gap: "6px 12px",
   padding: "0 13px 13px",
+};
+
+
+const inlineEditCardStyle: CSSProperties = {
+  flex: "1 1 100%",
+  width: "100%",
+  marginTop: 18,
+  padding: "clamp(16px, 3vw, 22px)",
+  borderRadius: 24,
+  border: "1px solid var(--accent-border)",
+  background: "linear-gradient(135deg, var(--card-bg), var(--group-soft))",
+  boxShadow: "0 12px 34px rgba(15,23,42,0.07)",
+};
+
+const inlineEditHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 16,
+};
+
+const inlineEditTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text)",
+  fontSize: 22,
+  fontWeight: 900,
+  letterSpacing: "-0.03em",
+};
+
+const inlineEditGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+  gap: 14,
+};
+
+const inlineEditToggleGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+  gap: 14,
+  marginTop: 14,
+};
+
+const inlineEditActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  justifyContent: "flex-start",
+  marginTop: 18,
 };
 
 const sendIdentityStyle: CSSProperties = {
