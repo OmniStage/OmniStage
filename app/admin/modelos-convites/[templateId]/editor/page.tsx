@@ -362,7 +362,7 @@ function renderDynamicContent(content: string | null) {
     .replaceAll("{{hora_evento}}", DEMO_EVENTO.hora_evento)
     .replaceAll("{{horario_evento}}", DEMO_EVENTO.hora_evento)
     .replaceAll("{{hora_termino}}", DEMO_EVENTO.hora_termino)
-    .replaceAll("{{horario_termino}}", DEMO_EVENTO.hora_termino)
+    .replaceAll("{{horario_termino}}", DEMO_EVENTO.horario_termino)
     .replaceAll("{{hora_termino_evento}}", DEMO_EVENTO.hora_termino_evento)
     .replaceAll("{{data_termino}}", DEMO_EVENTO.data_termino)
     .replaceAll("{{DATA_TERMINO}}", DEMO_EVENTO.data_termino)
@@ -695,7 +695,7 @@ function defaultBlock(
     return {
       ...base,
       label: "Data e horário",
-      content: "{{data_evento}} • {{hora_evento}}",
+      content: "{{data_evento}} • {{hora_evento}} até {{hora_termino}}",
       x: 55,
       y: 340,
       width: 320,
@@ -1141,12 +1141,21 @@ export default function EditorModeloConvitePage({
       );
     }
 
-    const loadedBlocks = (blockData || []).map((b: any) => ({
+    const loadedBlocks = (blockData || []).map((b: any) => {
+      const blockType = (b.type || "text") as BlockType;
+      const currentContent = b.content || "";
+      const content =
+        blockType === "date_time" &&
+        String(currentContent).trim() === "{{data_evento}} • {{hora_evento}}"
+          ? "{{data_evento}} • {{hora_evento}} até {{hora_termino}}"
+          : currentContent;
+
+      return {
       id: String(b.id),
       template_id: String(b.template_id),
-      type: (b.type || "text") as BlockType,
+      type: blockType,
       label: b.label || null,
-      content: b.content || "",
+      content,
       x: toNumber(b.x, 0),
       y: toNumber(b.y, 0),
       width: toNumber(b.width, 200),
@@ -1158,7 +1167,8 @@ export default function EditorModeloConvitePage({
       border_radius: toNumber(b.border_radius, 0),
       z_index: toNumber(b.z_index, 1),
       visible: b.visible !== false,
-    })) as ConviteBlock[];
+      };
+    }) as ConviteBlock[];
 
     setBlocks(
       loadedBlocks.length
@@ -2216,7 +2226,7 @@ export default function EditorModeloConvitePage({
                       hora_evento: DEMO_EVENTO.hora_evento,
                       horario_evento: DEMO_EVENTO.hora_evento,
                       hora_termino: DEMO_EVENTO.hora_termino,
-                      horario_termino: DEMO_EVENTO.hora_termino,
+                      horario_termino: DEMO_EVENTO.horario_termino,
                       hora_termino_evento: DEMO_EVENTO.hora_termino_evento,
                       data_termino: DEMO_EVENTO.data_termino,
                       local_evento: DEMO_EVENTO.local_evento,
