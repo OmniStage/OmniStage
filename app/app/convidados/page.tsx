@@ -330,8 +330,49 @@ export default function ConvidadosPage() {
   }
 
   function cancelarFormulario() {
+    const idEditandoAtual = editandoId;
+    const posicaoAntes = getPosicaoCardConvidado(idEditandoAtual);
+
     limparFormulario();
     setFormAberto(false);
+    preservarCardNaMesmaPosicao(idEditandoAtual, posicaoAntes);
+  }
+
+  function getPosicaoCardConvidado(convidadoId: string | null) {
+    if (!convidadoId || typeof window === "undefined") return null;
+
+    const elemento = document.querySelector(
+      `[data-convidado-card-id="${convidadoId}"]`,
+    );
+
+    if (!elemento) return null;
+
+    return elemento.getBoundingClientRect().top;
+  }
+
+  function preservarCardNaMesmaPosicao(
+    convidadoId: string | null,
+    posicaoAntes: number | null,
+  ) {
+    if (!convidadoId || posicaoAntes === null || typeof window === "undefined") {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const elemento = document.querySelector(
+          `[data-convidado-card-id="${convidadoId}"]`,
+        );
+
+        if (!elemento) return;
+
+        const posicaoDepois = elemento.getBoundingClientRect().top;
+        window.scrollBy({
+          top: posicaoDepois - posicaoAntes,
+          behavior: "auto",
+        });
+      });
+    });
   }
 
   function gerarToken() {
@@ -713,6 +754,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
   }
 
   async function salvarConvidado() {
+    const idEditandoAtual = editandoId;
+    const posicaoAntes = getPosicaoCardConvidado(idEditandoAtual);
+
     if (!form.nome.trim()) {
       alert("Digite o nome do convidado.");
       return;
@@ -796,7 +840,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
       limparFormulario();
       setFormAberto(false);
       await carregarConvidados(tenantId, eventoId);
-      alert(editandoId ? "Convidado atualizado." : "Convidado criado.");
+      preservarCardNaMesmaPosicao(idEditandoAtual, posicaoAntes);
+      alert(idEditandoAtual ? "Convidado atualizado." : "Convidado criado.");
     } catch (error) {
       alert(
         error instanceof Error ? error.message : "Erro ao salvar convidado.",
@@ -850,6 +895,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
   }
 
   function editarConvidado(convidado: Convidado) {
+    const posicaoAntes = getPosicaoCardConvidado(convidado.id);
+
     setEditandoId(convidado.id);
     setForm({
       nome: convidado.nome || "",
@@ -872,6 +919,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       status_envio: convidado.status_envio || "pendente",
     });
     setFormAberto(true);
+    preservarCardNaMesmaPosicao(convidado.id, posicaoAntes);
   }
 
   async function excluirConvidado(convidado: Convidado) {
@@ -1712,7 +1760,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     const linkListaPresentes = gerarLinkListaPresentes(convidado);
 
                     return (
-                      <div key={convidado.id} style={groupMemberRowStyle}>
+                      <div
+                        key={convidado.id}
+                        data-convidado-card-id={convidado.id}
+                        style={groupMemberRowStyle}
+                      >
                         <div style={groupMemberInfoStyle}>
                           <strong
                             style={{
@@ -2915,4 +2967,3 @@ const emptyStyle: CSSProperties = {
   borderRadius: 12,
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
-};
