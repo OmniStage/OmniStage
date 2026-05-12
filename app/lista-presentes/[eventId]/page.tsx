@@ -36,6 +36,13 @@ type GiftItem = {
   ordem: number | null;
 };
 
+type ConvidadoVinculo = {
+  id: string;
+  token: string | null;
+  telefone: string | null;
+  grupo: string | null;
+};
+
 type FiltroTipo = "todos" | "presente" | "experiencia" | "presente_valor";
 
 function formatarMoeda(valor: number | null | undefined) {
@@ -152,6 +159,14 @@ function gerarPixCopiaECola({
 
   const payloadComCRC = `${payload}6304`;
   return `${payloadComCRC}${crc16(payloadComCRC)}`;
+}
+
+function normalizarTelefoneBrasil(valor: string) {
+  const telefoneLimpo = valor.replace(/\D/g, "");
+
+  if (!telefoneLimpo) return null;
+
+  return telefoneLimpo.startsWith("55") ? telefoneLimpo : `55${telefoneLimpo}`;
 }
 
 export default function ListaPresentesPublicaPage() {
@@ -330,6 +345,34 @@ export default function ListaPresentesPublicaPage() {
 
     setConfirmandoPresente(true);
 
+    const telefoneNormalizado = normalizarTelefoneBrasil(telefonePresenteador);
+    let convidadoEncontrado: ConvidadoVinculo | null = null;
+
+    if (telefoneNormalizado) {
+      const telefone11 = telefoneNormalizado.slice(-11);
+
+      const { data: convidadosData, error: convidadosError } = await supabase
+        .from("convidados")
+        .select("id, token, telefone, grupo")
+        .eq("evento_id", evento.id);
+
+      if (convidadosError) {
+        console.warn(
+          "Não foi possível buscar convidado para vincular o presente:",
+          convidadosError.message
+        );
+      } else {
+        convidadoEncontrado =
+          ((convidadosData || []) as ConvidadoVinculo[]).find((convidado) => {
+            const telefoneConvidado = String(convidado.telefone || "")
+              .replace(/\D/g, "")
+              .slice(-11);
+
+            return telefoneConvidado === telefone11;
+          }) || null;
+      }
+    }
+
     const { error: reservationError } = await supabase
       .from("gift_reservations")
       .insert({
@@ -337,10 +380,14 @@ export default function ListaPresentesPublicaPage() {
         evento_id: evento.id,
         tenant_id: evento.tenant_id,
         nome_presenteador: nomePresenteador.trim(),
-        telefone_presenteador: telefonePresenteador.trim() || null,
+        telefone_presenteador: telefoneNormalizado,
         mensagem: mensagemPresenteador.trim() || null,
         valor_presenteado: presenteSelecionado.valor_sugerido,
         status: "presenteado",
+        convidado_id: convidadoEncontrado?.id || null,
+        token_convite: convidadoEncontrado?.token || null,
+        grupo: convidadoEncontrado?.grupo || null,
+        origem: convidadoEncontrado ? "lista_publica_vinculada" : "lista_publica",
       });
 
     if (reservationError) {
