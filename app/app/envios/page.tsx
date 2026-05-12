@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type TipoEnvio = "convite" | "lembrete_rsvp" | "cartao_evento";
-type FiltroStatusEnvio = "a_enviar" | "na_fila" | "enviados" | "sem_telefone" | "todos";
+type FiltroStatusEnvio =
+  | "a_enviar"
+  | "na_fila"
+  | "enviados"
+  | "card_convidado"
+  | "sem_telefone"
+  | "todos";
 
 type Convidado = {
   id: string;
@@ -262,7 +268,9 @@ export default function EnviosPage() {
 
     return publicoCampanha.filter((convidado) => {
       const telefoneLimpo = getTelefoneEnvio(convidado);
-      const enviado = getStatusEnvio(convidado, campanha) === "enviado";
+      const statusAtual = getStatusEnvio(convidado, campanha);
+      const enviado = isStatusEnviado(statusAtual);
+      const enviadoCardConvidado = statusAtual === "enviado_manual";
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       const buscaOk =
@@ -285,6 +293,7 @@ export default function EnviosPage() {
       if (filtroStatus === "a_enviar") return !enviado && !!telefoneLimpo && !estaNaFila;
       if (filtroStatus === "na_fila") return estaNaFila && !enviado;
       if (filtroStatus === "enviados") return enviado;
+      if (filtroStatus === "card_convidado") return enviadoCardConvidado;
       if (filtroStatus === "sem_telefone") return !telefoneLimpo;
 
       return true;
@@ -302,7 +311,7 @@ export default function EnviosPage() {
   const pendentesComTelefoneFiltrados = useMemo(() => {
     return convidadosFiltrados.filter((convidado) => {
       const telefoneOk = !!getTelefoneEnvio(convidado);
-      const enviado = getStatusEnvio(convidado, campanha) === "enviado";
+      const enviado = isStatusEnviado(getStatusEnvio(convidado, campanha));
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
       return telefoneOk && !enviado && !estaNaFila;
     });
@@ -322,18 +331,19 @@ export default function EnviosPage() {
 
   const stats = useMemo(() => {
     const total = publicoCampanha.length;
-    const enviados = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado").length;
+    const enviados = publicoCampanha.filter((c) => isStatusEnviado(getStatusEnvio(c, campanha))).length;
+    const enviadosCardConvidado = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado_manual").length;
     const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvio(c)).length;
     const naFila = publicoCampanha.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio)).length;
     const aEnviar = publicoCampanha.filter((c) => {
-      const enviado = getStatusEnvio(c, campanha) === "enviado";
+      const enviado = isStatusEnviado(getStatusEnvio(c, campanha));
       const telefoneOk = !!getTelefoneEnvio(c);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio);
 
       return !enviado && telefoneOk && !estaNaFila;
     }).length;
 
-    return { total, enviados, aEnviar, semTelefone, naFila };
+    return { total, enviados, enviadosCardConvidado, aEnviar, semTelefone, naFila };
   }, [publicoCampanha, campanha, filaEnvios, tipoEnvio]);
 
   async function salvarTemplate() {
@@ -415,7 +425,7 @@ export default function EnviosPage() {
 
     const elegiveis = lista.filter((convidado) => {
       const telefoneOk = !!getTelefoneEnvio(convidado);
-      const enviado = getStatusEnvio(convidado, campanha) === "enviado";
+      const enviado = isStatusEnviado(getStatusEnvio(convidado, campanha));
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       return telefoneOk && !enviado && !estaNaFila;
@@ -1013,7 +1023,8 @@ export default function EnviosPage() {
         <MetricCard label="Público da campanha" value={stats.total} detail="Convidados elegíveis" />
         <MetricCard label="A enviar" value={stats.aEnviar} detail="Com telefone, não enviado e fora da fila" />
         <MetricCard label="Na fila" value={stats.naFila} detail="Prontos para envio manual" />
-        <MetricCard label="Enviados" value={stats.enviados} detail="Já marcados como enviados" />
+        <MetricCard label="Enviados" value={stats.enviados} detail="Inclui fila, manual e card" />
+        <MetricCard label="Card Convidado" value={stats.enviadosCardConvidado} detail="Enviados pelo card do convidado" />
         <MetricCard label="Sem telefone" value={stats.semTelefone} detail="Precisam revisão" />
       </section>
 
@@ -1034,6 +1045,7 @@ export default function EnviosPage() {
             { key: "a_enviar", label: "A enviar" },
             { key: "na_fila", label: "Na fila" },
             { key: "enviados", label: "Enviados" },
+            { key: "card_convidado", label: "Card Convidado" },
             { key: "sem_telefone", label: "Sem telefone" },
             { key: "todos", label: "Todos" },
           ].map((tab) => {
@@ -1108,7 +1120,9 @@ export default function EnviosPage() {
             const telefoneOk = !!getTelefoneEnvio(convidado);
             const envioViaResponsavel = isEnvioViaResponsavel(convidado);
             const telefoneExibicao = getTelefoneEnvio(convidado);
-            const enviado = getStatusEnvio(convidado, campanha) === "enviado";
+            const statusAtual = getStatusEnvio(convidado, campanha);
+            const enviado = isStatusEnviado(statusAtual);
+            const enviadoCardConvidado = statusAtual === "enviado_manual";
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
             const dataEnvio = getDataEnvio(convidado, campanha);
 
@@ -1146,14 +1160,22 @@ export default function EnviosPage() {
                 <div style={actionsStyle}>
                   <span
                     style={
-                      enviado
-                        ? sentBadgeStyle
-                        : estaNaFila
-                          ? filaBadgeStyle
-                          : pendingBadgeStyle
+                      enviadoCardConvidado
+                        ? sentCardConvidadoBadgeStyle
+                        : enviado
+                          ? sentBadgeStyle
+                          : estaNaFila
+                            ? filaBadgeStyle
+                            : pendingBadgeStyle
                     }
                   >
-                    {enviado ? "Enviado" : estaNaFila ? "Na fila" : "A enviar"}
+                    {enviadoCardConvidado
+                      ? "Enviado Card Convidado"
+                      : enviado
+                        ? "Enviado"
+                        : estaNaFila
+                          ? "Na fila"
+                          : "A enviar"}
                   </span>
 
                   <button
@@ -1403,6 +1425,10 @@ function getStatusEnvio(convidado: Convidado, campanha: Campanha) {
   return convidado[campanha.statusColumn] as string | null | undefined;
 }
 
+function isStatusEnviado(status: string | null | undefined) {
+  return status === "enviado" || status === "enviado_manual";
+}
+
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
   return convidado[campanha.dataColumn] as string | null | undefined;
 }
@@ -1561,6 +1587,7 @@ const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)",
 const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
 const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
 const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 12, fontWeight: 900 };
+const sentCardConvidadoBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#f3e8ff", color: "#6d28d9", fontSize: 12, fontWeight: 900 };
 
 const sendConfirmOverlayStyle: React.CSSProperties = {
   position: "fixed",
