@@ -287,6 +287,11 @@ const DEMO_EVENTO = {
   data_evento: "16/05/2026",
   hora_evento: "21h",
   horario_evento: "21:00",
+  hora_termino: "03h",
+  horario_termino: "03:00",
+  hora_termino_evento: "03h",
+  data_termino: "17/05/2026",
+  data_termino_iso: "2026-05-17",
   local_evento: "Guerrah Hall",
   endereco_evento: "Macaé/RJ",
 };
@@ -356,6 +361,11 @@ function renderDynamicContent(content: string | null) {
     .replaceAll("{{data_evento}}", DEMO_EVENTO.data_evento)
     .replaceAll("{{hora_evento}}", DEMO_EVENTO.hora_evento)
     .replaceAll("{{horario_evento}}", DEMO_EVENTO.hora_evento)
+    .replaceAll("{{hora_termino}}", DEMO_EVENTO.hora_termino)
+    .replaceAll("{{horario_termino}}", DEMO_EVENTO.horario_termino)
+    .replaceAll("{{hora_termino_evento}}", DEMO_EVENTO.hora_termino_evento)
+    .replaceAll("{{data_termino}}", DEMO_EVENTO.data_termino)
+    .replaceAll("{{DATA_TERMINO}}", DEMO_EVENTO.data_termino)
     .replaceAll("{{local_evento}}", DEMO_EVENTO.local_evento)
     .replaceAll("{{endereco_evento}}", DEMO_EVENTO.endereco_evento)
     .replaceAll("{{dias_para_evento}}", String(diasParaEvento))
@@ -685,7 +695,7 @@ function defaultBlock(
     return {
       ...base,
       label: "Data e horário",
-      content: "{{data_evento}} • {{hora_evento}}",
+      content: "{{data_evento}} • {{hora_evento}} até {{hora_termino}}",
       x: 55,
       y: 340,
       width: 320,
@@ -1131,12 +1141,25 @@ export default function EditorModeloConvitePage({
       );
     }
 
-    const loadedBlocks = (blockData || []).map((b: any) => ({
+    const loadedBlocks = (blockData || []).map((b: any) => {
+      const blockType = (b.type || "text") as BlockType;
+      const currentContent = String(b.content || "");
+      const content =
+        blockType === "date_time" &&
+        currentContent.includes("{{hora_evento}}") &&
+        !currentContent.includes("{{hora_termino}}")
+          ? currentContent.replace(
+              "{{hora_evento}}",
+              "{{hora_evento}} até {{hora_termino}}",
+            )
+          : currentContent;
+
+      return {
       id: String(b.id),
       template_id: String(b.template_id),
-      type: (b.type || "text") as BlockType,
+      type: blockType,
       label: b.label || null,
-      content: b.content || "",
+      content,
       x: toNumber(b.x, 0),
       y: toNumber(b.y, 0),
       width: toNumber(b.width, 200),
@@ -1148,7 +1171,8 @@ export default function EditorModeloConvitePage({
       border_radius: toNumber(b.border_radius, 0),
       z_index: toNumber(b.z_index, 1),
       visible: b.visible !== false,
-    })) as ConviteBlock[];
+      };
+    }) as ConviteBlock[];
 
     setBlocks(
       loadedBlocks.length
@@ -2139,6 +2163,9 @@ export default function EditorModeloConvitePage({
               "{{nome_convidado}}",
               "{{data_evento}}",
               "{{hora_evento}}",
+              "{{hora_termino}}",
+              "{{horario_termino}}",
+              "{{data_termino}}",
               "{{dias_para_evento}}",
               "{{contador_evento}}",
               "{{local_evento}}",
@@ -2196,6 +2223,22 @@ export default function EditorModeloConvitePage({
                     glassBlur={glassBlur}
                     glassTone={glassTone}
                     blockEffects={blockEffects}
+                    evento={{
+                      nome_evento: DEMO_EVENTO.nome_evento,
+                      nome_convidado: DEMO_EVENTO.nome_convidado,
+                      data_evento: DEMO_EVENTO.data_evento,
+                      hora_evento: DEMO_EVENTO.hora_evento,
+                      horario_evento: DEMO_EVENTO.hora_evento,
+                      hora_termino: DEMO_EVENTO.hora_termino,
+                      horario_termino: DEMO_EVENTO.horario_termino,
+                      hora_termino_evento: DEMO_EVENTO.hora_termino_evento,
+                      data_termino: DEMO_EVENTO.data_termino,
+                      local_evento: DEMO_EVENTO.local_evento,
+                      endereco_evento: DEMO_EVENTO.endereco_evento,
+                      total_convidados: "4",
+                      convidados_quantidade: "4",
+                      texto_total_convidados: "Convite para 4 convidados",
+                    } as any}
                   />
 
                   {musicaPreviewUrl && (
