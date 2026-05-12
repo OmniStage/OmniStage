@@ -2224,7 +2224,7 @@ export default function EditorModeloConvitePage({
                       total_convidados: "4",
                       convidados_quantidade: "4",
                       texto_total_convidados: "Convite para 4 convidados",
-                    }}
+                    } as any}
                   />
 
                   {musicaPreviewUrl && (
