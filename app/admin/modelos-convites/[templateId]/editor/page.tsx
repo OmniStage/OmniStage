@@ -1143,11 +1143,15 @@ export default function EditorModeloConvitePage({
 
     const loadedBlocks = (blockData || []).map((b: any) => {
       const blockType = (b.type || "text") as BlockType;
-      const currentContent = b.content || "";
+      const currentContent = String(b.content || "");
       const content =
         blockType === "date_time" &&
-        String(currentContent).trim() === "{{data_evento}} • {{hora_evento}}"
-          ? "{{data_evento}} • {{hora_evento}} até {{hora_termino}}"
+        currentContent.includes("{{hora_evento}}") &&
+        !currentContent.includes("{{hora_termino}}")
+          ? currentContent.replace(
+              "{{hora_evento}}",
+              "{{hora_evento}} até {{hora_termino}}",
+            )
           : currentContent;
 
       return {
