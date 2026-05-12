@@ -40,6 +40,11 @@ type Convidado = {
   token: string | null;
   evento_id: string | null;
   created_at: string | null;
+  legacy_id?: string | number | null;
+  origem_importacao?: string | null;
+  import_batch_id?: string | null;
+  data_hora_rsvp?: string | null;
+  data_hora_envio?: string | null;
 };
 
 type ConvidadoForm = {
@@ -237,6 +242,11 @@ export default function ConvidadosPage() {
           convidado.tipo_convite,
           convidado.status_rsvp,
           convidado.status_envio,
+          convidado.legacy_id,
+          convidado.origem_importacao,
+          convidado.import_batch_id,
+          convidado.data_hora_rsvp,
+          convidado.data_hora_envio,
         ]
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
@@ -643,7 +653,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
         status_checkin,
         token,
         evento_id,
-        created_at
+        created_at,
+        legacy_id,
+        origem_importacao,
+        import_batch_id,
+        data_hora_rsvp,
+        data_hora_envio
       `,
       )
       .eq("tenant_id", tenant)
@@ -869,6 +884,27 @@ ${eventoAtual?.nome || "OmniStage"}`);
       current.filter((item) => item.id !== convidado.id),
     );
     alert("Convidado excluído.");
+  }
+
+  function convidadoTemDadosImportados(convidado: Convidado) {
+    return Boolean(
+      convidado.legacy_id ||
+        convidado.origem_importacao ||
+        convidado.import_batch_id ||
+        convidado.data_hora_rsvp ||
+        convidado.data_hora_envio,
+    );
+  }
+
+  function labelOrigemImportacao(valor: string | null | undefined) {
+    if (!valor) return "Importação";
+
+    if (valor === "smart_paste") return "Lista inteligente";
+    if (valor === "csv") return "CSV";
+    if (valor === "google_sheets") return "Google Sheets";
+    if (valor === "vcf") return "VCF";
+
+    return valor;
   }
 
   useEffect(() => {
@@ -1627,6 +1663,46 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               {convidado.token || "sem token"}
                             </strong>
                           </div>
+
+                          {convidadoTemDadosImportados(convidado) && (
+                            <div style={importInfoStyle}>
+                              <div style={importInfoHeaderStyle}>
+                                <span style={importBadgeStyle}>Dados importados</span>
+                                <strong>Origem / Importação</strong>
+                              </div>
+
+                              <div style={importInfoGridStyle}>
+                                <span>
+                                  <strong>Origem:</strong>{" "}
+                                  {labelOrigemImportacao(convidado.origem_importacao)}
+                                </span>
+
+                                <span>
+                                  <strong>ID importação:</strong>{" "}
+                                  {convidado.import_batch_id || "-"}
+                                </span>
+
+                                <span>
+                                  <strong>Legacy ID:</strong>{" "}
+                                  {convidado.legacy_id || "-"}
+                                </span>
+
+                                {convidado.data_hora_envio && (
+                                  <span>
+                                    <strong>Envio importado:</strong>{" "}
+                                    {convidado.data_hora_envio}
+                                  </span>
+                                )}
+
+                                {convidado.data_hora_rsvp && (
+                                  <span>
+                                    <strong>RSVP importado:</strong>{" "}
+                                    {convidado.data_hora_rsvp}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {convidado.observacoes && (
                             <p
@@ -2481,6 +2557,45 @@ const toggleTextStyle: CSSProperties = {
   display: "grid",
   gap: 3,
   lineHeight: 1.22,
+};
+
+const importInfoStyle: CSSProperties = {
+  display: "grid",
+  gap: 9,
+  marginTop: 12,
+  padding: 13,
+  borderRadius: 16,
+  border: "1px solid var(--accent-border)",
+  background: "linear-gradient(135deg, var(--group-soft), var(--card-bg))",
+  color: "var(--text-secondary)",
+  fontSize: 12,
+  lineHeight: 1.35,
+};
+
+const importInfoHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  color: "var(--text)",
+};
+
+const importBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: "#ede9fe",
+  color: "#7c3aed",
+  fontSize: 11,
+  fontWeight: 900,
+};
+
+const importInfoGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
+  gap: "6px 12px",
 };
 
 const sendIdentityStyle: CSSProperties = {
