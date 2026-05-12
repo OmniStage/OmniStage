@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Evento = {
@@ -194,6 +194,7 @@ export default function ConvidadosPage() {
   const [loading, setLoading] = useState(false);
   const [formAberto, setFormAberto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const formReturnScrollYRef = useRef(0);
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
@@ -319,53 +320,29 @@ export default function ConvidadosPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function getConvidadoCardElement(id: string | null) {
-    if (!id || typeof document === "undefined") return null;
-    return document.getElementById(`convidado-card-${id}`);
-  }
-
-  function getConvidadoCardTop(id: string | null) {
-    return getConvidadoCardElement(id)?.getBoundingClientRect().top ?? null;
-  }
-
-  function restaurarPosicaoConvidado(id: string | null, topAntes: number | null) {
-    if (!id || topAntes === null || typeof window === "undefined") return;
-
-    const restaurar = () => {
-      const topDepois = getConvidadoCardTop(id);
-      if (topDepois === null) return;
-
-      window.scrollBy({
-        top: topDepois - topAntes,
-        left: 0,
-        behavior: "auto",
-      });
-    };
-
-    requestAnimationFrame(() => {
-      restaurar();
-      requestAnimationFrame(restaurar);
-      window.setTimeout(restaurar, 80);
-    });
-  }
-
   function limparFormulario() {
     setForm(initialForm);
     setEditandoId(null);
   }
 
+  function restaurarPosicaoLista() {
+    const scrollY = formReturnScrollYRef.current;
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+    });
+  }
+
   function abrirCriacao() {
+    formReturnScrollYRef.current = window.scrollY;
     limparFormulario();
     setFormAberto(true);
   }
 
   function cancelarFormulario() {
-    const idEditandoAtual = editandoId;
-    const topAntes = getConvidadoCardTop(idEditandoAtual);
-
     limparFormulario();
     setFormAberto(false);
-    restaurarPosicaoConvidado(idEditandoAtual, topAntes);
+    restaurarPosicaoLista();
   }
 
   function gerarToken() {
@@ -757,9 +734,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
       return;
     }
 
-    const idEditandoAtual = editandoId;
-    const topAntes = getConvidadoCardTop(idEditandoAtual);
-
     setLoading(true);
 
     try {
@@ -830,11 +804,13 @@ ${eventoAtual?.nome || "OmniStage"}`);
         throw new Error(error.message);
       }
 
+      const estavaEditando = Boolean(editandoId);
+
       limparFormulario();
       setFormAberto(false);
       await carregarConvidados(tenantId, eventoId);
-      restaurarPosicaoConvidado(idEditandoAtual, topAntes);
-      alert(idEditandoAtual ? "Convidado atualizado." : "Convidado criado.");
+      restaurarPosicaoLista();
+      alert(estavaEditando ? "Convidado atualizado." : "Convidado criado.");
     } catch (error) {
       alert(
         error instanceof Error ? error.message : "Erro ao salvar convidado.",
@@ -888,8 +864,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
   }
 
   function editarConvidado(convidado: Convidado) {
-    const topAntes = getConvidadoCardTop(convidado.id);
-
+    formReturnScrollYRef.current = window.scrollY;
     setEditandoId(convidado.id);
     setForm({
       nome: convidado.nome || "",
@@ -912,7 +887,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
       status_envio: convidado.status_envio || "pendente",
     });
     setFormAberto(true);
-    restaurarPosicaoConvidado(convidado.id, topAntes);
   }
 
   async function excluirConvidado(convidado: Convidado) {
@@ -1079,6 +1053,17 @@ ${eventoAtual?.nome || "OmniStage"}`);
   useEffect(() => {
     iniciarTela();
   }, []);
+
+  useEffect(() => {
+    if (!formAberto) return;
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+    };
+  }, [formAberto]);
 
   const isDark = themeMode === "dark" || (themeMode === "auto" && systemDark);
   const themeVars = getThemeVars(isDark);
@@ -1266,13 +1251,27 @@ ${eventoAtual?.nome || "OmniStage"}`);
       )}
 
       {formAberto && (
-        <section style={sectionStyle}>
-          <div style={sectionHeaderStyle}>
+        <div
+          style={guestFormOverlayStyle}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guest-form-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              cancelarFormulario();
+            }
+          }}
+        >
+          <section
+            style={guestFormModalStyle}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div style={sectionHeaderStyle}>
             <div>
               <div style={sectionKickerStyle}>
                 {editandoId ? "Atualizar cadastro" : "Novo cadastro"}
               </div>
-              <h2 style={cardTitleStyle}>
+              <h2 id="guest-form-title" style={cardTitleStyle}>
                 {editandoId ? "Editar convidado" : "Criar convidado"}
               </h2>
             </div>
@@ -1618,23 +1617,24 @@ ${eventoAtual?.nome || "OmniStage"}`);
             </section>
           </div>
 
-          <div style={formActionsStyle}>
-            <button
-              onClick={salvarConvidado}
-              disabled={loading}
-              style={buttonStyle}
-            >
-              {loading
-                ? "Salvando..."
-                : editandoId
-                  ? "Salvar alterações"
-                  : "Criar convidado"}
-            </button>
-            <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
-              Cancelar
-            </button>
-          </div>
-        </section>
+            <div style={formActionsStyle}>
+              <button
+                onClick={salvarConvidado}
+                disabled={loading}
+                style={buttonStyle}
+              >
+                {loading
+                  ? "Salvando..."
+                  : editandoId
+                    ? "Salvar alterações"
+                    : "Criar convidado"}
+              </button>
+              <button onClick={cancelarFormulario} style={secondaryButtonStyle}>
+                Cancelar
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       <section style={sectionStyle}>
@@ -1753,11 +1753,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     const linkListaPresentes = gerarLinkListaPresentes(convidado);
 
                     return (
-                      <div
-                        key={convidado.id}
-                        id={`convidado-card-${convidado.id}`}
-                        style={groupMemberRowStyle}
-                      >
+                      <div key={convidado.id} style={groupMemberRowStyle}>
                         <div style={groupMemberInfoStyle}>
                           <strong
                             style={{
@@ -2877,6 +2873,30 @@ const envioOrigemCardStyle: CSSProperties = {
   fontWeight: 900,
   marginTop: -2,
   textAlign: "left",
+};
+
+const guestFormOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9998,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "clamp(12px, 3vw, 28px)",
+  background: "rgba(15,23,42,0.38)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+  overflow: "hidden",
+};
+
+const guestFormModalStyle: CSSProperties = {
+  ...sectionStyle,
+  width: "min(980px, 100%)",
+  maxHeight: "calc(100vh - 32px)",
+  overflowY: "auto",
+  overscrollBehavior: "contain",
+  boxShadow: "0 28px 90px rgba(15,23,42,0.28)",
+  border: "1px solid var(--border-strong)",
 };
 
 const sendConfirmOverlayStyle: CSSProperties = {
