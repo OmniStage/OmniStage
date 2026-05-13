@@ -68,9 +68,9 @@ export default async function CartaoPage({
       ? evento.card_background_url
       : evento.background_url || evento.background_image || "";
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(
-    token,
-  )}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
+  token,
+)}`;
 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
