@@ -235,25 +235,6 @@ export default function CartaoActions({
           WhatsApp
         </a>
       )}
-
-      <button
-        type="button"
-        onClick={() => window.print()}
-        style={{
-          marginLeft: 10,
-          marginTop: 10,
-          border: "none",
-          borderRadius: 999,
-          padding: "12px 16px",
-          background: "linear-gradient(180deg, #e1c178, #cfa958)",
-          color: "#0d1d3d",
-          fontSize: 13,
-          fontWeight: 800,
-          cursor: "pointer",
-        }}
-      >
-        Imprimir
-      </button>
     </div>
   );
 }
