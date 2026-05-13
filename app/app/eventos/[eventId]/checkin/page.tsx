@@ -53,7 +53,6 @@ type GrupoRender = {
   isGrupo: boolean;
 };
 
-
 type EventoCheckin = {
   nome: string | null;
   logo_url: string | null;
@@ -77,9 +76,6 @@ export default function CheckinEventoPage({
   const [tenantId, setTenantId] = useState<string | null>(null);
   const tenantIdRef = useRef<string | null>(null);
   const [usarTemaEvento, setUsarTemaEvento] = useState(true);
-  const [musicaAmbienteAtiva, setMusicaAmbienteAtiva] = useState(false);
-  const [modoNoturnoAuto, setModoNoturnoAuto] = useState(true);
-  const [modoNoturno, setModoNoturno] = useState(false);
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [busca, setBusca] = useState("");
@@ -96,13 +92,8 @@ export default function CheckinEventoPage({
   const [cardsPiscando, setCardsPiscando] = useState<
     Record<string, { id: number; tipo: Exclude<Resultado["tipo"], "idle"> }>
   >({});
-  const [somAtivo, setSomAtivo] = useState(false);
-  const somAtivoRef = useRef(false);
 
-  function definirSomAtivo(ativo: boolean) {
-    somAtivoRef.current = ativo;
-    setSomAtivo(ativo);
-  }
+  const somAtivoRef = useRef(true);
 
   const [resultado, setResultado] = useState<Resultado>({
     tipo: "idle",
@@ -135,7 +126,6 @@ export default function CheckinEventoPage({
   });
   const audioPoolIndexRef = useRef({ success: 0, already: 0, error: 0 });
   const audioUnlockedRef = useRef(false);
-  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
   const [efeitoId, setEfeitoId] = useState(0);
 
   const localKey = `omnistage_checkin_pending_${eventoId}`;
@@ -163,9 +153,6 @@ export default function CheckinEventoPage({
 
     inicializarCheckin();
 
-    const horaAtual = new Date().getHours();
-    setModoNoturno(horaAtual >= 18 || horaAtual < 7);
-
     const onOnline = () => {
       setOnline(true);
       sincronizarPendentes();
@@ -192,6 +179,7 @@ export default function CheckinEventoPage({
       return audio;
     };
 
+    somAtivoRef.current = true;
     audioRefs.current.success = criarAudio("/sounds/success.mp3");
     audioRefs.current.already = criarAudio("/sounds/already.mp3");
     audioRefs.current.error = criarAudio("/sounds/error.mp3");
@@ -208,39 +196,61 @@ export default function CheckinEventoPage({
     );
   }, []);
 
-  useEffect(() => {
-    const src = evento?.musica_url || evento?.music_file || "";
-
-    if (!src || !musicaAmbienteAtiva) {
-      if (ambientAudioRef.current) {
-        ambientAudioRef.current.pause();
-        ambientAudioRef.current.currentTime = 0;
-      }
-      return;
-    }
-
-    const audio = new Audio(src);
-    audio.loop = true;
-    audio.volume = 0.18;
-    audio.preload = "auto";
-    ambientAudioRef.current = audio;
-
-    void audio.play().catch(() => {
-      setMusicaAmbienteAtiva(false);
-    });
-
-    return () => {
-      audio.pause();
-      audio.currentTime = 0;
-    };
-  }, [evento?.musica_url, evento?.music_file, musicaAmbienteAtiva]);
-
   function normalizar(texto: string | null | undefined) {
     return String(texto || "")
       .trim()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toUpperCase();
+  }
+
+  function statusRsvpNormalizado(c: Convidado) {
+    return normalizar(c.status_rsvp || "pendente");
+  }
+
+  function convidadoRecusou(c: Convidado) {
+    const status = statusRsvpNormalizado(c);
+    return (
+      status === "RECUSADO" ||
+      status === "NAO" ||
+      status === "NÃO" ||
+      status === "DECLINADO"
+    );
+  }
+
+  function convidadoConfirmado(c: Convidado) {
+    const status = statusRsvpNormalizado(c);
+    return (
+      status === "CONFIRMADO" ||
+      status === "SIM" ||
+      status === "CONFIRMADO_MANUAL"
+    );
+  }
+
+  function textoBotaoCheckin(c: Convidado) {
+    if (convidadoEntrou(c)) return "Liberado";
+    if (convidadoRecusou(c)) return "Liberar exceção";
+    if (convidadoConfirmado(c)) return "Fazer check-in";
+    return "Confirmar + Entrar";
+  }
+
+  function classeBotaoCheckin(c: Convidado) {
+    if (convidadoEntrou(c)) return "btn";
+    if (convidadoRecusou(c)) return "btn exception";
+    if (convidadoConfirmado(c)) return "btn checkin-success";
+    return "btn primary";
+  }
+
+  function classeChipRsvp(c: Convidado) {
+    if (convidadoRecusou(c)) return "chip rsvp-refused";
+    if (convidadoConfirmado(c)) return "chip ok";
+    return "chip info";
+  }
+
+  function textoChipRsvp(c: Convidado) {
+    if (convidadoRecusou(c)) return "RSVP recusado";
+    if (convidadoConfirmado(c)) return "RSVP confirmado";
+    return "RSVP pendente";
   }
 
   function isGrupoReal(c: Convidado) {
@@ -256,53 +266,13 @@ export default function CheckinEventoPage({
     return (
       c.checkin_realizado === true ||
       normalizar(c.status_checkin) === "ENTROU" ||
+      normalizar(c.status_checkin) === "ENTROU_EXCECAO" ||
       normalizar(c.status_checkin) === "SYNC_PENDENTE"
     );
   }
 
   function convidadoSync(c: Convidado) {
     return normalizar(c.status_checkin) === "SYNC_PENDENTE";
-  }
-
-  async function desbloquearAudio() {
-    // O botão de som agora só libera o áudio, sem tocar o kit inteiro.
-    // Antes ele tentava reproduzir vários arquivos/pool ao mesmo tempo e gerava
-    // aquele efeito estranho de repetição rápida.
-    const audio =
-      audioRefs.current.success ||
-      audioPoolRefs.current.success[0] ||
-      audioRefs.current.already ||
-      audioRefs.current.error;
-
-    if (!audio) {
-      audioUnlockedRef.current = true;
-      definirSomAtivo(true);
-      return;
-    }
-
-    try {
-      const volumeOriginal = audio.volume;
-      const mutedOriginal = audio.muted;
-
-      audio.muted = true;
-      audio.volume = 0;
-      audio.currentTime = 0;
-
-      await audio.play();
-      audio.pause();
-      audio.currentTime = 0;
-
-      audio.muted = mutedOriginal;
-      audio.volume = volumeOriginal || 1;
-
-      audioUnlockedRef.current = true;
-      definirSomAtivo(true);
-    } catch {
-      // Mesmo se o navegador bloquear esse teste silencioso, mantemos o botão
-      // como ativo para tentar tocar no próximo check-in real do operador.
-      audioUnlockedRef.current = false;
-      definirSomAtivo(true);
-    }
   }
 
   function tocarArquivo(tipo: "success" | "already" | "error", volume = 1) {
@@ -325,8 +295,8 @@ export default function CheckinEventoPage({
           audioUnlockedRef.current = true;
         })
         .catch(() => {
-          // Não desligamos o botão de som aqui. Em alguns tablets/iPhones uma
-          // tentativa pode falhar isoladamente, mas a próxima leitura pode tocar.
+          // Navegadores podem bloquear áudio antes da primeira interação real.
+          // O som continua sempre habilitado e tentará tocar no próximo check-in.
           audioUnlockedRef.current = false;
         });
     } catch {
@@ -335,8 +305,6 @@ export default function CheckinEventoPage({
   }
 
   function tocarSom(tipo: "ok" | "erro" | "usado" | "sync" | "tick") {
-    // Som só para feedback de check-in e somente quando o operador ativar.
-    // Botões de navegação/ação não disparam áudio.
     if (!somAtivoRef.current) return;
 
     if (tipo === "ok") {
@@ -387,10 +355,6 @@ export default function CheckinEventoPage({
     tocarSomSincronizado(som, 0);
 
     if (vibracao) vibrar(vibracao);
-  }
-
-  function tocarClick() {
-    tocarSom("tick");
   }
 
   function vibrar(tipo: "ok" | "erro") {
@@ -450,7 +414,8 @@ export default function CheckinEventoPage({
 
     if (
       c.checkin_realizado === true ||
-      normalizar(c.status_checkin) === "ENTROU"
+      normalizar(c.status_checkin) === "ENTROU" ||
+      normalizar(c.status_checkin) === "ENTROU_EXCECAO"
     ) {
       removerPendente(c.token);
       return c;
@@ -537,7 +502,6 @@ export default function CheckinEventoPage({
       )
       .eq("evento_id", eventoId)
       .eq("tenant_id", tenantAtual)
-      .ilike("status_rsvp", "confirmado")
       .order("nome", { ascending: true });
 
     if (error) {
@@ -883,7 +847,19 @@ export default function CheckinEventoPage({
       return;
     }
 
+    const isExcecao = convidadoRecusou(convidado);
+
+    if (isExcecao) {
+      const confirmar = window.confirm(
+        `Este convidado recusou presença. Deseja liberar entrada mesmo assim?\n\n${convidado.nome}`,
+      );
+
+      if (!confirmar) return;
+    }
+
     const agora = new Date().toISOString();
+    const deveConfirmarRsvp = !convidadoConfirmado(convidado) && !isExcecao;
+    const statusCheckinFinal = isExcecao ? "entrou_excecao" : "entrou";
 
     // Trava real no banco: só atualiza se ainda não realizou check-in.
     // Isso impede dois leitores/botões registrarem a mesma entrada ao mesmo tempo.
@@ -891,8 +867,9 @@ export default function CheckinEventoPage({
       .from("convidados")
       .update({
         checkin_realizado: true,
-        status_checkin: "entrou",
+        status_checkin: statusCheckinFinal,
         data_checkin: agora,
+        ...(deveConfirmarRsvp ? { status_rsvp: "confirmado" } : {}),
       })
       .eq("id", convidado.id)
       .eq("evento_id", eventoId)
@@ -911,6 +888,7 @@ export default function CheckinEventoPage({
                 checkin_realizado: true,
                 status_checkin: "sync_pendente",
                 data_checkin: agora,
+                ...(deveConfirmarRsvp ? { status_rsvp: "confirmado" } : {}),
               }
             : c,
         ),
@@ -939,7 +917,7 @@ export default function CheckinEventoPage({
             ? {
                 ...c,
                 checkin_realizado: true,
-                status_checkin: "entrou",
+                status_checkin: c.status_checkin || statusCheckinFinal,
                 data_checkin: c.data_checkin || agora,
               }
             : c,
@@ -969,10 +947,17 @@ export default function CheckinEventoPage({
       convidado.id,
       {
         tipo: "ok",
-        titulo:
-          origem === "qr" ? "Entrada liberada pelo QR" : "Entrada liberada",
+        titulo: isExcecao
+          ? "Entrada liberada por exceção"
+          : origem === "qr"
+            ? "Entrada liberada pelo QR"
+            : "Entrada liberada",
         nome: convidado.nome,
-        mensagem: "Check-in registrado com sucesso.",
+        mensagem: isExcecao
+          ? "Check-in registrado mesmo com RSVP recusado."
+          : deveConfirmarRsvp
+            ? "Presença confirmada e check-in registrado com sucesso."
+            : "Check-in registrado com sucesso.",
         token: convidado.token,
       },
       "ok",
@@ -985,8 +970,9 @@ export default function CheckinEventoPage({
           ? {
               ...c,
               checkin_realizado: true,
-              status_checkin: "entrou",
+              status_checkin: statusCheckinFinal,
               data_checkin: agora,
+              ...(deveConfirmarRsvp ? { status_rsvp: "confirmado" } : {}),
             }
           : c,
       ),
@@ -1043,12 +1029,16 @@ export default function CheckinEventoPage({
         continue;
       }
 
+      const isExcecao = convidadoRecusou(convidado);
+      const deveConfirmarRsvp = !convidadoConfirmado(convidado) && !isExcecao;
+
       const { error } = await supabase
         .from("convidados")
         .update({
           checkin_realizado: true,
-          status_checkin: "entrou",
+          status_checkin: isExcecao ? "entrou_excecao" : "entrou",
           data_checkin: pendentesLocais[token].data_checkin,
+          ...(deveConfirmarRsvp ? { status_rsvp: "confirmado" } : {}),
         })
         .eq("id", convidado.id)
         .eq("evento_id", eventoId)
@@ -1059,7 +1049,12 @@ export default function CheckinEventoPage({
         setConvidados((prev) =>
           prev.map((c) =>
             c.id === convidado.id
-              ? { ...c, status_checkin: "entrou", checkin_realizado: true }
+              ? {
+                  ...c,
+                  status_checkin: isExcecao ? "entrou_excecao" : "entrou",
+                  checkin_realizado: true,
+                  ...(deveConfirmarRsvp ? { status_rsvp: "confirmado" } : {}),
+                }
               : c,
           ),
         );
@@ -1161,16 +1156,11 @@ export default function CheckinEventoPage({
 
   const logoEvento = evento?.logo_url || evento?.logo_image || "";
   const backgroundEvento = evento?.background_url || evento?.background_image || "";
-  const musicaEvento = evento?.musica_url || evento?.music_file || "";
-  const usarModoEscuro = modoNoturnoAuto && modoNoturno;
 
   return (
-    <div className={`checkin-page ${usarModoEscuro ? "dark-mode" : ""}`}>
+    <div className="checkin-page">
       <style>{`
         .checkin-page { --purple:#6d28d9; --purple2:#8b5cf6; --green:#16a34a; --red:#e11d48; --amber:#d97706; --text:#0f172a; --muted:#64748b; --card:rgba(255,255,255,.88); --line:#dbe3ef; min-height:100vh; padding:28px; color:var(--text); background-color:#f5f8fc; }
-        .checkin-page.dark-mode { --text:#f8fafc; --muted:#cbd5e1; --card:rgba(15,23,42,.82); --line:rgba(148,163,184,.26); background-color:#07111f; }
-        .checkin-page.dark-mode .panel, .checkin-page.dark-mode .stat, .checkin-page.dark-mode .checkin-hero { background:rgba(15,23,42,.78); }
-        .checkin-page.dark-mode .input, .checkin-page.dark-mode .select, .checkin-page.dark-mode .helper { background:rgba(2,6,23,.62); color:#f8fafc; }
         .checkin-hero { display:grid; grid-template-columns:1.2fr auto; gap:22px; align-items:center; margin-bottom:20px; padding:26px; border:1px solid var(--line); border-radius:32px; background:var(--card); box-shadow:0 18px 52px rgba(15,23,42,.07); backdrop-filter:blur(16px); }
         .eyebrow { color:var(--muted); font-size:12px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
         .title { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
@@ -1186,6 +1176,8 @@ export default function CheckinEventoPage({
         .btn:hover { transform:translateY(-1px); }
         .btn.primary { background:linear-gradient(135deg,var(--purple),var(--purple2)); color:white; border-color:transparent; box-shadow:0 14px 36px rgba(109,40,217,.22); }
         .btn.success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
+        .btn.checkin-success { background:#16a34a; color:white; border-color:transparent; box-shadow:0 14px 34px rgba(22,163,74,.22); }
+        .btn.exception { background:linear-gradient(135deg,#9f1239,#d97706); color:white; border-color:transparent; box-shadow:0 14px 34px rgba(159,18,57,.2); }
         .btn.group { background:linear-gradient(135deg,#f4d38b,#d89d36); color:#17110a; border-color:transparent; }
         .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
         .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
@@ -1205,8 +1197,7 @@ export default function CheckinEventoPage({
         .result-card { border-radius:24px; padding:20px; margin-bottom:14px; border:1px solid var(--line); background:rgba(248,250,252,.76); position:relative; overflow:hidden; }
         .result-card.ok { background:linear-gradient(135deg,rgba(22,163,74,.12),rgba(255,255,255,.88)); border-color:rgba(22,163,74,.28); }
         .result-card.sync { background:linear-gradient(135deg,rgba(217,119,6,.14),rgba(255,255,255,.88)); border-color:rgba(217,119,6,.28); }
-        .result-card.usado,
-        .result-card.erro { background:linear-gradient(135deg,rgba(225,29,72,.15),rgba(255,255,255,.88)); border-color:rgba(225,29,72,.34); }
+        .result-card.usado, .result-card.erro { background:linear-gradient(135deg,rgba(225,29,72,.15),rgba(255,255,255,.88)); border-color:rgba(225,29,72,.34); }
         .result-kicker { color:var(--muted); font-size:11px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; }
         .result-title { margin:8px 0 0; font-size:28px; line-height:1; font-weight:950; letter-spacing:-.04em; }
         .result-name { margin-top:10px; font-size:22px; font-weight:950; }
@@ -1252,6 +1243,7 @@ export default function CheckinEventoPage({
         .chip.sync { background:#fef3c7; color:#92400e; }
         .chip.info { background:#ede9fe; color:#6d28d9; }
         .chip.group { background:#fef3c7; color:#92400e; }
+        .chip.rsvp-refused { background:#ffe4e6; color:#be123c; }
         .history { margin-top:14px; display:grid; gap:8px; }
         .history-item { border:1px solid var(--line); border-radius:16px; padding:11px 12px; background:rgba(248,250,252,.76); }
         .history-top { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:11px; font-weight:850; }
@@ -1259,16 +1251,14 @@ export default function CheckinEventoPage({
         .flash { position:fixed; inset:0; pointer-events:none; z-index:9997; animation:flashFade .7s ease forwards; }
         .flash.ok { background:radial-gradient(circle,rgba(22,163,74,.2),rgba(22,163,74,.08) 35%,transparent 70%); }
         .flash.sync { background:radial-gradient(circle,rgba(217,119,6,.2),rgba(217,119,6,.08) 35%,transparent 70%); }
-        .flash.usado,
-        .flash.erro { background:radial-gradient(circle,rgba(225,29,72,.24),rgba(225,29,72,.1) 35%,transparent 70%); }
+        .flash.usado, .flash.erro { background:radial-gradient(circle,rgba(225,29,72,.24),rgba(225,29,72,.1) 35%,transparent 70%); }
         @keyframes flashFade { 0%{opacity:1} 100%{opacity:0} }
         .premium-overlay { position:fixed; inset:0; z-index:9998; pointer-events:none; display:grid; place-items:center; background:rgba(15,23,42,.18); backdrop-filter:blur(2px); animation:overlayFade 1.35s ease forwards; }
         .premium-card { width:min(520px,calc(100vw - 40px)); border-radius:30px; padding:30px 26px; text-align:center; background:rgba(255,255,255,.96); border:1px solid var(--line); box-shadow:0 30px 90px rgba(15,23,42,.24); transform:scale(.96) translateY(8px); animation:premiumPop .45s cubic-bezier(.2,.9,.2,1.1) forwards; }
         .premium-icon { width:76px; height:76px; border-radius:999px; margin:0 auto 16px; display:grid; place-items:center; font-size:38px; font-weight:950; }
         .premium-icon.ok { background:#dcfce7; color:#166534; }
         .premium-icon.sync { background:#fef3c7; color:#92400e; }
-        .premium-icon.usado,
-        .premium-icon.erro { background:#ffe4e6; color:#be123c; }
+        .premium-icon.usado, .premium-icon.erro { background:#ffe4e6; color:#be123c; }
         .premium-title { margin:0; font-size:30px; font-weight:950; letter-spacing:-.04em; }
         .premium-name { margin-top:8px; font-size:18px; font-weight:900; }
         .premium-msg { margin-top:8px; color:#64748b; font-weight:700; }
@@ -1334,10 +1324,6 @@ export default function CheckinEventoPage({
 
         <div>
           <div className="actions">
-            <button className="btn" onClick={() => carregarConvidados()}>
-              Atualizar
-            </button>
-
             <button
               className={qrAtivo ? "btn success" : "btn primary"}
               onClick={async () => {
@@ -1356,22 +1342,14 @@ export default function CheckinEventoPage({
               Trocar câmera
             </button>
 
-            <button className="btn" onClick={sincronizarPendentes}>
-              Sincronizar
-            </button>
-
             <button
-              className={somAtivo ? "btn success" : "btn"}
-              onClick={() => {
-                if (somAtivo) {
-                  definirSomAtivo(false);
-                  return;
-                }
-
-                desbloquearAudio();
+              className="btn"
+              onClick={async () => {
+                await carregarConvidados();
+                await sincronizarPendentes();
               }}
             >
-              {somAtivo ? "Som ativo" : "Ativar som"}
+              Sincronizar
             </button>
           </div>
 
@@ -1384,32 +1362,12 @@ export default function CheckinEventoPage({
             >
               Tema do evento
             </button>
-
-            <button
-              className={musicaAmbienteAtiva ? "mini-toggle active" : "mini-toggle"}
-              onClick={async () => {
-                if (!musicaEvento) return;
-                if (!somAtivoRef.current) await desbloquearAudio();
-                setMusicaAmbienteAtiva((prev) => !prev);
-              }}
-              disabled={!musicaEvento}
-              title={!musicaEvento ? "Este evento ainda não tem música ambiente" : "Ativar música ambiente"}
-            >
-              Música ambiente
-            </button>
-
-            <button
-              className={modoNoturnoAuto ? "mini-toggle active" : "mini-toggle"}
-              onClick={() => setModoNoturnoAuto((prev) => !prev)}
-            >
-              Modo noturno auto
-            </button>
           </div>
         </div>
       </header>
 
       <section className="stats">
-        <Metric label="Confirmados" value={resumo.total} />
+        <Metric label="Convidados" value={resumo.total} />
         <Metric label="Check-in" value={resumo.entrou} />
         <Metric label="Pendentes" value={resumo.pendentes} />
         <Metric label="Sync pendente" value={resumo.sync} />
@@ -1439,8 +1397,7 @@ export default function CheckinEventoPage({
                 ? "Ative o QR para usar celular, tablet ou notebook."
                 : "Carregando leitor de QR code..."}
             <br />
-            Status: {online ? "Online" : "Offline"} • Som:{" "}
-            {somAtivo ? "Ativo" : "Desativado"}
+            Status: {online ? "Online" : "Offline"}
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -1605,6 +1562,9 @@ export default function CheckinEventoPage({
                                 >
                                   {entrou ? "entrou" : "pendente"}
                                 </span>
+                                <span className={classeChipRsvp(c)}>
+                                  {textoChipRsvp(c)}
+                                </span>
                                 {sync && (
                                   <span className="chip sync">
                                     sync pendente
@@ -1613,13 +1573,13 @@ export default function CheckinEventoPage({
                               </div>
                             </div>
                             <button
-                              className={entrou ? "btn" : "btn primary"}
+                              className={classeBotaoCheckin(c)}
                               disabled={entrou}
                               onClick={() => {
                                 liberarConvidado(c, "manual");
                               }}
                             >
-                              {entrou ? "Liberado" : "Liberar entrada"}
+                              {textoBotaoCheckin(c)}
                             </button>
                           </div>
                         );
