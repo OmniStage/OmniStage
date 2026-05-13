@@ -325,9 +325,9 @@ export default async function CartaoPage({
             <div
               style={{
                 margin: isPreviewMode ? "18px auto 10px" : "22px auto 14px",
-                width: isPreviewMode ? "min(100%, 380px)" : "min(100%, 300px)",
+                width: isPreviewMode ? "min(100%, 320px)" : "min(100%, 300px)",
                 aspectRatio: "1 / 1",
-                padding: isPreviewMode ? 16 : 14,
+                padding: isPreviewMode ? 12 : 14,
                 background: "#fff",
                 borderRadius: 24,
                 boxShadow: "0 14px 34px rgba(0,0,0,.24)",
