@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 type PageProps = {
   params: Promise<{ token: string }>;
-  searchParams?: Promise<{ save?: string }>;
+  searchParams?: Promise<{ save?: string; preview?: string }>;
 };
 
 function formatDate(value?: string | null) {
@@ -24,6 +24,7 @@ export default async function CartaoPage({
   const { token } = await params;
   const query = searchParams ? await searchParams : {};
   const isSaveMode = query.save === "1";
+  const isPreviewMode = query.preview === "1";
 
   const supabase = await createClient();
 
@@ -95,27 +96,34 @@ export default async function CartaoPage({
       convidado.recebe_convite === true ||
       Boolean(convidado.responsavel_telefone));
 
-  const { data: integrantesGrupo } =
-    isGrupoPrincipal && !isSaveMode
-      ? await supabase
-          .from("convidados")
-          .select("id, nome, telefone, responsavel_telefone, token")
-          .eq("evento_id", convidado.evento_id)
-          .eq("grupo", convidado.grupo)
-          .order("nome", { ascending: true })
-      : { data: [] };
+  const deveBuscarGrupo =
+    Boolean(convidado.grupo) && !isSaveMode;
 
-  const grupoParaEnvio = (integrantesGrupo || []).map(
-    (integrante: any) => ({
-      id: integrante.id,
-      nome: integrante.nome || "Convidado",
-      telefone:
-        integrante.telefone ||
-        integrante.responsavel_telefone ||
-        null,
-      token: integrante.token || null,
-    }),
-  );
+  const { data: integrantesGrupo } = deveBuscarGrupo
+    ? await supabase
+        .from("convidados")
+        .select("id, nome, telefone, responsavel_telefone, token")
+        .eq("evento_id", convidado.evento_id)
+        .eq("grupo", convidado.grupo)
+        .order("nome", { ascending: true })
+    : { data: [] };
+
+  const grupoParaEnvio = (integrantesGrupo || []).map((integrante: any) => ({
+    id: integrante.id,
+    nome: integrante.nome || "Convidado",
+    telefone: integrante.telefone || integrante.responsavel_telefone || null,
+    token: integrante.token || null,
+  }));
+
+  const grupoComToken = grupoParaEnvio.filter((item) => Boolean(item.token));
+  const indiceAtual = grupoComToken.findIndex((item) => item.token === token);
+  const totalGrupo = grupoComToken.length;
+  const convidadoAnterior =
+    indiceAtual > 0 ? grupoComToken[indiceAtual - 1] : null;
+  const proximoConvidado =
+    indiceAtual >= 0 && indiceAtual < totalGrupo - 1
+      ? grupoComToken[indiceAtual + 1]
+      : null;
 
   if (isSaveMode) {
     return (
@@ -134,7 +142,7 @@ export default async function CartaoPage({
     <main
       style={{
         minHeight: "100vh",
-        padding: "22px 16px 34px",
+        padding: isPreviewMode ? "12px 12px 24px" : "22px 16px 34px",
         display: "grid",
         placeItems: "center",
         background:
@@ -146,9 +154,9 @@ export default async function CartaoPage({
       <section
         style={{
           width: "100%",
-          maxWidth: 440,
+          maxWidth: isPreviewMode ? 520 : 440,
           borderRadius: 30,
-          padding: "26px 22px 24px",
+          padding: isPreviewMode ? "22px 18px 22px" : "26px 22px 24px",
           border: "1px solid rgba(255,255,255,.14)",
           background: backgroundUrl
             ? `url("${backgroundUrl}") center top / cover no-repeat, linear-gradient(180deg,#04142f,#020814)`
@@ -169,6 +177,46 @@ export default async function CartaoPage({
         />
 
         <div style={{ position: "relative", zIndex: 1 }}>
+          {isPreviewMode ? (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 12,
+              }}
+            >
+              <a
+                href={`/cartao/${encodeURIComponent(token)}`}
+                style={{
+                  borderRadius: 999,
+                  padding: "9px 12px",
+                  background: "rgba(255,255,255,.10)",
+                  border: "1px solid rgba(255,255,255,.14)",
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                ← Voltar
+              </a>
+
+              {totalGrupo > 1 ? (
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "rgba(255,255,255,.78)",
+                  }}
+                >
+                  {indiceAtual + 1} de {totalGrupo}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           <div
             style={{
               fontSize: 11,
@@ -179,7 +227,7 @@ export default async function CartaoPage({
               fontWeight: 800,
             }}
           >
-            Cartão de Entrada
+            {isPreviewMode ? "Modo Check-in" : "Cartão de Entrada"}
           </div>
 
           {logoUrl ? (
@@ -188,8 +236,8 @@ export default async function CartaoPage({
               alt={nomeEvento}
               style={{
                 width: "100%",
-                maxWidth: 330,
-                maxHeight: 130,
+                maxWidth: isPreviewMode ? 280 : 330,
+                maxHeight: isPreviewMode ? 100 : 130,
                 objectFit: "contain",
                 marginBottom: 10,
               }}
@@ -199,7 +247,7 @@ export default async function CartaoPage({
               style={{
                 margin: 0,
                 fontFamily: "Georgia, serif",
-                fontSize: 38,
+                fontSize: isPreviewMode ? 32 : 38,
                 lineHeight: 1,
                 color: "#f8fafc",
               }}
@@ -208,25 +256,27 @@ export default async function CartaoPage({
             </h1>
           )}
 
-          <p
-            style={{
-              color: "#d7b56d",
-              fontSize: 14,
-              marginTop: 10,
-            }}
-          >
-            Apresente este QR Code na entrada do evento
-          </p>
+          {!isPreviewMode ? (
+            <p
+              style={{
+                color: "#d7b56d",
+                fontSize: 14,
+                marginTop: 10,
+              }}
+            >
+              Apresente este QR Code na entrada do evento
+            </p>
+          ) : null}
 
           <div
             style={{
-              marginTop: 20,
+              marginTop: isPreviewMode ? 12 : 20,
               border: "1px solid rgba(255,255,255,.18)",
               background: "rgba(2,8,24,.12)",
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
               borderRadius: 24,
-              padding: "18px 16px 20px",
+              padding: isPreviewMode ? "16px 14px 18px" : "18px 16px 20px",
             }}
           >
             <div
@@ -246,7 +296,7 @@ export default async function CartaoPage({
               style={{
                 margin: 0,
                 fontFamily: "Georgia, serif",
-                fontSize: 29,
+                fontSize: isPreviewMode ? 34 : 29,
                 lineHeight: 1.12,
                 color: "#ffffff",
                 textShadow: "0 2px 16px rgba(0,0,0,.45)",
@@ -268,19 +318,16 @@ export default async function CartaoPage({
                 fontSize: 13,
               }}
             >
-              <strong style={{ color: "#d7b56d" }}>
-                TOKEN
-              </strong>
-
+              <strong style={{ color: "#d7b56d" }}>TOKEN</strong>
               <span>{token}</span>
             </div>
 
             <div
               style={{
-                margin: "22px auto 14px",
-                width: "min(100%, 300px)",
+                margin: isPreviewMode ? "18px auto 10px" : "22px auto 14px",
+                width: isPreviewMode ? "min(100%, 380px)" : "min(100%, 300px)",
                 aspectRatio: "1 / 1",
-                padding: 14,
+                padding: isPreviewMode ? 16 : 14,
                 background: "#fff",
                 borderRadius: 24,
                 boxShadow: "0 14px 34px rgba(0,0,0,.24)",
@@ -298,21 +345,23 @@ export default async function CartaoPage({
               />
             </div>
 
-            <p
-              style={{
-                color: "rgba(255,255,255,.74)",
-                fontSize: 14,
-                lineHeight: 1.45,
-              }}
-            >
-              Guarde este cartão no seu WhatsApp e apresente o
-              QR Code no totem de recepção para agilizar seu
-              check-in.
-            </p>
+            {!isPreviewMode ? (
+              <p
+                style={{
+                  color: "rgba(255,255,255,.74)",
+                  fontSize: 14,
+                  lineHeight: 1.45,
+                }}
+              >
+                Guarde este cartão no seu WhatsApp e apresente o
+                QR Code no totem de recepção para agilizar seu
+                check-in.
+              </p>
+            ) : null}
 
             <div
               style={{
-                marginTop: 18,
+                marginTop: isPreviewMode ? 12 : 18,
                 border: "1px solid rgba(255,255,255,.08)",
                 background: "rgba(255,255,255,.045)",
                 borderRadius: 16,
@@ -332,12 +381,7 @@ export default async function CartaoPage({
                 Evento
               </div>
 
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: 15,
-                }}
-              >
+              <strong style={{ display: "block", fontSize: 15 }}>
                 {nomeEvento}
               </strong>
 
@@ -348,9 +392,7 @@ export default async function CartaoPage({
                   marginTop: 4,
                 }}
               >
-                {[dataEvento, horario]
-                  .filter(Boolean)
-                  .join(" • ")}
+                {[dataEvento, horario].filter(Boolean).join(" • ")}
               </strong>
 
               <strong
@@ -363,7 +405,7 @@ export default async function CartaoPage({
                 {local}
               </strong>
 
-              {endereco ? (
+              {endereco && !isPreviewMode ? (
                 <small
                   style={{
                     display: "block",
@@ -377,14 +419,99 @@ export default async function CartaoPage({
               ) : null}
             </div>
 
-            <CartaoActions
-              whatsappUrl={whatsappUrl}
-              isGrupoPrincipal={isGrupoPrincipal}
-              grupoNome={convidado.grupo}
-              integrantesGrupo={grupoParaEnvio}
-              nomeEvento={nomeEvento}
-              siteUrl={siteUrl}
-            />
+            {isPreviewMode && totalGrupo > 1 ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                  marginTop: 14,
+                }}
+              >
+                {convidadoAnterior?.token ? (
+                  <a
+                    href={`/cartao/${encodeURIComponent(
+                      convidadoAnterior.token,
+                    )}?preview=1`}
+                    style={{
+                      borderRadius: 999,
+                      padding: "12px 14px",
+                      background: "rgba(255,255,255,.10)",
+                      border: "1px solid rgba(255,255,255,.14)",
+                      color: "#fff",
+                      textDecoration: "none",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Anterior
+                  </a>
+                ) : (
+                  <span
+                    style={{
+                      borderRadius: 999,
+                      padding: "12px 14px",
+                      background: "rgba(255,255,255,.05)",
+                      border: "1px solid rgba(255,255,255,.08)",
+                      color: "rgba(255,255,255,.35)",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Anterior
+                  </span>
+                )}
+
+                {proximoConvidado?.token ? (
+                  <a
+                    href={`/cartao/${encodeURIComponent(
+                      proximoConvidado.token,
+                    )}?preview=1`}
+                    style={{
+                      borderRadius: 999,
+                      padding: "12px 14px",
+                      background: "linear-gradient(180deg, #25D366, #128C7E)",
+                      color: "#fff",
+                      textDecoration: "none",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Próximo
+                  </a>
+                ) : (
+                  <a
+                    href={`/cartao/${encodeURIComponent(token)}`}
+                    style={{
+                      borderRadius: 999,
+                      padding: "12px 14px",
+                      background: "linear-gradient(180deg, #e1c178, #cfa958)",
+                      color: "#0d1d3d",
+                      textDecoration: "none",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Finalizar
+                  </a>
+                )}
+              </div>
+            ) : null}
+
+            {!isPreviewMode ? (
+              <CartaoActions
+                whatsappUrl={whatsappUrl}
+                isGrupoPrincipal={isGrupoPrincipal}
+                grupoNome={convidado.grupo}
+                integrantesGrupo={grupoParaEnvio}
+                nomeEvento={nomeEvento}
+                siteUrl={siteUrl}
+              />
+            ) : null}
           </div>
 
           <footer
@@ -394,10 +521,11 @@ export default async function CartaoPage({
               fontSize: 13,
             }}
           >
-            {convidado.checkin_realizado ||
-            convidado.status_checkin === "entrou"
+            {convidado.checkin_realizado || convidado.status_checkin === "entrou"
               ? "Check-in já realizado"
-              : "Cartão válido para entrada"}
+              : isPreviewMode
+                ? "Aponte o leitor para o QR Code"
+                : "Cartão válido para entrada"}
           </footer>
         </div>
       </section>
