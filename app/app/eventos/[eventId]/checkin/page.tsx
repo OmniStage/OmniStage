@@ -43,7 +43,7 @@ type LogItem = {
   mensagem: string;
 };
 
-type StatusFiltro = "todos" | "pendentes" | "entrou" | "sync";
+type StatusFiltro = "todos" | "pendentes" | "entrou" | "entrou_sem_rsvp" | "sync";
 type TipoFiltro = "todos" | "individual" | "grupo";
 
 type GrupoRender = {
@@ -228,7 +228,7 @@ export default function CheckinEventoPage({
   }
 
   function textoBotaoCheckin(c: Convidado) {
-    if (convidadoEntrouExcecao(c)) return "Liberado sem RSVP";
+    if (convidadoEntrouExcecao(c)) return "Entrou sem RSVP";
     if (convidadoEntrou(c)) return "Liberado";
     if (convidadoRecusou(c)) return "Liberar exceção";
     if (convidadoConfirmado(c)) return "Fazer check-in";
@@ -1151,6 +1151,16 @@ export default function CheckinEventoPage({
             !grupoTemEfeitoAtivo
           )
             return false;
+
+          const grupoTemEntrouSemRsvp = grupo.membros.some(convidadoEntrouExcecao);
+
+          if (
+            statusFiltro === "entrou_sem_rsvp" &&
+            !grupoTemEntrouSemRsvp &&
+            !grupoTemEfeitoAtivo
+          )
+            return false;
+
           if (statusFiltro === "sync" && !grupoTemSync && !grupoTemEfeitoAtivo)
             return false;
 
@@ -1221,7 +1231,12 @@ export default function CheckinEventoPage({
         .helper { margin-top:14px; border-radius:18px; padding:13px; background:rgba(248,250,252,.86); border:1px solid var(--line); color:var(--muted); font-weight:750; font-size:13px; }
         .input, .select { width:100%; border:1px solid var(--line); background:rgba(248,250,252,.86); color:var(--text); border-radius:16px; padding:13px 14px; font-weight:750; outline:none; }
         .input:focus, .select:focus { border-color:var(--purple); box-shadow:0 0 0 3px rgba(109,40,217,.12); }
-        .control-row { display:grid; grid-template-columns:1fr 170px 210px; gap:10px; margin-bottom:14px; }
+        .control-row { display:grid; grid-template-columns:1fr 210px; gap:10px; margin-bottom:14px; }
+        .status-filter-buttons { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px; }
+        .filter-button { border:1px solid var(--line); background:rgba(255,255,255,.76); color:var(--text); border-radius:999px; padding:10px 13px; font-weight:950; font-size:12px; cursor:pointer; transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border .16s ease; }
+        .filter-button:hover { transform:translateY(-1px); box-shadow:0 10px 24px rgba(15,23,42,.06); }
+        .filter-button.active { background:linear-gradient(135deg,var(--purple),var(--purple2)); color:white; border-color:transparent; box-shadow:0 12px 30px rgba(109,40,217,.2); }
+        .filter-button.exception.active { background:rgba(190,24,93,.12); color:#9f1239; border-color:rgba(217,119,6,.22); box-shadow:none; }
         .guest-list { display:grid; gap:14px; max-height:74vh; overflow:auto; padding-right:4px; }
         .group-card { border:1px solid var(--line); border-radius:26px; padding:16px; background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(248,250,252,.9)); box-shadow:0 12px 34px rgba(15,23,42,.045); }
         .group-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
@@ -1281,7 +1296,7 @@ export default function CheckinEventoPage({
         .premium-msg { margin-top:8px; color:#64748b; font-weight:700; }
         @keyframes premiumPop { to{transform:scale(1) translateY(0)} }
         @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
-        @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr 170px} }
+        @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
         @media (max-width:640px){ .checkin-page{padding:16px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:82px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
 
@@ -1465,17 +1480,6 @@ export default function CheckinEventoPage({
 
             <select
               className="select"
-              value={statusFiltro}
-              onChange={(e) => setStatusFiltro(e.target.value as StatusFiltro)}
-            >
-              <option value="todos">Todos</option>
-              <option value="pendentes">Somente pendentes</option>
-              <option value="entrou">Somente entrou</option>
-              <option value="sync">Somente sync pendente</option>
-            </select>
-
-            <select
-              className="select"
               value={tipoFiltro}
               onChange={(e) => setTipoFiltro(e.target.value as TipoFiltro)}
             >
@@ -1483,6 +1487,25 @@ export default function CheckinEventoPage({
               <option value="individual">Somente individual</option>
               <option value="grupo">Somente grupo</option>
             </select>
+
+            <div className="status-filter-buttons" aria-label="Filtro de status do check-in">
+              {[
+                { value: "todos", label: "Todos" },
+                { value: "pendentes", label: "Pendentes" },
+                { value: "entrou", label: "Entrou" },
+                { value: "entrou_sem_rsvp", label: "Entrou sem RSVP", exception: true },
+                { value: "sync", label: "Sync pendente" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={`filter-button ${statusFiltro === item.value ? "active" : ""} ${item.exception ? "exception" : ""}`}
+                  onClick={() => setStatusFiltro(item.value as StatusFiltro)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
