@@ -228,7 +228,7 @@ export default function CheckinEventoPage({
   }
 
   function textoBotaoCheckin(c: Convidado) {
-    if (convidadoEntrouExcecao(c)) return "Entrou sem RSVP";
+    if (convidadoEntrouExcecao(c)) return "Liberado sem RSVP";
     if (convidadoEntrou(c)) return "Liberado";
     if (convidadoRecusou(c)) return "Liberar exceção";
     if (convidadoConfirmado(c)) return "Fazer check-in";
