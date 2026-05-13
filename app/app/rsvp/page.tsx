@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type StatusRsvp = "pendente" | "confirmado" | "nao";
-type FiltroRsvp = "todos" | "confirmado" | "pendente" | "nao";
+type FiltroRsvp =
+  | "todos"
+  | "confirmado"
+  | "pendente"
+  | "nao"
+  | "entrou"
+  | "entrou_sem_rsvp"
+  | "nao_entrou";
 type ModoVisualizacao = "grupo" | "individual";
 
 type Convidado = {
@@ -90,7 +97,15 @@ export default function RsvpPage() {
     return convidados.filter((convidado) => {
       const buscaOk =
         !termo ||
-        [convidado.nome, convidado.grupo, convidado.telefone, convidado.email, convidado.token]
+        [
+          convidado.nome,
+          convidado.grupo,
+          convidado.telefone,
+          convidado.email,
+          convidado.token,
+          convidado.status_checkin,
+          labelCheckin(convidado.status_checkin),
+        ]
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
@@ -98,6 +113,9 @@ export default function RsvpPage() {
 
       if (filtro === "todos") return true;
       if (filtro === "pendente") return !convidado.status_rsvp || convidado.status_rsvp === "pendente";
+      if (filtro === "entrou") return convidadoEntrou(convidado);
+      if (filtro === "entrou_sem_rsvp") return convidadoEntrouSemRsvp(convidado);
+      if (filtro === "nao_entrou") return !convidadoEntrou(convidado);
 
       return convidado.status_rsvp === filtro;
     });
@@ -119,7 +137,15 @@ export default function RsvpPage() {
         const grupoCombinaBusca =
           !termo ||
           listaCompleta.some((convidado) =>
-            [convidado.nome, convidado.grupo, convidado.telefone, convidado.email, convidado.token]
+            [
+          convidado.nome,
+          convidado.grupo,
+          convidado.telefone,
+          convidado.email,
+          convidado.token,
+          convidado.status_checkin,
+          labelCheckin(convidado.status_checkin),
+        ]
               .filter(Boolean)
               .some((valor) => String(valor).toLowerCase().includes(termo))
           );
@@ -132,6 +158,9 @@ export default function RsvpPage() {
             if (filtro === "pendente") {
               return !convidado.status_rsvp || convidado.status_rsvp === "pendente";
             }
+            if (filtro === "entrou") return convidadoEntrou(convidado);
+            if (filtro === "entrou_sem_rsvp") return convidadoEntrouSemRsvp(convidado);
+            if (filtro === "nao_entrou") return !convidadoEntrou(convidado);
             return convidado.status_rsvp === filtro;
           })
           .sort(ordenarPorTelefoneDepoisNome);
@@ -227,10 +256,8 @@ export default function RsvpPage() {
         item.id === convidado.id
           ? {
               ...item,
-              status_rsvp: "confirmado",
-              status_checkin: "entrou",
+              status_checkin: "entrou_excecao",
               data_resposta: agora,
-              data_hora_checkin: agora,
               observacoes: payload.observacoes,
             }
           : item
@@ -387,6 +414,9 @@ export default function RsvpPage() {
             { key: "confirmado", label: "Confirmados" },
             { key: "pendente", label: "Pendentes" },
             { key: "nao", label: "Ausência confirmada" },
+            { key: "entrou", label: "Entrou" },
+            { key: "entrou_sem_rsvp", label: "Entrou sem RSVP" },
+            { key: "nao_entrou", label: "Não entrou" },
           ].map((tab) => {
             const active = filtro === tab.key;
 
@@ -394,7 +424,13 @@ export default function RsvpPage() {
               <button
                 key={tab.key}
                 onClick={() => setFiltro(tab.key as FiltroRsvp)}
-                style={active ? tabActiveStyle : tabStyle}
+                style={
+                  active
+                    ? tab.key === "entrou_sem_rsvp"
+                      ? tabExceptionActiveStyle
+                      : tabActiveStyle
+                    : tabStyle
+                }
               >
                 {tab.label}
               </button>
@@ -516,7 +552,9 @@ function RsvpGuestCard({
 
         <div style={guestDetailsStyle}>
           <span style={getStatusBadgeStyle(status)}>{labelRsvp(status)}</span>
-          <span style={miniInfoStyle}>Check-in: {convidado.status_checkin === "entrou" ? "Entrou" : "Não entrou"}</span>
+          <span style={getCheckinBadgeStyle(convidado.status_checkin)}>
+            Check-in: {labelCheckin(convidado.status_checkin)}
+          </span>
           <span style={miniInfoStyle}>Token: {convidado.token || "Sem token"}</span>
         </div>
 
@@ -619,6 +657,41 @@ function MetricCard({
       <p style={metricDetailStyle}>{detail}</p>
     </article>
   );
+}
+
+function normalizarStatusCheckin(status: string | null | undefined) {
+  return String(status || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function convidadoEntrouSemRsvp(convidado: Convidado) {
+  return normalizarStatusCheckin(convidado.status_checkin) === "entrou_excecao";
+}
+
+function convidadoEntrou(convidado: Convidado) {
+  const status = normalizarStatusCheckin(convidado.status_checkin);
+  return status === "entrou" || status === "entrou_excecao";
+}
+
+function labelCheckin(status: string | null | undefined) {
+  const statusNormalizado = normalizarStatusCheckin(status);
+
+  if (statusNormalizado === "entrou_excecao") return "Entrou sem RSVP";
+  if (statusNormalizado === "entrou") return "Entrou";
+
+  return "Não entrou";
+}
+
+function getCheckinBadgeStyle(status: string | null | undefined): React.CSSProperties {
+  const statusNormalizado = normalizarStatusCheckin(status);
+
+  if (statusNormalizado === "entrou_excecao") return checkinExceptionBadgeStyle;
+  if (statusNormalizado === "entrou") return checkinEnteredBadgeStyle;
+
+  return miniInfoStyle;
 }
 
 function normalizarStatusRsvp(status: string | null | undefined): StatusRsvp {
@@ -872,6 +945,13 @@ const tabActiveStyle: React.CSSProperties = {
   border: "1px solid #6d28d9",
 };
 
+const tabExceptionActiveStyle: React.CSSProperties = {
+  ...tabStyle,
+  background: "#FDE7D8",
+  color: "#7C2D12",
+  border: "1px solid rgba(124,45,18,0.18)",
+};
+
 const searchRowStyle: React.CSSProperties = {
   display: "flex",
   gap: 10,
@@ -1045,6 +1125,25 @@ const miniInfoStyle: React.CSSProperties = {
   color: "var(--muted)",
   fontSize: 12,
   fontWeight: 800,
+};
+
+const checkinEnteredBadgeStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  background: "#dcfce7",
+  color: "#166534",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
+const checkinExceptionBadgeStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  background: "#FDE7D8",
+  color: "#7C2D12",
+  border: "1px solid rgba(124,45,18,0.18)",
+  fontSize: 12,
+  fontWeight: 900,
 };
 
 const detailsTextStyle: React.CSSProperties = {
