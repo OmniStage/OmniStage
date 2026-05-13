@@ -69,7 +69,7 @@ export default function CartaoActions({
               marginBottom: 6,
             }}
           >
-            Cartões do grupo {grupoNome ? `• ${grupoNome}` : ""}
+            Cartões do grupo
           </strong>
 
           <p
