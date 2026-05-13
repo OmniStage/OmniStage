@@ -2242,13 +2242,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           <div
                             style={{
                               marginTop: 12,
-                              color: "var(--muted)",
-                              fontSize: 13,
-                              textAlign: "right",
                               width: "100%",
+                              display: "flex",
+                              justifyContent: "flex-end",
                             }}
                           >
-                            Check-in: {convidado.status_checkin || "nao_entrou"}
+                            <span style={getCheckinStyle(convidado.status_checkin)}>
+                              Check-in: {labelCheckin(convidado.status_checkin)}
+                            </span>
                           </div>
 
                           <div style={rowActionsStyle}>
@@ -2429,6 +2430,43 @@ function getRsvpStyle(status: string | null): CSSProperties {
     ...statusStyle,
     background: "#fef3c7",
     color: "var(--accent)",
+  };
+}
+
+function labelCheckin(status: string | null) {
+  if (status === "entrou") return "Entrou";
+
+  if (status === "entrou_excecao") {
+    return "Entrou sem RSVP";
+  }
+
+  return "Não entrou";
+}
+
+function getCheckinStyle(status: string | null): CSSProperties {
+  if (status === "entrou") {
+    return {
+      ...statusStyle,
+      background: "#dcfce7",
+      color: "#166534",
+      fontWeight: 900,
+    };
+  }
+
+  if (status === "entrou_excecao") {
+    return {
+      ...statusStyle,
+      background: "#FDE7D8",
+      color: "#7C2D12",
+      border: "1px solid rgba(124,45,18,0.18)",
+      fontWeight: 900,
+    };
+  }
+
+  return {
+    ...statusStyle,
+    background: "var(--soft-bg)",
+    color: "var(--text-secondary)",
   };
 }
 
