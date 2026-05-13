@@ -228,6 +228,7 @@ export default function CheckinEventoPage({
   }
 
   function textoBotaoCheckin(c: Convidado) {
+    if (convidadoEntrouExcecao(c)) return "Entrou sem RSVP";
     if (convidadoEntrou(c)) return "Liberado";
     if (convidadoRecusou(c)) return "Liberar exceção";
     if (convidadoConfirmado(c)) return "Fazer check-in";
@@ -269,6 +270,21 @@ export default function CheckinEventoPage({
       normalizar(c.status_checkin) === "ENTROU_EXCECAO" ||
       normalizar(c.status_checkin) === "SYNC_PENDENTE"
     );
+  }
+
+  function convidadoEntrouExcecao(c: Convidado) {
+    return normalizar(c.status_checkin) === "ENTROU_EXCECAO";
+  }
+
+  function textoStatusCheckin(c: Convidado) {
+    if (convidadoEntrouExcecao(c)) return "Entrou sem RSVP";
+    if (convidadoEntrou(c)) return "entrou";
+    return "pendente";
+  }
+
+  function classeChipCheckin(c: Convidado) {
+    if (convidadoEntrouExcecao(c)) return "chip checkin-exception";
+    return convidadoEntrou(c) ? "chip ok" : "chip pending";
   }
 
   function convidadoSync(c: Convidado) {
@@ -948,13 +964,13 @@ export default function CheckinEventoPage({
       {
         tipo: "ok",
         titulo: isExcecao
-          ? "Entrada liberada por exceção"
+          ? "Entrou sem RSVP"
           : origem === "qr"
             ? "Entrada liberada pelo QR"
             : "Entrada liberada",
         nome: convidado.nome,
         mensagem: isExcecao
-          ? "Check-in registrado mesmo com RSVP recusado."
+          ? "Check-in registrado mesmo com ausência confirmada."
           : deveConfirmarRsvp
             ? "Presença confirmada e check-in registrado com sucesso."
             : "Check-in registrado com sucesso.",
@@ -1244,6 +1260,7 @@ export default function CheckinEventoPage({
         .chip.info { background:#ede9fe; color:#6d28d9; }
         .chip.group { background:#fef3c7; color:#92400e; }
         .chip.rsvp-refused { background:#ffe4e6; color:#be123c; }
+        .chip.checkin-exception { background:rgba(190,24,93,.12); color:#9f1239; border:1px solid rgba(217,119,6,.22); }
         .history { margin-top:14px; display:grid; gap:8px; }
         .history-item { border:1px solid var(--line); border-radius:16px; padding:11px 12px; background:rgba(248,250,252,.76); }
         .history-top { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:11px; font-weight:850; }
@@ -1555,12 +1572,8 @@ export default function CheckinEventoPage({
                                 >
                                   {grupo.isGrupo ? "grupo" : "individual"}
                                 </span>
-                                <span
-                                  className={
-                                    entrou ? "chip ok" : "chip pending"
-                                  }
-                                >
-                                  {entrou ? "entrou" : "pendente"}
+                                <span className={classeChipCheckin(c)}>
+                                  {textoStatusCheckin(c)}
                                 </span>
                                 <span className={classeChipRsvp(c)}>
                                   {textoChipRsvp(c)}
