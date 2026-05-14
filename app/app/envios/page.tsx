@@ -1470,6 +1470,8 @@ function isStatusEnviado(status: string | null | undefined) {
 }
 
 function isEnvioImportado(convidado: Convidado, campanha: Campanha) {
+  if (campanha.key !== "convite") return false;
+
   const statusAtual = getStatusEnvio(convidado, campanha);
   const statusGeral = convidado.status_envio;
   const dataEnvio = getDataEnvio(convidado, campanha);
@@ -1478,19 +1480,23 @@ function isEnvioImportado(convidado: Convidado, campanha: Campanha) {
   return (
     isStatusImportado(statusAtual) ||
     isStatusImportado(statusGeral) ||
-    (campanha.key === "convite" &&
-      !!convidado.origem_importacao &&
+    (!!convidado.origem_importacao &&
       (!!dataEnvio || !!dataEnvioImportada || isStatusEnviado(statusGeral)))
   );
 }
 
 function isEnvioConsideradoEnviado(convidado: Convidado, campanha: Campanha) {
   const statusAtual = getStatusEnvio(convidado, campanha);
-  const statusGeral = convidado.status_envio;
   const dataEnvio = getDataEnvio(convidado, campanha);
-  const envioImportado = isEnvioImportado(convidado, campanha);
 
-  return isStatusEnviado(statusAtual) || isStatusEnviado(statusGeral) || envioImportado || !!dataEnvio;
+  if (campanha.key === "convite") {
+    const statusGeral = convidado.status_envio;
+    const envioImportado = isEnvioImportado(convidado, campanha);
+
+    return isStatusEnviado(statusAtual) || isStatusEnviado(statusGeral) || envioImportado || !!dataEnvio;
+  }
+
+  return isStatusEnviado(statusAtual) || !!dataEnvio;
 }
 
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
