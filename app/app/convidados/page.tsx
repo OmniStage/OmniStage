@@ -286,8 +286,6 @@ export default function ConvidadosPage() {
           convidado.status_envio_convite,
           getStatusConviteExibicao(convidado),
           convidado.legacy_id,
-          convidado.origem_importacao,
-          convidado.import_batch_id,
           convidado.data_hora_rsvp,
           convidado.data_hora_envio,
         ]
