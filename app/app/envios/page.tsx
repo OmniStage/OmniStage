@@ -270,7 +270,7 @@ export default function EnviosPage() {
       const telefoneLimpo = getTelefoneEnvio(convidado);
       const statusAtual = getStatusEnvio(convidado, campanha);
       const enviado = isStatusEnviado(statusAtual);
-      const enviadoCardConvidado = statusAtual === "enviado_manual";
+      const enviadoCardConvidado = normalizarStatusEnvio(statusAtual) === "enviado_manual";
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       const buscaOk =
@@ -332,7 +332,7 @@ export default function EnviosPage() {
   const stats = useMemo(() => {
     const total = publicoCampanha.length;
     const enviados = publicoCampanha.filter((c) => isStatusEnviado(getStatusEnvio(c, campanha))).length;
-    const enviadosCardConvidado = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado_manual").length;
+    const enviadosCardConvidado = publicoCampanha.filter((c) => normalizarStatusEnvio(getStatusEnvio(c, campanha)) === "enviado_manual").length;
     const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvio(c)).length;
     const naFila = publicoCampanha.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio)).length;
     const aEnviar = publicoCampanha.filter((c) => {
@@ -1122,7 +1122,8 @@ export default function EnviosPage() {
             const telefoneExibicao = getTelefoneEnvio(convidado);
             const statusAtual = getStatusEnvio(convidado, campanha);
             const enviado = isStatusEnviado(statusAtual);
-            const enviadoCardConvidado = statusAtual === "enviado_manual";
+            const enviadoCardConvidado = normalizarStatusEnvio(statusAtual) === "enviado_manual";
+            const envioImportado = isStatusImportado(statusAtual);
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
             const dataEnvio = getDataEnvio(convidado, campanha);
 
@@ -1162,20 +1163,24 @@ export default function EnviosPage() {
                     style={
                       enviadoCardConvidado
                         ? sentCardConvidadoBadgeStyle
-                        : enviado
-                          ? sentBadgeStyle
-                          : estaNaFila
-                            ? filaBadgeStyle
-                            : pendingBadgeStyle
+                        : envioImportado
+                          ? sentImportedBadgeStyle
+                          : enviado
+                            ? sentBadgeStyle
+                            : estaNaFila
+                              ? filaBadgeStyle
+                              : pendingBadgeStyle
                     }
                   >
                     {enviadoCardConvidado
                       ? "Enviado Card Convidado"
-                      : enviado
-                        ? "Enviado"
-                        : estaNaFila
-                          ? "Na fila"
-                          : "A enviar"}
+                      : envioImportado
+                        ? "Envio importado"
+                        : enviado
+                          ? "Enviado"
+                          : estaNaFila
+                            ? "Na fila"
+                            : "A enviar"}
                   </span>
 
                   <button
@@ -1425,8 +1430,34 @@ function getStatusEnvio(convidado: Convidado, campanha: Campanha) {
   return convidado[campanha.statusColumn] as string | null | undefined;
 }
 
+function normalizarStatusEnvio(status: string | null | undefined) {
+  return String(status || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_");
+}
+
+function isStatusImportado(status: string | null | undefined) {
+  const statusNormalizado = normalizarStatusEnvio(status);
+
+  return (
+    statusNormalizado === "importado" ||
+    statusNormalizado === "envio_importado" ||
+    statusNormalizado === "enviado_importado" ||
+    statusNormalizado === "convite_importado"
+  );
+}
+
 function isStatusEnviado(status: string | null | undefined) {
-  return status === "enviado" || status === "enviado_manual";
+  const statusNormalizado = normalizarStatusEnvio(status);
+
+  return (
+    statusNormalizado === "enviado" ||
+    statusNormalizado === "enviado_manual" ||
+    isStatusImportado(status)
+  );
 }
 
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
@@ -1452,13 +1483,9 @@ function gerarLinkConvite(convidado: Convidado) {
 }
 
 function gerarLinkCartao(convidado: Convidado) {
+  const nome = encodeURIComponent(convidado.nome || "");
   const token = encodeURIComponent(convidado.token || "");
-
-  if (typeof window === "undefined") {
-    return `/cartao/${token}`;
-  }
-
-  return `${window.location.origin}/cartao/${token}`;
+  return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
 }
 
 function montarMensagem(template: string, convidado: Convidado, evento?: Evento | null) {
@@ -1591,6 +1618,7 @@ const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)",
 const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
 const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
 const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 12, fontWeight: 900 };
+const sentImportedBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
 const sentCardConvidadoBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#f3e8ff", color: "#6d28d9", fontSize: 12, fontWeight: 900 };
 
 const sendConfirmOverlayStyle: React.CSSProperties = {
