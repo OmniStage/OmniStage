@@ -1452,9 +1452,13 @@ function gerarLinkConvite(convidado: Convidado) {
 }
 
 function gerarLinkCartao(convidado: Convidado) {
-  const nome = encodeURIComponent(convidado.nome || "");
   const token = encodeURIComponent(convidado.token || "");
-  return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
+
+  if (typeof window === "undefined") {
+    return `/cartao/${token}`;
+  }
+
+  return `${window.location.origin}/cartao/${token}`;
 }
 
 function montarMensagem(template: string, convidado: Convidado, evento?: Evento | null) {
