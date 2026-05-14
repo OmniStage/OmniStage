@@ -59,6 +59,10 @@ type EventoCheckin = {
   logo_image: string | null;
   background_url: string | null;
   background_image: string | null;
+  card_background_url: string | null;
+  checklist_card_background_url: string | null;
+  usar_card_background_personalizado: boolean | null;
+  usar_checklist_card_background_personalizado: boolean | null;
   musica_url: string | null;
   music_file: string | null;
   tipo_evento: string | null;
@@ -477,7 +481,7 @@ export default function CheckinEventoPage({
     const { data } = await supabase
       .from("eventos")
       .select(
-        "nome, logo_url, logo_image, background_url, background_image, musica_url, music_file, tipo_evento, categoria_evento",
+        "nome, logo_url, logo_image, background_url, background_image, card_background_url, checklist_card_background_url, usar_card_background_personalizado, usar_checklist_card_background_personalizado, musica_url, music_file, tipo_evento, categoria_evento",
       )
       .eq("id", eventoId)
       .eq("tenant_id", tenantAtual)
@@ -1181,7 +1185,16 @@ export default function CheckinEventoPage({
   );
 
   const logoEvento = evento?.logo_url || evento?.logo_image || "";
-  const backgroundEvento = evento?.background_url || evento?.background_image || "";
+  const checklistBackgroundEvento =
+    evento?.usar_checklist_card_background_personalizado &&
+    evento?.checklist_card_background_url
+      ? evento.checklist_card_background_url
+      : evento?.card_background_url ||
+        evento?.background_url ||
+        evento?.background_image ||
+        "";
+  const backgroundEvento =
+    evento?.background_url || evento?.background_image || "";
 
   return (
     <div className="checkin-page">
@@ -1324,9 +1337,9 @@ export default function CheckinEventoPage({
       <header
         className="checkin-hero"
         style={
-          usarTemaEvento && backgroundEvento
+          usarTemaEvento && checklistBackgroundEvento
             ? {
-                backgroundImage: `linear-gradient(120deg, rgba(255,255,255,.88), rgba(255,255,255,.94)), url(${backgroundEvento})`,
+                backgroundImage: `linear-gradient(120deg, rgba(255,255,255,.88), rgba(255,255,255,.94)), url(${checklistBackgroundEvento})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }
@@ -1389,8 +1402,8 @@ export default function CheckinEventoPage({
             <button
               className={usarTemaEvento ? "mini-toggle active" : "mini-toggle"}
               onClick={() => setUsarTemaEvento((prev) => !prev)}
-              disabled={!backgroundEvento}
-              title={!backgroundEvento ? "Este evento ainda não tem background" : "Usar background do evento"}
+              disabled={!checklistBackgroundEvento}
+              title={!checklistBackgroundEvento ? "Este evento ainda não tem background para o checklist" : "Usar background do checklist/evento"}
             >
               Tema do evento
             </button>
