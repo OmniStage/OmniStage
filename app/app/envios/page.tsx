@@ -1407,7 +1407,11 @@ OmniStage`,
     cor: "#16a34a",
     corSuave: "#dcfce7",
     filtrarPublico: (convidado) =>
-      convidado.status_rsvp === "confirmado" && !!getTelefoneEnvio(convidado),
+  isRsvpConfirmado(convidado.status_rsvp) &&
+  !!convidado.contato_principal &&
+  !!convidado.recebe_convite &&
+  !!getTelefoneEnvio(convidado) &&
+  !!convidado.token,
     templatePadrao: `Olá {{nome}} ✨
 
 Ficamos muito felizes com sua confirmação.
