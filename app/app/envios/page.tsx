@@ -24,6 +24,9 @@ type Convidado = {
   status_rsvp: string | null;
   status_checkin?: string | null;
   token?: string | null;
+  origem_importacao?: string | null;
+  import_batch_id?: string | null;
+  legacy_id?: string | number | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -177,6 +180,9 @@ export default function EnviosPage() {
         status_rsvp,
         status_checkin,
         token,
+        origem_importacao,
+        import_batch_id,
+        legacy_id,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
@@ -269,8 +275,8 @@ export default function EnviosPage() {
     return publicoCampanha.filter((convidado) => {
       const telefoneLimpo = getTelefoneEnvio(convidado);
       const statusAtual = getStatusEnvio(convidado, campanha);
-      const enviado = isStatusEnviado(statusAtual);
-      const enviadoCardConvidado = normalizarStatusEnvio(statusAtual) === "enviado_manual";
+      const enviado = isEnvioConsideradoEnviado(convidado, campanha);
+      const enviadoCardConvidado = statusAtual === "enviado_manual";
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       const buscaOk =
@@ -311,7 +317,7 @@ export default function EnviosPage() {
   const pendentesComTelefoneFiltrados = useMemo(() => {
     return convidadosFiltrados.filter((convidado) => {
       const telefoneOk = !!getTelefoneEnvio(convidado);
-      const enviado = isStatusEnviado(getStatusEnvio(convidado, campanha));
+      const enviado = isEnvioConsideradoEnviado(convidado, campanha);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
       return telefoneOk && !enviado && !estaNaFila;
     });
@@ -331,12 +337,12 @@ export default function EnviosPage() {
 
   const stats = useMemo(() => {
     const total = publicoCampanha.length;
-    const enviados = publicoCampanha.filter((c) => isStatusEnviado(getStatusEnvio(c, campanha))).length;
-    const enviadosCardConvidado = publicoCampanha.filter((c) => normalizarStatusEnvio(getStatusEnvio(c, campanha)) === "enviado_manual").length;
+    const enviados = publicoCampanha.filter((c) => isEnvioConsideradoEnviado(c, campanha)).length;
+    const enviadosCardConvidado = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado_manual").length;
     const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvio(c)).length;
     const naFila = publicoCampanha.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio)).length;
     const aEnviar = publicoCampanha.filter((c) => {
-      const enviado = isStatusEnviado(getStatusEnvio(c, campanha));
+      const enviado = isEnvioConsideradoEnviado(c, campanha);
       const telefoneOk = !!getTelefoneEnvio(c);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio);
 
@@ -425,7 +431,7 @@ export default function EnviosPage() {
 
     const elegiveis = lista.filter((convidado) => {
       const telefoneOk = !!getTelefoneEnvio(convidado);
-      const enviado = isStatusEnviado(getStatusEnvio(convidado, campanha));
+      const enviado = isEnvioConsideradoEnviado(convidado, campanha);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       return telefoneOk && !enviado && !estaNaFila;
@@ -1023,7 +1029,7 @@ export default function EnviosPage() {
         <MetricCard label="Público da campanha" value={stats.total} detail="Convidados elegíveis" />
         <MetricCard label="A enviar" value={stats.aEnviar} detail="Com telefone, não enviado e fora da fila" />
         <MetricCard label="Na fila" value={stats.naFila} detail="Prontos para envio manual" />
-        <MetricCard label="Enviados" value={stats.enviados} detail="Inclui fila, manual e card" />
+        <MetricCard label="Enviados" value={stats.enviados} detail="Inclui manual, card e importados" />
         <MetricCard label="Card Convidado" value={stats.enviadosCardConvidado} detail="Enviados pelo card do convidado" />
         <MetricCard label="Sem telefone" value={stats.semTelefone} detail="Precisam revisão" />
       </section>
@@ -1122,8 +1128,7 @@ export default function EnviosPage() {
             const telefoneExibicao = getTelefoneEnvio(convidado);
             const statusAtual = getStatusEnvio(convidado, campanha);
             const enviado = isStatusEnviado(statusAtual);
-            const enviadoCardConvidado = normalizarStatusEnvio(statusAtual) === "enviado_manual";
-            const envioImportado = isStatusImportado(statusAtual);
+            const enviadoCardConvidado = statusAtual === "enviado_manual";
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
             const dataEnvio = getDataEnvio(convidado, campanha);
 
@@ -1161,26 +1166,26 @@ export default function EnviosPage() {
                 <div style={actionsStyle}>
                   <span
                     style={
-                      enviadoCardConvidado
-                        ? sentCardConvidadoBadgeStyle
-                        : envioImportado
-                          ? sentImportedBadgeStyle
+                      envioImportado
+                        ? sentImportedBadgeStyle
+                        : enviadoCardConvidado
+                          ? sentCardConvidadoBadgeStyle
                           : enviado
                             ? sentBadgeStyle
-                            : estaNaFila
-                              ? filaBadgeStyle
-                              : pendingBadgeStyle
+                          : estaNaFila
+                            ? filaBadgeStyle
+                            : pendingBadgeStyle
                     }
                   >
-                    {enviadoCardConvidado
-                      ? "Enviado Card Convidado"
-                      : envioImportado
-                        ? "Envio importado"
+                    {envioImportado
+                      ? "Envio importado"
+                      : enviadoCardConvidado
+                        ? "Enviado Card Convidado"
                         : enviado
                           ? "Enviado"
-                          : estaNaFila
-                            ? "Na fila"
-                            : "A enviar"}
+                        : estaNaFila
+                          ? "Na fila"
+                          : "A enviar"}
                   </span>
 
                   <button
@@ -1440,24 +1445,41 @@ function normalizarStatusEnvio(status: string | null | undefined) {
 }
 
 function isStatusImportado(status: string | null | undefined) {
-  const statusNormalizado = normalizarStatusEnvio(status);
-
-  return (
-    statusNormalizado === "importado" ||
-    statusNormalizado === "envio_importado" ||
-    statusNormalizado === "enviado_importado" ||
-    statusNormalizado === "convite_importado"
-  );
+  const normalizado = normalizarStatusEnvio(status);
+  return normalizado.includes("import");
 }
 
 function isStatusEnviado(status: string | null | undefined) {
-  const statusNormalizado = normalizarStatusEnvio(status);
+  const normalizado = normalizarStatusEnvio(status);
 
   return (
-    statusNormalizado === "enviado" ||
-    statusNormalizado === "enviado_manual" ||
-    isStatusImportado(status)
+    normalizado === "enviado" ||
+    normalizado === "enviado_manual" ||
+    normalizado === "manual_enviado" ||
+    normalizado === "envio_importado" ||
+    normalizado === "enviado_importado" ||
+    normalizado === "convite_importado" ||
+    normalizado === "importado" ||
+    normalizado.includes("import")
   );
+}
+
+function isEnvioImportado(convidado: Convidado, campanha: Campanha) {
+  const statusAtual = getStatusEnvio(convidado, campanha);
+
+  return (
+    isStatusImportado(statusAtual) ||
+    (campanha.key === "convite" &&
+      !!convidado.origem_importacao &&
+      !!getDataEnvio(convidado, campanha))
+  );
+}
+
+function isEnvioConsideradoEnviado(convidado: Convidado, campanha: Campanha) {
+  const statusAtual = getStatusEnvio(convidado, campanha);
+  const dataEnvio = getDataEnvio(convidado, campanha);
+
+  return isStatusEnviado(statusAtual) || !!dataEnvio;
 }
 
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
@@ -1483,9 +1505,13 @@ function gerarLinkConvite(convidado: Convidado) {
 }
 
 function gerarLinkCartao(convidado: Convidado) {
-  const nome = encodeURIComponent(convidado.nome || "");
   const token = encodeURIComponent(convidado.token || "");
-  return `https://omnistageproducoes.com.br/valentinaxv/cartao/?nome=${nome}&token=${token}`;
+
+  if (typeof window === "undefined") {
+    return `/cartao/${token}`;
+  }
+
+  return `${window.location.origin}/cartao/${token}`;
 }
 
 function montarMensagem(template: string, convidado: Convidado, evento?: Evento | null) {
@@ -1618,7 +1644,7 @@ const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)",
 const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
 const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
 const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 12, fontWeight: 900 };
-const sentImportedBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
+const sentImportedBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#e0f2fe", color: "#075985", fontSize: 12, fontWeight: 900 };
 const sentCardConvidadoBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#f3e8ff", color: "#6d28d9", fontSize: 12, fontWeight: 900 };
 
 const sendConfirmOverlayStyle: React.CSSProperties = {
