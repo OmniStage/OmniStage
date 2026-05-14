@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import CartaoActions from "./CartaoActions";
 import CartaoSaveMode from "./CartaoSaveMode";
 
@@ -10,6 +11,128 @@ type PageProps = {
   params: Promise<{ token: string }>;
   searchParams?: Promise<{ save?: string; preview?: string }>;
 };
+
+function getSiteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://app.omnistageproducoes.com.br"
+  ).replace(/\/$/, "");
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { token } = await params;
+  const siteUrl = getSiteUrl();
+  const tokenEncoded = encodeURIComponent(token);
+  const cartaoUrl = `${siteUrl}/cartao/${tokenEncoded}`;
+  const imageUrl = `${siteUrl}/api/cartao-preview/${tokenEncoded}`;
+
+  const fallbackTitle = "Cartão de Entrada • OmniStage";
+  const fallbackDescription = "Apresente este cartão no dia do evento.";
+
+  try {
+    const supabase = await createClient();
+
+    const { data: convidado } = await supabase
+      .from("convidados")
+      .select("nome, evento_id")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (!convidado?.evento_id) {
+      return {
+        title: fallbackTitle,
+        description: fallbackDescription,
+        alternates: { canonical: cartaoUrl },
+        openGraph: {
+          title: fallbackTitle,
+          description: fallbackDescription,
+          url: cartaoUrl,
+          type: "website",
+          images: [
+            {
+              url: imageUrl,
+              width: 1200,
+              height: 630,
+              alt: fallbackTitle,
+            },
+          ],
+        },
+        twitter: {
+          card: "summary_large_image",
+          title: fallbackTitle,
+          description: fallbackDescription,
+          images: [imageUrl],
+        },
+      };
+    }
+
+    const { data: evento } = await supabase
+      .from("eventos")
+      .select("nome")
+      .eq("id", convidado.evento_id)
+      .maybeSingle();
+
+    const nomeEvento = evento?.nome || "Evento";
+    const nomeConvidado = convidado.nome || "Convidado";
+    const title = `Cartão de Entrada • ${nomeEvento}`;
+    const description = `Cartão de entrada de ${nomeConvidado}. Apresente este QR Code na entrada do evento.`;
+
+    return {
+      title,
+      description,
+      alternates: { canonical: cartaoUrl },
+      openGraph: {
+        title,
+        description,
+        url: cartaoUrl,
+        type: "website",
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: title,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [imageUrl],
+      },
+    };
+  } catch {
+    return {
+      title: fallbackTitle,
+      description: fallbackDescription,
+      alternates: { canonical: cartaoUrl },
+      openGraph: {
+        title: fallbackTitle,
+        description: fallbackDescription,
+        url: cartaoUrl,
+        type: "website",
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: fallbackTitle,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: fallbackTitle,
+        description: fallbackDescription,
+        images: [imageUrl],
+      },
+    };
+  }
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "";
@@ -69,12 +192,10 @@ export default async function CartaoPage({
       : evento.background_url || evento.background_image || "";
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
-  token,
-)}`;
+    token,
+  )}`;
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://app.omnistageproducoes.com.br";
+  const siteUrl = getSiteUrl();
 
   const cartaoUrl = `${siteUrl}/cartao/${encodeURIComponent(token)}`;
 
