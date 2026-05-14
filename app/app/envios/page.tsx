@@ -120,9 +120,38 @@ export default function EnviosPage() {
   }
 
   async function carregarEventos(eventoPreferencialId?: string) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      alert("Usuário não autenticado. Faça login novamente para carregar os eventos.");
+      setEventos([]);
+      setEventoAtual(null);
+      return null;
+    }
+
+    const { data: membro, error: membroError } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .in("status", ["ativo", "active", "aprovado"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (membroError || !membro?.tenant_id) {
+      alert("Não foi possível identificar o cliente vinculado a este usuário.");
+      setEventos([]);
+      setEventoAtual(null);
+      return null;
+    }
+
     const { data, error } = await supabase
       .from("eventos")
       .select("id, nome, tenant_id")
+      .eq("tenant_id", membro.tenant_id)
       .order("created_at", { ascending: false });
 
     if (error) {
