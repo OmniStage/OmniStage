@@ -1339,7 +1339,7 @@ export default function CheckinEventoPage({
         style={
           usarTemaEvento && checklistBackgroundEvento
             ? {
-                backgroundImage: `linear-gradient(120deg, rgba(255,255,255,.88), rgba(255,255,255,.94)), url(${checklistBackgroundEvento})`,
+                backgroundImage: checklistBackgroundUrl? `url(${checklistBackgroundUrl})`
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }
