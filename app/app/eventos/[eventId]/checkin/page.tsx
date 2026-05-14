@@ -1206,7 +1206,7 @@ export default function CheckinEventoPage({
         .checkin-operation-card { border:1px solid var(--line); border-radius:32px; background:var(--card); box-shadow:0 18px 52px rgba(15,23,42,.07); backdrop-filter:blur(16px); padding:26px; display:grid; grid-template-columns:1fr auto; gap:22px; align-items:center; }
         .checkin-operation-content { min-width:0; }
         .eyebrow { color:var(--muted); font-size:12px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
-        .title { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
+        .title { margin:0; font-size:clamp(30px,4.8vw,52px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
         .subtitle { margin:14px 0 0; color:var(--muted); font-size:17px; font-weight:650; }
         .hero-brand { display:flex; align-items:center; gap:18px; min-width:0; }
         .hero-event-title { min-width:0; }
