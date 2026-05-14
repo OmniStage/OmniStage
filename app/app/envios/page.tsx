@@ -29,6 +29,8 @@ type Convidado = {
   legacy_id?: string | number | null;
   status_envio?: string | null;
   data_hora_envio?: string | null;
+  contato_principal?: boolean | null;
+  recebe_convite?: boolean | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -216,6 +218,8 @@ export default function EnviosPage() {
         legacy_id,
         status_envio,
         data_hora_envio,
+        contato_principal,
+        recebe_convite,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
@@ -1407,11 +1411,11 @@ OmniStage`,
     cor: "#16a34a",
     corSuave: "#dcfce7",
     filtrarPublico: (convidado) =>
-  isRsvpConfirmado(convidado.status_rsvp) &&
-  !!convidado.contato_principal &&
-  !!convidado.recebe_convite &&
-  !!getTelefoneEnvio(convidado) &&
-  !!convidado.token,
+      isRsvpConfirmado(convidado.status_rsvp) &&
+      convidado.contato_principal === true &&
+      convidado.recebe_convite === true &&
+      !!getTelefoneEnvio(convidado) &&
+      !!convidado.token,
     templatePadrao: `Olá {{nome}} ✨
 
 Ficamos muito felizes com sua confirmação.
@@ -1480,6 +1484,18 @@ function normalizarStatusEnvio(status: string | null | undefined) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\s-]+/g, "_");
+}
+
+function isRsvpConfirmado(status: string | null | undefined) {
+  const normalizado = normalizarStatusEnvio(status);
+
+  return (
+    normalizado === "confirmado" ||
+    normalizado === "confirmada" ||
+    normalizado === "confirmou" ||
+    normalizado === "sim" ||
+    normalizado.includes("confirm")
+  );
 }
 
 function isStatusImportado(status: string | null | undefined) {
