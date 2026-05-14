@@ -1127,7 +1127,8 @@ export default function EnviosPage() {
             const envioViaResponsavel = isEnvioViaResponsavel(convidado);
             const telefoneExibicao = getTelefoneEnvio(convidado);
             const statusAtual = getStatusEnvio(convidado, campanha);
-            const enviado = isStatusEnviado(statusAtual);
+            const envioImportado = isEnvioImportado(convidado, campanha);
+            const enviado = isEnvioConsideradoEnviado(convidado, campanha);
             const enviadoCardConvidado = statusAtual === "enviado_manual";
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
             const dataEnvio = getDataEnvio(convidado, campanha);
