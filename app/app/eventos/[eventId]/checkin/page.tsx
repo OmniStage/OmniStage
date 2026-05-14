@@ -1200,13 +1200,17 @@ export default function CheckinEventoPage({
     <div className="checkin-page">
       <style>{`
         .checkin-page { --purple:#6d28d9; --purple2:#8b5cf6; --green:#16a34a; --red:#e11d48; --amber:#d97706; --text:#0f172a; --muted:#64748b; --card:rgba(255,255,255,.88); --line:#dbe3ef; min-height:100vh; padding:28px; color:var(--text); background-color:#f5f8fc; }
-        .checkin-hero { display:grid; grid-template-columns:1.2fr auto; gap:22px; align-items:center; margin-bottom:20px; padding:26px; border:1px solid var(--line); border-radius:32px; background:var(--card); box-shadow:0 18px 52px rgba(15,23,42,.07); backdrop-filter:blur(16px); }
+        .checkin-hero-split { display:grid; grid-template-columns:minmax(260px,.34fr) minmax(0,1fr); gap:18px; align-items:stretch; margin-bottom:20px; }
+        .checkin-brand-card { min-height:220px; border:1px solid var(--line); border-radius:32px; background:var(--card); background-size:cover; background-position:center; box-shadow:0 18px 52px rgba(15,23,42,.07); overflow:hidden; display:grid; place-items:center; padding:24px; }
+        .checkin-brand-card-inner { width:100%; height:100%; min-height:172px; display:grid; place-items:center; }
+        .checkin-operation-card { border:1px solid var(--line); border-radius:32px; background:var(--card); box-shadow:0 18px 52px rgba(15,23,42,.07); backdrop-filter:blur(16px); padding:26px; display:grid; grid-template-columns:1fr auto; gap:22px; align-items:center; }
+        .checkin-operation-content { min-width:0; }
         .eyebrow { color:var(--muted); font-size:12px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
         .title { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; letter-spacing:-.06em; font-weight:950; }
         .subtitle { margin:14px 0 0; color:var(--muted); font-size:17px; font-weight:650; }
         .hero-brand { display:flex; align-items:center; gap:18px; min-width:0; }
         .hero-event-title { min-width:0; }
-        .event-logo-title { display:block; width:min(460px, 100%); max-height:110px; object-fit:contain; object-position:left center; border-radius:16px; }
+        .event-logo-title { display:block; width:min(360px, 100%); max-height:140px; object-fit:contain; object-position:center; border-radius:16px; }
         .saas-toggles { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px; }
         .mini-toggle { border:1px solid var(--line); border-radius:999px; padding:9px 12px; background:rgba(255,255,255,.7); color:var(--text); font-weight:900; font-size:12px; cursor:pointer; }
         .mini-toggle.active { background:#dcfce7; border-color:#bbf7d0; color:#166534; }
@@ -1309,8 +1313,8 @@ export default function CheckinEventoPage({
         .premium-msg { margin-top:8px; color:#64748b; font-weight:700; }
         @keyframes premiumPop { to{transform:scale(1) translateY(0)} }
         @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
-        @media (max-width:1180px){ .checkin-hero,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
-        @media (max-width:640px){ .checkin-page{padding:16px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:82px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
+        @media (max-width:1180px){ .checkin-hero-split,.checkin-operation-card,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
+        @media (max-width:640px){ .checkin-page{padding:16px}.checkin-brand-card{min-height:160px;padding:18px}.checkin-brand-card-inner{min-height:124px}.checkin-operation-card{padding:20px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:98px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
 
       {flash && flash !== "idle" && <div className={`flash ${flash}`} />}
@@ -1334,22 +1338,20 @@ export default function CheckinEventoPage({
         </div>
       )}
 
-      <header
-        className="checkin-hero"
-        style={
-          usarTemaEvento && checklistBackgroundEvento
-            ? {
-                backgroundImage: `url(${checklistBackgroundEvento})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }
-            : undefined
-        }
-      >
-        <div className="hero-brand">
-          <div className="hero-event-title">
-            <div className="eyebrow">OmniStage Check-in</div>
-
+      <header className="checkin-hero-split">
+        <section
+          className="checkin-brand-card"
+          style={
+            usarTemaEvento && checklistBackgroundEvento
+              ? {
+                  backgroundImage: `url(${checklistBackgroundEvento})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        >
+          <div className="checkin-brand-card-inner">
             {logoEvento ? (
               <img
                 className="event-logo-title"
@@ -1359,56 +1361,62 @@ export default function CheckinEventoPage({
             ) : (
               <h1 className="title">{evento?.nome || "Portaria do evento"}</h1>
             )}
+          </div>
+        </section>
 
+        <section className="checkin-operation-card">
+          <div className="checkin-operation-content">
+            <div className="eyebrow">OmniStage Check-in</div>
+            <h1 className="title">Check-in do evento</h1>
             <p className="subtitle">
               QR code, leitor físico, grupos, busca manual e controle híbrido de
               entrada.
             </p>
           </div>
-        </div>
 
-        <div>
-          <div className="actions">
-            <button
-              className={qrAtivo ? "btn success" : "btn primary"}
-              onClick={async () => {
-                if (qrAtivo) {
-                  await pararQr();
-                  return;
-                }
+          <div>
+            <div className="actions">
+              <button
+                className={qrAtivo ? "btn success" : "btn primary"}
+                onClick={async () => {
+                  if (qrAtivo) {
+                    await pararQr();
+                    return;
+                  }
 
-                await iniciarQr();
-              }}
-            >
-              {qrAtivo ? "QR ativo" : "Ativar QR"}
-            </button>
+                  await iniciarQr();
+                }}
+              >
+                {qrAtivo ? "QR ativo" : "Ativar QR"}
+              </button>
 
-            <button className="btn" onClick={trocarCamera}>
-              Trocar câmera
-            </button>
+              <button className="btn" onClick={trocarCamera}>
+                Trocar câmera
+              </button>
 
-            <button
-              className="btn"
-              onClick={async () => {
-                await carregarConvidados();
-                await sincronizarPendentes();
-              }}
-            >
-              Sincronizar
-            </button>
+              <button
+                className="btn"
+                onClick={async () => {
+                  await carregarConvidados();
+                  await sincronizarPendentes();
+                }}
+              >
+                Sincronizar
+              </button>
+            </div>
+
+            <div className="saas-toggles">
+              <button
+                className={usarTemaEvento ? "mini-toggle active" : "mini-toggle"}
+                onClick={() => setUsarTemaEvento((prev) => !prev)}
+                disabled={!checklistBackgroundEvento}
+                title={!checklistBackgroundEvento ? "Este evento ainda não tem background para o checklist" : "Usar background do checklist/evento"}
+              >
+                Tema do evento
+              </button>
+            </div>
           </div>
-
-          <div className="saas-toggles">
-            <button
-              className={usarTemaEvento ? "mini-toggle active" : "mini-toggle"}
-              onClick={() => setUsarTemaEvento((prev) => !prev)}
-              disabled={!checklistBackgroundEvento}
-              title={!checklistBackgroundEvento ? "Este evento ainda não tem background para o checklist" : "Usar background do checklist/evento"}
-            >
-              Tema do evento
-            </button>
-          </div>
-        </div>
+        </section>
       </header>
 
       <section className="stats">
