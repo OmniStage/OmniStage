@@ -1339,7 +1339,8 @@ export default function CheckinEventoPage({
         style={
           usarTemaEvento && checklistBackgroundEvento
             ? {
-                backgroundImage: checklistBackgroundUrl? `url(${checklistBackgroundUrl})`
+                backgroundImage: checklistBackgroundUrl 
+            ? `url(${checklistBackgroundUrl})`
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }
