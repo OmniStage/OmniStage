@@ -27,6 +27,8 @@ type Convidado = {
   origem_importacao?: string | null;
   import_batch_id?: string | null;
   legacy_id?: string | number | null;
+  status_envio?: string | null;
+  data_hora_envio?: string | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -183,6 +185,8 @@ export default function EnviosPage() {
         origem_importacao,
         import_batch_id,
         legacy_id,
+        status_envio,
+        data_hora_envio,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
@@ -1467,24 +1471,38 @@ function isStatusEnviado(status: string | null | undefined) {
 
 function isEnvioImportado(convidado: Convidado, campanha: Campanha) {
   const statusAtual = getStatusEnvio(convidado, campanha);
+  const statusGeral = convidado.status_envio;
+  const dataEnvio = getDataEnvio(convidado, campanha);
+  const dataEnvioImportada = convidado.data_hora_envio;
 
   return (
     isStatusImportado(statusAtual) ||
+    isStatusImportado(statusGeral) ||
     (campanha.key === "convite" &&
       !!convidado.origem_importacao &&
-      !!getDataEnvio(convidado, campanha))
+      (!!dataEnvio || !!dataEnvioImportada || isStatusEnviado(statusGeral)))
   );
 }
 
 function isEnvioConsideradoEnviado(convidado: Convidado, campanha: Campanha) {
   const statusAtual = getStatusEnvio(convidado, campanha);
+  const statusGeral = convidado.status_envio;
   const dataEnvio = getDataEnvio(convidado, campanha);
+  const envioImportado = isEnvioImportado(convidado, campanha);
 
-  return isStatusEnviado(statusAtual) || !!dataEnvio;
+  return isStatusEnviado(statusAtual) || isStatusEnviado(statusGeral) || envioImportado || !!dataEnvio;
 }
 
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
-  return convidado[campanha.dataColumn] as string | null | undefined;
+  const dataCampanha = convidado[campanha.dataColumn] as string | null | undefined;
+
+  if (dataCampanha) return dataCampanha;
+
+  if (campanha.key === "convite" && convidado.data_hora_envio) {
+    return convidado.data_hora_envio;
+  }
+
+  return dataCampanha;
 }
 
 function normalizarTelefone(telefone: string | null | undefined) {
