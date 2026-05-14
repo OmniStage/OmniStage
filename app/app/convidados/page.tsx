@@ -275,6 +275,7 @@ export default function ConvidadosPage() {
           convidado.crianca,
           convidado.responsavel,
           convidado.responsavel_telefone,
+          convidado.token,
           convidado.mae,
           convidado.idade_crianca,
           convidado.tamanho_chinelo,
