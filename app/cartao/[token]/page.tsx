@@ -48,7 +48,7 @@ export default async function CartaoPage({
   const nomeEvento = evento.nome || "Evento";
 
   const dataEvento = formatDate(evento.data_evento);
-  const horario = evento.horario || evento.hora_inicio || "";
+  const horario = formatTime(evento.hora_inicio || evento.horario || "");
 
   const local =
     evento.nome_local ||
