@@ -17,6 +17,22 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString("pt-BR");
 }
 
+function formatTime(value?: string | null) {
+  if (!value) return "";
+
+  const text = String(value).trim();
+
+  if (!text) return "";
+
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+
+  if (match) {
+    return `${match[1].padStart(2, "0")}:${match[2]}`;
+  }
+
+  return text;
+}
+
 export default async function CartaoPage({
   params,
   searchParams,
@@ -48,7 +64,7 @@ export default async function CartaoPage({
   const nomeEvento = evento.nome || "Evento";
 
   const dataEvento = formatDate(evento.data_evento);
-  const horario = evento.horario || evento.hora_inicio || "";
+  const horario = formatTime(evento.hora_inicio || evento.horario || "");
 
   const local =
     evento.nome_local ||
@@ -531,4 +547,3 @@ export default async function CartaoPage({
       </section>
     </main>
   );
-}
