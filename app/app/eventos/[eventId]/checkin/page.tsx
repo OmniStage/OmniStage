@@ -200,6 +200,58 @@ export default function CheckinEventoPage({
     );
   }, []);
 
+  useEffect(() => {
+    const ativarAudio = () => {
+      void desbloquearAudio();
+    };
+
+    window.addEventListener("touchstart", ativarAudio, { once: true });
+    window.addEventListener("click", ativarAudio, { once: true });
+    window.addEventListener("keydown", ativarAudio, { once: true });
+
+    return () => {
+      window.removeEventListener("touchstart", ativarAudio);
+      window.removeEventListener("click", ativarAudio);
+      window.removeEventListener("keydown", ativarAudio);
+    };
+  }, []);
+
+  async function desbloquearAudio() {
+    if (audioUnlockedRef.current) return;
+
+    const todos = [
+      audioRefs.current.success,
+      audioRefs.current.already,
+      audioRefs.current.error,
+      ...audioPoolRefs.current.success,
+      ...audioPoolRefs.current.already,
+      ...audioPoolRefs.current.error,
+    ].filter(Boolean) as HTMLAudioElement[];
+
+    let liberouAlgum = false;
+
+    for (const audio of todos) {
+      try {
+        const volumeOriginal = audio.volume;
+        audio.volume = 0;
+        audio.currentTime = 0;
+        await audio.play();
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = volumeOriginal || 1;
+        liberouAlgum = true;
+      } catch {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 1;
+        } catch {}
+      }
+    }
+
+    audioUnlockedRef.current = liberouAlgum;
+  }
+
   function normalizar(texto: string | null | undefined) {
     return String(texto || "")
       .trim()
@@ -305,8 +357,10 @@ export default function CheckinEventoPage({
     if (!audio) return;
 
     try {
-      audio.pause();
-      audio.currentTime = 0;
+      try {
+        audio.currentTime = 0;
+      } catch {}
+
       audio.volume = volume;
 
       void audio
@@ -825,7 +879,7 @@ export default function CheckinEventoPage({
     await liberarConvidado(convidado, origem);
     setTimeout(() => {
       busyRef.current = false;
-    }, 250);
+    }, 900);
   }
 
   async function liberarConvidado(
