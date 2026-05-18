@@ -1412,7 +1412,7 @@ OmniStage`,
     corSuave: "#dcfce7",
     filtrarPublico: (convidado) =>
       isRsvpConfirmado(convidado.status_rsvp) &&
-      convidado.contato_principal === true &&
+      deveReceberCartaoEvento(convidado) &&
       convidado.recebe_convite === true &&
       !!getTelefoneEnvio(convidado) &&
       !!convidado.token,
@@ -1496,6 +1496,12 @@ function isRsvpConfirmado(status: string | null | undefined) {
     normalizado === "sim" ||
     normalizado.includes("confirm")
   );
+}
+
+function deveReceberCartaoEvento(convidado: Convidado) {
+  const grupo = String(convidado.grupo || "").trim();
+
+  return convidado.contato_principal === true || grupo.length === 0;
 }
 
 function isStatusImportado(status: string | null | undefined) {
