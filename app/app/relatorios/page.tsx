@@ -25,7 +25,7 @@ function Card({
 }
 
 export default async function RelatoriosPage({ searchParams }: PageProps) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: eventos = [] } = await supabase
     .from("eventos")
