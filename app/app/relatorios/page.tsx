@@ -35,12 +35,27 @@ function getHourBR(value?: string | null) {
   });
 }
 
+function normalizeText(value: any) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function isCrianca(c: any) {
+  const tipo = normalizeText(c.tipo);
+  const tipoConvidado = normalizeText(c.tipo_convidado);
+  const perfil = normalizeText(c.perfil);
+  const categoria = normalizeText(c.categoria);
+
   return (
     c.crianca === true ||
     c.is_crianca === true ||
-    c.tipo === "crianca" ||
-    c.tipo_convidado === "crianca" ||
+    tipo === "crianca" ||
+    tipoConvidado === "crianca" ||
+    perfil === "crianca" ||
+    categoria === "crianca" ||
     !!c.idade_crianca
   );
 }
