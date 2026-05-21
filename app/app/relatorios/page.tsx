@@ -45,19 +45,19 @@ function normalizeText(value: any) {
 }
 
 function isCrianca(c: any) {
-  const tipo = normalizeText(c.tipo);
-  const tipoConvidado = normalizeText(c.tipo_convidado);
-  const perfil = normalizeText(c.perfil);
-  const categoria = normalizeText(c.categoria);
+  const crianca = normalizeText(c.crianca);
 
   return (
+    crianca === "sim" ||
+    crianca === "s" ||
+    crianca === "true" ||
+    crianca === "1" ||
+    crianca === "crianca" ||
+    crianca === "criancas" ||
+    crianca === "infantil" ||
     c.crianca === true ||
     c.is_crianca === true ||
-    tipo === "crianca" ||
-    tipoConvidado === "crianca" ||
-    perfil === "crianca" ||
-    categoria === "crianca" ||
-    !!c.idade_crianca
+    Number(c.idade_crianca || 0) > 0
   );
 }
 
@@ -431,7 +431,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       : "Ainda existem oportunidades de confirmação e presença.";
 
   const criancasDesacompanhadas = convidados.filter(
-    (c: any) => isCrianca(c) && c.contato_principal === true
+    (c: any) =>
+      isCrianca(c) &&
+      c.contato_principal === false &&
+      c.recebe_convite === false
   ).length;
 
   const contatosPrincipais = convidados.filter(
