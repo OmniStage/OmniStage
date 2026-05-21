@@ -366,6 +366,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   const adultosEntraram = Math.max(entradas - criancasEntraram, 0);
 
+  const adultosRestantes = Math.max(adultos - adultosEntraram, 0);
+  const criancasRestantes = Math.max(criancas - criancasEntraram, 0);
+
   const restantes = Math.max(confirmados - entradas, 0);
 
   const entrouSemRsvp = convidados.filter(
@@ -566,11 +569,14 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             color="#6d28d9"
             footer={textoRsvp}
           >
+            <Metric value={totalConvidados} label="total convidados" />
+            <Metric value={adultos} label="adultos" />
+            <Metric value={criancas} label="crianças" />
             <Metric value={confirmados} label="confirmados" />
+            <Metric value={adultosConfirmados} label="adultos confirmados" />
+            <Metric value={criancasConfirmadas} label="crianças confirmadas" />
             <Metric value={pendentes} label="pendentes" />
             <Metric value={ausenciaConfirmada} label="ausências" />
-            <Metric value={criancasConfirmadas} label="crianças confirmadas" />
-            <Metric value={adultosConfirmados} label="adultos confirmados" />
             <Metric value={`${taxaConfirmacao}%`} label="taxa confirmação" />
             <Metric value={`${taxaPendencia}%`} label="taxa pendência" />
           </BigProgressCard>
@@ -585,14 +591,16 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <Metric value={entradas} label="entradas totais" />
             <Metric value={adultosEntraram} label="adultos entraram" />
             <Metric value={criancasEntraram} label="crianças entraram" />
-            <Metric value={restantes} label="restantes" />
+            <Metric value={adultosRestantes} label="adultos restantes" />
+            <Metric value={criancasRestantes} label="crianças restantes" />
+            <Metric value={restantes} label="restantes total" />
             <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
-            <Metric value={horaPico} label="pico de entrada" />
+            <Metric value={horaPico} label="pico entrada" />
             <Metric
               value={ultimaEntrada ? formatDateTimeBR(ultimaEntrada.data_checkin) : "-"}
               label="última entrada"
             />
-            <Metric value={`${taxaPresenca}%`} label="presença/confirmados" />
+            <Metric value={`${taxaPresenca}%`} label="presença confirmados" />
           </BigProgressCard>
         </section>
 
@@ -610,6 +618,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             color="#6d28d9"
             soft="#ede9fe"
           >
+            <Metric value={totalConvidados} label="total convidados" />
             <Metric value={adultos} label="adultos" />
             <Metric value={criancas} label="crianças" />
             <Metric value={viaResponsavel} label="via responsável" />
