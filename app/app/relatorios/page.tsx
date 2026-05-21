@@ -6,221 +6,238 @@ type PageProps = {
   };
 };
 
+const TZ = "America/Sao_Paulo";
+
 function pct(value: number) {
   return `${Math.max(0, Math.min(value, 100))}%`;
 }
 
-function MiniBar({
-  value,
-  color = "#6d28d9",
-}: {
-  value: number;
-  color?: string;
-}) {
+function formatDateTimeBR(value?: string | null) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("pt-BR", {
+    timeZone: TZ,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getHourBR(value?: string | null) {
+  if (!value) return null;
+
+  return new Date(value).toLocaleTimeString("pt-BR", {
+    timeZone: TZ,
+    hour: "2-digit",
+    hour12: false,
+  });
+}
+
+function isCrianca(c: any) {
   return (
-    <div
-      style={{
-        height: 8,
-        borderRadius: 999,
-        background: "#eef2f7",
-        overflow: "hidden",
-        marginTop: 14,
-      }}
-    >
-      <div
-        style={{
-          width: pct(value),
-          height: "100%",
-          background: color,
-          borderRadius: 999,
-        }}
-      />
-    </div>
+    c.crianca === true ||
+    c.is_crianca === true ||
+    c.tipo === "crianca" ||
+    c.tipo_convidado === "crianca" ||
+    !!c.idade_crianca
   );
 }
 
-function KpiCard({
-  titulo,
-  valor,
-  descricao,
-  percentual,
-  color,
-  soft,
+function entrou(c: any) {
+  return (
+    c.status_checkin === "entrou" ||
+    c.status_checkin === "confirmado" ||
+    c.checkin_realizado === true
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  subtitle,
+  color = "#6d28d9",
+  soft = "#ede9fe",
 }: {
-  titulo: string;
-  valor: string | number;
-  descricao?: string;
-  percentual?: number;
-  color: string;
-  soft: string;
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  color?: string;
+  soft?: string;
 }) {
   return (
     <div
       style={{
         background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 28,
+        border: "1px solid #e2e8f0",
+        borderRadius: 26,
         padding: 26,
-        boxShadow: "0 18px 45px rgba(15,23,42,.08)",
+        minHeight: 210,
+        boxShadow: "0 16px 36px rgba(15,23,42,.06)",
       }}
     >
       <div
         style={{
           width: 52,
           height: 52,
-          borderRadius: 18,
+          borderRadius: 16,
           background: soft,
-          marginBottom: 22,
-        }}
-      />
-
-      <p
-        style={{
-          margin: 0,
-          color: "#64748b",
-          fontSize: 14,
-          fontWeight: 800,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 24,
         }}
       >
-        {titulo}
-      </p>
-
-      <strong
-        style={{
-          display: "block",
-          marginTop: 12,
-          color: "#0f172a",
-          fontSize: 54,
-          lineHeight: 1,
-          letterSpacing: "-.06em",
-          fontWeight: 900,
-        }}
-      >
-        {valor}
-      </strong>
-
-      {descricao && (
-        <p
+        <span
           style={{
-            margin: "12px 0 0",
-            color: "#64748b",
-            fontSize: 13,
+            width: 12,
+            height: 12,
+            borderRadius: 999,
+            background: color,
           }}
-        >
-          {descricao}
-        </p>
-      )}
+        />
+      </div>
 
-      {typeof percentual === "number" && <MiniBar value={percentual} color={color} />}
-    </div>
-  );
-}
-
-function Card({
-  titulo,
-  valor,
-  percentual,
-}: {
-  titulo: string;
-  valor: string | number;
-  percentual?: number;
-}) {
-  return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 24,
-        padding: 24,
-        boxShadow: "0 10px 30px rgba(15,23,42,.05)",
-        minHeight: 156,
-      }}
-    >
       <p
         style={{
           margin: 0,
           color: "#64748b",
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: 800,
         }}
       >
-        {titulo}
+        {title}
       </p>
 
       <strong
         style={{
           display: "block",
           marginTop: 14,
-          fontSize: 42,
-          lineHeight: 1,
           color: "#0f172a",
-          letterSpacing: "-.05em",
+          fontSize: 52,
+          lineHeight: 1,
+          letterSpacing: "-.06em",
+          fontWeight: 900,
         }}
       >
-        {valor}
+        {value}
       </strong>
 
-      {typeof percentual === "number" && (
-        <div style={{ marginTop: 22 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: 8,
-              fontSize: 11,
-              fontWeight: 900,
-              textTransform: "uppercase",
-              color: "#64748b",
-              letterSpacing: ".08em",
-            }}
-          >
-            <span>Performance</span>
-            <span>{pct(percentual)}</span>
-          </div>
-
-          <MiniBar value={percentual} />
-        </div>
+      {subtitle && (
+        <p
+          style={{
+            margin: "14px 0 0",
+            color: "#64748b",
+            fontSize: 15,
+            lineHeight: 1.35,
+          }}
+        >
+          {subtitle}
+        </p>
       )}
     </div>
   );
 }
 
-function Section({
-  titulo,
-  descricao,
+function ProgressPanel({
+  title,
+  subtitle,
+  value,
+  color,
   children,
 }: {
-  titulo: string;
-  descricao: string;
+  title: string;
+  subtitle: string;
+  value: number;
+  color: string;
   children: React.ReactNode;
 }) {
   return (
-    <section style={{ marginTop: 38 }}>
-      <div style={{ marginBottom: 18 }}>
-        <h2
-          style={{
-            margin: 0,
-            color: "#0f172a",
-            fontSize: 26,
-            letterSpacing: "-.03em",
-          }}
-        >
-          {titulo}
-        </h2>
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e2e8f0",
+        borderRadius: 28,
+        padding: 28,
+        boxShadow: "0 16px 36px rgba(15,23,42,.06)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          alignItems: "flex-start",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              color: "#0f172a",
+              fontSize: 26,
+              letterSpacing: "-.04em",
+            }}
+          >
+            {title}
+          </h2>
 
-        <p
+          <p
+            style={{
+              margin: "8px 0 0",
+              color: "#64748b",
+              fontSize: 16,
+            }}
+          >
+            {subtitle}
+          </p>
+        </div>
+
+        <strong
           style={{
-            margin: "6px 0 0",
-            color: "#64748b",
-            fontSize: 14,
+            color,
+            fontSize: 32,
+            letterSpacing: "-.05em",
           }}
         >
-          {descricao}
-        </p>
+          {value}%
+        </strong>
       </div>
 
-      {children}
-    </section>
+      <div
+        style={{
+          height: 12,
+          borderRadius: 999,
+          background: "#e8eef6",
+          overflow: "hidden",
+          marginTop: 28,
+        }}
+      >
+        <div
+          style={{
+            width: pct(value),
+            height: "100%",
+            background: color,
+            borderRadius: 999,
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: 16,
+          marginTop: 20,
+          color: "#64748b",
+          fontSize: 14,
+          fontWeight: 800,
+        }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -254,6 +271,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   const totalConvidados = convidados.length;
 
+  const criancas = convidados.filter((c: any) => isCrianca(c)).length;
+  const adultos = Math.max(totalConvidados - criancas, 0);
+
   const confirmados = convidados.filter(
     (c: any) => c.status_rsvp === "confirmado"
   ).length;
@@ -262,39 +282,55 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     (c: any) => !c.status_rsvp || c.status_rsvp === "pendente"
   ).length;
 
-  const recusados = convidados.filter(
-    (c: any) => c.status_rsvp === "recusado"
+  const ausenciaConfirmada = convidados.filter(
+    (c: any) =>
+      c.status_rsvp === "recusado" ||
+      c.status_rsvp === "nao_ira" ||
+      c.status_rsvp === "ausente"
   ).length;
 
-  const checkins = convidados.filter(
-    (c: any) =>
-      c.status_checkin === "entrou" ||
-      c.status_checkin === "confirmado" ||
-      c.checkin_realizado === true
+  const viaResponsavel = convidados.filter(
+    (c: any) => c.contato_principal === false
   ).length;
+
+  const contatosPrincipais = convidados.filter(
+    (c: any) => c.contato_principal === true
+  ).length;
+
+  const recebemConvite = convidados.filter(
+    (c: any) => c.recebe_convite === true || c.receives_communication === true
+  ).length;
+
+  const convidadosEntraram = convidados.filter((c: any) => entrou(c));
+  const entradas = convidadosEntraram.length;
+
+  const criancasEntraram = convidadosEntraram.filter((c: any) =>
+    isCrianca(c)
+  ).length;
+
+  const adultosEntraram = Math.max(entradas - criancasEntraram, 0);
+
+  const noShowAtual = Math.max(confirmados - entradas, 0);
 
   const entrouSemRsvp = convidados.filter(
     (c: any) => c.status_checkin === "entrou_sem_rsvp"
   ).length;
 
-  const naoEntraram = Math.max(totalConvidados - checkins, 0);
   const errosEnvio = envios.filter((e: any) => e.status === "erro").length;
-
-  const taxaPresenca = totalConvidados
-    ? Math.round((checkins / totalConvidados) * 100)
-    : 0;
 
   const taxaRsvp = totalConvidados
     ? Math.round((confirmados / totalConvidados) * 100)
+    : 0;
+
+  const taxaCheckin = confirmados
+    ? Math.round((entradas / confirmados) * 100)
     : 0;
 
   const taxaEnvio = envios.length
     ? Math.round(((envios.length - errosEnvio) / envios.length) * 100)
     : 0;
 
-  const scoreEvento = Math.round((taxaRsvp + taxaPresenca + taxaEnvio) / 3);
-
-  const ultimosCheckins = convidados
+  const ultimosCheckins = convidadosEntraram
     .filter((c: any) => c.data_checkin)
     .sort(
       (a: any, b: any) =>
@@ -303,386 +339,467 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     )
     .slice(0, 10);
 
+  const ultimaEntrada = ultimosCheckins[0];
+
+  const picoPorHora = convidadosEntraram.reduce((acc: Record<string, number>, c: any) => {
+    const hora = getHourBR(c.data_checkin);
+    if (!hora) return acc;
+    acc[hora] = (acc[hora] || 0) + 1;
+    return acc;
+  }, {});
+
+  const picoEntrada = Object.entries(picoPorHora).sort(
+    (a, b) => b[1] - a[1]
+  )[0];
+
+  const horaPico = picoEntrada ? `${picoEntrada[0]}h` : "-";
+  const quantidadePico = picoEntrada ? picoEntrada[1] : 0;
+
   return (
     <main
       style={{
         minHeight: "100vh",
+        padding: 26,
         background:
-          "radial-gradient(circle at top left, rgba(109,40,217,.13), transparent 32%), linear-gradient(135deg,#f8fafc,#eef2f7)",
-        padding: 28,
+          "radial-gradient(circle at top left, rgba(109,40,217,.08), transparent 35%), #f6f8fc",
       }}
     >
-      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1480, margin: "0 auto" }}>
         <section
           style={{
-            position: "relative",
-            overflow: "hidden",
-            borderRadius: 36,
-            padding: 42,
-            background:
-              "linear-gradient(135deg,#0f172a 0%,#1e1b4b 55%,#312e81 100%)",
-            boxShadow: "0 30px 90px rgba(15,23,42,.22)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 30,
+            padding: 36,
+            boxShadow: "0 20px 50px rgba(15,23,42,.06)",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 28,
+            flexWrap: "wrap",
+            marginBottom: 34,
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              top: -130,
-              right: -120,
-              width: 430,
-              height: 430,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,.06)",
-            }}
-          />
+          <div>
+            <p
+              style={{
+                margin: 0,
+                color: "#6d28d9",
+                fontSize: 14,
+                fontWeight: 900,
+                letterSpacing: ".14em",
+                textTransform: "uppercase",
+              }}
+            >
+              Omnistage Dashboard
+            </p>
 
-          <div
+            <h1
+              style={{
+                margin: "14px 0 8px",
+                color: "#0f172a",
+                fontSize: "clamp(42px,6vw,64px)",
+                lineHeight: 1,
+                letterSpacing: "-.06em",
+                fontWeight: 900,
+              }}
+            >
+              Visão geral do evento
+            </h1>
+
+            <p
+              style={{
+                margin: 0,
+                color: "#64748b",
+                fontSize: 18,
+              }}
+            >
+              Acompanhe confirmações, pendências e entradas em tempo real.
+            </p>
+          </div>
+
+          <form
+            method="get"
             style={{
-              position: "relative",
-              zIndex: 2,
               display: "flex",
-              justifyContent: "space-between",
-              gap: 32,
+              alignItems: "center",
+              gap: 14,
               flexWrap: "wrap",
             }}
           >
-            <div style={{ maxWidth: 760 }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  borderRadius: 999,
-                  padding: "8px 14px",
-                  background: "rgba(255,255,255,.1)",
-                  color: "#cbd5e1",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  letterSpacing: ".16em",
-                  textTransform: "uppercase",
-                }}
-              >
-                OmniStage Analytics
-              </span>
-
-              <h1
-                style={{
-                  margin: "22px 0 12px",
-                  color: "#fff",
-                  fontSize: "clamp(46px,7vw,84px)",
-                  lineHeight: ".92",
-                  letterSpacing: "-.07em",
-                  fontWeight: 900,
-                }}
-              >
-                Relatório Executivo
-              </h1>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: "#cbd5e1",
-                  fontSize: 17,
-                  lineHeight: 1.7,
-                  maxWidth: 690,
-                }}
-              >
-                Inteligência completa do evento com análise de RSVP, presença,
-                check-in e performance operacional.
-              </p>
-            </div>
-
-            <aside
+            <select
+              name="eventoId"
+              defaultValue={eventoSelecionado}
               style={{
-                width: 340,
-                borderRadius: 28,
-                padding: 24,
-                background: "rgba(255,255,255,.08)",
-                border: "1px solid rgba(255,255,255,.1)",
-                backdropFilter: "blur(18px)",
+                height: 52,
+                borderRadius: 999,
+                border: "1px solid #e2e8f0",
+                background: "#fff",
+                padding: "0 18px",
+                color: "#0f172a",
+                fontWeight: 800,
+                fontSize: 15,
+                minWidth: 240,
               }}
             >
-              <p
-                style={{
-                  margin: "0 0 14px",
-                  color: "#94a3b8",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: ".12em",
-                }}
-              >
-                Evento analisado
-              </p>
+              {eventos.map((evento: any) => (
+                <option key={evento.id} value={evento.id}>
+                  {evento.nome}
+                </option>
+              ))}
+            </select>
 
-              <form method="get" style={{ display: "grid", gap: 12 }}>
-                <select
-                  name="eventoId"
-                  defaultValue={eventoSelecionado}
-                  style={{
-                    height: 52,
-                    borderRadius: 16,
-                    border: "1px solid rgba(255,255,255,.16)",
-                    background: "rgba(15,23,42,.62)",
-                    color: "#fff",
-                    padding: "0 16px",
-                    fontWeight: 800,
-                    fontSize: 15,
-                    outline: "none",
-                  }}
-                >
-                  {eventos.map((evento: any) => (
-                    <option key={evento.id} value={evento.id}>
-                      {evento.nome}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  style={{
-                    height: 52,
-                    borderRadius: 16,
-                    border: 0,
-                    background: "linear-gradient(135deg,#8b5cf6,#6d28d9)",
-                    color: "#fff",
-                    fontWeight: 900,
-                    fontSize: 15,
-                    cursor: "pointer",
-                    boxShadow: "0 16px 34px rgba(109,40,217,.38)",
-                  }}
-                >
-                  Atualizar relatório
-                </button>
-              </form>
-
-              <div
-                style={{
-                  marginTop: 22,
-                  paddingTop: 18,
-                  borderTop: "1px solid rgba(255,255,255,.1)",
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 14,
-                }}
-              >
-                <div>
-                  <p style={{ margin: 0, color: "#94a3b8", fontSize: 12 }}>
-                    Score
-                  </p>
-                  <strong
-                    style={{
-                      display: "block",
-                      marginTop: 6,
-                      color: "#fff",
-                      fontSize: 34,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
-                    {scoreEvento}%
-                  </strong>
-                </div>
-
-                <div>
-                  <p style={{ margin: 0, color: "#94a3b8", fontSize: 12 }}>
-                    Presença
-                  </p>
-                  <strong
-                    style={{
-                      display: "block",
-                      marginTop: 6,
-                      color: "#fff",
-                      fontSize: 34,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
-                    {taxaPresenca}%
-                  </strong>
-                </div>
-              </div>
-            </aside>
-          </div>
+            <button
+              style={{
+                height: 52,
+                border: 0,
+                borderRadius: 999,
+                background: "#6d28d9",
+                color: "#fff",
+                padding: "0 24px",
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: "0 14px 28px rgba(109,40,217,.28)",
+              }}
+            >
+              Atualizar agora
+            </button>
+          </form>
         </section>
 
         <section
           style={{
-            marginTop: -42,
-            position: "relative",
-            zIndex: 5,
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(245px,1fr))",
-            gap: 20,
-          }}
-        >
-          <KpiCard
-            titulo="Total convidados"
-            valor={totalConvidados}
-            descricao="Base total do evento."
-            color="#2563eb"
-            soft="#eff6ff"
-          />
-          <KpiCard
-            titulo="Confirmados RSVP"
-            valor={confirmados}
-            descricao={`${taxaRsvp}% da base confirmou presença.`}
-            percentual={taxaRsvp}
-            color="#7c3aed"
-            soft="#f5f3ff"
-          />
-          <KpiCard
-            titulo="Entradas realizadas"
-            valor={checkins}
-            descricao={`${taxaPresenca}% dos convidados entraram.`}
-            percentual={taxaPresenca}
-            color="#16a34a"
-            soft="#ecfdf5"
-          />
-          <KpiCard
-            titulo="No-show"
-            valor={naoEntraram}
-            descricao="Convidados que não compareceram."
-            color="#ea580c"
-            soft="#fff7ed"
-          />
-        </section>
-
-        <section
-          style={{
-            marginTop: 28,
-            display: "grid",
-            gridTemplateColumns: "1.15fr .85fr",
+            gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
             gap: 22,
           }}
         >
-          <div
-            style={{
-              borderRadius: 30,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              padding: 28,
-              boxShadow: "0 14px 40px rgba(15,23,42,.06)",
-            }}
-          >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 26,
-                color: "#0f172a",
-                letterSpacing: "-.04em",
-              }}
-            >
-              Leitura executiva
-            </h2>
+          <StatCard
+            title="Total de convidados"
+            value={totalConvidados}
+            subtitle="Base completa do evento"
+            color="#6d28d9"
+            soft="#ede9fe"
+          />
 
-            <p
-              style={{
-                margin: "10px 0 0",
-                color: "#64748b",
-                lineHeight: 1.7,
-              }}
-            >
-              O evento teve {taxaRsvp}% de confirmação RSVP e {taxaPresenca}%
-              de presença registrada no check-in. Foram identificados{" "}
-              {naoEntraram} convidados em no-show e {entrouSemRsvp} entradas sem
-              RSVP prévio.
-            </p>
-          </div>
+          <StatCard
+            title="Adultos"
+            value={adultos}
+            subtitle="Convidados adultos"
+            color="#2563eb"
+            soft="#dbeafe"
+          />
 
-          <div
-            style={{
-              borderRadius: 30,
-              background: "#0f172a",
-              padding: 28,
-              boxShadow: "0 18px 45px rgba(15,23,42,.16)",
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                color: "#94a3b8",
-                fontSize: 13,
-                fontWeight: 800,
-              }}
-            >
-              Performance geral
-            </p>
+          <StatCard
+            title="Crianças"
+            value={criancas}
+            subtitle="Convidados marcados como criança"
+            color="#9333ea"
+            soft="#f3e8ff"
+          />
 
-            <strong
-              style={{
-                display: "block",
-                marginTop: 12,
-                color: "#fff",
-                fontSize: 58,
-                lineHeight: 1,
-                letterSpacing: "-.07em",
-              }}
-            >
-              {scoreEvento}%
-            </strong>
+          <StatCard
+            title="Via responsável"
+            value={viaResponsavel}
+            subtitle="Convite enviado ao responsável"
+            color="#be185d"
+            soft="#fce7f3"
+          />
 
-            <MiniBar value={scoreEvento} color="#8b5cf6" />
-          </div>
+          <StatCard
+            title="Contatos principais"
+            value={contatosPrincipais}
+            subtitle="Pessoas que representam o grupo"
+            color="#7c3aed"
+            soft="#ede9fe"
+          />
+
+          <StatCard
+            title="Recebem convite"
+            value={recebemConvite}
+            subtitle="Destinatários de envio por WhatsApp"
+            color="#0f766e"
+            soft="#ccfbf1"
+          />
+
+          <StatCard
+            title="Confirmados"
+            value={confirmados}
+            subtitle={`${taxaRsvp}% da lista`}
+            color="#16a34a"
+            soft="#dcfce7"
+          />
+
+          <StatCard
+            title="Pendentes"
+            value={pendentes}
+            subtitle="Aguardando resposta"
+            color="#f59e0b"
+            soft="#fef3c7"
+          />
+
+          <StatCard
+            title="Ausência confirmada"
+            value={ausenciaConfirmada}
+            subtitle={`${totalConvidados ? Math.round((ausenciaConfirmada / totalConvidados) * 100) : 0}% da lista`}
+            color="#ef4444"
+            soft="#fee2e2"
+          />
+
+          <StatCard
+            title="Entradas"
+            value={entradas}
+            subtitle={`${taxaCheckin}% dos confirmados`}
+            color="#2563eb"
+            soft="#dbeafe"
+          />
+
+          <StatCard
+            title="Adultos entraram"
+            value={adultosEntraram}
+            subtitle="Entradas de adultos"
+            color="#0f766e"
+            soft="#ccfbf1"
+          />
+
+          <StatCard
+            title="Crianças entraram"
+            value={criancasEntraram}
+            subtitle="Entradas de crianças"
+            color="#9333ea"
+            soft="#f3e8ff"
+          />
+
+          <StatCard
+            title="No-show atual"
+            value={noShowAtual}
+            subtitle="Confirmados que ainda não entraram"
+            color="#7c3aed"
+            soft="#ede9fe"
+          />
+
+          <StatCard
+            title="Pico de entrada"
+            value={horaPico}
+            subtitle={`${quantidadePico} entrada(s) nesse horário`}
+            color="#16a34a"
+            soft="#dcfce7"
+          />
         </section>
 
-        <Section titulo="Performance RSVP" descricao="Análise de confirmações do evento.">
+        <section
+          style={{
+            marginTop: 34,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+            gap: 22,
+          }}
+        >
+          <ProgressPanel
+            title="Confirmações"
+            subtitle="Progresso geral de RSVP"
+            value={taxaRsvp}
+            color="#6d28d9"
+          >
+            <span>{confirmados} confirmados</span>
+            <span>{pendentes} pendentes</span>
+            <span>{ausenciaConfirmada} ausências</span>
+            <span>{criancas} crianças</span>
+          </ProgressPanel>
+
+          <ProgressPanel
+            title="Check-in"
+            subtitle="Entradas realizadas no evento"
+            value={taxaCheckin}
+            color="#16a34a"
+          >
+            <span>{entradas} entradas</span>
+            <span>{adultosEntraram} adultos</span>
+            <span>{criancasEntraram} crianças</span>
+            <span>{noShowAtual} restantes</span>
+          </ProgressPanel>
+        </section>
+
+        <section
+          style={{
+            marginTop: 34,
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 30,
+            padding: 32,
+            boxShadow: "0 18px 40px rgba(15,23,42,.05)",
+          }}
+        >
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
-              gap: 18,
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 20,
+              flexWrap: "wrap",
+              marginBottom: 24,
             }}
           >
-            <Card titulo="Confirmados" valor={confirmados} percentual={taxaRsvp} />
-            <Card titulo="Pendentes" valor={pendentes} />
-            <Card titulo="Recusados" valor={recusados} />
-          </div>
-        </Section>
+            <div>
+              <h2
+                style={{
+                  margin: 0,
+                  color: "#0f172a",
+                  fontSize: 28,
+                  letterSpacing: "-.04em",
+                }}
+              >
+                Última entrada
+              </h2>
 
-        <Section titulo="Performance Check-in" descricao="Indicadores de presença e entrada.">
-          <div
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  color: "#64748b",
+                  fontSize: 17,
+                }}
+              >
+                Registro mais recente do check-in em horário do Brasil.
+              </p>
+            </div>
+
+            <span
+              style={{
+                height: 38,
+                display: "inline-flex",
+                alignItems: "center",
+                borderRadius: 999,
+                padding: "0 18px",
+                background: "#dcfce7",
+                color: "#16a34a",
+                fontWeight: 900,
+              }}
+            >
+              Ao vivo
+            </span>
+          </div>
+
+          {ultimaEntrada ? (
+            <div
+              style={{
+                border: "1px dashed #dbe3ef",
+                borderRadius: 22,
+                padding: 24,
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr 1fr",
+                gap: 20,
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+                  Convidado
+                </p>
+                <strong
+                  style={{
+                    display: "block",
+                    marginTop: 6,
+                    color: "#0f172a",
+                    fontSize: 22,
+                  }}
+                >
+                  {ultimaEntrada.nome}
+                </strong>
+              </div>
+
+              <div>
+                <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+                  Horário
+                </p>
+                <strong
+                  style={{
+                    display: "block",
+                    marginTop: 6,
+                    color: "#0f172a",
+                    fontSize: 18,
+                  }}
+                >
+                  {formatDateTimeBR(ultimaEntrada.data_checkin)}
+                </strong>
+              </div>
+
+              <div>
+                <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+                  Tipo
+                </p>
+                <strong
+                  style={{
+                    display: "block",
+                    marginTop: 6,
+                    color: "#0f172a",
+                    fontSize: 18,
+                  }}
+                >
+                  {isCrianca(ultimaEntrada) ? "Criança" : "Adulto"}
+                </strong>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                border: "1px dashed #dbe3ef",
+                borderRadius: 22,
+                padding: 24,
+                color: "#64748b",
+                fontSize: 17,
+              }}
+            >
+              Nenhuma entrada registrada até o momento.
+            </div>
+          )}
+        </section>
+
+        <section
+          style={{
+            marginTop: 34,
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 30,
+            padding: 32,
+            boxShadow: "0 18px 40px rgba(15,23,42,.05)",
+          }}
+        >
+          <h2
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
-              gap: 18,
+              margin: 0,
+              color: "#0f172a",
+              fontSize: 28,
+              letterSpacing: "-.04em",
             }}
           >
-            <Card titulo="Entraram" valor={checkins} percentual={taxaPresenca} />
-            <Card titulo="Entrou sem RSVP" valor={entrouSemRsvp} />
-            <Card titulo="No-show" valor={naoEntraram} />
-          </div>
-        </Section>
+            Últimos check-ins
+          </h2>
 
-        <Section titulo="Performance de Envios" descricao="Status dos envios realizados.">
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
-              gap: 18,
-            }}
-          >
-            <Card titulo="Envios realizados" valor={envios.length} percentual={taxaEnvio} />
-            <Card titulo="Erros de envio" valor={errosEnvio} />
-            <Card titulo="Taxa de sucesso" valor={`${taxaEnvio}%`} percentual={taxaEnvio} />
-          </div>
-        </Section>
-
-        <Section titulo="Últimos Check-ins" descricao="Últimas entradas registradas no evento.">
-          <div
-            style={{
+              marginTop: 22,
               overflowX: "auto",
-              border: "1px solid #e5e7eb",
-              borderRadius: 28,
-              background: "#fff",
-              boxShadow: "0 14px 38px rgba(15,23,42,.06)",
+              border: "1px solid #e2e8f0",
+              borderRadius: 22,
             }}
           >
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                background: "#fff",
+              }}
+            >
               <thead style={{ background: "#f8fafc" }}>
                 <tr>
-                  <th style={{ padding: 20, textAlign: "left", fontSize: 11, color: "#64748b" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Convidado
                   </th>
-                  <th style={{ padding: 20, textAlign: "left", fontSize: 11, color: "#64748b" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
+                    Tipo
+                  </th>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Data e horário
                   </th>
-                  <th style={{ padding: 20, textAlign: "left", fontSize: 11, color: "#64748b" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Status
                   </th>
                 </tr>
@@ -691,25 +808,35 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <tbody>
                 {ultimosCheckins.map((convidado: any) => (
                   <tr key={convidado.id}>
-                    <td style={{ padding: 20, borderTop: "1px solid #e5e7eb" }}>
-                      <strong>{convidado.nome}</strong>
-                      <small style={{ display: "block", color: "#64748b", marginTop: 4 }}>
+                    <td style={{ padding: 18, borderTop: "1px solid #e2e8f0" }}>
+                      <strong style={{ color: "#0f172a" }}>{convidado.nome}</strong>
+                      <small
+                        style={{
+                          display: "block",
+                          marginTop: 4,
+                          color: "#64748b",
+                        }}
+                      >
                         Token: {convidado.token || "-"}
                       </small>
                     </td>
 
-                    <td style={{ padding: 20, borderTop: "1px solid #e5e7eb", color: "#334155" }}>
-                      {new Date(convidado.data_checkin).toLocaleString("pt-BR")}
+                    <td style={{ padding: 18, borderTop: "1px solid #e2e8f0" }}>
+                      {isCrianca(convidado) ? "Criança" : "Adulto"}
                     </td>
 
-                    <td style={{ padding: 20, borderTop: "1px solid #e5e7eb" }}>
+                    <td style={{ padding: 18, borderTop: "1px solid #e2e8f0" }}>
+                      {formatDateTimeBR(convidado.data_checkin)}
+                    </td>
+
+                    <td style={{ padding: 18, borderTop: "1px solid #e2e8f0" }}>
                       <span
                         style={{
                           display: "inline-flex",
+                          borderRadius: 999,
+                          padding: "7px 12px",
                           background: "#dcfce7",
                           color: "#16a34a",
-                          padding: "7px 11px",
-                          borderRadius: 999,
                           fontSize: 12,
                           fontWeight: 900,
                         }}
@@ -722,7 +849,14 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
                 {ultimosCheckins.length === 0 && (
                   <tr>
-                    <td colSpan={3} style={{ padding: 44, textAlign: "center", color: "#64748b" }}>
+                    <td
+                      colSpan={4}
+                      style={{
+                        padding: 42,
+                        textAlign: "center",
+                        color: "#64748b",
+                      }}
+                    >
                       Nenhum check-in encontrado.
                     </td>
                   </tr>
@@ -730,7 +864,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               </tbody>
             </table>
           </div>
-        </Section>
+        </section>
       </div>
     </main>
   );
