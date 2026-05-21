@@ -53,40 +53,196 @@ function entrou(c: any) {
   );
 }
 
-function StatCard({
+function BigProgressCard({
   title,
-  value,
   subtitle,
-  color = "#6d28d9",
-  soft = "#ede9fe",
+  percent,
+  color,
+  children,
+  footer,
 }: {
   title: string;
-  value: string | number;
-  subtitle?: string;
-  color?: string;
-  soft?: string;
+  subtitle: string;
+  percent: number;
+  color: string;
+  children: React.ReactNode;
+  footer?: string;
 }) {
   return (
     <div
       style={{
         background: "#fff",
         border: "1px solid #e2e8f0",
-        borderRadius: 26,
-        padding: 26,
-        minHeight: 210,
-        boxShadow: "0 16px 36px rgba(15,23,42,.06)",
+        borderRadius: 30,
+        padding: 34,
+        boxShadow: "0 18px 42px rgba(15,23,42,.06)",
       }}
     >
       <div
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 16,
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 20,
+          alignItems: "flex-start",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              color: "#0f172a",
+              fontSize: 34,
+              lineHeight: 1,
+              letterSpacing: "-.05em",
+              fontWeight: 900,
+            }}
+          >
+            {title}
+          </h2>
+
+          <p
+            style={{
+              margin: "12px 0 0",
+              color: "#64748b",
+              fontSize: 20,
+              lineHeight: 1.3,
+            }}
+          >
+            {subtitle}
+          </p>
+        </div>
+
+        <strong
+          style={{
+            color,
+            fontSize: 42,
+            lineHeight: 1,
+            letterSpacing: "-.06em",
+            fontWeight: 900,
+          }}
+        >
+          {percent}%
+        </strong>
+      </div>
+
+      <div
+        style={{
+          height: 12,
+          borderRadius: 999,
+          background: "#e8eef6",
+          overflow: "hidden",
+          marginTop: 34,
+        }}
+      >
+        <div
+          style={{
+            width: pct(percent),
+            height: "100%",
+            background: color,
+            borderRadius: 999,
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+          gap: 18,
+          marginTop: 26,
+        }}
+      >
+        {children}
+      </div>
+
+      {footer && (
+        <div
+          style={{
+            marginTop: 28,
+            borderTop: "1px solid #e2e8f0",
+            paddingTop: 18,
+            color: "#0f172a",
+            fontSize: 15,
+            fontWeight: 800,
+          }}
+        >
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({
+  value,
+  label,
+}: {
+  value: string | number;
+  label: string;
+}) {
+  return (
+    <div>
+      <strong
+        style={{
+          display: "block",
+          color: "#64748b",
+          fontSize: 22,
+          lineHeight: 1,
+          fontWeight: 900,
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          display: "block",
+          marginTop: 6,
+          color: "#64748b",
+          fontSize: 15,
+          lineHeight: 1.2,
+          fontWeight: 800,
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function DetailCard({
+  title,
+  subtitle,
+  color,
+  soft,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  color: string;
+  soft: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e2e8f0",
+        borderRadius: 30,
+        padding: 30,
+        boxShadow: "0 18px 42px rgba(15,23,42,.05)",
+      }}
+    >
+      <div
+        style={{
+          width: 54,
+          height: 54,
+          borderRadius: 18,
           background: soft,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 24,
+          marginBottom: 22,
         }}
       >
         <span
@@ -99,140 +255,33 @@ function StatCard({
         />
       </div>
 
-      <p
+      <h3
         style={{
           margin: 0,
-          color: "#64748b",
-          fontSize: 16,
-          fontWeight: 800,
-        }}
-      >
-        {title}
-      </p>
-
-      <strong
-        style={{
-          display: "block",
-          marginTop: 14,
           color: "#0f172a",
-          fontSize: 52,
-          lineHeight: 1,
-          letterSpacing: "-.06em",
+          fontSize: 26,
+          letterSpacing: "-.04em",
           fontWeight: 900,
         }}
       >
-        {value}
-      </strong>
+        {title}
+      </h3>
 
-      {subtitle && (
-        <p
-          style={{
-            margin: "14px 0 0",
-            color: "#64748b",
-            fontSize: 15,
-            lineHeight: 1.35,
-          }}
-        >
-          {subtitle}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ProgressPanel({
-  title,
-  subtitle,
-  value,
-  color,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  value: number;
-  color: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e2e8f0",
-        borderRadius: 28,
-        padding: 28,
-        boxShadow: "0 16px 36px rgba(15,23,42,.06)",
-      }}
-    >
-      <div
+      <p
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 16,
-          alignItems: "flex-start",
+          margin: "8px 0 24px",
+          color: "#64748b",
+          fontSize: 16,
         }}
       >
-        <div>
-          <h2
-            style={{
-              margin: 0,
-              color: "#0f172a",
-              fontSize: 26,
-              letterSpacing: "-.04em",
-            }}
-          >
-            {title}
-          </h2>
-
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "#64748b",
-              fontSize: 16,
-            }}
-          >
-            {subtitle}
-          </p>
-        </div>
-
-        <strong
-          style={{
-            color,
-            fontSize: 32,
-            letterSpacing: "-.05em",
-          }}
-        >
-          {value}%
-        </strong>
-      </div>
-
-      <div
-        style={{
-          height: 12,
-          borderRadius: 999,
-          background: "#e8eef6",
-          overflow: "hidden",
-          marginTop: 28,
-        }}
-      >
-        <div
-          style={{
-            width: pct(value),
-            height: "100%",
-            background: color,
-            borderRadius: 999,
-          }}
-        />
-      </div>
+        {subtitle}
+      </p>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-          gap: 16,
-          marginTop: 20,
-          color: "#64748b",
-          fontSize: 14,
-          fontWeight: 800,
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 18,
         }}
       >
         {children}
@@ -274,9 +323,11 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const criancas = convidados.filter((c: any) => isCrianca(c)).length;
   const adultos = Math.max(totalConvidados - criancas, 0);
 
-  const confirmados = convidados.filter(
+  const confirmadosList = convidados.filter(
     (c: any) => c.status_rsvp === "confirmado"
-  ).length;
+  );
+
+  const confirmados = confirmadosList.length;
 
   const pendentes = convidados.filter(
     (c: any) => !c.status_rsvp || c.status_rsvp === "pendente"
@@ -289,17 +340,22 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       c.status_rsvp === "ausente"
   ).length;
 
-  const viaResponsavel = convidados.filter(
-    (c: any) => c.contato_principal === false
+  const criancasConfirmadas = confirmadosList.filter((c: any) =>
+    isCrianca(c)
   ).length;
 
-  const contatosPrincipais = convidados.filter(
-    (c: any) => c.contato_principal === true
-  ).length;
+  const adultosConfirmados = Math.max(confirmados - criancasConfirmadas, 0);
 
-  const recebemConvite = convidados.filter(
-    (c: any) => c.recebe_convite === true || c.receives_communication === true
-  ).length;
+  const taxaConfirmacao = totalConvidados
+    ? Math.round((confirmados / totalConvidados) * 100)
+    : 0;
+
+  const taxaPendencia = totalConvidados
+    ? Math.round((pendentes / totalConvidados) * 100)
+    : 0;
+
+  const textoRsvp =
+    taxaConfirmacao >= 75 ? "RSVP em bom andamento" : "Ainda há muitos pendentes";
 
   const convidadosEntraram = convidados.filter((c: any) => entrou(c));
   const entradas = convidadosEntraram.length;
@@ -310,28 +366,48 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   const adultosEntraram = Math.max(entradas - criancasEntraram, 0);
 
-  const noShowAtual = Math.max(confirmados - entradas, 0);
+  const restantes = Math.max(confirmados - entradas, 0);
 
   const entrouSemRsvp = convidados.filter(
     (c: any) => c.status_checkin === "entrou_sem_rsvp"
   ).length;
 
-  const errosEnvio = envios.filter((e: any) => e.status === "erro").length;
-
-  const taxaRsvp = totalConvidados
-    ? Math.round((confirmados / totalConvidados) * 100)
-    : 0;
-
-  const taxaCheckin = confirmados
+  const taxaPresenca = confirmados
     ? Math.round((entradas / confirmados) * 100)
     : 0;
 
-  const taxaEnvio = envios.length
-    ? Math.round(((envios.length - errosEnvio) / envios.length) * 100)
+  const viaResponsavel = convidados.filter(
+    (c: any) => c.contato_principal === false
+  ).length;
+
+  const contatosPrincipais = convidados.filter(
+    (c: any) => c.contato_principal === true
+  ).length;
+
+  const noShowList = confirmadosList.filter((c: any) => !entrou(c));
+  const noShow = noShowList.length;
+
+  const taxaNoShow = confirmados ? Math.round((noShow / confirmados) * 100) : 0;
+
+  const adultosPendentesEntrada = noShowList.filter(
+    (c: any) => !isCrianca(c)
+  ).length;
+
+  const criancasPendentesEntrada = noShowList.filter((c: any) =>
+    isCrianca(c)
+  ).length;
+
+  const enviosRegistrados = envios.length;
+  const errosEnvio = envios.filter((e: any) => e.status === "erro").length;
+  const enviosSucesso = Math.max(enviosRegistrados - errosEnvio, 0);
+
+  const taxaEnvio = enviosRegistrados
+    ? Math.round((enviosSucesso / enviosRegistrados) * 100)
     : 0;
 
-  const ultimosCheckins = convidadosEntraram
-    .filter((c: any) => c.data_checkin)
+  const entradasComData = convidadosEntraram.filter((c: any) => c.data_checkin);
+
+  const ultimosCheckins = [...entradasComData]
     .sort(
       (a: any, b: any) =>
         new Date(b.data_checkin).getTime() -
@@ -339,14 +415,23 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     )
     .slice(0, 10);
 
+  const primeiraEntrada = [...entradasComData].sort(
+    (a: any, b: any) =>
+      new Date(a.data_checkin).getTime() -
+      new Date(b.data_checkin).getTime()
+  )[0];
+
   const ultimaEntrada = ultimosCheckins[0];
 
-  const picoPorHora = convidadosEntraram.reduce((acc: Record<string, number>, c: any) => {
-    const hora = getHourBR(c.data_checkin);
-    if (!hora) return acc;
-    acc[hora] = (acc[hora] || 0) + 1;
-    return acc;
-  }, {});
+  const picoPorHora = entradasComData.reduce(
+    (acc: Record<string, number>, c: any) => {
+      const hora = getHourBR(c.data_checkin);
+      if (!hora) return acc;
+      acc[hora] = (acc[hora] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
 
   const picoEntrada = Object.entries(picoPorHora).sort(
     (a, b) => b[1] - a[1]
@@ -364,7 +449,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           "radial-gradient(circle at top left, rgba(109,40,217,.08), transparent 35%), #f6f8fc",
       }}
     >
-      <div style={{ maxWidth: 1480, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1500, margin: "0 auto" }}>
         <section
           style={{
             background: "#fff",
@@ -413,7 +498,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 fontSize: 18,
               }}
             >
-              Acompanhe confirmações, pendências e entradas em tempo real.
+              Acompanhe confirmações, pendências, entradas e operação do evento.
             </p>
           </div>
 
@@ -470,286 +555,108 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-            gap: 22,
+            gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
+            gap: 26,
           }}
         >
-          <StatCard
-            title="Total de convidados"
-            value={totalConvidados}
-            subtitle="Base completa do evento"
+          <BigProgressCard
+            title="Confirmações"
+            subtitle="Progresso geral de RSVP"
+            percent={taxaConfirmacao}
             color="#6d28d9"
-            soft="#ede9fe"
-          />
+            footer={textoRsvp}
+          >
+            <Metric value={confirmados} label="confirmados" />
+            <Metric value={pendentes} label="pendentes" />
+            <Metric value={ausenciaConfirmada} label="ausências" />
+            <Metric value={criancasConfirmadas} label="crianças confirmadas" />
+            <Metric value={adultosConfirmados} label="adultos confirmados" />
+            <Metric value={`${taxaConfirmacao}%`} label="taxa confirmação" />
+            <Metric value={`${taxaPendencia}%`} label="taxa pendência" />
+          </BigProgressCard>
 
-          <StatCard
-            title="Adultos"
-            value={adultos}
-            subtitle="Convidados adultos"
-            color="#2563eb"
-            soft="#dbeafe"
-          />
-
-          <StatCard
-            title="Crianças"
-            value={criancas}
-            subtitle="Convidados marcados como criança"
-            color="#9333ea"
-            soft="#f3e8ff"
-          />
-
-          <StatCard
-            title="Via responsável"
-            value={viaResponsavel}
-            subtitle="Convite enviado ao responsável"
-            color="#be185d"
-            soft="#fce7f3"
-          />
-
-          <StatCard
-            title="Contatos principais"
-            value={contatosPrincipais}
-            subtitle="Pessoas que representam o grupo"
-            color="#7c3aed"
-            soft="#ede9fe"
-          />
-
-          <StatCard
-            title="Recebem convite"
-            value={recebemConvite}
-            subtitle="Destinatários de envio por WhatsApp"
-            color="#0f766e"
-            soft="#ccfbf1"
-          />
-
-          <StatCard
-            title="Confirmados"
-            value={confirmados}
-            subtitle={`${taxaRsvp}% da lista`}
+          <BigProgressCard
+            title="Check-in"
+            subtitle="Entradas realizadas no evento"
+            percent={taxaPresenca}
             color="#16a34a"
-            soft="#dcfce7"
-          />
-
-          <StatCard
-            title="Pendentes"
-            value={pendentes}
-            subtitle="Aguardando resposta"
-            color="#f59e0b"
-            soft="#fef3c7"
-          />
-
-          <StatCard
-            title="Ausência confirmada"
-            value={ausenciaConfirmada}
-            subtitle={`${totalConvidados ? Math.round((ausenciaConfirmada / totalConvidados) * 100) : 0}% da lista`}
-            color="#ef4444"
-            soft="#fee2e2"
-          />
-
-          <StatCard
-            title="Entradas"
-            value={entradas}
-            subtitle={`${taxaCheckin}% dos confirmados`}
-            color="#2563eb"
-            soft="#dbeafe"
-          />
-
-          <StatCard
-            title="Adultos entraram"
-            value={adultosEntraram}
-            subtitle="Entradas de adultos"
-            color="#0f766e"
-            soft="#ccfbf1"
-          />
-
-          <StatCard
-            title="Crianças entraram"
-            value={criancasEntraram}
-            subtitle="Entradas de crianças"
-            color="#9333ea"
-            soft="#f3e8ff"
-          />
-
-          <StatCard
-            title="No-show atual"
-            value={noShowAtual}
-            subtitle="Confirmados que ainda não entraram"
-            color="#7c3aed"
-            soft="#ede9fe"
-          />
-
-          <StatCard
-            title="Pico de entrada"
-            value={horaPico}
-            subtitle={`${quantidadePico} entrada(s) nesse horário`}
-            color="#16a34a"
-            soft="#dcfce7"
-          />
+            footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
+          >
+            <Metric value={entradas} label="entradas totais" />
+            <Metric value={adultosEntraram} label="adultos entraram" />
+            <Metric value={criancasEntraram} label="crianças entraram" />
+            <Metric value={restantes} label="restantes" />
+            <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
+            <Metric value={horaPico} label="pico de entrada" />
+            <Metric
+              value={ultimaEntrada ? formatDateTimeBR(ultimaEntrada.data_checkin) : "-"}
+              label="última entrada"
+            />
+            <Metric value={`${taxaPresenca}%`} label="presença/confirmados" />
+          </BigProgressCard>
         </section>
 
         <section
           style={{
             marginTop: 34,
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
-            gap: 22,
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: 24,
           }}
         >
-          <ProgressPanel
-            title="Confirmações"
-            subtitle="Progresso geral de RSVP"
-            value={taxaRsvp}
+          <DetailCard
+            title="Composição do evento"
+            subtitle="Perfil geral da lista"
             color="#6d28d9"
+            soft="#ede9fe"
           >
-            <span>{confirmados} confirmados</span>
-            <span>{pendentes} pendentes</span>
-            <span>{ausenciaConfirmada} ausências</span>
-            <span>{criancas} crianças</span>
-          </ProgressPanel>
+            <Metric value={adultos} label="adultos" />
+            <Metric value={criancas} label="crianças" />
+            <Metric value={viaResponsavel} label="via responsável" />
+            <Metric value={contatosPrincipais} label="contatos principais" />
+          </DetailCard>
 
-          <ProgressPanel
-            title="Check-in"
-            subtitle="Entradas realizadas no evento"
-            value={taxaCheckin}
+          <DetailCard
+            title="Pico de entrada"
+            subtitle="Movimento por horário"
             color="#16a34a"
+            soft="#dcfce7"
           >
-            <span>{entradas} entradas</span>
-            <span>{adultosEntraram} adultos</span>
-            <span>{criancasEntraram} crianças</span>
-            <span>{noShowAtual} restantes</span>
-          </ProgressPanel>
-        </section>
+            <Metric value={horaPico} label="horário com mais entradas" />
+            <Metric value={quantidadePico} label="entradas nesse horário" />
+            <Metric
+              value={primeiraEntrada ? formatDateTimeBR(primeiraEntrada.data_checkin) : "-"}
+              label="primeira entrada"
+            />
+            <Metric
+              value={ultimaEntrada ? formatDateTimeBR(ultimaEntrada.data_checkin) : "-"}
+              label="última entrada"
+            />
+          </DetailCard>
 
-        <section
-          style={{
-            marginTop: 34,
-            background: "#fff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 30,
-            padding: 32,
-            boxShadow: "0 18px 40px rgba(15,23,42,.05)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 20,
-              flexWrap: "wrap",
-              marginBottom: 24,
-            }}
+          <DetailCard
+            title="No-show"
+            subtitle="Confirmados que ainda não entraram"
+            color="#ea580c"
+            soft="#fff7ed"
           >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  color: "#0f172a",
-                  fontSize: 28,
-                  letterSpacing: "-.04em",
-                }}
-              >
-                Última entrada
-              </h2>
+            <Metric value={noShow} label="confirmados não entraram" />
+            <Metric value={`${taxaNoShow}%`} label="percentual no-show" />
+            <Metric value={adultosPendentesEntrada} label="adultos pendentes" />
+            <Metric value={criancasPendentesEntrada} label="crianças pendentes" />
+          </DetailCard>
 
-              <p
-                style={{
-                  margin: "8px 0 0",
-                  color: "#64748b",
-                  fontSize: 17,
-                }}
-              >
-                Registro mais recente do check-in em horário do Brasil.
-              </p>
-            </div>
-
-            <span
-              style={{
-                height: 38,
-                display: "inline-flex",
-                alignItems: "center",
-                borderRadius: 999,
-                padding: "0 18px",
-                background: "#dcfce7",
-                color: "#16a34a",
-                fontWeight: 900,
-              }}
-            >
-              Ao vivo
-            </span>
-          </div>
-
-          {ultimaEntrada ? (
-            <div
-              style={{
-                border: "1px dashed #dbe3ef",
-                borderRadius: 22,
-                padding: 24,
-                display: "grid",
-                gridTemplateColumns: "2fr 1fr 1fr",
-                gap: 20,
-              }}
-            >
-              <div>
-                <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
-                  Convidado
-                </p>
-                <strong
-                  style={{
-                    display: "block",
-                    marginTop: 6,
-                    color: "#0f172a",
-                    fontSize: 22,
-                  }}
-                >
-                  {ultimaEntrada.nome}
-                </strong>
-              </div>
-
-              <div>
-                <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
-                  Horário
-                </p>
-                <strong
-                  style={{
-                    display: "block",
-                    marginTop: 6,
-                    color: "#0f172a",
-                    fontSize: 18,
-                  }}
-                >
-                  {formatDateTimeBR(ultimaEntrada.data_checkin)}
-                </strong>
-              </div>
-
-              <div>
-                <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
-                  Tipo
-                </p>
-                <strong
-                  style={{
-                    display: "block",
-                    marginTop: 6,
-                    color: "#0f172a",
-                    fontSize: 18,
-                  }}
-                >
-                  {isCrianca(ultimaEntrada) ? "Criança" : "Adulto"}
-                </strong>
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                border: "1px dashed #dbe3ef",
-                borderRadius: 22,
-                padding: 24,
-                color: "#64748b",
-                fontSize: 17,
-              }}
-            >
-              Nenhuma entrada registrada até o momento.
-            </div>
-          )}
+          <DetailCard
+            title="Envios"
+            subtitle="Performance operacional dos disparos"
+            color="#2563eb"
+            soft="#dbeafe"
+          >
+            <Metric value={enviosRegistrados} label="envios registrados" />
+            <Metric value={enviosSucesso} label="sucesso" />
+            <Metric value={errosEnvio} label="erros" />
+            <Metric value={`${taxaEnvio}%`} label="taxa de sucesso" />
+          </DetailCard>
         </section>
 
         <section
@@ -797,7 +704,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     Tipo
                   </th>
                   <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
-                    Data e horário
+                    Data e horário Brasil
                   </th>
                   <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Status
