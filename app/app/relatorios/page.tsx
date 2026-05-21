@@ -44,19 +44,15 @@ function normalizeText(value: any) {
 }
 
 function isCrianca(c: any) {
-  const tipo = normalizeText(c.tipo);
-  const tipoConvidado = normalizeText(c.tipo_convidado);
-  const perfil = normalizeText(c.perfil);
-  const categoria = normalizeText(c.categoria);
+  const crianca = normalizeText(c.crianca);
 
   return (
-    c.crianca === true ||
-    c.is_crianca === true ||
-    tipo === "crianca" ||
-    tipoConvidado === "crianca" ||
-    perfil === "crianca" ||
-    categoria === "crianca" ||
-    !!c.idade_crianca
+    crianca === "sim" ||
+    crianca === "s" ||
+    crianca === "true" ||
+    crianca === "1" ||
+    crianca === "crianca" ||
+    Number(c.idade_crianca || 0) > 0
   );
 }
 
