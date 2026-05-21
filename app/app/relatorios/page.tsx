@@ -380,7 +380,11 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const adultosRestantes = Math.max(adultos - adultosEntraram, 0);
   const criancasRestantes = Math.max(criancas - criancasEntraram, 0);
 
-  const restantes = Math.max(confirmados - entradas, 0);
+  const entradasConfirmados = confirmadosList.filter((c: any) =>
+  entrou(c)
+).length;
+
+const restantes = Math.max(confirmados - entradasConfirmados, 0);
 
   const entrouSemRsvp = convidados.filter(
     (c: any) => c.status_checkin === "entrou_sem_rsvp"
@@ -606,7 +610,7 @@ const taxaPresenca = confirmados
             <Metric value={criancasEntraram} label="crianças entraram" />
             <Metric value={adultosRestantes} label="adultos restantes" />
             <Metric value={criancasRestantes} label="crianças restantes" />
-            <Metric value={restantes} label="restantes total" />
+            <Metric value={restantes} label="confirmados restantes" />
             <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
             <Metric value={horaPico} label="pico entrada" />
             <Metric
