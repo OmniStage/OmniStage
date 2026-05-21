@@ -371,18 +371,30 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const convidadosEntraram = convidados.filter((c: any) => entrou(c));
   const entradas = convidadosEntraram.length;
 
-  const criancasEntraram = convidadosEntraram.filter((c: any) =>
+  const entradasConfirmadosList = confirmadosList.filter((c: any) =>
+    entrou(c)
+  );
+
+  const entradasConfirmados = entradasConfirmadosList.length;
+
+  const criancasConfirmadasEntraram = entradasConfirmadosList.filter((c: any) =>
     isCrianca(c)
   ).length;
 
-  const adultosEntraram = Math.max(entradas - criancasEntraram, 0);
+  const adultosConfirmadosEntraram = Math.max(
+    entradasConfirmados - criancasConfirmadasEntraram,
+    0
+  );
 
-  const adultosRestantes = Math.max(adultos - adultosEntraram, 0);
-  const criancasRestantes = Math.max(criancas - criancasEntraram, 0);
+  const adultosConfirmadosRestantes = Math.max(
+    adultosConfirmados - adultosConfirmadosEntraram,
+    0
+  );
 
-  const entradasConfirmados = confirmadosList.filter((c: any) =>
-    entrou(c)
-  ).length;
+  const criancasConfirmadasRestantes = Math.max(
+    criancasConfirmadas - criancasConfirmadasEntraram,
+    0
+  );
 
   const restantes = Math.max(confirmados - entradasConfirmados, 0);
 
@@ -604,10 +616,22 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
           >
             <Metric value={entradasConfirmados} label="entradas confirmados" />
-            <Metric value={adultosEntraram} label="adultos entraram" />
-            <Metric value={criancasEntraram} label="crianças entraram" />
-            <Metric value={adultosRestantes} label="adultos restantes" />
-            <Metric value={criancasRestantes} label="crianças restantes" />
+            <Metric
+              value={adultosConfirmadosEntraram}
+              label="adultos confirmados entraram"
+            />
+            <Metric
+              value={criancasConfirmadasEntraram}
+              label="crianças confirmadas entraram"
+            />
+            <Metric
+              value={adultosConfirmadosRestantes}
+              label="adultos confirmados restantes"
+            />
+            <Metric
+              value={criancasConfirmadasRestantes}
+              label="crianças confirmadas restantes"
+            />
             <Metric value={restantes} label="confirmados restantes" />
             <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
             <Metric value={horaPico} label="pico entrada" />
