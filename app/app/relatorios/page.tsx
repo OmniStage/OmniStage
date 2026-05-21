@@ -381,20 +381,18 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const criancasRestantes = Math.max(criancas - criancasEntraram, 0);
 
   const entradasConfirmados = confirmadosList.filter((c: any) =>
-  entrou(c)
-).length;
+    entrou(c)
+  ).length;
 
-const restantes = Math.max(confirmados - entradasConfirmados, 0);
+  const restantes = Math.max(confirmados - entradasConfirmados, 0);
 
   const entrouSemRsvp = convidados.filter(
     (c: any) => c.status_checkin === "entrou_sem_rsvp"
   ).length;
 
-  const entradasConfirmados = confirmadosList.filter((c: any) => entrou(c)).length;
-
-const taxaPresenca = confirmados
-  ? Math.round((entradasConfirmados / confirmados) * 100)
-  : 0;
+  const taxaPresenca = confirmados
+    ? Math.round((entradasConfirmados / confirmados) * 100)
+    : 0;
 
   const viaResponsavel = convidados.filter(
     (c: any) => c.contato_principal === false
