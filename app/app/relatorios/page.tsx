@@ -386,9 +386,11 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     (c: any) => c.status_checkin === "entrou_sem_rsvp"
   ).length;
 
-  const taxaPresenca = confirmados
-    ? Math.round((entradas / confirmados) * 100)
-    : 0;
+  const entradasConfirmados = confirmadosList.filter((c: any) => entrou(c)).length;
+
+const taxaPresenca = confirmados
+  ? Math.round((entradasConfirmados / confirmados) * 100)
+  : 0;
 
   const viaResponsavel = convidados.filter(
     (c: any) => c.contato_principal === false
@@ -599,7 +601,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             color="#16a34a"
             footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
           >
-            <Metric value={entradas} label="entradas totais" />
+            <Metric value={entradasConfirmados} label="entradas confirmados" />
             <Metric value={adultosEntraram} label="adultos entraram" />
             <Metric value={criancasEntraram} label="crianças entraram" />
             <Metric value={adultosRestantes} label="adultos restantes" />
