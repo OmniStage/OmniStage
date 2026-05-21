@@ -406,6 +406,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     ? Math.round((entradasConfirmados / confirmados) * 100)
     : 0;
 
+  const taxaPresencaGeral = totalConvidados
+    ? Math.round((entradasConfirmados / totalConvidados) * 100)
+    : 0;
+
   const taxaNoShowResultado = confirmados
     ? Math.round((restantes / confirmados) * 100)
     : 0;
@@ -668,123 +672,195 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               </p>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
-                gap: 18,
-              }}
-            >
-              <div>
-                <strong
-                  style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
-                  }}
-                >
-                  {totalConvidados}
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  convidados
-                </span>
+            <div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
+                  gap: 18,
+                }}
+              >
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {totalConvidados}
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    convidados
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {confirmados}
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    confirmados
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {entradasConfirmados}
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    entradas confirmadas
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {restantes}
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    no-show
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {taxaConfirmacao}%
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    taxa RSVP
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {taxaPresenca}%
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    taxa presença
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {taxaNoShowResultado}%
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    taxa no-show
+                  </span>
+                </div>
+
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                    }}
+                  >
+                    {taxaPresencaGeral}%
+                  </strong>
+                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                    presença geral
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <strong
+              <div style={{ marginTop: 34 }}>
+                <div
                   style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 10,
+                    gap: 12,
+                    flexWrap: "wrap",
                   }}
                 >
-                  {confirmados}
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  confirmados
-                </span>
-              </div>
+                  <span
+                    style={{
+                      color: "#ddd6fe",
+                      fontSize: 14,
+                      fontWeight: 800,
+                      letterSpacing: ".02em",
+                    }}
+                  >
+                    Taxa de presença sobre total de convidados
+                  </span>
 
-              <div>
-                <strong
-                  style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
-                  }}
-                >
-                  {entradasConfirmados}
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  entradas confirmadas
-                </span>
-              </div>
+                  <strong
+                    style={{
+                      color: "#fff",
+                      fontSize: 16,
+                      fontWeight: 900,
+                    }}
+                  >
+                    {taxaPresencaGeral}%
+                  </strong>
+                </div>
 
-              <div>
-                <strong
+                <div
                   style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
+                    height: 18,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,.14)",
+                    overflow: "hidden",
+                    position: "relative",
                   }}
                 >
-                  {restantes}
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  no-show
-                </span>
-              </div>
-
-              <div>
-                <strong
-                  style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
-                  }}
-                >
-                  {taxaConfirmacao}%
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  taxa RSVP
-                </span>
-              </div>
-
-              <div>
-                <strong
-                  style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
-                  }}
-                >
-                  {taxaPresenca}%
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  taxa presença
-                </span>
-              </div>
-
-              <div>
-                <strong
-                  style={{
-                    display: "block",
-                    fontSize: 42,
-                    lineHeight: 1,
-                    letterSpacing: "-.06em",
-                  }}
-                >
-                  {taxaNoShowResultado}%
-                </strong>
-                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                  taxa no-show
-                </span>
+                  <div
+                    style={{
+                      width: pct(taxaPresencaGeral),
+                      height: "100%",
+                      borderRadius: 999,
+                      background:
+                        "linear-gradient(90deg, #7c3aed 0%, #9333ea 45%, #a855f7 100%)",
+                      boxShadow: "0 0 22px rgba(168,85,247,.55)",
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
