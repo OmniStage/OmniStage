@@ -27,27 +27,32 @@ function Card({
 export default async function RelatoriosPage({ searchParams }: PageProps) {
   const supabase = await createClient();
 
-  const { data: eventos = [] } = await supabase
+  const eventosRes = await supabase
     .from("eventos")
     .select("id, nome, data_evento")
     .order("data_evento", { ascending: false });
 
+  const eventos = eventosRes.data ?? [];
+
   const eventoSelecionado =
     searchParams?.eventoId || eventos?.[0]?.id || "";
 
-  const { data: convidados = [] } = eventoSelecionado
+  const convidadosRes = eventoSelecionado
     ? await supabase
         .from("convidados")
         .select("*")
         .eq("evento_id", eventoSelecionado)
     : { data: [] };
 
-  const { data: envios = [] } = eventoSelecionado
+  const enviosRes = eventoSelecionado
     ? await supabase
         .from("envio_fila")
         .select("*")
         .eq("evento_id", eventoSelecionado)
     : { data: [] };
+
+  const convidados = convidadosRes.data ?? [];
+  const envios = enviosRes.data ?? [];
 
   const totalConvidados = convidados.length;
 
@@ -110,7 +115,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               defaultValue={eventoSelecionado}
               className="rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm"
             >
-              {eventos?.map((evento: any) => (
+              {eventos.map((evento: any) => (
                 <option key={evento.id} value={evento.id}>
                   {evento.nome}
                 </option>
