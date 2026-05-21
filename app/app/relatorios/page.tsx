@@ -550,10 +550,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const criancasDesacompanhadas = convidados.filter((c: any) => {
     const responsavel = String(c.responsavel || "").trim();
     const responsavelTelefone = String(c.responsavel_telefone || "").trim();
+    const tipoConvite = normalizeText(c.tipo_convite);
+    const grupo = String(c.grupo || "").trim();
 
     return (
       isCrianca(c) &&
-      (responsavel.length > 0 || responsavelTelefone.length > 0)
+      responsavel.length > 0 &&
+      responsavelTelefone.length > 0 &&
+      tipoConvite === "individual" &&
+      grupo.length === 0
     );
   }).length;
 
