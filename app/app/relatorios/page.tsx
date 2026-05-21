@@ -430,9 +430,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       ? "RSVP forte, com atenção ao comparecimento."
       : "Ainda existem oportunidades de confirmação e presença.";
 
-  const viaResponsavel = convidados.filter(
-    (c: any) => c.contato_principal === false
-  ).length;
+const viaResponsavel = convidados.filter((c: any) => {
+  const responsavel = String(c.responsavel || "").trim();
+  const responsavelTelefone = String(c.responsavel_telefone || "").trim();
+
+  return (
+    c.contato_principal === false &&
+    (responsavel.length > 0 || responsavelTelefone.length > 0 || isCrianca(c))
+  );
+}).length;
 
   const contatosPrincipais = convidados.filter(
     (c: any) => c.contato_principal === true
