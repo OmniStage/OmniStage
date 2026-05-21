@@ -36,6 +36,119 @@ function getHourBR(value?: string | null) {
   });
 }
 
+function getDatePart(value?: string | null) {
+  if (!value) return "";
+
+  const text = String(value).trim();
+  if (!text) return "";
+
+  return text.includes("T") ? text.split("T")[0] : text.slice(0, 10);
+}
+
+function getTimePart(value?: string | null) {
+  if (!value) return "";
+
+  const text = String(value).trim();
+  if (!text) return "";
+
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "";
+
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function makeBrazilDateTime(dateValue?: string | null, timeValue?: string | null) {
+  const datePart = getDatePart(dateValue);
+  const timePart = getTimePart(timeValue);
+
+  if (!datePart || !timePart) return null;
+
+  const date = new Date(`${datePart}T${timePart}:00-03:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getBrazilParts(value?: string | null) {
+  if (!value) return null;
+
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(value));
+
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+
+  const year = get("year");
+  const month = get("month");
+  const day = get("day");
+  const hour = get("hour");
+  const minute = get("minute");
+
+  if (!year || !month || !day || !hour || !minute) return null;
+
+  return {
+    year,
+    month,
+    day,
+    hour: Number(hour),
+    minute: Number(minute),
+  };
+}
+
+function getSlot30StartBR(value?: string | null) {
+  const parts = getBrazilParts(value);
+  if (!parts) return null;
+
+  const slotMinute = parts.minute < 30 ? 0 : 30;
+  const date = new Date(
+    `${parts.year}-${parts.month}-${parts.day}T${String(parts.hour).padStart(2, "0")}:${String(slotMinute).padStart(2, "0")}:00-03:00`,
+  );
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function floor30(date: Date) {
+  const next = new Date(date);
+  next.setMinutes(next.getMinutes() < 30 ? 0 : 30, 0, 0);
+  return next;
+}
+
+function ceil30(date: Date) {
+  const next = new Date(date);
+  const minutes = next.getMinutes();
+
+  if (minutes === 0 || minutes === 30) {
+    next.setSeconds(0, 0);
+    return next;
+  }
+
+  if (minutes < 30) {
+    next.setMinutes(30, 0, 0);
+    return next;
+  }
+
+  next.setHours(next.getHours() + 1, 0, 0, 0);
+  return next;
+}
+
+function formatTimeBRFromDate(date: Date) {
+  return date.toLocaleTimeString("pt-BR", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatIntervalo30BR(date: Date) {
+  const fim = new Date(date.getTime() + 30 * 60 * 1000);
+  return `${formatTimeBRFromDate(date)} às ${formatTimeBRFromDate(fim)}`;
+}
+
 function normalizeText(value: any) {
   return String(value || "")
     .normalize("NFD")
@@ -196,15 +309,19 @@ function Metric({
   value: string | number;
   label: string;
 }) {
+  const valueText = String(value);
+  const isDateTime = valueText.includes("/") || valueText.includes(" às ");
+
   return (
     <div>
       <strong
         style={{
           display: "block",
           color: "#64748b",
-          fontSize: 22,
-          lineHeight: 1,
+          fontSize: isDateTime ? 18 : 22,
+          lineHeight: isDateTime ? 1.16 : 1,
           fontWeight: 900,
+          wordBreak: "break-word",
         }}
       >
         {value}
@@ -311,7 +428,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   const eventosRes = await supabase
     .from("eventos")
-    .select("id, nome, data_evento")
+    .select("id, nome, data_evento, data_inicio, data_termino, hora_inicio, hora_termino")
     .order("data_evento", { ascending: false });
 
   const eventos = eventosRes.data ?? [];
@@ -431,19 +548,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       : "Ainda existem oportunidades de confirmação e presença.";
 
   const criancasDesacompanhadas = convidados.filter((c: any) => {
-  const responsavel = String(c.responsavel || "").trim();
-  const responsavelTelefone = String(c.responsavel_telefone || "").trim();
-  const tipoConvite = String(c.tipo_convite || "")
-    .trim()
-    .toLowerCase();
+    const responsavel = String(c.responsavel || "").trim();
+    const responsavelTelefone = String(c.responsavel_telefone || "").trim();
 
-  return (
-    isCrianca(c) &&
-    responsavel.length > 0 &&
-    responsavelTelefone.length > 0 &&
-    tipoConvite === "individual"
-  );
-}).length;
+    return (
+      isCrianca(c) &&
+      (responsavel.length > 0 || responsavelTelefone.length > 0)
+    );
+  }).length;
+
   const contatosPrincipais = convidados.filter(
     (c: any) => c.contato_principal === true
   ).length;
@@ -487,22 +600,58 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   const ultimaEntrada = ultimosCheckins[0];
 
-  const picoPorHora = entradasComData.reduce(
-    (acc: Record<string, number>, c: any) => {
-      const hora = getHourBR(c.data_checkin);
-      if (!hora) return acc;
-      acc[hora] = (acc[hora] || 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  const inicioEvento =
+    makeBrazilDateTime(eventoAtual?.data_inicio || eventoAtual?.data_evento, eventoAtual?.hora_inicio) ||
+    (primeiraEntrada?.data_checkin ? getSlot30StartBR(primeiraEntrada.data_checkin) : null);
 
-  const picoEntrada = Object.entries(picoPorHora).sort(
-    (a, b) => b[1] - a[1]
-  )[0];
+  let fimEvento =
+    makeBrazilDateTime(
+      eventoAtual?.data_termino || eventoAtual?.data_evento || eventoAtual?.data_inicio,
+      eventoAtual?.hora_termino,
+    ) ||
+    (ultimaEntrada?.data_checkin ? getSlot30StartBR(ultimaEntrada.data_checkin) : null);
 
-  const horaPico = picoEntrada ? `${picoEntrada[0]}h` : "-";
-  const quantidadePico = picoEntrada ? picoEntrada[1] : 0;
+  if (inicioEvento && fimEvento && fimEvento.getTime() <= inicioEvento.getTime()) {
+    fimEvento = new Date(fimEvento.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  const inicioMovimento = inicioEvento ? floor30(inicioEvento) : null;
+  const fimMovimento = fimEvento ? ceil30(fimEvento) : null;
+
+  const movimentoMap = new Map<number, number>();
+
+  if (inicioMovimento && fimMovimento) {
+    for (
+      let atual = new Date(inicioMovimento);
+      atual.getTime() < fimMovimento.getTime();
+      atual = new Date(atual.getTime() + 30 * 60 * 1000)
+    ) {
+      movimentoMap.set(atual.getTime(), 0);
+    }
+  }
+
+  for (const convidado of entradasComData) {
+    const slot = getSlot30StartBR(convidado.data_checkin);
+    if (!slot) continue;
+
+    const key = slot.getTime();
+    movimentoMap.set(key, (movimentoMap.get(key) || 0) + 1);
+  }
+
+  const movimentoPorIntervalo = Array.from(movimentoMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([time, total]) => ({
+      time,
+      intervalo: formatIntervalo30BR(new Date(time)),
+      total,
+    }));
+
+  const picoEntrada = movimentoPorIntervalo
+    .filter((item) => item.total > 0)
+    .sort((a, b) => b.total - a.total)[0];
+
+  const horaPico = picoEntrada ? picoEntrada.intervalo : "-";
+  const quantidadePico = picoEntrada ? picoEntrada.total : 0;
 
   return (
     <main
@@ -938,8 +1087,113 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             color="#16a34a"
             soft="#dcfce7"
           >
-            <Metric value={horaPico} label="horário com mais entradas" />
-            <Metric value={quantidadePico} label="entradas nesse horário" />
+            <div style={{ gridColumn: "1 / -1" }}>
+              <strong
+                style={{
+                  display: "block",
+                  color: "#0f172a",
+                  fontSize: 24,
+                  lineHeight: 1.12,
+                  fontWeight: 900,
+                  marginBottom: 10,
+                }}
+              >
+                Pico: {horaPico}
+              </strong>
+
+              <span
+                style={{
+                  display: "inline-flex",
+                  borderRadius: 999,
+                  padding: "8px 12px",
+                  background: "#dcfce7",
+                  color: "#166534",
+                  fontSize: 13,
+                  fontWeight: 900,
+                }}
+              >
+                {quantidadePico} entradas no intervalo de pico
+              </span>
+            </div>
+
+            <div style={{ gridColumn: "1 / -1", display: "grid", gap: 10 }}>
+              {movimentoPorIntervalo.length ? (
+                movimentoPorIntervalo.map((item) => {
+                  const isPico = item.intervalo === horaPico;
+
+                  return (
+                    <div
+                      key={item.time}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "118px 1fr 44px",
+                        gap: 12,
+                        alignItems: "center",
+                        padding: "10px 12px",
+                        borderRadius: 14,
+                        background: isPico ? "#dcfce7" : "#f8fafc",
+                        border: isPico ? "1px solid #86efac" : "1px solid #e2e8f0",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: isPico ? "#166534" : "#64748b",
+                          fontSize: 12,
+                          lineHeight: 1.15,
+                          fontWeight: 900,
+                        }}
+                      >
+                        {item.intervalo}
+                      </strong>
+
+                      <div
+                        style={{
+                          height: 9,
+                          borderRadius: 999,
+                          background: "#e2e8f0",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${quantidadePico ? Math.round((item.total / quantidadePico) * 100) : 0}%`,
+                            height: "100%",
+                            borderRadius: 999,
+                            background: isPico ? "#16a34a" : "#94a3b8",
+                          }}
+                        />
+                      </div>
+
+                      <strong
+                        style={{
+                          textAlign: "right",
+                          color: isPico ? "#166534" : "#64748b",
+                          fontSize: 14,
+                          fontWeight: 900,
+                        }}
+                      >
+                        {item.total}
+                      </strong>
+                    </div>
+                  );
+                })
+              ) : (
+                <div
+                  style={{
+                    padding: 14,
+                    borderRadius: 14,
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    color: "#64748b",
+                    fontSize: 13,
+                    fontWeight: 800,
+                  }}
+                >
+                  Nenhuma entrada com horário registrado.
+                </div>
+              )}
+            </div>
+
             <Metric
               value={primeiraEntrada ? formatDateTimeBR(primeiraEntrada.data_checkin) : "-"}
               label="primeira entrada"
