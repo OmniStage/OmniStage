@@ -431,15 +431,19 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       : "Ainda existem oportunidades de confirmação e presença.";
 
   const criancasDesacompanhadas = convidados.filter((c: any) => {
-    const responsavel = String(c.responsavel || "").trim();
-    const responsavelTelefone = String(c.responsavel_telefone || "").trim();
+  const responsavel = String(c.responsavel || "").trim();
+  const responsavelTelefone = String(c.responsavel_telefone || "").trim();
+  const tipoConvite = String(c.tipo_convite || "")
+    .trim()
+    .toLowerCase();
 
-    return (
-      isCrianca(c) &&
-      (responsavel.length > 0 || responsavelTelefone.length > 0)
-    );
-  }).length;
-
+  return (
+    isCrianca(c) &&
+    responsavel.length > 0 &&
+    responsavelTelefone.length > 0 &&
+    tipoConvite === "individual"
+  );
+}).length;
   const contatosPrincipais = convidados.filter(
     (c: any) => c.contato_principal === true
   ).length;
