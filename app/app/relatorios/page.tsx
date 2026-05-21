@@ -406,6 +406,17 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     ? Math.round((entradasConfirmados / confirmados) * 100)
     : 0;
 
+  const taxaNoShowResultado = confirmados
+    ? Math.round((restantes / confirmados) * 100)
+    : 0;
+
+  const resultadoEventoTexto =
+    taxaConfirmacao >= 75 && taxaPresenca >= 75
+      ? "Evento com boa conversão de RSVP e presença."
+      : taxaConfirmacao >= 75
+      ? "RSVP forte, com atenção ao comparecimento."
+      : "Ainda existem oportunidades de confirmação e presença.";
+
   const viaResponsavel = convidados.filter(
     (c: any) => c.contato_principal === false
   ).length;
@@ -580,6 +591,203 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               Atualizar agora
             </button>
           </form>
+        </section>
+
+        <section
+          style={{
+            marginBottom: 34,
+            background:
+              "linear-gradient(135deg, #111827 0%, #1e1b4b 58%, #6d28d9 100%)",
+            borderRadius: 34,
+            padding: 34,
+            boxShadow: "0 24px 60px rgba(15,23,42,.18)",
+            color: "#fff",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -90,
+              right: -70,
+              width: 260,
+              height: 260,
+              borderRadius: 999,
+              background: "rgba(255,255,255,.08)",
+            }}
+          />
+
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              display: "grid",
+              gridTemplateColumns: "1.1fr 1.9fr",
+              gap: 30,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <p
+                style={{
+                  margin: 0,
+                  color: "#c4b5fd",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  letterSpacing: ".14em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Resultado do Evento
+              </p>
+
+              <h2
+                style={{
+                  margin: "12px 0 0",
+                  color: "#fff",
+                  fontSize: 42,
+                  lineHeight: 1,
+                  letterSpacing: "-.06em",
+                  fontWeight: 900,
+                }}
+              >
+                Conversão geral
+              </h2>
+
+              <p
+                style={{
+                  margin: "14px 0 0",
+                  color: "#ddd6fe",
+                  fontSize: 16,
+                  lineHeight: 1.5,
+                  maxWidth: 420,
+                }}
+              >
+                {resultadoEventoTexto}
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
+                gap: 18,
+              }}
+            >
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {totalConvidados}
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  convidados
+                </span>
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {confirmados}
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  confirmados
+                </span>
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {entradasConfirmados}
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  entradas confirmadas
+                </span>
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {restantes}
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  no-show
+                </span>
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {taxaConfirmacao}%
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  taxa RSVP
+                </span>
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {taxaPresenca}%
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  taxa presença
+                </span>
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                  }}
+                >
+                  {taxaNoShowResultado}%
+                </strong>
+                <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
+                  taxa no-show
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section
