@@ -26,6 +26,13 @@ function formatDateTimeBR(value?: string | null) {
   });
 }
 
+function formatCurrencyBR(value: number) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 function getHourBR(value?: string | null) {
   if (!value) return null;
 
@@ -452,8 +459,34 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         .eq("evento_id", eventoSelecionado)
     : { data: [] };
 
+
+  const giftReservationsRes = eventoSelecionado
+    ? await supabase
+        .from("gift_reservations")
+        .select("*")
+        .eq("evento_id", eventoSelecionado)
+    : { data: [] };
+
+  const giftItemsRes = eventoSelecionado
+    ? await supabase
+        .from("gift_items")
+        .select("*")
+        .eq("evento_id", eventoSelecionado)
+    : { data: [] };
+
+  const giftPaymentsRes = eventoSelecionado
+    ? await supabase
+        .from("gift_payments")
+        .select("*")
+        .eq("evento_id", eventoSelecionado)
+    : { data: [] };
+
   const convidados = convidadosRes.data ?? [];
   const envios = enviosRes.data ?? [];
+
+  const giftReservations = giftReservationsRes.data ?? [];
+  const giftItems = giftItemsRes.data ?? [];
+  const giftPayments = giftPaymentsRes.data ?? [];
 
   const totalConvidados = convidados.length;
 
@@ -586,6 +619,85 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const taxaEnvio = enviosRegistrados
     ? Math.round((enviosSucesso / enviosRegistrados) * 100)
     : 0;
+
+  const giftItemMap = new Map(
+    giftItems.map((item: any) => [String(item.id), item.nome || "Presente"]),
+  );
+
+  const statusPagoPresente = (status: any) => {
+    const normalized = normalizeText(status);
+    return (
+      normalized === "pago" ||
+      normalized === "paid" ||
+      normalized === "confirmado" ||
+      normalized === "aprovado" ||
+      normalized === "sucesso" ||
+      normalized === "concluido" ||
+      normalized === "concluido" ||
+      normalized === "completed"
+    );
+  };
+
+  const statusPendentePresente = (status: any) => {
+    const normalized = normalizeText(status);
+    return (
+      !normalized ||
+      normalized === "pendente" ||
+      normalized === "aguardando" ||
+      normalized === "reservado" ||
+      normalized === "pending"
+    );
+  };
+
+  const pagamentosConfirmados = giftPayments.filter((p: any) =>
+    statusPagoPresente(p.status),
+  );
+
+  const reservasConfirmadas = giftReservations.filter((p: any) =>
+    statusPagoPresente(p.status),
+  );
+
+  const presentesPendentes = giftReservations.filter((p: any) =>
+    statusPendentePresente(p.status),
+  );
+
+  const presentesPagos = pagamentosConfirmados.length
+    ? pagamentosConfirmados
+    : reservasConfirmadas;
+
+  const valorTotalPresentes = pagamentosConfirmados.length
+    ? pagamentosConfirmados.reduce(
+        (acc: number, item: any) => acc + Number(item.valor || 0),
+        0,
+      )
+    : reservasConfirmadas.reduce(
+        (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
+        0,
+      );
+
+  const ticketMedioPresentes = presentesPagos.length
+    ? valorTotalPresentes / presentesPagos.length
+    : 0;
+
+  const rankingPresentes = [...giftReservations]
+    .filter((item: any) => Number(item.valor_presenteado || 0) > 0)
+    .sort(
+      (a: any, b: any) =>
+        Number(b.valor_presenteado || 0) - Number(a.valor_presenteado || 0),
+    )
+    .slice(0, 5);
+
+  const ultimosPresentes = [...giftReservations]
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+    .slice(0, 8);
+
+  const totalReservasPresentes = giftReservations.length;
+  const totalItensPresentesAtivos = giftItems.filter(
+    (item: any) => item.ativo !== false,
+  ).length;
 
   const entradasComData = convidadosEntraram.filter((c: any) => c.data_checkin);
 
@@ -1235,6 +1347,460 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         </section>
 
         <section
+          className="relatorios-presentes"
+          style={{
+            marginTop: 34,
+            background: "linear-gradient(135deg, #111827 0%, #312e81 48%, #7c3aed 100%)",
+            borderRadius: 34,
+            padding: 34,
+            boxShadow: "0 24px 60px rgba(15,23,42,.18)",
+            color: "#fff",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: -110,
+              right: -90,
+              width: 300,
+              height: 300,
+              borderRadius: 999,
+              background: "rgba(255,255,255,.09)",
+            }}
+          />
+
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 22,
+                flexWrap: "wrap",
+                alignItems: "flex-start",
+                marginBottom: 28,
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#ddd6fe",
+                    fontSize: 13,
+                    fontWeight: 900,
+                    letterSpacing: ".14em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Presentes
+                </p>
+
+                <h2
+                  style={{
+                    margin: "12px 0 0",
+                    color: "#fff",
+                    fontSize: 42,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                    fontWeight: 900,
+                  }}
+                >
+                  Lista de presentes
+                </h2>
+
+                <p
+                  style={{
+                    margin: "12px 0 0",
+                    color: "#ddd6fe",
+                    fontSize: 16,
+                    lineHeight: 1.5,
+                    maxWidth: 560,
+                  }}
+                >
+                  Resumo financeiro, reservas, pagamentos, ranking e mensagens dos presenteadores.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  minWidth: 240,
+                  borderRadius: 26,
+                  padding: 22,
+                  background: "rgba(255,255,255,.12)",
+                  border: "1px solid rgba(255,255,255,.18)",
+                  backdropFilter: "blur(14px)",
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    color: "#ddd6fe",
+                    fontSize: 13,
+                    fontWeight: 900,
+                    marginBottom: 10,
+                  }}
+                >
+                  Total arrecadado
+                </span>
+
+                <strong
+                  style={{
+                    display: "block",
+                    color: "#fff",
+                    fontSize: 38,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                    fontWeight: 950,
+                  }}
+                >
+                  {formatCurrencyBR(valorTotalPresentes)}
+                </strong>
+              </div>
+            </div>
+
+            <div
+              className="relatorios-presentes-metrics"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gap: 14,
+                marginBottom: 24,
+              }}
+            >
+              {[
+                { label: "itens ativos", value: totalItensPresentesAtivos },
+                { label: "reservas", value: totalReservasPresentes },
+                { label: "pagos", value: presentesPagos.length },
+                { label: "pendentes", value: presentesPendentes.length },
+                { label: "ticket médio", value: formatCurrencyBR(ticketMedioPresentes) },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    borderRadius: 22,
+                    padding: 18,
+                    background: "rgba(255,255,255,.12)",
+                    border: "1px solid rgba(255,255,255,.16)",
+                    backdropFilter: "blur(12px)",
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: "block",
+                      color: "#fff",
+                      fontSize: String(item.value).includes("R$") ? 24 : 32,
+                      lineHeight: 1,
+                      fontWeight: 950,
+                      letterSpacing: "-.05em",
+                    }}
+                  >
+                    {item.value}
+                  </strong>
+
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 8,
+                      color: "#ddd6fe",
+                      fontSize: 13,
+                      fontWeight: 850,
+                      textTransform: "uppercase",
+                      letterSpacing: ".04em",
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="relatorios-presentes-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.15fr .85fr",
+                gap: 24,
+                alignItems: "start",
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: 28,
+                  padding: 24,
+                  background: "rgba(255,255,255,.96)",
+                  color: "#0f172a",
+                  border: "1px solid rgba(255,255,255,.22)",
+                  boxShadow: "0 18px 42px rgba(15,23,42,.14)",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 26,
+                    lineHeight: 1,
+                    letterSpacing: "-.04em",
+                    fontWeight: 950,
+                  }}
+                >
+                  Últimos presenteadores
+                </h3>
+
+                <div style={{ marginTop: 22, display: "grid", gap: 14 }}>
+                  {ultimosPresentes.length ? (
+                    ultimosPresentes.map((item: any) => {
+                      const nomePresente = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
+                      const status = normalizeText(item.status) || "pendente";
+
+                      return (
+                        <div
+                          key={item.id}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 20,
+                            padding: 16,
+                            background: "#f8fafc",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 14,
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <div>
+                              <strong
+                                style={{
+                                  display: "block",
+                                  color: "#0f172a",
+                                  fontSize: 16,
+                                  fontWeight: 950,
+                                }}
+                              >
+                                {item.nome_presenteador || "Presenteador"}
+                              </strong>
+
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: 5,
+                                  color: "#64748b",
+                                  fontSize: 13,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {nomePresente}
+                              </span>
+                            </div>
+
+                            <div style={{ textAlign: "right" }}>
+                              <strong
+                                style={{
+                                  display: "block",
+                                  color: "#16a34a",
+                                  fontSize: 15,
+                                  fontWeight: 950,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {formatCurrencyBR(Number(item.valor_presenteado || 0))}
+                              </strong>
+
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  marginTop: 7,
+                                  borderRadius: 999,
+                                  padding: "5px 9px",
+                                  background: statusPagoPresente(item.status) ? "#dcfce7" : "#fef3c7",
+                                  color: statusPagoPresente(item.status) ? "#166534" : "#92400e",
+                                  fontSize: 10,
+                                  fontWeight: 950,
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                {status}
+                              </span>
+                            </div>
+                          </div>
+
+                          {item.mensagem && (
+                            <p
+                              style={{
+                                margin: "12px 0 0",
+                                color: "#475569",
+                                fontSize: 14,
+                                lineHeight: 1.45,
+                                fontWeight: 650,
+                              }}
+                            >
+                              “{item.mensagem}”
+                            </p>
+                          )}
+
+                          <small
+                            style={{
+                              display: "block",
+                              marginTop: 10,
+                              color: "#94a3b8",
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {formatDateTimeBR(item.created_at)}
+                          </small>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div
+                      style={{
+                        padding: 18,
+                        borderRadius: 18,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#64748b",
+                        fontSize: 14,
+                        fontWeight: 800,
+                      }}
+                    >
+                      Nenhum presente registrado para este evento.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 28,
+                  padding: 24,
+                  background: "rgba(255,255,255,.96)",
+                  color: "#0f172a",
+                  border: "1px solid rgba(255,255,255,.22)",
+                  boxShadow: "0 18px 42px rgba(15,23,42,.14)",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 26,
+                    lineHeight: 1,
+                    letterSpacing: "-.04em",
+                    fontWeight: 950,
+                  }}
+                >
+                  Ranking de presentes
+                </h3>
+
+                <div style={{ marginTop: 22, display: "grid", gap: 14 }}>
+                  {rankingPresentes.length ? (
+                    rankingPresentes.map((item: any, index: number) => {
+                      const nomePresente = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
+
+                      return (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "42px 1fr auto",
+                            gap: 14,
+                            alignItems: "center",
+                            padding: "14px 16px",
+                            borderRadius: 20,
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: 999,
+                              background:
+                                index === 0
+                                  ? "#fef3c7"
+                                  : index === 1
+                                    ? "#e2e8f0"
+                                    : index === 2
+                                      ? "#fed7aa"
+                                      : "#ede9fe",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#0f172a",
+                              fontWeight: 950,
+                            }}
+                          >
+                            {index + 1}
+                          </div>
+
+                          <div>
+                            <strong
+                              style={{
+                                display: "block",
+                                color: "#0f172a",
+                                fontSize: 14,
+                                fontWeight: 950,
+                              }}
+                            >
+                              {item.nome_presenteador || "Presenteador"}
+                            </strong>
+
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                                color: "#64748b",
+                                fontSize: 12,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {nomePresente}
+                            </small>
+                          </div>
+
+                          <strong
+                            style={{
+                              color: "#16a34a",
+                              fontSize: 15,
+                              fontWeight: 950,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {formatCurrencyBR(Number(item.valor_presenteado || 0))}
+                          </strong>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div
+                      style={{
+                        padding: 18,
+                        borderRadius: 18,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#64748b",
+                        fontSize: 14,
+                        fontWeight: 800,
+                      }}
+                    >
+                      Ainda não há ranking de presentes.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
           className="relatorios-checkins"
           style={{
             marginTop: 34,
@@ -1394,6 +1960,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           .relatorios-detail-grid > div {
             border-radius: 22px !important;
             padding: 22px !important;
+          }
+
+          .relatorios-presentes-grid {
+            grid-template-columns: 1fr !important;
           }
 
           .relatorios-checkins table {
