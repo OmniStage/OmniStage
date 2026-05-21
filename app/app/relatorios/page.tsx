@@ -45,19 +45,19 @@ function normalizeText(value: any) {
 }
 
 function isCrianca(c: any) {
-  const crianca = normalizeText(c.crianca);
+  const tipo = normalizeText(c.tipo);
+  const tipoConvidado = normalizeText(c.tipo_convidado);
+  const perfil = normalizeText(c.perfil);
+  const categoria = normalizeText(c.categoria);
 
   return (
-    crianca === "sim" ||
-    crianca === "s" ||
-    crianca === "true" ||
-    crianca === "1" ||
-    crianca === "crianca" ||
-    crianca === "criancas" ||
-    crianca === "infantil" ||
     c.crianca === true ||
     c.is_crianca === true ||
-    Number(c.idade_crianca || 0) > 0
+    tipo === "crianca" ||
+    tipoConvidado === "crianca" ||
+    perfil === "crianca" ||
+    categoria === "crianca" ||
+    !!c.idade_crianca
   );
 }
 
@@ -430,15 +430,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       ? "RSVP forte, com atenção ao comparecimento."
       : "Ainda existem oportunidades de confirmação e presença.";
 
-const viaResponsavel = convidados.filter((c: any) => {
-  const responsavel = String(c.responsavel || "").trim();
-  const responsavelTelefone = String(c.responsavel_telefone || "").trim();
-
-  return (
-    c.contato_principal === false &&
-    (responsavel.length > 0 || responsavelTelefone.length > 0 || isCrianca(c))
-  );
-}).length;
+  const criancasDesacompanhadas = convidados.filter(
+    (c: any) => isCrianca(c) && c.contato_principal === true
+  ).length;
 
   const contatosPrincipais = convidados.filter(
     (c: any) => c.contato_principal === true
@@ -924,7 +918,7 @@ const viaResponsavel = convidados.filter((c: any) => {
             <Metric value={totalConvidados} label="total convidados" />
             <Metric value={adultos} label="adultos" />
             <Metric value={criancas} label="crianças" />
-            <Metric value={viaResponsavel} label="via responsável" />
+            <Metric value={criancasDesacompanhadas} label="crianças desacompanhadas" />
             <Metric value={contatosPrincipais} label="contatos principais" />
           </DetailCard>
 
