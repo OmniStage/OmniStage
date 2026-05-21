@@ -626,25 +626,72 @@ export default function CheckinEventoPage({
     const text = String(raw || "").trim();
     if (!text) return "";
 
+    const extrairPadraoToken = (valor: string) => {
+      const texto = String(valor || "").trim();
+      if (!texto) return "";
+
+      const matchEvt = texto.match(/EVT-\d+/i);
+      if (matchEvt) return matchEvt[0].toUpperCase();
+
+      const matchGenerico = texto.match(/\b[A-Z0-9]{2,}-[A-Z0-9-]+\b/i);
+      return matchGenerico ? matchGenerico[0].toUpperCase() : texto.toUpperCase();
+    };
+
     try {
       const json = JSON.parse(text);
-      return String(json.token || json.codigo || json.id || "").trim();
+      const valorJson = String(json.token || json.codigo || json.id || "").trim();
+      const tokenJson = extrairPadraoToken(valorJson);
+      if (tokenJson) return tokenJson;
     } catch {}
+
+    const tokenDireto = extrairPadraoToken(text);
+    if (tokenDireto && /^EVT-\d+$/i.test(tokenDireto)) return tokenDireto;
 
     try {
       if (/^https?:\/\//i.test(text)) {
         const url = new URL(text);
-        return String(
+        const valorUrl = String(
           url.searchParams.get("token") ||
             url.searchParams.get("TOKEN_CHECKIN") ||
             url.searchParams.get("id") ||
+            url.pathname ||
             "",
         ).trim();
+
+        const tokenUrl = extrairPadraoToken(valorUrl);
+        if (tokenUrl) return tokenUrl;
       }
     } catch {}
 
-    const match = text.match(/\b[A-Z0-9]{2,}-[A-Z0-9-]+\b/i);
-    return match ? match[0].trim() : text;
+    return tokenDireto;
+  }
+
+  async function registrarHistoricoCheckin({
+    convidado,
+    token,
+    status,
+  }: {
+    convidado?: Convidado | null;
+    token: string;
+    status: "entrou" | "entrou_excecao" | "ja_utilizado" | "nao_encontrado";
+  }) {
+    const tenantAtual = tenantIdRef.current || tenantId || convidado?.tenant_id;
+    const tokenFinal = String(token || convidado?.token || "").trim();
+
+    if (!tenantAtual || !tokenFinal) return;
+
+    try {
+      await supabase.from("checkins").insert({
+        convidado_id: convidado?.id || null,
+        evento_id: eventoId,
+        tenant_id: tenantAtual,
+        token: tokenFinal,
+        status,
+        criado_em: new Date().toISOString(),
+      });
+    } catch {
+      // O histórico não pode bloquear a operação do check-in.
+    }
   }
 
   function atualizarResultado(next: Resultado) {
@@ -844,6 +891,12 @@ export default function CheckinEventoPage({
     );
 
     if (!convidado) {
+      await registrarHistoricoCheckin({
+        convidado: null,
+        token,
+        status: "nao_encontrado",
+      });
+
       feedbackSincronizado(
         null,
         {
@@ -860,6 +913,12 @@ export default function CheckinEventoPage({
     }
 
     if (convidadoEntrou(convidado)) {
+      await registrarHistoricoCheckin({
+        convidado,
+        token: convidado.token,
+        status: "ja_utilizado",
+      });
+
       feedbackSincronizado(
         convidado.id,
         {
@@ -906,6 +965,12 @@ export default function CheckinEventoPage({
 
     // Proteção visual imediata: se o estado local já sabe que entrou, não tenta gravar de novo.
     if (convidadoEntrou(convidado)) {
+      await registrarHistoricoCheckin({
+        convidado,
+        token: convidado.token,
+        status: "ja_utilizado",
+      });
+
       feedbackSincronizado(
         convidado.id,
         {
@@ -985,6 +1050,12 @@ export default function CheckinEventoPage({
 
     // Se o update não retornou linha, alguém já registrou esse check-in antes.
     if (!data || data.length === 0) {
+      await registrarHistoricoCheckin({
+        convidado,
+        token: convidado.token,
+        status: "ja_utilizado",
+      });
+
       setConvidados((prev) =>
         prev.map((c) =>
           c.id === convidado.id
@@ -1014,6 +1085,12 @@ export default function CheckinEventoPage({
     }
 
     removerPendente(convidado.token);
+
+    await registrarHistoricoCheckin({
+      convidado,
+      token: convidado.token,
+      status: statusCheckinFinal,
+    });
 
     // Primeiro dispara o feedback no card ainda visível; depois atualiza o estado.
     // Assim o individual não desaparece antes da animação quando o filtro está em "pendentes".
