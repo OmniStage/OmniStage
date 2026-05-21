@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import RelatorioActions from "./RelatorioActions";
 
 type PageProps = {
   searchParams?: {
@@ -44,15 +45,19 @@ function normalizeText(value: any) {
 }
 
 function isCrianca(c: any) {
-  const crianca = normalizeText(c.crianca);
+  const tipo = normalizeText(c.tipo);
+  const tipoConvidado = normalizeText(c.tipo_convidado);
+  const perfil = normalizeText(c.perfil);
+  const categoria = normalizeText(c.categoria);
 
   return (
-    crianca === "sim" ||
-    crianca === "s" ||
-    crianca === "true" ||
-    crianca === "1" ||
-    crianca === "crianca" ||
-    Number(c.idade_crianca || 0) > 0
+    c.crianca === true ||
+    c.is_crianca === true ||
+    tipo === "crianca" ||
+    tipoConvidado === "crianca" ||
+    perfil === "crianca" ||
+    categoria === "crianca" ||
+    !!c.idade_crianca
   );
 }
 
@@ -311,6 +316,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   const eventos = eventosRes.data ?? [];
   const eventoSelecionado = searchParams?.eventoId || eventos?.[0]?.id || "";
+  const eventoAtual = eventos.find((evento: any) => evento.id === eventoSelecionado);
+  const nomeEvento = eventoAtual?.nome || "Evento";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.omnistageproducoes.com.br";
+  const reportUrl = `${appUrl}/app/relatorios${eventoSelecionado ? `?eventoId=${eventoSelecionado}` : ""}`;
 
   const convidadosRes = eventoSelecionado
     ? await supabase
@@ -487,6 +496,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   return (
     <main
+      className="relatorios-page"
       style={{
         minHeight: "100vh",
         padding: 26,
@@ -494,8 +504,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           "radial-gradient(circle at top left, rgba(109,40,217,.08), transparent 35%), #f6f8fc",
       }}
     >
-      <div style={{ maxWidth: 1500, margin: "0 auto" }}>
+      <div id="relatorio-evento-capture" className="relatorios-shell" style={{ maxWidth: 1500, margin: "0 auto" }}>
         <section
+          className="relatorios-header"
           style={{
             background: "#fff",
             border: "1px solid #e2e8f0",
@@ -548,6 +559,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           </div>
 
           <form
+            className="relatorios-filter"
             method="get"
             style={{
               display: "flex",
@@ -597,7 +609,22 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           </form>
         </section>
 
+        <RelatorioActions
+          reportElementId="relatorio-evento-capture"
+          reportUrl={reportUrl}
+          eventoNome={nomeEvento}
+          totalConvidados={totalConvidados}
+          confirmados={confirmados}
+          entradasConfirmados={entradasConfirmados}
+          restantes={restantes}
+          taxaConfirmacao={taxaConfirmacao}
+          taxaPresenca={taxaPresenca}
+          taxaPresencaGeral={taxaPresencaGeral}
+          horaPico={horaPico}
+        />
+
         <section
+          className="relatorios-resultado"
           style={{
             marginBottom: 34,
             background:
@@ -623,6 +650,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           />
 
           <div
+            className="relatorios-resultado-grid"
             style={{
               position: "relative",
               zIndex: 1,
@@ -681,14 +709,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 }}
               >
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {totalConvidados}
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -697,14 +718,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {confirmados}
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -713,14 +727,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {entradasConfirmados}
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -729,14 +736,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {restantes}
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -745,14 +745,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {taxaConfirmacao}%
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -761,14 +754,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {taxaPresenca}%
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -777,14 +763,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {taxaNoShowResultado}%
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -793,14 +772,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
 
                 <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      fontSize: 42,
-                      lineHeight: 1,
-                      letterSpacing: "-.06em",
-                    }}
-                  >
+                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
                     {taxaPresencaGeral}%
                   </strong>
                   <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
@@ -809,7 +781,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 </div>
               </div>
 
-              <div style={{ marginTop: 34 }}>
+              <div className="relatorios-presenca-geral" style={{ marginTop: 34 }}>
                 <div
                   style={{
                     display: "flex",
@@ -852,7 +824,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 >
                   <div
                     style={{
-                      width: pct(taxaPresencaGeral),
+                      width: `${taxaPresencaGeral}%`,
                       height: "100%",
                       borderRadius: 999,
                       background:
@@ -867,6 +839,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         </section>
 
         <section
+          className="relatorios-main-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
@@ -899,7 +872,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             color="#16a34a"
             footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
           >
-            <Metric value={entradasConfirmados} label="entradas confirmados" />
+            <Metric value={entradas} label="entradas totais" />
             <Metric
               value={adultosConfirmadosEntraram}
               label="adultos confirmados entraram"
@@ -916,7 +889,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               value={criancasConfirmadasRestantes}
               label="crianças confirmadas restantes"
             />
-            <Metric value={restantes} label="confirmados restantes" />
+            <Metric value={restantes} label="restantes total" />
             <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
             <Metric value={horaPico} label="pico entrada" />
             <Metric
@@ -928,6 +901,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         </section>
 
         <section
+          className="relatorios-detail-grid"
           style={{
             marginTop: 34,
             display: "grid",
@@ -992,6 +966,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         </section>
 
         <section
+          className="relatorios-checkins"
           style={{
             marginTop: 34,
             background: "#fff",
@@ -1105,6 +1080,100 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           </div>
         </section>
       </div>
+
+      <style>{`
+        @media (max-width: 920px) {
+          .relatorios-page {
+            padding: 14px !important;
+          }
+
+          .relatorios-shell {
+            max-width: 100% !important;
+          }
+
+          .relatorios-header,
+          .relatorios-resultado,
+          .relatorios-checkins {
+            border-radius: 22px !important;
+            padding: 22px !important;
+          }
+
+          .relatorios-header h1 {
+            font-size: 38px !important;
+          }
+
+          .relatorios-filter {
+            width: 100% !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+
+          .relatorios-filter select,
+          .relatorios-filter button {
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+
+          .relatorios-resultado-grid,
+          .relatorios-main-grid,
+          .relatorios-detail-grid {
+            grid-template-columns: 1fr !important;
+            gap: 18px !important;
+          }
+
+          .relatorios-main-grid > div,
+          .relatorios-detail-grid > div {
+            border-radius: 22px !important;
+            padding: 22px !important;
+          }
+
+          .relatorios-checkins table {
+            min-width: 720px;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .relatorios-page {
+            padding: 10px !important;
+          }
+
+          .relatorios-header,
+          .relatorios-resultado,
+          .relatorios-checkins {
+            padding: 18px !important;
+          }
+
+          .relatorios-header h1,
+          .relatorios-resultado h2 {
+            font-size: 32px !important;
+            letter-spacing: -0.05em !important;
+          }
+
+          .relatorios-main-grid > div h2 {
+            font-size: 28px !important;
+          }
+
+          .relatorios-main-grid > div strong,
+          .relatorios-resultado strong {
+            font-size: 34px !important;
+          }
+
+          .relatorios-presenca-geral {
+            margin-top: 24px !important;
+          }
+        }
+
+        @media print {
+          .relatorios-actions {
+            display: none !important;
+          }
+
+          .relatorios-page {
+            padding: 0 !important;
+            background: #fff !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
