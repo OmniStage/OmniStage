@@ -1479,15 +1479,13 @@ export default function CheckinEventoPage({
       return;
     }
 
-    const { data: filaIaCriada, error: filaIaError } = await supabase
+    const { error: filaIaError } = await supabase
       .from("event_gift_ai_queue")
       .insert({
-  gift_record_id: giftRecord.id,
-  status: "pendente",
-  tentativas: 0,
-});
-      .select("id")
-      .single();
+        gift_record_id: giftRecord.id,
+        status: "pendente",
+        tentativas: 0,
+      });
 
     if (filaIaError) {
       setSalvandoPresente(false);
@@ -1496,11 +1494,12 @@ export default function CheckinEventoPage({
       return;
     }
 
-    if (!filaIaCriada?.id) {
-      setSalvandoPresente(false);
-      alert("Presente salvo, mas a fila IA não confirmou o registro criado.");
-      return;
-    }
+
+
+
+
+
+
 
     setSalvandoPresente(false);
 
