@@ -1457,7 +1457,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <strong
                   style={{
                     color: "#4c1d95",
-                    fontSize: 44,
+                    fontSize: 38,
                     lineHeight: 1,
                     letterSpacing: "-.06em",
                     fontWeight: 950,
@@ -1800,7 +1800,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       display: "block",
                       marginTop: 14,
                       color: "#0f172a",
-                      fontSize: 58,
+                      fontSize: 42,
                       lineHeight: .9,
                       letterSpacing: "-.07em",
                       fontWeight: 950,
