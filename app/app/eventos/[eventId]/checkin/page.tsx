@@ -77,6 +77,7 @@ type PresenteModal = {
   observacao: string;
   gerar_etiqueta: boolean;
   imprimir_apos_salvar: boolean;
+  tamanho_etiqueta: "pequena" | "media" | "grande";
   foto_file?: File | null;
   foto_preview?: string | null;
   preview_etiqueta_codigo?: string | null;
@@ -91,6 +92,14 @@ type PresenteEventoRecord = {
   status: string | null;
   foto_url: string | null;
   created_at: string | null;
+};
+
+type EtiquetaPreview = {
+  convidado: Convidado;
+  codigo: string;
+  tipo_presente?: string | null;
+  nome_presente?: string | null;
+  tamanho: "pequena" | "media" | "grande";
 };
 
 export default function CheckinEventoPage({
@@ -124,6 +133,8 @@ export default function CheckinEventoPage({
   const [presenteModal, setPresenteModal] = useState<PresenteModal | null>(null);
   const [salvandoPresente, setSalvandoPresente] = useState(false);
   const [presentesEvento, setPresentesEvento] = useState<PresenteEventoRecord[]>([]);
+  const [etiquetaPreview, setEtiquetaPreview] = useState<EtiquetaPreview | null>(null);
+  const [cameraPresenteAtiva, setCameraPresenteAtiva] = useState(false);
 
   const somAtivoRef = useRef(true);
 
@@ -134,6 +145,9 @@ export default function CheckinEventoPage({
   });
 
   const qrRef = useRef<any>(null);
+  const giftVideoRef = useRef<HTMLVideoElement | null>(null);
+  const giftCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const giftStreamRef = useRef<MediaStream | null>(null);
   const busyRef = useRef(false);
   const ultimoTokenRef = useRef({ token: "", at: 0 });
   const camerasRef = useRef<any[]>([]);
@@ -199,6 +213,7 @@ export default function CheckinEventoPage({
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       pararQr();
+      pararCameraPresente();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -674,6 +689,147 @@ export default function CheckinEventoPage({
     if (tipo === "envelope") return "Envelope";
     if (tipo === "sem_identificacao") return "Sem identificação";
     return "Presente físico";
+  }
+
+  function abrirEtiquetaPreview({
+    convidado,
+    codigo,
+    tipoPresente,
+    nomePresente,
+    tamanho = "media",
+  }: {
+    convidado: Convidado;
+    codigo: string | null;
+    tipoPresente?: string | null;
+    nomePresente?: string | null;
+    tamanho?: "pequena" | "media" | "grande";
+  }) {
+    const codigoFinal = codigo || gerarCodigoEtiqueta();
+
+    setEtiquetaPreview({
+      convidado,
+      codigo: codigoFinal,
+      tipo_presente: tipoPresente || null,
+      nome_presente: nomePresente || null,
+      tamanho,
+    });
+  }
+
+  function imprimirEtiquetaAtual() {
+    if (!etiquetaPreview) return;
+
+    window.setTimeout(() => {
+      window.print();
+    }, 150);
+  }
+
+  async function iniciarCameraPresente() {
+    try {
+      pararCameraPresente();
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+
+      giftStreamRef.current = stream;
+      setCameraPresenteAtiva(true);
+
+      window.setTimeout(() => {
+        if (giftVideoRef.current) {
+          giftVideoRef.current.srcObject = stream;
+          void giftVideoRef.current.play();
+        }
+      }, 80);
+    } catch (error: any) {
+      alert(
+        error?.message ||
+          "Não foi possível abrir a câmera para fotografar o presente.",
+      );
+      setCameraPresenteAtiva(false);
+    }
+  }
+
+  function pararCameraPresente() {
+    try {
+      if (giftStreamRef.current) {
+        giftStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    } catch {}
+
+    giftStreamRef.current = null;
+    setCameraPresenteAtiva(false);
+
+    if (giftVideoRef.current) {
+      try {
+        giftVideoRef.current.srcObject = null;
+      } catch {}
+    }
+  }
+
+  function tirarFotoPresente() {
+    const video = giftVideoRef.current;
+    const canvas = giftCanvasRef.current;
+
+    if (!video || !canvas) {
+      alert("A câmera ainda não está pronta.");
+      return;
+    }
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      alert("Não foi possível capturar a foto.");
+      return;
+    }
+
+    context.drawImage(video, 0, 0, width, height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          alert("Não foi possível gerar a foto do presente.");
+          return;
+        }
+
+        const file = new File([blob], `presente-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+
+        const preview = canvas.toDataURL("image/jpeg", 0.88);
+
+        setPresenteModal((prev) =>
+          prev
+            ? {
+                ...prev,
+                foto_file: file,
+                foto_preview: preview,
+              }
+            : prev,
+        );
+
+        pararCameraPresente();
+      },
+      "image/jpeg",
+      0.88,
+    );
+  }
+
+  function descartarFotoPresente() {
+    setPresenteModal((prev) =>
+      prev
+        ? {
+            ...prev,
+            foto_file: null,
+            foto_preview: null,
+          }
+        : prev,
+    );
   }
 
   function carregarScriptQr() {
@@ -1331,16 +1487,22 @@ export default function CheckinEventoPage({
       "ok",
     );
 
-    if (presenteModal.foto_preview) {
-      URL.revokeObjectURL(presenteModal.foto_preview);
-    }
+    pararCameraPresente();
 
     setPresenteModal(null);
 
     if (presenteModal.imprimir_apos_salvar && etiquetaCodigo) {
+      abrirEtiquetaPreview({
+        convidado,
+        codigo: etiquetaCodigo,
+        tipoPresente: presenteModal.tipo_presente,
+        nomePresente: presenteModal.nome_presente,
+        tamanho: presenteModal.tamanho_etiqueta,
+      });
+
       window.setTimeout(() => {
         window.print();
-      }, 350);
+      }, 650);
     }
   }
 
@@ -1693,7 +1855,12 @@ export default function CheckinEventoPage({
         .gift-textarea { min-height:104px; resize:vertical; font-family:inherit; }
         .gift-photo-field { display:grid; gap:8px; }
         .gift-photo-title { font-size:13px; font-weight:900; color:#334155; }
-        .gift-photo-input { width:100%; border:1px dashed #cbd5e1; border-radius:16px; padding:12px; background:#f8fafc; color:#334155; font-weight:800; }
+        .gift-camera-button { background:#f8fafc; color:#334155; border-color:#cbd5e1; box-shadow:none; }
+        .gift-camera-box { border:1px dashed #cbd5e1; border-radius:18px; padding:12px; background:#f8fafc; display:grid; gap:10px; }
+        .gift-camera-video { width:100%; max-height:280px; object-fit:cover; border-radius:16px; background:#020617; }
+        .gift-camera-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .gift-photo-preview-box { display:grid; gap:10px; }
+        .gift-photo-help { color:#64748b; font-size:12px; font-weight:750; line-height:1.4; }
         .gift-photo-preview { width:100%; max-height:220px; object-fit:cover; border-radius:18px; border:1px solid #e2e8f0; }
         .gift-label-preview { border:2px dashed #cbd5e1; border-radius:20px; padding:18px; background:#f8fafc; display:grid; gap:10px; }
         .gift-label-kicker { color:#64748b; font-size:12px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
@@ -1704,8 +1871,30 @@ export default function CheckinEventoPage({
         .gift-active-box { margin-top:10px; border:1px solid #fed7aa; background:#fff7ed; color:#9a3412; border-radius:16px; padding:10px; display:grid; gap:8px; }
         .gift-active-title { font-size:12px; font-weight:950; text-transform:uppercase; letter-spacing:.06em; }
         .gift-active-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12px; font-weight:850; }
+        .gift-active-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .btn.gift-cancel { background:#fff; color:#be123c; border-color:#fecdd3; box-shadow:none; padding:8px 10px; font-size:12px; }
         .btn.gift-preview { background:#fff; color:#6d28d9; border-color:#ddd6fe; box-shadow:none; }
+        .btn.gift-preview-mini { background:#fff; color:#6d28d9; border-color:#ddd6fe; box-shadow:none; padding:8px 10px; font-size:12px; }
+        .label-modal-backdrop { position:fixed; inset:0; z-index:10020; background:rgba(15,23,42,.48); backdrop-filter:blur(4px); display:grid; place-items:center; padding:20px; }
+        .label-modal { width:min(560px,100%); background:#fff; border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 30px 90px rgba(15,23,42,.28); display:grid; gap:16px; }
+        .label-modal-title { margin:0; color:#0f172a; font-size:28px; font-weight:950; letter-spacing:-.04em; }
+        .label-modal-sub { color:#64748b; font-weight:800; line-height:1.4; }
+        .print-label-sheet { background:#fff; border:1px solid #e2e8f0; border-radius:22px; padding:18px; display:grid; gap:12px; }
+        .print-label-sheet.pequena { max-width:320px; }
+        .print-label-sheet.media { max-width:420px; }
+        .print-label-sheet.grande { max-width:520px; }
+        .print-label-kicker { color:#64748b; font-size:11px; font-weight:950; letter-spacing:.1em; text-transform:uppercase; }
+        .print-label-name { color:#0f172a; font-size:24px; line-height:1.05; font-weight:950; letter-spacing:-.04em; }
+        .print-label-meta { color:#334155; font-weight:850; }
+        .print-label-code { color:#7c3aed; font-size:18px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-weight:950; }
+        .print-label-qr { width:142px; height:142px; object-fit:contain; border:1px solid #e2e8f0; border-radius:14px; padding:8px; background:#fff; }
+        .print-label-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+        @media print {
+          body * { visibility:hidden!important; }
+          .print-label-sheet, .print-label-sheet * { visibility:visible!important; }
+          .print-label-sheet { position:fixed!important; left:0!important; top:0!important; width:100%!important; max-width:none!important; border:0!important; border-radius:0!important; box-shadow:none!important; }
+          @page { margin:8mm; }
+        }
         @media (max-width:1180px){ .checkin-hero-split,.checkin-operation-card,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
         @media (max-width:640px){ .checkin-page{padding:16px}.checkin-brand-card{min-height:160px;padding:18px}.checkin-brand-card-inner{min-height:124px}.checkin-operation-card{padding:20px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:98px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
@@ -2044,15 +2233,62 @@ export default function CheckinEventoPage({
                                             : ""}
                                         </span>
 
-                                        <button
-                                          type="button"
-                                          className="btn gift-cancel"
-                                          onClick={() =>
-                                            cancelarPresenteEvento(presente)
-                                          }
-                                        >
-                                          Cancelar registro
-                                        </button>
+                                        <div className="gift-active-actions">
+                                          {presente.etiqueta_codigo && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                className="btn gift-preview-mini"
+                                                onClick={() =>
+                                                  abrirEtiquetaPreview({
+                                                    convidado: c,
+                                                    codigo: presente.etiqueta_codigo,
+                                                    tipoPresente:
+                                                      presente.tipo_presente,
+                                                    nomePresente:
+                                                      presente.nome_presente,
+                                                    tamanho: "media",
+                                                  })
+                                                }
+                                              >
+                                                Ver etiqueta
+                                              </button>
+
+                                              <button
+                                                type="button"
+                                                className="btn gift-preview-mini"
+                                                onClick={() => {
+                                                  abrirEtiquetaPreview({
+                                                    convidado: c,
+                                                    codigo:
+                                                      presente.etiqueta_codigo,
+                                                    tipoPresente:
+                                                      presente.tipo_presente,
+                                                    nomePresente:
+                                                      presente.nome_presente,
+                                                    tamanho: "media",
+                                                  });
+
+                                                  window.setTimeout(() => {
+                                                    window.print();
+                                                  }, 350);
+                                                }}
+                                              >
+                                                Reimprimir
+                                              </button>
+                                            </>
+                                          )}
+
+                                          <button
+                                            type="button"
+                                            className="btn gift-cancel"
+                                            onClick={() =>
+                                              cancelarPresenteEvento(presente)
+                                            }
+                                          >
+                                            Cancelar registro
+                                          </button>
+                                        </div>
                                       </div>
                                     ),
                                   )}
@@ -2081,6 +2317,7 @@ export default function CheckinEventoPage({
                                     observacao: "",
                                     gerar_etiqueta: true,
                                     imprimir_apos_salvar: false,
+                                    tamanho_etiqueta: "media",
                                     foto_file: null,
                                     foto_preview: null,
                                     preview_etiqueta_codigo: gerarCodigoEtiqueta(),
@@ -2162,42 +2399,108 @@ export default function CheckinEventoPage({
               <div className="gift-photo-field">
                 <div className="gift-photo-title">Foto do presente</div>
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="gift-photo-input"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
+                {!cameraPresenteAtiva && !presenteModal.foto_preview && (
+                  <button
+                    type="button"
+                    className="btn gift-camera-button"
+                    onClick={iniciarCameraPresente}
+                    disabled={salvandoPresente}
+                  >
+                    Abrir câmera
+                  </button>
+                )}
 
-                    if (!file) return;
+                {cameraPresenteAtiva && (
+                  <div className="gift-camera-box">
+                    <video
+                      ref={giftVideoRef}
+                      className="gift-camera-video"
+                      playsInline
+                      muted
+                      autoPlay
+                    />
 
-                    const preview = URL.createObjectURL(file);
+                    <div className="gift-camera-actions">
+                      <button
+                        type="button"
+                        className="btn primary"
+                        onClick={tirarFotoPresente}
+                        disabled={salvandoPresente}
+                      >
+                        Tirar foto
+                      </button>
 
-                    setPresenteModal((prev) => {
-                      if (prev?.foto_preview) {
-                        URL.revokeObjectURL(prev.foto_preview);
-                      }
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={pararCameraPresente}
+                        disabled={salvandoPresente}
+                      >
+                        Fechar câmera
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                      return prev
-                        ? {
-                            ...prev,
-                            foto_file: file,
-                            foto_preview: preview,
-                          }
-                        : prev;
-                    });
-                  }}
-                />
+                <canvas ref={giftCanvasRef} style={{ display: "none" }} />
 
                 {presenteModal.foto_preview && (
-                  <img
-                    src={presenteModal.foto_preview}
-                    alt="Preview da foto do presente"
-                    className="gift-photo-preview"
-                  />
+                  <div className="gift-photo-preview-box">
+                    <img
+                      src={presenteModal.foto_preview}
+                      alt="Foto capturada do presente"
+                      className="gift-photo-preview"
+                    />
+
+                    <div className="gift-camera-actions">
+                      <button
+                        type="button"
+                        className="btn gift-camera-button"
+                        onClick={() => {
+                          descartarFotoPresente();
+                          iniciarCameraPresente();
+                        }}
+                        disabled={salvandoPresente}
+                      >
+                        Refazer foto
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={descartarFotoPresente}
+                        disabled={salvandoPresente}
+                      >
+                        Remover foto
+                      </button>
+                    </div>
+                  </div>
                 )}
+
+                <div className="gift-photo-help">
+                  A foto é capturada direto pela câmera e anexada ao registro do presente.
+                </div>
               </div>
+
+              <select
+                className="select"
+                value={presenteModal.tamanho_etiqueta}
+                onChange={(e) =>
+                  setPresenteModal((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          tamanho_etiqueta: e.target
+                            .value as PresenteModal["tamanho_etiqueta"],
+                        }
+                      : prev,
+                  )
+                }
+              >
+                <option value="pequena">Etiqueta pequena</option>
+                <option value="media">Etiqueta média</option>
+                <option value="grande">Etiqueta grande</option>
+              </select>
 
               {presenteModal.gerar_etiqueta &&
                 presenteModal.preview_etiqueta_codigo && (
@@ -2272,7 +2575,10 @@ export default function CheckinEventoPage({
               <button
                 type="button"
                 className="btn"
-                onClick={() => setPresenteModal(null)}
+                onClick={() => {
+                  pararCameraPresente();
+                  setPresenteModal(null);
+                }}
                 disabled={salvandoPresente}
               >
                 Cancelar
@@ -2282,18 +2588,28 @@ export default function CheckinEventoPage({
                 <button
                   type="button"
                   className="btn gift-preview"
-                  onClick={() =>
+                  onClick={() => {
+                    const codigo =
+                      presenteModal.preview_etiqueta_codigo ||
+                      gerarCodigoEtiqueta();
+
                     setPresenteModal((prev) =>
                       prev
                         ? {
                             ...prev,
-                            preview_etiqueta_codigo:
-                              prev.preview_etiqueta_codigo ||
-                              gerarCodigoEtiqueta(),
+                            preview_etiqueta_codigo: codigo,
                           }
                         : prev,
-                    )
-                  }
+                    );
+
+                    abrirEtiquetaPreview({
+                      convidado: presenteModal.convidado,
+                      codigo,
+                      tipoPresente: presenteModal.tipo_presente,
+                      nomePresente: presenteModal.nome_presente,
+                      tamanho: presenteModal.tamanho_etiqueta,
+                    });
+                  }}
                   disabled={salvandoPresente}
                 >
                   Visualizar etiqueta
@@ -2312,6 +2628,74 @@ export default function CheckinEventoPage({
           </div>
         </div>
       )}
+      {etiquetaPreview && (
+        <div className="label-modal-backdrop">
+          <div className="label-modal">
+            <div>
+              <h2 className="label-modal-title">Etiqueta do presente</h2>
+              <div className="label-modal-sub">
+                Confira o layout abaixo. A escolha da impressora, rolo e papel
+                será feita na janela de impressão do navegador/sistema.
+              </div>
+            </div>
+
+            <div className={`print-label-sheet ${etiquetaPreview.tamanho}`}>
+              <div className="print-label-kicker">OmniStage • Presente no evento</div>
+
+              <div className="print-label-name">
+                {etiquetaPreview.convidado.nome}
+              </div>
+
+              <div className="print-label-meta">
+                {etiquetaPreview.convidado.telefone || "Sem telefone"}
+              </div>
+
+              <div className="print-label-code">{etiquetaPreview.codigo}</div>
+
+              <img
+                className="print-label-qr"
+                src={gerarUrlQrEtiqueta(etiquetaPreview.convidado)}
+                alt="QR Code da etiqueta do presente"
+              />
+
+              <div className="print-label-meta">
+                Token: {etiquetaPreview.convidado.token}
+              </div>
+
+              {etiquetaPreview.nome_presente && (
+                <div className="print-label-meta">
+                  Presente: {etiquetaPreview.nome_presente}
+                </div>
+              )}
+
+              {etiquetaPreview.tipo_presente && (
+                <div className="print-label-meta">
+                  Tipo: {labelTipoPresente(etiquetaPreview.tipo_presente)}
+                </div>
+              )}
+            </div>
+
+            <div className="print-label-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setEtiquetaPreview(null)}
+              >
+                Fechar
+              </button>
+
+              <button
+                type="button"
+                className="btn primary"
+                onClick={imprimirEtiquetaAtual}
+              >
+                Imprimir etiqueta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
