@@ -31,7 +31,8 @@ function RankingCard({
   accent: "purple" | "green";
 }) {
   const [open, setOpen] = useState(false);
-  const visibleItems = open ? items.slice(0, 10) : items.slice(0, 2);
+  const safeItems = Array.isArray(items) ? items : [];
+  const visibleItems = open ? safeItems.slice(0, 10) : safeItems.slice(0, 2);
 
   const colors = {
     purple: {
@@ -127,111 +128,111 @@ function RankingCard({
       </button>
 
       <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
-        {(open ? items.slice(0, 10) : items.slice(0, 2)).length ? (
-         (open ? items.slice(0, 10) : items.slice(0, 2)).map((item, index) => (
+        {visibleItems.length ? (
+          visibleItems.map((item, index) => (
+            <div
+              key={`${item.id || item.nome}-${index}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "42px 1fr auto",
+                gap: 14,
+                alignItems: "center",
+                padding: "14px 16px",
+                borderRadius: 18,
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+              }}
+            >
               <div
-                key={item.id || item.nome}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "42px 1fr auto",
-                  gap: 14,
+                  width: 42,
+                  height: 42,
+                  borderRadius: 999,
+                  background:
+                    index === 0
+                      ? colors.first
+                      : index === 1
+                        ? colors.second
+                        : index === 2
+                          ? colors.third
+                          : colors.other,
+                  display: "flex",
                   alignItems: "center",
-                  padding: "14px 16px",
-                  borderRadius: 18,
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
+                  justifyContent: "center",
+                  color: index === 0 ? colors.text : "#0f172a",
+                  fontWeight: 900,
                 }}
               >
-                <div
+                {index + 1}
+              </div>
+
+              <div>
+                <strong
                   style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 999,
-                    background:
-                      index === 0
-                        ? colors.first
-                        : index === 1
-                          ? colors.second
-                          : index === 2
-                            ? colors.third
-                            : colors.other,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: index === 0 ? colors.text : "#0f172a",
+                    display: "block",
+                    color: "#0f172a",
+                    fontSize: 14,
+                    lineHeight: 1.25,
                     fontWeight: 900,
                   }}
                 >
-                  {index + 1}
-                </div>
+                  {item.nome}
+                </strong>
 
-                <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      color: "#0f172a",
-                      fontSize: 14,
-                      lineHeight: 1.25,
-                      fontWeight: 900,
-                    }}
-                  >
-                    {item.nome}
-                  </strong>
-
-                  {item.presente && (
-                    <small
-                      style={{
-                        display: "block",
-                        marginTop: 4,
-                        color: "#64748b",
-                        fontSize: 12,
-                        lineHeight: 1.3,
-                        fontWeight: 800,
-                      }}
-                    >
-                      {item.presente}
-                    </small>
-                  )}
-
+                {item.presente && (
                   <small
                     style={{
                       display: "block",
                       marginTop: 4,
                       color: "#64748b",
                       fontSize: 12,
+                      lineHeight: 1.3,
                       fontWeight: 800,
                     }}
                   >
-                    {item.quantidade} presente(s)
+                    {item.presente}
                   </small>
-                </div>
+                )}
 
-                <strong
+                <small
                   style={{
-                    color: "#16a34a",
-                    fontSize: 14,
-                    fontWeight: 900,
-                    whiteSpace: "nowrap",
+                    display: "block",
+                    marginTop: 4,
+                    color: "#64748b",
+                    fontSize: 12,
+                    fontWeight: 800,
                   }}
                 >
-                  {formatCurrencyBR(item.valor)}
-                </strong>
+                  {item.quantidade} presente(s)
+                </small>
               </div>
-            ))
-          ) : (
-            <div
-              style={{
-                padding: 18,
-                borderRadius: 18,
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
-                color: "#64748b",
-                fontSize: 14,
-                fontWeight: 800,
-              }}
-            >
-              {emptyText}
+
+              <strong
+                style={{
+                  color: "#16a34a",
+                  fontSize: 14,
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {formatCurrencyBR(item.valor)}
+              </strong>
             </div>
+          ))
+        ) : (
+          <div
+            style={{
+              padding: 18,
+              borderRadius: 18,
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              color: "#64748b",
+              fontSize: 14,
+              fontWeight: 800,
+            }}
+          >
+            {emptyText}
+          </div>
         )}
       </div>
     </div>
