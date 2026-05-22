@@ -774,6 +774,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     const atual = rankingItensMap.get(nome) || {
       id: nome,
       nome,
+      presente: nome,
       quantidade: 0,
       valor: 0,
     };
@@ -792,23 +793,34 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   giftReservations.forEach((item: any) => {
     const nome = String(item.nome_presenteador || "Convidado").trim() || "Convidado";
+    const nomePresente = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
     const valorPresente = Number(item.valor_presenteado || 0);
 
     if (valorPresente <= 0) return;
 
     const atual = rankingPresenteadoresMap.get(nome) || {
+      id: nome,
       nome,
+      presentes: new Set<string>(),
       quantidade: 0,
       valor: 0,
     };
 
     atual.quantidade += 1;
     atual.valor += valorPresente;
+    atual.presentes.add(nomePresente);
 
     rankingPresenteadoresMap.set(nome, atual);
   });
 
   const rankingPresenteadores = Array.from(rankingPresenteadoresMap.values())
+    .map((item: any) => ({
+      id: item.id,
+      nome: item.nome,
+      presente: Array.from(item.presentes).join(", "),
+      quantidade: item.quantidade,
+      valor: item.valor,
+    }))
     .sort((a: any, b: any) => b.valor - a.valor)
     .slice(0, 10);
 
@@ -2035,7 +2047,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               gap: 22,
             }}
           >
-            <div
+            <details
+              className="relatorios-ranking-card"
               style={{
                 background: "#fff",
                 border: "1px solid #e2e8f0",
@@ -2044,36 +2057,71 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 boxShadow: "0 18px 42px rgba(15,23,42,.06)",
               }}
             >
-              <h3
+              <summary
                 style={{
-                  margin: 0,
-                  color: "#0f172a",
-                  fontSize: 26,
-                  lineHeight: 1,
-                  letterSpacing: "-.04em",
-                  fontWeight: 900,
+                  listStyle: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 18,
                 }}
               >
-                Ranking de presentes recebidos
-              </h3>
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      color: "#0f172a",
+                      fontSize: 26,
+                      lineHeight: 1,
+                      letterSpacing: "-.04em",
+                      fontWeight: 900,
+                    }}
+                  >
+                    Ranking de presentes recebidos
+                  </h3>
 
-              <p
-                style={{
-                  margin: "9px 0 22px",
-                  color: "#64748b",
-                  fontSize: 15,
-                  lineHeight: 1.35,
-                  fontWeight: 700,
-                }}
-              >
-                10 presentes com maior valor informado
-              </p>
+                  <p
+                    style={{
+                      margin: "9px 0 0",
+                      color: "#64748b",
+                      fontSize: 15,
+                      lineHeight: 1.35,
+                      fontWeight: 700,
+                    }}
+                  >
+                    10 presentes com maior valor informado
+                  </p>
+                </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+                <span
+                  className="relatorios-ranking-arrow"
+                  aria-hidden="true"
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 999,
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    color: "#0f172a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 22,
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                >
+                  ↓
+                </span>
+              </summary>
+
+              <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
                 {rankingItensPresentes.length ? (
                   rankingItensPresentes.map((item: any, index: number) => (
                     <div
                       key={item.id}
+                      className={index > 1 ? "relatorios-ranking-extra" : undefined}
                       style={{
                         display: "grid",
                         gridTemplateColumns: "42px 1fr auto",
@@ -2121,6 +2169,21 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           {item.nome}
                         </strong>
 
+                        {item.presente && (
+                          <small
+                            style={{
+                              display: "block",
+                              marginTop: 4,
+                              color: "#64748b",
+                              fontSize: 12,
+                              lineHeight: 1.3,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {item.presente}
+                          </small>
+                        )}
+
                         <small
                           style={{
                             display: "block",
@@ -2162,9 +2225,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   </div>
                 )}
               </div>
-            </div>
+            </details>
 
-            <div
+            <details
+              className="relatorios-ranking-card"
               style={{
                 background: "#fff",
                 border: "1px solid #e2e8f0",
@@ -2173,36 +2237,71 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 boxShadow: "0 18px 42px rgba(15,23,42,.06)",
               }}
             >
-              <h3
+              <summary
                 style={{
-                  margin: 0,
-                  color: "#0f172a",
-                  fontSize: 26,
-                  lineHeight: 1,
-                  letterSpacing: "-.04em",
-                  fontWeight: 900,
+                  listStyle: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 18,
                 }}
               >
-                Ranking de presenteadores
-              </h3>
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      color: "#0f172a",
+                      fontSize: 26,
+                      lineHeight: 1,
+                      letterSpacing: "-.04em",
+                      fontWeight: 900,
+                    }}
+                  >
+                    Ranking de presenteadores
+                  </h3>
 
-              <p
-                style={{
-                  margin: "9px 0 22px",
-                  color: "#64748b",
-                  fontSize: 15,
-                  lineHeight: 1.35,
-                  fontWeight: 700,
-                }}
-              >
-                10 convidados que mais presentearam por valor
-              </p>
+                  <p
+                    style={{
+                      margin: "9px 0 0",
+                      color: "#64748b",
+                      fontSize: 15,
+                      lineHeight: 1.35,
+                      fontWeight: 700,
+                    }}
+                  >
+                    10 convidados que mais presentearam por valor
+                  </p>
+                </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+                <span
+                  className="relatorios-ranking-arrow"
+                  aria-hidden="true"
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 999,
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    color: "#0f172a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 22,
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                >
+                  ↓
+                </span>
+              </summary>
+
+              <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
                 {rankingPresenteadores.length ? (
                   rankingPresenteadores.map((item: any, index: number) => (
                     <div
                       key={item.nome}
+                      className={index > 1 ? "relatorios-ranking-extra" : undefined}
                       style={{
                         display: "grid",
                         gridTemplateColumns: "42px 1fr auto",
@@ -2250,6 +2349,21 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           {item.nome}
                         </strong>
 
+                        {item.presente && (
+                          <small
+                            style={{
+                              display: "block",
+                              marginTop: 4,
+                              color: "#64748b",
+                              fontSize: 12,
+                              lineHeight: 1.3,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {item.presente}
+                          </small>
+                        )}
+
                         <small
                           style={{
                             display: "block",
@@ -2291,9 +2405,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        </section>
+            </details>
+          </div>        </section>
 
         <section
           className="relatorios-checkins"
@@ -2412,6 +2525,23 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       </div>
 
       <style>{`
+
+        .relatorios-ranking-card > summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .relatorios-ranking-card .relatorios-ranking-extra {
+          display: none !important;
+        }
+
+        .relatorios-ranking-card[open] .relatorios-ranking-extra {
+          display: grid !important;
+        }
+
+        .relatorios-ranking-card[open] .relatorios-ranking-arrow {
+          transform: rotate(180deg);
+        }
+
         @media (max-width: 920px) {
           .relatorios-page {
             padding: 14px !important;
