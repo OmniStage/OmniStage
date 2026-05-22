@@ -69,6 +69,16 @@ type EventoCheckin = {
   categoria_evento: string | null;
 };
 
+
+type PresenteModal = {
+  convidado: Convidado;
+  tipo_presente: "presente_fisico" | "envelope" | "sem_identificacao";
+  nome_presente: string;
+  observacao: string;
+  gerar_etiqueta: boolean;
+  imprimir_apos_salvar: boolean;
+};
+
 export default function CheckinEventoPage({
   params,
 }: {
@@ -96,6 +106,9 @@ export default function CheckinEventoPage({
   const [cardsPiscando, setCardsPiscando] = useState<
     Record<string, { id: number; tipo: Exclude<Resultado["tipo"], "idle"> }>
   >({});
+
+  const [presenteModal, setPresenteModal] = useState<PresenteModal | null>(null);
+  const [salvandoPresente, setSalvandoPresente] = useState(false);
 
   const somAtivoRef = useRef(true);
 
@@ -1159,6 +1172,71 @@ export default function CheckinEventoPage({
     }
   }
 
+  async function salvarPresenteEvento() {
+    if (!presenteModal) return;
+
+    const convidado = presenteModal.convidado;
+    const tenantAtual = tenantIdRef.current || tenantId || convidado.tenant_id;
+
+    if (!tenantAtual || !convidado.evento_id) {
+      alert("Não foi possível identificar o evento ou tenant.");
+      return;
+    }
+
+    setSalvandoPresente(true);
+
+    const etiquetaCodigo = presenteModal.gerar_etiqueta
+      ? `PRES-${Date.now().toString().slice(-8)}`
+      : null;
+
+    const { error } = await supabase.from("event_gift_records").insert({
+      tenant_id: tenantAtual,
+      evento_id: eventoId,
+      convidado_id: convidado.id,
+      origem: "evento",
+      tipo_presente: presenteModal.tipo_presente,
+      nome_presente: presenteModal.nome_presente.trim() || null,
+      observacao: presenteModal.observacao.trim() || null,
+      etiqueta_codigo: etiquetaCodigo,
+      gerou_etiqueta: presenteModal.gerar_etiqueta,
+      impresso: presenteModal.imprimir_apos_salvar,
+      nome_convidado: convidado.nome,
+      telefone_convidado: convidado.telefone,
+      token_convidado: convidado.token,
+      grupo: convidado.grupo,
+    });
+
+    setSalvandoPresente(false);
+
+    if (error) {
+      alert("Erro ao registrar presente: " + error.message);
+      return;
+    }
+
+    feedbackSincronizado(
+      convidado.id,
+      {
+        tipo: "ok",
+        titulo: "Presente registrado",
+        nome: convidado.nome,
+        mensagem: etiquetaCodigo
+          ? `Etiqueta ${etiquetaCodigo} gerada para o presente.`
+          : "Presente registrado com sucesso.",
+        token: convidado.token,
+      },
+      "ok",
+      "ok",
+    );
+
+    setPresenteModal(null);
+
+    if (presenteModal.imprimir_apos_salvar && etiquetaCodigo) {
+      window.setTimeout(() => {
+        window.print();
+      }, 350);
+    }
+  }
+
   async function sincronizarPendentes() {
     const tenantAtual = tenantIdRef.current || tenantId;
 
@@ -1444,6 +1522,17 @@ export default function CheckinEventoPage({
         .premium-msg { margin-top:8px; color:#64748b; font-weight:700; }
         @keyframes premiumPop { to{transform:scale(1) translateY(0)} }
         @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
+        .btn.gift-register { background:#fff7ed; color:#9a3412; border-color:#fed7aa; box-shadow:none; }
+        .guest-actions { display:grid; gap:8px; align-items:center; }
+        .gift-modal-backdrop { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.38); backdrop-filter:blur(4px); display:grid; place-items:center; padding:20px; }
+        .gift-modal { width:min(520px,100%); background:#fff; border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 30px 90px rgba(15,23,42,.28); }
+        .gift-modal-title { margin:0; font-size:28px; line-height:1.05; font-weight:950; letter-spacing:-.04em; color:#0f172a; }
+        .gift-modal-sub { margin-top:8px; color:#64748b; font-weight:750; line-height:1.45; }
+        .gift-modal-grid { display:grid; gap:12px; margin-top:18px; }
+        .gift-check-row { display:flex; gap:10px; align-items:center; color:#334155; font-weight:850; }
+        .gift-check-row input { width:16px; height:16px; accent-color:var(--purple); }
+        .gift-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap; }
+        .gift-textarea { min-height:104px; resize:vertical; font-family:inherit; }
         @media (max-width:1180px){ .checkin-hero-split,.checkin-operation-card,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
         @media (max-width:640px){ .checkin-page{padding:16px}.checkin-brand-card{min-height:160px;padding:18px}.checkin-brand-card-inner{min-height:124px}.checkin-operation-card{padding:20px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:98px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
@@ -1760,15 +1849,34 @@ export default function CheckinEventoPage({
                                 )}
                               </div>
                             </div>
-                            <button
-                              className={classeBotaoCheckin(c)}
-                              disabled={entrou}
-                              onClick={() => {
-                                liberarConvidado(c, "manual");
-                              }}
-                            >
-                              {textoBotaoCheckin(c)}
-                            </button>
+                            <div className="guest-actions">
+                              <button
+                                className={classeBotaoCheckin(c)}
+                                disabled={entrou}
+                                onClick={() => {
+                                  liberarConvidado(c, "manual");
+                                }}
+                              >
+                                {textoBotaoCheckin(c)}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn gift-register"
+                                onClick={() => {
+                                  setPresenteModal({
+                                    convidado: c,
+                                    tipo_presente: "presente_fisico",
+                                    nome_presente: "",
+                                    observacao: "",
+                                    gerar_etiqueta: true,
+                                    imprimir_apos_salvar: false,
+                                  });
+                                }}
+                              >
+                                🎁 Registrar presente
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -1784,6 +1892,113 @@ export default function CheckinEventoPage({
           )}
         </section>
       </section>
+
+      {presenteModal && (
+        <div className="gift-modal-backdrop">
+          <div className="gift-modal">
+            <h2 className="gift-modal-title">🎁 Registrar presente no evento</h2>
+
+            <div className="gift-modal-sub">
+              {presenteModal.convidado.nome} • {presenteModal.convidado.token}
+            </div>
+
+            <div className="gift-modal-grid">
+              <select
+                className="select"
+                value={presenteModal.tipo_presente}
+                onChange={(e) =>
+                  setPresenteModal((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          tipo_presente:
+                            e.target.value as PresenteModal["tipo_presente"],
+                        }
+                      : prev,
+                  )
+                }
+              >
+                <option value="presente_fisico">Presente físico</option>
+                <option value="envelope">Envelope</option>
+                <option value="sem_identificacao">Sem identificação</option>
+              </select>
+
+              <input
+                className="input"
+                value={presenteModal.nome_presente}
+                onChange={(e) =>
+                  setPresenteModal((prev) =>
+                    prev ? { ...prev, nome_presente: e.target.value } : prev,
+                  )
+                }
+                placeholder="Nome do presente"
+              />
+
+              <textarea
+                className="input gift-textarea"
+                value={presenteModal.observacao}
+                onChange={(e) =>
+                  setPresenteModal((prev) =>
+                    prev ? { ...prev, observacao: e.target.value } : prev,
+                  )
+                }
+                placeholder="Observação opcional"
+                rows={4}
+              />
+
+              <label className="gift-check-row">
+                <input
+                  type="checkbox"
+                  checked={presenteModal.gerar_etiqueta}
+                  onChange={(e) =>
+                    setPresenteModal((prev) =>
+                      prev
+                        ? { ...prev, gerar_etiqueta: e.target.checked }
+                        : prev,
+                    )
+                  }
+                />
+                Gerar etiqueta automaticamente
+              </label>
+
+              <label className="gift-check-row">
+                <input
+                  type="checkbox"
+                  checked={presenteModal.imprimir_apos_salvar}
+                  onChange={(e) =>
+                    setPresenteModal((prev) =>
+                      prev
+                        ? { ...prev, imprimir_apos_salvar: e.target.checked }
+                        : prev,
+                    )
+                  }
+                />
+                Imprimir após salvar
+              </label>
+            </div>
+
+            <div className="gift-modal-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setPresenteModal(null)}
+                disabled={salvandoPresente}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn primary"
+                onClick={salvarPresenteEvento}
+                disabled={salvandoPresente}
+              >
+                {salvandoPresente ? "Salvando..." : "Salvar presente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
