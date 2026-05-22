@@ -709,27 +709,21 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     statusPagoPresente(p.status),
   );
 
-  const reservasConfirmadas = giftReservations.filter((p: any) =>
-    statusPagoPresente(p.status),
+  const reservasComValor = giftReservations.filter(
+    (p: any) => Number(p.valor_presenteado || 0) > 0,
   );
 
-  const presentesPendentes = giftReservations.filter((p: any) =>
-    statusPendentePresente(p.status),
+  const presentesPendentes = giftReservations.filter(
+    (p: any) =>
+      Number(p.valor_presenteado || 0) <= 0 && statusPendentePresente(p.status),
   );
 
-  const presentesPagos = pagamentosConfirmados.length
-    ? pagamentosConfirmados
-    : reservasConfirmadas;
+  const presentesPagos = reservasComValor;
 
-  const valorTotalPresentes = pagamentosConfirmados.length
-    ? pagamentosConfirmados.reduce(
-        (acc: number, item: any) => acc + Number(item.valor || 0),
-        0,
-      )
-    : reservasConfirmadas.reduce(
-        (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
-        0,
-      );
+  const valorTotalPresentes = reservasComValor.reduce(
+    (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
+    0,
+  );
 
   const ticketMedioPresentes = presentesPagos.length
     ? valorTotalPresentes / presentesPagos.length
@@ -773,6 +767,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
   giftReservations.forEach((item: any) => {
     const nome = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
+    const valorPresente = Number(item.valor_presenteado || 0);
+
+    if (valorPresente <= 0) return;
 
     const atual = rankingItensMap.get(nome) || {
       id: nome,
@@ -782,19 +779,22 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     };
 
     atual.quantidade += 1;
-    atual.valor += Number(item.valor_presenteado || 0);
+    atual.valor += valorPresente;
 
     rankingItensMap.set(nome, atual);
   });
 
   const rankingItensPresentes = Array.from(rankingItensMap.values())
     .sort((a: any, b: any) => b.valor - a.valor)
-    .slice(0, 7);
+    .slice(0, 10);
 
   const rankingPresenteadoresMap = new Map();
 
   giftReservations.forEach((item: any) => {
     const nome = String(item.nome_presenteador || "Convidado").trim() || "Convidado";
+    const valorPresente = Number(item.valor_presenteado || 0);
+
+    if (valorPresente <= 0) return;
 
     const atual = rankingPresenteadoresMap.get(nome) || {
       nome,
@@ -803,14 +803,14 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     };
 
     atual.quantidade += 1;
-    atual.valor += Number(item.valor_presenteado || 0);
+    atual.valor += valorPresente;
 
     rankingPresenteadoresMap.set(nome, atual);
   });
 
   const rankingPresenteadores = Array.from(rankingPresenteadoresMap.values())
     .sort((a: any, b: any) => b.valor - a.valor)
-    .slice(0, 7);
+    .slice(0, 10);
 
   const entradasComData = convidadosEntraram.filter((c: any) => c.data_checkin);
 
@@ -2066,7 +2066,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   fontWeight: 700,
                 }}
               >
-                7 presentes com maior valor informado
+                10 presentes com maior valor informado
               </p>
 
               <div style={{ display: "grid", gap: 12 }}>
@@ -2195,7 +2195,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   fontWeight: 700,
                 }}
               >
-                7 convidados que mais presentearam por valor
+                10 convidados que mais presentearam por valor
               </p>
 
               <div style={{ display: "grid", gap: 12 }}>
