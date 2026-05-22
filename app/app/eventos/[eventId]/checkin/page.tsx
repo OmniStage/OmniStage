@@ -1844,8 +1844,8 @@ export default function CheckinEventoPage({
         @keyframes overlayFade { 0%{opacity:0} 10%{opacity:1} 78%{opacity:1} 100%{opacity:0} }
         .btn.gift-register { background:#fff7ed; color:#9a3412; border-color:#fed7aa; box-shadow:none; }
         .guest-actions { display:grid; gap:8px; align-items:center; }
-        .gift-modal-backdrop { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.38); backdrop-filter:blur(4px); display:grid; place-items:center; padding:20px; }
-        .gift-modal { width:min(520px,100%); background:#fff; border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 30px 90px rgba(15,23,42,.28); }
+        .gift-modal-backdrop { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.38); backdrop-filter:blur(4px); display:flex; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+        .gift-modal { width:min(520px,100%); max-height:calc(100vh - 40px); overflow-y:auto; background:#fff; border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 30px 90px rgba(15,23,42,.28); }
         .gift-modal-title { margin:0; font-size:28px; line-height:1.05; font-weight:950; letter-spacing:-.04em; color:#0f172a; }
         .gift-modal-sub { margin-top:8px; color:#64748b; font-weight:750; line-height:1.45; }
         .gift-modal-grid { display:grid; gap:12px; margin-top:18px; }
