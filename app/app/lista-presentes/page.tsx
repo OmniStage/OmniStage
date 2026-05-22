@@ -8,7 +8,7 @@ type TenantMember = {
   tenant_id: string;
 };
 
-type Evento = {
+type EventoBase = {
   id: string;
   slug: string | null;
   nome: string | null;
@@ -21,6 +21,20 @@ type Evento = {
   experiencias_enabled: boolean | null;
   presentes_valor_enabled: boolean | null;
   created_at: string | null;
+};
+
+type Evento = EventoBase & {
+  presentes_antes_evento: number;
+  presentes_no_evento: number;
+};
+
+type GiftPaymentRow = {
+  evento_id: string | null;
+  status: string | null;
+};
+
+type EventGiftRecordRow = {
+  evento_id: string | null;
 };
 
 function formatarData(data: string | null) {
@@ -55,6 +69,22 @@ function gerarUrlPublicaLista(evento: Evento) {
   if (!baseUrl) return caminho;
 
   return `${baseUrl.replace(/\/$/, "")}${caminho}`;
+}
+
+function deveContarPagamentoAntesDoEvento(status: string | null) {
+  if (!status) return true;
+
+  const normalizado = status.trim().toLowerCase();
+
+  return ![
+    "cancelado",
+    "cancelada",
+    "erro",
+    "falhou",
+    "estornado",
+    "recusado",
+    "reprovado",
+  ].includes(normalizado);
 }
 
 export default function ListaPresentesPage() {
@@ -131,7 +161,51 @@ export default function ListaPresentesPage() {
       return;
     }
 
-    setEventos((data || []) as Evento[]);
+    const eventosBase = (data || []) as EventoBase[];
+    const eventoIds = eventosBase.map((evento) => evento.id).filter(Boolean);
+
+    const presentesAntesPorEvento: Record<string, number> = {};
+    const presentesNoEventoPorEvento: Record<string, number> = {};
+
+    if (eventoIds.length > 0) {
+      const { data: pagamentos, error: pagamentosError } = await supabase
+        .from("gift_payments")
+        .select("evento_id,status")
+        .in("evento_id", eventoIds);
+
+      if (!pagamentosError) {
+        ((pagamentos || []) as GiftPaymentRow[]).forEach((pagamento) => {
+          if (!pagamento.evento_id) return;
+          if (!deveContarPagamentoAntesDoEvento(pagamento.status)) return;
+
+          presentesAntesPorEvento[pagamento.evento_id] =
+            (presentesAntesPorEvento[pagamento.evento_id] || 0) + 1;
+        });
+      }
+
+      const { data: registrosEvento, error: registrosEventoError } =
+        await supabase
+          .from("event_gift_records")
+          .select("evento_id")
+          .in("evento_id", eventoIds);
+
+      if (!registrosEventoError) {
+        ((registrosEvento || []) as EventGiftRecordRow[]).forEach((registro) => {
+          if (!registro.evento_id) return;
+
+          presentesNoEventoPorEvento[registro.evento_id] =
+            (presentesNoEventoPorEvento[registro.evento_id] || 0) + 1;
+        });
+      }
+    }
+
+    const eventosComResumo: Evento[] = eventosBase.map((evento) => ({
+      ...evento,
+      presentes_antes_evento: presentesAntesPorEvento[evento.id] || 0,
+      presentes_no_evento: presentesNoEventoPorEvento[evento.id] || 0,
+    }));
+
+    setEventos(eventosComResumo);
     setLoading(false);
   }
 
@@ -146,6 +220,10 @@ export default function ListaPresentesPage() {
         evento.cidade,
         evento.categoria_evento,
         evento.status_aprovacao,
+        evento.lista_presentes_ativa ? "lista ativa" : "lista desativada",
+        "presentes",
+        "antes do evento",
+        "no evento",
       ]
         .filter(Boolean)
         .some((valor) => String(valor).toLowerCase().includes(termo))
@@ -196,7 +274,7 @@ export default function ListaPresentesPage() {
           color: #64748b;
           font-size: 17px;
           line-height: 1.65;
-          max-width: 860px;
+          max-width: 900px;
         }
 
         .search-box {
@@ -286,6 +364,43 @@ export default function ListaPresentesPage() {
           font-weight: 750;
         }
 
+        .gift-summary {
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 12px;
+        }
+
+        .gift-summary-card {
+          border: 1px solid rgba(226,232,240,.95);
+          background: #f8fafc;
+          border-radius: 20px;
+          padding: 14px;
+        }
+
+        .gift-summary-label {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+        }
+
+        .gift-summary-value {
+          margin-top: 6px;
+          color: #0f172a;
+          font-size: 24px;
+          line-height: 1;
+          font-weight: 950;
+          letter-spacing: -.04em;
+        }
+
+        .gift-summary-caption {
+          margin-top: 6px;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 750;
+        }
+
         .modules {
           display: flex;
           flex-wrap: wrap;
@@ -342,6 +457,12 @@ export default function ListaPresentesPage() {
           padding: 13px 16px;
         }
 
+        .gift-action {
+          background: #fff7ed;
+          color: #9a3412;
+          border: 1px solid #fed7aa;
+        }
+
         .empty {
           background: #fff;
           border: 1px dashed rgba(148,163,184,.45);
@@ -376,6 +497,10 @@ export default function ListaPresentesPage() {
             grid-template-columns: 1fr;
           }
 
+          .gift-summary {
+            grid-template-columns: 1fr;
+          }
+
           .actions a,
           .actions button {
             width: 100%;
@@ -386,11 +511,12 @@ export default function ListaPresentesPage() {
       <section className="hero">
         <span className="eyebrow">OmniStage App</span>
 
-        <h1 className="title">Lista de Presentes</h1>
+        <h1 className="title">Presentes</h1>
 
         <p className="subtitle">
-          Configure presentes físicos, experiências e presentes em valor para cada evento.
-          Seus convidados poderão visualizar a lista diretamente no convite digital.
+          Gerencie presentes antes e durante o evento. Controle a lista pública,
+          presentes físicos, experiências, presentes em valor e registros feitos
+          no check-in.
         </p>
       </section>
 
@@ -399,7 +525,7 @@ export default function ListaPresentesPage() {
           className="search-input"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por evento, cidade, categoria ou status"
+          placeholder="Buscar por evento, cidade, categoria, status ou origem do presente"
         />
       </section>
 
@@ -407,7 +533,7 @@ export default function ListaPresentesPage() {
         <div className="loading">Carregando eventos...</div>
       ) : eventosFiltrados.length === 0 ? (
         <div className="empty">
-          Nenhum evento encontrado para configurar lista de presentes.
+          Nenhum evento encontrado para gerenciar presentes.
         </div>
       ) : (
         <section className="events-grid">
@@ -449,6 +575,28 @@ export default function ListaPresentesPage() {
 
                   <div>
                     <strong>Cidade:</strong> {evento.cidade || "Não informada"}
+                  </div>
+                </div>
+
+                <div className="gift-summary">
+                  <div className="gift-summary-card">
+                    <div className="gift-summary-label">Antes do evento</div>
+                    <div className="gift-summary-value">
+                      {evento.presentes_antes_evento}
+                    </div>
+                    <div className="gift-summary-caption">
+                      Lista pública / presentes em valor
+                    </div>
+                  </div>
+
+                  <div className="gift-summary-card">
+                    <div className="gift-summary-label">No evento</div>
+                    <div className="gift-summary-value">
+                      {evento.presentes_no_evento}
+                    </div>
+                    <div className="gift-summary-caption">
+                      Recepção / check-in / etiqueta
+                    </div>
                   </div>
                 </div>
 
@@ -505,6 +653,13 @@ export default function ListaPresentesPage() {
                     className="secondary"
                   >
                     Presentes recebidos
+                  </Link>
+
+                  <Link
+                    href={`/app/eventos/${evento.id}/checkin?registrarPresente=1`}
+                    className="secondary gift-action"
+                  >
+                    🎁 Registrar presente no evento
                   </Link>
 
                   <Link href="/app/eventos" className="secondary">
