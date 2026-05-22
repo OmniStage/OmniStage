@@ -1444,30 +1444,46 @@ export default function CheckinEventoPage({
       fotoUrl = data.publicUrl;
     }
 
-    const { error } = await supabase.from("event_gift_records").insert({
-      tenant_id: tenantAtual,
-      evento_id: eventoId,
-      convidado_id: convidado.id,
-      origem: "evento",
-      tipo_presente: presenteModal.tipo_presente,
-      nome_presente: presenteModal.nome_presente.trim() || null,
-      observacao: presenteModal.observacao.trim() || null,
-      foto_url: fotoUrl,
-      etiqueta_codigo: etiquetaCodigo,
-      gerou_etiqueta: presenteModal.gerar_etiqueta,
-      impresso: presenteModal.imprimir_apos_salvar,
-      nome_convidado: convidado.nome,
-      telefone_convidado: convidado.telefone,
-      token_convidado: convidado.token,
-      grupo: convidado.grupo,
-      status: "ativo",
-    });
+    const { data: giftRecord, error } = await supabase
+      .from("event_gift_records")
+      .insert({
+        tenant_id: tenantAtual,
+        evento_id: eventoId,
+        convidado_id: convidado.id,
+        origem: "evento",
+        tipo_presente: presenteModal.tipo_presente,
+        nome_presente: presenteModal.nome_presente.trim() || null,
+        observacao: presenteModal.observacao.trim() || null,
+        foto_url: fotoUrl,
+        etiqueta_codigo: etiquetaCodigo,
+        gerou_etiqueta: presenteModal.gerar_etiqueta,
+        impresso: presenteModal.imprimir_apos_salvar,
+        nome_convidado: convidado.nome,
+        telefone_convidado: convidado.telefone,
+        token_convidado: convidado.token,
+        grupo: convidado.grupo,
+        status: "ativo",
+      })
+      .select("id")
+      .single();
 
     setSalvandoPresente(false);
 
     if (error) {
       alert("Erro ao registrar presente: " + error.message);
       return;
+    }
+
+    if (giftRecord?.id && fotoUrl) {
+      const { error: filaIaError } = await supabase
+        .from("event_gift_ai_queue")
+        .insert({
+          gift_record_id: giftRecord.id,
+        });
+
+      if (filaIaError) {
+        console.warn("Presente salvo, mas não entrou na fila IA:", filaIaError.message);
+      }
     }
 
     await carregarPresentesEvento(tenantAtual);
