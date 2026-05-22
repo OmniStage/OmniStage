@@ -1301,52 +1301,67 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           <div
             className="relatorios-composicao-card"
             style={{
+              gridColumn: "1 / -1",
               background: "#fff",
               border: "1px solid #e2e8f0",
-              borderRadius: 30,
-              padding: 30,
+              borderRadius: 34,
+              padding: 34,
               boxShadow: "0 18px 42px rgba(15,23,42,.05)",
+              overflow: "hidden",
             }}
           >
             <div
               style={{
-                width: 54,
-                height: 54,
-                borderRadius: 18,
-                background: "#ede9fe",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 22,
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.15fr) minmax(260px, .85fr)",
+                gap: 28,
+                alignItems: "stretch",
               }}
-            >
-              <span
-                style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 999,
-                  background: "#6d28d9",
-                }}
-              />
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 20,
-                alignItems: "flex-start",
-                flexWrap: "wrap",
-              }}
+              className="relatorios-composicao-hero"
             >
               <div>
-                <h3
+                <div
+                  style={{
+                    width: 62,
+                    height: 62,
+                    borderRadius: 22,
+                    background: "#ede9fe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 13,
+                      height: 13,
+                      borderRadius: 999,
+                      background: "#6d28d9",
+                    }}
+                  />
+                </div>
+
+                <p
                   style={{
                     margin: 0,
+                    color: "#6d28d9",
+                    fontSize: 12,
+                    fontWeight: 950,
+                    letterSpacing: ".14em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Composição
+                </p>
+
+                <h3
+                  style={{
+                    margin: "10px 0 0",
                     color: "#0f172a",
-                    fontSize: 30,
-                    lineHeight: 1,
-                    letterSpacing: "-.05em",
+                    fontSize: "clamp(34px, 4vw, 50px)",
+                    lineHeight: 0.96,
+                    letterSpacing: "-.07em",
                     fontWeight: 950,
                   }}
                 >
@@ -1355,29 +1370,201 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
                 <p
                   style={{
-                    margin: "10px 0 0",
+                    margin: "16px 0 0",
                     color: "#64748b",
-                    fontSize: 16,
-                    lineHeight: 1.35,
+                    fontSize: 18,
+                    lineHeight: 1.45,
+                    maxWidth: 680,
                   }}
                 >
-                  Leitura dos cartões, responsáveis, grupos/famílias e comunicação.
+                  Leitura executiva dos cartões, responsáveis, grupos/famílias, tokens e comunicação.
                 </p>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    marginTop: 22,
+                  }}
+                >
+                  {[
+                    `${taxaCartoesComToken}% com token`,
+                    `${taxaComunicacao}% recebem comunicação`,
+                    `${gruposFamilias} grupos/famílias`,
+                  ].map((item) => (
+                    <span
+                      key={item}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        borderRadius: 999,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        padding: "9px 13px",
+                        color: "#64748b",
+                        fontSize: 13,
+                        fontWeight: 900,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div
                 style={{
-                  borderRadius: 999,
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  padding: "10px 14px",
-                  color: "#64748b",
-                  fontSize: 13,
-                  fontWeight: 900,
-                  whiteSpace: "nowrap",
+                  borderRadius: 30,
+                  padding: 24,
+                  background:
+                    "linear-gradient(135deg, #0f172a 0%, #1e1b4b 58%, #6d28d9 100%)",
+                  color: "#fff",
+                  position: "relative",
+                  overflow: "hidden",
+                  minHeight: 260,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
                 }}
               >
-                {taxaCartoesComToken}% com token
+                <div
+                  style={{
+                    position: "absolute",
+                    width: 180,
+                    height: 180,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,.09)",
+                    right: -60,
+                    top: -70,
+                  }}
+                />
+
+                <div style={{ position: "relative", zIndex: 1 }}>
+                  <span
+                    style={{
+                      display: "block",
+                      color: "#c4b5fd",
+                      fontSize: 12,
+                      fontWeight: 950,
+                      letterSpacing: ".12em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Cartões ativos
+                  </span>
+
+                  <strong
+                    style={{
+                      display: "block",
+                      marginTop: 14,
+                      color: "#fff",
+                      fontSize: 58,
+                      lineHeight: .9,
+                      letterSpacing: "-.07em",
+                      fontWeight: 950,
+                    }}
+                  >
+                    {cartoesComToken}
+                  </strong>
+
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 10,
+                      color: "#ddd6fe",
+                      fontSize: 14,
+                      fontWeight: 800,
+                    }}
+                  >
+                    de {totalConvidados} convidados com token
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    marginTop: 22,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: 12,
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,.14)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${taxaCartoesComToken}%`,
+                        height: "100%",
+                        borderRadius: 999,
+                        background:
+                          "linear-gradient(90deg, #a78bfa 0%, #c4b5fd 100%)",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                      marginTop: 18,
+                    }}
+                  >
+                    <div>
+                      <strong
+                        style={{
+                          display: "block",
+                          color: "#fff",
+                          fontSize: 22,
+                          fontWeight: 950,
+                        }}
+                      >
+                        {contatosPrincipais}
+                      </strong>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 3,
+                          color: "#ddd6fe",
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        contatos principais
+                      </span>
+                    </div>
+
+                    <div>
+                      <strong
+                        style={{
+                          display: "block",
+                          color: "#fff",
+                          fontSize: 22,
+                          fontWeight: 950,
+                        }}
+                      >
+                        {mediaConvidadosPorContato}
+                      </strong>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 3,
+                          color: "#ddd6fe",
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        média por contato
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1385,35 +1572,35 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               className="relatorios-composicao-kpis"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: 14,
                 marginTop: 26,
               }}
             >
               {[
-                { value: totalConvidados, label: "total convidados", color: "#0f172a" },
-                { value: adultos, label: `adultos · ${taxaAdultos}%`, color: "#334155" },
-                { value: criancas, label: `crianças · ${taxaCriancas}%`, color: "#6d28d9" },
-                { value: criancasDesacompanhadas, label: "crianças desacompanhadas", color: "#db2777" },
+                { value: totalConvidados, label: "Total convidados", hint: "base geral do evento", color: "#0f172a", soft: "#f8fafc" },
+                { value: adultos, label: "Adultos", hint: `${taxaAdultos}% da lista`, color: "#334155", soft: "#f8fafc" },
+                { value: criancas, label: "Crianças", hint: `${taxaCriancas}% da lista`, color: "#6d28d9", soft: "#f5f3ff" },
+                { value: criancasDesacompanhadas, label: "Crianças desacompanhadas", hint: "via responsável", color: "#db2777", soft: "#fdf2f8" },
               ].map((item) => (
                 <div
                   key={item.label}
                   style={{
-                    borderRadius: 22,
-                    background: "#f8fafc",
+                    borderRadius: 24,
+                    background: item.soft,
                     border: "1px solid #e2e8f0",
-                    padding: 16,
-                    minHeight: 112,
+                    padding: 20,
+                    minHeight: 134,
                   }}
                 >
                   <strong
                     style={{
                       display: "block",
                       color: item.color,
-                      fontSize: 30,
+                      fontSize: 38,
                       lineHeight: 1,
                       fontWeight: 950,
-                      letterSpacing: "-.05em",
+                      letterSpacing: "-.06em",
                     }}
                   >
                     {item.value}
@@ -1422,15 +1609,28 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <span
                     style={{
                       display: "block",
-                      marginTop: 10,
-                      color: "#64748b",
-                      fontSize: 13,
+                      marginTop: 12,
+                      color: "#0f172a",
+                      fontSize: 15,
                       lineHeight: 1.2,
-                      fontWeight: 850,
+                      fontWeight: 900,
                     }}
                   >
                     {item.label}
                   </span>
+
+                  <small
+                    style={{
+                      display: "block",
+                      marginTop: 6,
+                      color: "#64748b",
+                      fontSize: 12,
+                      lineHeight: 1.25,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {item.hint}
+                  </small>
                 </div>
               ))}
             </div>
@@ -1438,83 +1638,191 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <div
               className="relatorios-composicao-groups"
               style={{
-                marginTop: 18,
+                marginTop: 16,
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: 16,
               }}
             >
               <div
                 style={{
-                  borderRadius: 24,
+                  borderRadius: 28,
                   background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
                   border: "1px solid #e2e8f0",
-                  padding: 18,
+                  padding: 22,
                 }}
               >
-                <strong
+                <div
                   style={{
-                    display: "block",
-                    color: "#0f172a",
-                    fontSize: 16,
-                    fontWeight: 950,
-                    marginBottom: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    marginBottom: 18,
                   }}
                 >
-                  Cartões e grupos
-                </strong>
+                  <strong
+                    style={{
+                      display: "block",
+                      color: "#0f172a",
+                      fontSize: 20,
+                      lineHeight: 1.05,
+                      letterSpacing: "-.04em",
+                      fontWeight: 950,
+                    }}
+                  >
+                    Cartões e grupos
+                  </strong>
+
+                  <span
+                    style={{
+                      borderRadius: 999,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      padding: "7px 10px",
+                      color: "#64748b",
+                      fontSize: 12,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {gruposFamilias} grupos
+                  </span>
+                </div>
 
                 <div
                   className="relatorios-composicao-subgrid"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                     gap: 14,
                   }}
                 >
-                  <Metric value={contatosPrincipais} label="contatos principais" />
-                  <Metric value={mediaConvidadosPorContato} label="média por contato" />
-                  <Metric value={convitesIndividuais} label="convites individuais" />
-                  <Metric value={convidadosEmGrupo} label="convidados em grupo" />
-                  <Metric value={gruposFamilias} label="grupos/famílias" />
-                  <Metric value={cartoesComToken} label="cartões com token" />
+                  {[
+                    { value: convitesIndividuais, label: "convites individuais" },
+                    { value: convidadosEmGrupo, label: "convidados em grupo" },
+                    { value: adultosEmGrupo, label: "adultos em grupo" },
+                    { value: criancasEmGrupo, label: "crianças em grupo" },
+                    { value: cartoesComToken, label: "cartões com token" },
+                    { value: cartoesSemToken, label: "sem token" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <strong
+                        style={{
+                          display: "block",
+                          color: "#64748b",
+                          fontSize: 24,
+                          lineHeight: 1,
+                          fontWeight: 950,
+                          letterSpacing: "-.04em",
+                        }}
+                      >
+                        {item.value}
+                      </strong>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 6,
+                          color: "#64748b",
+                          fontSize: 12,
+                          lineHeight: 1.25,
+                          fontWeight: 850,
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div
                 style={{
-                  borderRadius: 24,
+                  borderRadius: 28,
                   background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)",
                   border: "1px solid #e2e8f0",
-                  padding: 18,
+                  padding: 22,
                 }}
               >
-                <strong
+                <div
                   style={{
-                    display: "block",
-                    color: "#0f172a",
-                    fontSize: 16,
-                    fontWeight: 950,
-                    marginBottom: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    marginBottom: 18,
                   }}
                 >
-                  Comunicação e perfil
-                </strong>
+                  <strong
+                    style={{
+                      display: "block",
+                      color: "#0f172a",
+                      fontSize: 20,
+                      lineHeight: 1.05,
+                      letterSpacing: "-.04em",
+                      fontWeight: 950,
+                    }}
+                  >
+                    Comunicação
+                  </strong>
+
+                  <span
+                    style={{
+                      borderRadius: 999,
+                      background: "#fff",
+                      border: "1px solid #dcfce7",
+                      padding: "7px 10px",
+                      color: "#166534",
+                      fontSize: 12,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {taxaComunicacao}% cobertura
+                  </span>
+                </div>
 
                 <div
                   className="relatorios-composicao-subgrid"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                     gap: 14,
                   }}
                 >
-                  <Metric value={`${taxaComunicacao}%`} label="taxa comunicação" />
-                  <Metric value={recebemComunicacao} label="recebem comunicação" />
-                  <Metric value={naoRecebemComunicacao} label="não recebem" />
-                  <Metric value={cartoesSemToken} label="sem token" />
-                  <Metric value={adultosEmGrupo} label="adultos em grupo" />
-                  <Metric value={criancasEmGrupo} label="crianças em grupo" />
+                  {[
+                    { value: recebemComunicacao, label: "recebem comunicação" },
+                    { value: naoRecebemComunicacao, label: "não recebem" },
+                    { value: contatosPrincipais, label: "contatos principais" },
+                    { value: mediaConvidadosPorContato, label: "média por contato" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <strong
+                        style={{
+                          display: "block",
+                          color: "#64748b",
+                          fontSize: 24,
+                          lineHeight: 1,
+                          fontWeight: 950,
+                          letterSpacing: "-.04em",
+                        }}
+                      >
+                        {item.value}
+                      </strong>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 6,
+                          color: "#64748b",
+                          fontSize: 12,
+                          lineHeight: 1.25,
+                          fontWeight: 850,
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
