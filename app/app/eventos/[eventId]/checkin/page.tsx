@@ -1879,21 +1879,21 @@ export default function CheckinEventoPage({
         .label-modal { width:min(560px,100%); background:#fff; border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 30px 90px rgba(15,23,42,.28); display:grid; gap:16px; }
         .label-modal-title { margin:0; color:#0f172a; font-size:28px; font-weight:950; letter-spacing:-.04em; }
         .label-modal-sub { color:#64748b; font-weight:800; line-height:1.4; }
-        .print-label-sheet { background:#fff; border:1px solid #e2e8f0; border-radius:22px; padding:18px; display:grid; gap:12px; }
+        .print-label-sheet { background:#fff; border:1px solid #e2e8f0; border-radius:22px; padding:20px; display:grid; gap:10px; justify-items:center; align-items:center; text-align:center; margin:0 auto; }
         .print-label-sheet.pequena { max-width:320px; }
         .print-label-sheet.media { max-width:420px; }
         .print-label-sheet.grande { max-width:520px; }
-        .print-label-kicker { color:#64748b; font-size:11px; font-weight:950; letter-spacing:.1em; text-transform:uppercase; }
-        .print-label-name { color:#0f172a; font-size:24px; line-height:1.05; font-weight:950; letter-spacing:-.04em; }
-        .print-label-meta { color:#334155; font-weight:850; }
-        .print-label-code { color:#7c3aed; font-size:18px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-weight:950; }
-        .print-label-qr { width:142px; height:142px; object-fit:contain; border:1px solid #e2e8f0; border-radius:14px; padding:8px; background:#fff; }
+        .print-label-kicker { color:#64748b; font-size:11px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; text-align:center; }
+        .print-label-name { color:#0f172a; font-size:28px; line-height:1.05; font-weight:950; letter-spacing:-.04em; text-align:center; word-break:break-word; }
+        .print-label-meta { color:#334155; font-weight:850; text-align:center; }
+        .print-label-code { color:#7c3aed; font-size:22px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-weight:950; text-align:center; }
+        .print-label-qr { width:160px; height:160px; object-fit:contain; border:1px solid #e2e8f0; border-radius:14px; padding:10px; background:#fff; margin:0 auto; display:block; }
         .print-label-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
         @media print {
           body * { visibility:hidden!important; }
           .print-label-sheet, .print-label-sheet * { visibility:visible!important; }
-          .print-label-sheet { position:fixed!important; left:0!important; top:0!important; width:100%!important; max-width:none!important; border:0!important; border-radius:0!important; box-shadow:none!important; }
-          @page { margin:8mm; }
+          .print-label-sheet { position:fixed!important; left:50%!important; top:0!important; transform:translateX(-50%)!important; width:80mm!important; max-width:80mm!important; border:0!important; border-radius:0!important; box-shadow:none!important; margin:0 auto!important; }
+          @page { margin:6mm; }
         }
         @media (max-width:1180px){ .checkin-hero-split,.checkin-operation-card,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
         @media (max-width:640px){ .checkin-page{padding:16px}.checkin-brand-card{min-height:160px;padding:18px}.checkin-brand-card-inner{min-height:124px}.checkin-operation-card{padding:20px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:98px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
