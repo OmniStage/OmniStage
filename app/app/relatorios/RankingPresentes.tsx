@@ -127,8 +127,8 @@ function RankingCard({
       </button>
 
       <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
-        {visibleItems.length ? (
-          visibleItems.map((item, index) => (
+        {(open ? items.slice(0, 10) : items.slice(0, 2)).length ? (
+         (open ? items.slice(0, 10) : items.slice(0, 2)).map((item, index) => (
               <div
                 key={item.id || item.nome}
                 style={{
