@@ -672,155 +672,116 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     isCrianca(c)
   ).length;
 
+
   const contatosPrincipaisNoShow = noShowList.filter(
     (c: any) => c.contato_principal === true
   ).length;
 
-  const noShowGruposMap = new Map();
+  const noShowVip = noShowList.filter((c: any) => {
+    const vip = normalizeText(c.vip);
+    const categoria = normalizeText(c.categoria);
+
+    return (
+      c.vip === true ||
+      vip === "sim" ||
+      vip === "s" ||
+      vip === "true" ||
+      vip === "1" ||
+      vip === "vip" ||
+      categoria === "vip"
+    );
+  }).length;
+
+  const noShowIndividuais = noShowList.filter((c: any) => {
+    const tipoConvite = normalizeText(c.tipo_convite);
+    const grupoId = String(c.grupo_id || "").trim();
+    const grupo = String(c.grupo || "").trim();
+
+    return tipoConvite === "individual" || (!grupoId && !grupo);
+  }).length;
+
+  const noShowEmGrupo = Math.max(noShow - noShowIndividuais, 0);
+
+  const gruposNoShowMap = new Map();
 
   noShowList.forEach((c: any) => {
-    const grupoKey = String(c.grupo_id || c.grupo || "").trim();
-    if (!grupoKey) return;
+    const grupoKey = String(c.grupo_id || c.grupo || c.contato_principal_id || c.telefone || c.id || "").trim();
+    const grupoNome =
+      String(c.grupo || c.nome_grupo || c.familia || "").trim() ||
+      `Família / grupo de ${c.nome || "convidado"}`;
 
-    const nomeGrupo =
-      String(c.grupo || c.familia || c.nome_grupo || "").trim() ||
-      `Grupo ${grupoKey}`;
-
-    const atual = noShowGruposMap.get(grupoKey) || {
+    const atual = gruposNoShowMap.get(grupoKey) || {
       id: grupoKey,
-      nome: nomeGrupo,
+      nome: grupoNome,
       total: 0,
       adultos: 0,
       criancas: 0,
-      contatoPrincipal: 0,
-      vip: 0,
+      principais: 0,
       convidados: [],
     };
 
     atual.total += 1;
-    atual.adultos += isCrianca(c) ? 0 : 1;
-    atual.criancas += isCrianca(c) ? 1 : 0;
-    atual.contatoPrincipal += c.contato_principal === true ? 1 : 0;
-    atual.vip +=
-      c.vip === true ||
-      normalizeText(c.vip) === "sim" ||
-      normalizeText(c.categoria) === "vip"
-        ? 1
-        : 0;
+    if (isCrianca(c)) atual.criancas += 1;
+    else atual.adultos += 1;
+    if (c.contato_principal === true) atual.principais += 1;
     atual.convidados.push(c.nome || "Convidado");
 
-    noShowGruposMap.set(grupoKey, atual);
+    gruposNoShowMap.set(grupoKey, atual);
   });
 
-  const gruposNoShow = Array.from(noShowGruposMap.values()).sort(
-    (a: any, b: any) => b.total - a.total,
-  );
-
-  const gruposFamiliasNoShow = gruposNoShow.length;
-
-  const rankingNoShow = [...noShowList]
-    .map((c: any) => ({
-      id: c.id || c.token || c.nome,
-      nome: c.nome || "Convidado",
-      token: c.token || "-",
-      grupo: String(c.grupo || c.grupo_id || "").trim(),
-      tipo: isCrianca(c) ? "Criança" : "Adulto",
-      contatoPrincipal: c.contato_principal === true,
-      vip:
-        c.vip === true ||
-        normalizeText(c.vip) === "sim" ||
-        normalizeText(c.categoria) === "vip",
-      categoria: c.categoria || c.tipo_convite || "-",
-    }))
-    .sort((a: any, b: any) => {
-      if (a.vip !== b.vip) return a.vip ? -1 : 1;
-      if (a.contatoPrincipal !== b.contatoPrincipal) {
-        return a.contatoPrincipal ? -1 : 1;
-      }
-      return String(a.nome).localeCompare(String(b.nome), "pt-BR");
-    })
+  const rankingNoShowFamilias = Array.from(gruposNoShowMap.values())
+    .sort((a: any, b: any) => b.total - a.total)
     .slice(0, 10);
 
-  const noShowVip = noShowList.filter(
-    (c: any) =>
-      c.vip === true ||
-      normalizeText(c.vip) === "sim" ||
-      normalizeText(c.categoria) === "vip"
-  ).length;
+  const gruposNoShow = rankingNoShowFamilias.length;
 
-
-  const noShowIndividuais = noShowList.filter(
-    (c: any) => normalizeText(c.tipo_convite) === "individual"
-  ).length;
-
-  const noShowEmGrupo = Math.max(noShow - noShowIndividuais, 0);
-
-  const presencaGruposMap = new Map();
-
-  confirmadosList.forEach((c: any) => {
-    const grupoKey = String(c.grupo_id || c.grupo || "").trim();
-    if (!grupoKey) return;
-
-    const atual = presencaGruposMap.get(grupoKey) || {
-      id: grupoKey,
-      total: 0,
-      entradas: 0,
-    };
-
-    atual.total += 1;
-    atual.entradas += entrou(c) ? 1 : 0;
-
-    presencaGruposMap.set(grupoKey, atual);
-  });
-
-  const gruposConfirmados = Array.from(presencaGruposMap.values());
-  const gruposComEntrada = gruposConfirmados.filter((grupo: any) => grupo.entradas > 0).length;
-  const taxaPresencaGrupos = gruposConfirmados.length
-    ? Math.round((gruposComEntrada / gruposConfirmados.length) * 100)
+  const taxaPresencaFamilias = gruposFamilias
+    ? Math.round(((gruposFamilias - gruposNoShow) / gruposFamilias) * 100)
     : 0;
 
-  const taxaPresencaAdultos = adultosConfirmados
-    ? Math.round((adultosConfirmadosEntraram / adultosConfirmados) * 100)
+  const taxaNoShowAdultos = adultosConfirmados
+    ? Math.round((adultosPendentesEntrada / adultosConfirmados) * 100)
     : 0;
 
-  const taxaPresencaCriancas = criancasConfirmadas
-    ? Math.round((criancasConfirmadasEntraram / criancasConfirmadas) * 100)
+  const taxaNoShowCriancas = criancasConfirmadas
+    ? Math.round((criancasPendentesEntrada / criancasConfirmadas) * 100)
     : 0;
 
-  const valorEstimadoNoShow = noShowList.reduce((acc: number, c: any) => {
-    const valor =
-      Number(c.ticket_estimado || 0) ||
-      Number(c.valor_ticket || 0) ||
-      Number(c.valor_estimado || 0) ||
-      Number(c.valor_buffet || 0) ||
-      0;
+  const noShowPorTipoConvite = [
+    { label: "Individuais", total: noShowIndividuais },
+    { label: "Grupos/famílias", total: noShowEmGrupo },
+  ];
 
-    return acc + valor;
-  }, 0);
+  const noShowMaxTipo = Math.max(...noShowPorTipoConvite.map((item) => item.total), 1);
 
-  const impactoOperacionalTexto =
-    taxaNoShow <= 10
-      ? "Baixo impacto operacional"
-      : taxaNoShow <= 18
-      ? "Impacto operacional moderado"
-      : "Atenção: no-show acima do ideal";
-
-  const statusNoShowTexto =
+  const noShowStatusTexto =
     taxaNoShow <= 10
       ? "Excelente taxa de comparecimento"
       : taxaNoShow <= 18
-      ? "No-show dentro de uma faixa controlável"
-      : "No-show exige análise operacional";
+        ? "No-show dentro de uma faixa controlada"
+        : "No-show acima do ideal para revisar operação";
 
-  const previsaoOperacionalTexto =
-    noShow === 0
-      ? "Sem ausência confirmada até o momento."
-      : `${noShow} convidado(s) confirmado(s) ainda não realizaram entrada.`;
+  const noShowImpactoTexto =
+    taxaNoShow <= 10
+      ? "Baixo impacto operacional"
+      : taxaNoShow <= 18
+        ? "Impacto moderado em lugares, buffet e bebidas"
+        : "Impacto relevante em buffet, mesas e previsão operacional";
 
-  const ticketEstimadoTexto =
-    valorEstimadoNoShow > 0
-      ? formatCurrencyBR(valorEstimadoNoShow)
-      : "não configurado";
+  const noShowComparativoTexto =
+    adultosPendentesEntrada > criancasPendentesEntrada
+      ? "Adultos concentram a maior parte das ausências confirmadas."
+      : criancasPendentesEntrada > adultosPendentesEntrada
+        ? "Crianças concentram a maior parte das ausências confirmadas."
+        : "Adultos e crianças tiveram ausência equilibrada.";
+
+  const noShowInsights = [
+    `${taxaPresenca}% dos confirmados realizaram entrada no evento.`,
+    `${noShow} convidado(s) confirmado(s) ainda não realizaram check-in.`,
+    `${gruposNoShow} grupo(s)/família(s) tiveram ausência registrada.`,
+    `${taxaPresencaFamilias}% dos grupos/famílias previstos não aparecem no ranking de no-show.`,
+    noShowComparativoTexto,
+  ];
 
   const enviosRegistrados = envios.length;
   const errosEnvio = envios.filter((e: any) => e.status === "erro").length;
@@ -1998,753 +1959,23 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
             gap: 24,
           }}
-<div
-            className="relatorios-noshow-intelligence"
-            style={{
-              gridColumn: "1 / -1",
-              background:
-                "linear-gradient(135deg, #fff7ed 0%, #ffffff 46%, #f8fafc 100%)",
-              border: "1px solid #fed7aa",
-              borderRadius: 34,
-              padding: 32,
-              boxShadow: "0 18px 42px rgba(15,23,42,.06)",
-              overflow: "hidden",
-              position: "relative",
-            }}
+        >
+          <DetailCard
+            title="Pico de entrada"
+            subtitle="Movimento por horário"
+            color="#16a34a"
+            soft="#dcfce7"
           >
-            <div
-              style={{
-                position: "absolute",
-                width: 240,
-                height: 240,
-                borderRadius: 999,
-                right: -90,
-                top: -90,
-                background: "rgba(234,88,12,.08)",
-              }}
-            />
-
-            <div
-              style={{
-                position: "relative",
-                zIndex: 1,
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1.15fr) minmax(300px, .85fr)",
-                gap: 26,
-                alignItems: "stretch",
-              }}
-              className="relatorios-noshow-hero"
-            >
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    color: "#ea580c",
-                    fontSize: 12,
-                    fontWeight: 950,
-                    letterSpacing: ".14em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  No-show Intelligence
-                </p>
-
-                <h3
-                  style={{
-                    margin: "10px 0 0",
-                    color: "#0f172a",
-                    fontSize: "clamp(34px, 4vw, 52px)",
-                    lineHeight: .95,
-                    letterSpacing: "-.07em",
-                    fontWeight: 950,
-                  }}
-                >
-                  {noShow} ausências confirmadas
-                </h3>
-
-                <p
-                  style={{
-                    margin: "14px 0 0",
-                    color: "#64748b",
-                    fontSize: 17,
-                    lineHeight: 1.45,
-                    maxWidth: 760,
-                  }}
-                >
-                  {statusNoShowTexto}. {previsaoOperacionalTexto}
-                </p>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                    gap: 14,
-                    marginTop: 24,
-                  }}
-                >
-                  {[
-                    { value: `${taxaNoShow}%`, label: "no-show", hint: "sobre confirmados" },
-                    { value: `${taxaPresenca}%`, label: "presença efetiva", hint: "confirmados que entraram" },
-                    { value: noShow, label: "lugares vazios", hint: "estimativa operacional" },
-                    { value: gruposFamiliasNoShow, label: "grupos/famílias", hint: "impactados" },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      style={{
-                        borderRadius: 24,
-                        background: "#fff",
-                        border: "1px solid #fed7aa",
-                        padding: 18,
-                      }}
-                    >
-                      <strong
-                        style={{
-                          display: "block",
-                          color: "#0f172a",
-                          fontSize: 34,
-                          lineHeight: 1,
-                          fontWeight: 950,
-                          letterSpacing: "-.06em",
-                        }}
-                      >
-                        {item.value}
-                      </strong>
-
-                      <span
-                        style={{
-                          display: "block",
-                          marginTop: 10,
-                          color: "#0f172a",
-                          fontSize: 14,
-                          fontWeight: 900,
-                        }}
-                      >
-                        {item.label}
-                      </span>
-
-                      <small
-                        style={{
-                          display: "block",
-                          marginTop: 5,
-                          color: "#64748b",
-                          fontSize: 12,
-                          fontWeight: 800,
-                        }}
-                      >
-                        {item.hint}
-                      </small>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div
+            <div style={{ gridColumn: "1 / -1" }}>
+              <strong
                 style={{
-                  borderRadius: 30,
-                  background: "#111827",
-                  color: "#fff",
-                  padding: 26,
-                  boxShadow: "0 20px 45px rgba(15,23,42,.18)",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  minHeight: 280,
+                  display: "block",
+                  color: "#0f172a",
+                  fontSize: 24,
+                  lineHeight: 1.12,
+                  fontWeight: 900,
+                  marginBottom: 10,
                 }}
-              >
-                <div>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      borderRadius: 999,
-                      padding: "8px 12px",
-                      background: "rgba(255,255,255,.1)",
-                      color: "#fed7aa",
-                      fontSize: 12,
-                      fontWeight: 950,
-                      letterSpacing: ".1em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Status inteligente
-                  </span>
-
-                  <h4
-                    style={{
-                      margin: "18px 0 0",
-                      color: "#fff",
-                      fontSize: 30,
-                      lineHeight: 1.05,
-                      letterSpacing: "-.05em",
-                      fontWeight: 950,
-                    }}
-                  >
-                    {impactoOperacionalTexto}
-                  </h4>
-
-                  <p
-                    style={{
-                      margin: "12px 0 0",
-                      color: "#cbd5e1",
-                      fontSize: 14,
-                      lineHeight: 1.45,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Comparativo RSVP x entrada: {confirmados} confirmados, {entradasConfirmados} entraram e {noShow} não compareceram.
-                  </p>
-                </div>
-
-                <div style={{ marginTop: 24 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      marginBottom: 10,
-                    }}
-                  >
-                    <span style={{ color: "#cbd5e1", fontSize: 13, fontWeight: 850 }}>
-                      Presença real
-                    </span>
-                    <strong style={{ color: "#fff", fontSize: 14, fontWeight: 950 }}>
-                      {taxaPresenca}%
-                    </strong>
-                  </div>
-
-                  <div
-                    style={{
-                      height: 12,
-                      borderRadius: 999,
-                      background: "rgba(255,255,255,.12)",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${taxaPresenca}%`,
-                        height: "100%",
-                        borderRadius: 999,
-                        background: "linear-gradient(90deg, #22c55e 0%, #86efac 100%)",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className="relatorios-noshow-breakdown"
-              style={{
-                position: "relative",
-                zIndex: 1,
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 14,
-                marginTop: 24,
-              }}
-            >
-              {[
-                { value: adultosPendentesEntrada, label: "adultos", hint: "confirmados sem entrada" },
-                { value: criancasPendentesEntrada, label: "crianças", hint: "confirmadas sem entrada" },
-                { value: contatosPrincipaisNoShow, label: "contatos principais", hint: "responsáveis ausentes" },
-                { value: noShowVip, label: "VIP ausentes", hint: "prioridade operacional" },
-                { value: noShowIndividuais, label: "individuais", hint: "convites individuais" },
-                { value: noShowEmGrupo, label: "em grupo", hint: "convites agrupados" },
-                { value: ticketEstimadoTexto, label: "ticket perdido", hint: "se houver valor configurado" },
-                { value: horaPico, label: "horário crítico", hint: "maior fluxo de entrada" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  style={{
-                    borderRadius: 22,
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
-                    padding: 18,
-                  }}
-                >
-                  <strong
-                    style={{
-                      display: "block",
-                      color: "#64748b",
-                      fontSize: String(item.value).includes(" às ") || String(item.value).includes("R$")
-                        ? 18
-                        : 26,
-                      lineHeight: 1.08,
-                      fontWeight: 950,
-                      letterSpacing: "-.04em",
-                    }}
-                  >
-                    {item.value}
-                  </strong>
-
-                  <span
-                    style={{
-                      display: "block",
-                      marginTop: 7,
-                      color: "#0f172a",
-                      fontSize: 13,
-                      fontWeight: 900,
-                    }}
-                  >
-                    {item.label}
-                  </span>
-
-                  <small
-                    style={{
-                      display: "block",
-                      marginTop: 4,
-                      color: "#64748b",
-                      fontSize: 12,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {item.hint}
-                  </small>
-                </div>
-              ))}
-            </div>
-
-            <div
-              className="relatorios-noshow-bottom"
-              style={{
-                position: "relative",
-                zIndex: 1,
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-                gap: 22,
-                marginTop: 24,
-              }}
-            >
-              <details
-                className="relatorios-ranking-card"
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 28,
-                  padding: 24,
-                }}
-              >
-                <summary style={{ listStyle: "none", cursor: "pointer" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 16,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div>
-                      <h4
-                        style={{
-                          margin: 0,
-                          color: "#0f172a",
-                          fontSize: 24,
-                          lineHeight: 1,
-                          letterSpacing: "-.04em",
-                          fontWeight: 950,
-                        }}
-                      >
-                        Top famílias ausentes
-                      </h4>
-
-                      <p
-                        style={{
-                          margin: "8px 0 0",
-                          color: "#64748b",
-                          fontSize: 14,
-                          lineHeight: 1.35,
-                          fontWeight: 750,
-                        }}
-                      >
-                        Ranking expansível por grupos/famílias impactadas
-                      </p>
-                    </div>
-
-                    <span
-                      className="relatorios-ranking-arrow"
-                      aria-hidden="true"
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 999,
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
-                        color: "#0f172a",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 21,
-                        fontWeight: 950,
-                        flexShrink: 0,
-                      }}
-                    >
-                      ↓
-                    </span>
-                  </div>
-
-                  <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
-                    {gruposNoShow.length ? (
-                      gruposNoShow.slice(0, 2).map((item: any, index: number) => (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "42px 1fr auto",
-                            gap: 13,
-                            alignItems: "center",
-                            padding: "14px 15px",
-                            borderRadius: 18,
-                            background: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 42,
-                              height: 42,
-                              borderRadius: 999,
-                              background: index === 0 ? "#fed7aa" : "#ffedd5",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#9a3412",
-                              fontWeight: 950,
-                            }}
-                          >
-                            {index + 1}
-                          </div>
-
-                          <div>
-                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, fontWeight: 950 }}>
-                              {item.nome}
-                            </strong>
-                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 800 }}>
-                              {item.adultos} adulto(s) • {item.criancas} criança(s)
-                            </small>
-                          </div>
-
-                          <strong style={{ color: "#ea580c", fontSize: 14, fontWeight: 950, whiteSpace: "nowrap" }}>
-                            {item.total} aus.
-                          </strong>
-                        </div>
-                      ))
-                    ) : (
-                      <div
-                        style={{
-                          padding: 18,
-                          borderRadius: 18,
-                          background: "#f8fafc",
-                          border: "1px solid #e2e8f0",
-                          color: "#64748b",
-                          fontSize: 14,
-                          fontWeight: 800,
-                        }}
-                      >
-                        Nenhuma família/grupo ausente encontrado.
-                      </div>
-                    )}
-                  </div>
-                </summary>
-
-                {gruposNoShow.length > 2 && (
-                  <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                    {gruposNoShow.slice(2, 10).map((item: any, index: number) => {
-                      const position = index + 3;
-
-                      return (
-                        <div
-                          key={item.id}
-                          className="relatorios-ranking-extra"
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "42px 1fr auto",
-                            gap: 13,
-                            alignItems: "center",
-                            padding: "14px 15px",
-                            borderRadius: 18,
-                            background: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 42,
-                              height: 42,
-                              borderRadius: 999,
-                              background: "#ede9fe",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#0f172a",
-                              fontWeight: 950,
-                            }}
-                          >
-                            {position}
-                          </div>
-
-                          <div>
-                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, fontWeight: 950 }}>
-                              {item.nome}
-                            </strong>
-                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 800 }}>
-                              {item.adultos} adulto(s) • {item.criancas} criança(s)
-                            </small>
-                          </div>
-
-                          <strong style={{ color: "#ea580c", fontSize: 14, fontWeight: 950, whiteSpace: "nowrap" }}>
-                            {item.total} aus.
-                          </strong>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </details>
-
-              <details
-                className="relatorios-ranking-card"
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 28,
-                  padding: 24,
-                }}
-              >
-                <summary style={{ listStyle: "none", cursor: "pointer" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 16,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div>
-                      <h4
-                        style={{
-                          margin: 0,
-                          color: "#0f172a",
-                          fontSize: 24,
-                          lineHeight: 1,
-                          letterSpacing: "-.04em",
-                          fontWeight: 950,
-                        }}
-                      >
-                        Ranking de no-show
-                      </h4>
-
-                      <p
-                        style={{
-                          margin: "8px 0 0",
-                          color: "#64748b",
-                          fontSize: 14,
-                          lineHeight: 1.35,
-                          fontWeight: 750,
-                        }}
-                      >
-                        VIPs e contatos principais aparecem primeiro
-                      </p>
-                    </div>
-
-                    <span
-                      className="relatorios-ranking-arrow"
-                      aria-hidden="true"
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 999,
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
-                        color: "#0f172a",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 21,
-                        fontWeight: 950,
-                        flexShrink: 0,
-                      }}
-                    >
-                      ↓
-                    </span>
-                  </div>
-
-                  <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
-                    {rankingNoShow.length ? (
-                      rankingNoShow.slice(0, 2).map((item: any, index: number) => (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "42px 1fr auto",
-                            gap: 13,
-                            alignItems: "center",
-                            padding: "14px 15px",
-                            borderRadius: 18,
-                            background: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 42,
-                              height: 42,
-                              borderRadius: 999,
-                              background: item.vip ? "#fef3c7" : index === 0 ? "#ffedd5" : "#f1f5f9",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#0f172a",
-                              fontWeight: 950,
-                            }}
-                          >
-                            {index + 1}
-                          </div>
-
-                          <div>
-                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, fontWeight: 950 }}>
-                              {item.nome}
-                            </strong>
-                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 800 }}>
-                              {item.tipo} • Token: {item.token}
-                            </small>
-                          </div>
-
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                            {item.vip && (
-                              <span style={{ borderRadius: 999, background: "#fef3c7", color: "#92400e", padding: "6px 9px", fontSize: 11, fontWeight: 950 }}>
-                                VIP
-                              </span>
-                            )}
-                            {item.contatoPrincipal && (
-                              <span style={{ borderRadius: 999, background: "#ede9fe", color: "#5b21b6", padding: "6px 9px", fontSize: 11, fontWeight: 950 }}>
-                                principal
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div
-                        style={{
-                          padding: 18,
-                          borderRadius: 18,
-                          background: "#f8fafc",
-                          border: "1px solid #e2e8f0",
-                          color: "#64748b",
-                          fontSize: 14,
-                          fontWeight: 800,
-                        }}
-                      >
-                        Nenhum no-show encontrado.
-                      </div>
-                    )}
-                  </div>
-                </summary>
-
-                {rankingNoShow.length > 2 && (
-                  <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                    {rankingNoShow.slice(2, 10).map((item: any, index: number) => {
-                      const position = index + 3;
-
-                      return (
-                        <div
-                          key={item.id}
-                          className="relatorios-ranking-extra"
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "42px 1fr auto",
-                            gap: 13,
-                            alignItems: "center",
-                            padding: "14px 15px",
-                            borderRadius: 18,
-                            background: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 42,
-                              height: 42,
-                              borderRadius: 999,
-                              background: item.vip ? "#fef3c7" : "#ede9fe",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#0f172a",
-                              fontWeight: 950,
-                            }}
-                          >
-                            {position}
-                          </div>
-
-                          <div>
-                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, fontWeight: 950 }}>
-                              {item.nome}
-                            </strong>
-                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 800 }}>
-                              {item.tipo} • Token: {item.token}
-                            </small>
-                          </div>
-
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                            {item.vip && (
-                              <span style={{ borderRadius: 999, background: "#fef3c7", color: "#92400e", padding: "6px 9px", fontSize: 11, fontWeight: 950 }}>
-                                VIP
-                              </span>
-                            )}
-                            {item.contatoPrincipal && (
-                              <span style={{ borderRadius: 999, background: "#ede9fe", color: "#5b21b6", padding: "6px 9px", fontSize: 11, fontWeight: 950 }}>
-                                principal
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </details>
-            </div>
-
-            <div
-              className="relatorios-noshow-insights"
-              style={{
-                position: "relative",
-                zIndex: 1,
-                marginTop: 22,
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 14,
-              }}
-            >
-              {[
-                `${taxaPresencaGrupos}% dos grupos familiares tiveram entrada registrada`,
-                `Adultos: ${taxaPresencaAdultos}% presença • Crianças: ${taxaPresencaCriancas}% presença`,
-                noShowIndividuais > noShowEmGrupo
-                  ? "Maior no-show concentrado em convites individuais"
-                  : "Maior no-show concentrado em grupos/famílias",
-                `${noShow} convidado(s) confirmados ainda não realizaram entrada`,
-              ].map((item) => (
-                <div
-                  key={item}
-                  style={{
-                    borderRadius: 20,
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
-                    padding: 16,
-                    color: "#0f172a",
-                    fontSize: 13,
-                    lineHeight: 1.35,
-                    fontWeight: 850,
-                  }}
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-
-     }}
               >
                 Pico: {horaPico}
               </strong>
@@ -2852,17 +2083,547 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             />
           </DetailCard>
 
-          <DetailCard
-            title="No-show"
-            subtitle="Confirmados que ainda não entraram"
-            color="#ea580c"
-            soft="#fff7ed"
+          <div
+            className="relatorios-noshow-intelligence"
+            style={{
+              gridColumn: "1 / -1",
+              background: "linear-gradient(135deg, #fff7ed 0%, #ffffff 48%, #f8fafc 100%)",
+              border: "1px solid #fed7aa",
+              borderRadius: 34,
+              padding: 32,
+              boxShadow: "0 18px 42px rgba(15,23,42,.06)",
+              overflow: "hidden",
+            }}
           >
-            <Metric value={noShow} label="confirmados não entraram" />
-            <Metric value={`${taxaNoShow}%`} label="percentual no-show" />
-            <Metric value={adultosPendentesEntrada} label="adultos pendentes" />
-            <Metric value={criancasPendentesEntrada} label="crianças pendentes" />
-          </DetailCard>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 22,
+                flexWrap: "wrap",
+                marginBottom: 26,
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#ea580c",
+                    fontSize: 12,
+                    fontWeight: 950,
+                    letterSpacing: ".14em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  No-show Intelligence
+                </p>
+
+                <h2
+                  style={{
+                    margin: "10px 0 0",
+                    color: "#0f172a",
+                    fontSize: "clamp(34px, 4vw, 52px)",
+                    lineHeight: .96,
+                    letterSpacing: "-.07em",
+                    fontWeight: 950,
+                  }}
+                >
+                  Leitura executiva das ausências
+                </h2>
+
+                <p
+                  style={{
+                    margin: "14px 0 0",
+                    color: "#64748b",
+                    fontSize: 17,
+                    lineHeight: 1.45,
+                    maxWidth: 760,
+                  }}
+                >
+                  Confirmados que não realizaram entrada, impacto em grupos/famílias e previsão operacional para buffet, mesas e lugares.
+                </p>
+              </div>
+
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  borderRadius: 999,
+                  background: taxaNoShow <= 10 ? "#dcfce7" : taxaNoShow <= 18 ? "#fef3c7" : "#fee2e2",
+                  color: taxaNoShow <= 10 ? "#166534" : taxaNoShow <= 18 ? "#92400e" : "#991b1b",
+                  padding: "10px 14px",
+                  fontSize: 13,
+                  fontWeight: 950,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {noShowStatusTexto}
+              </span>
+            </div>
+
+            <div
+              className="relatorios-noshow-kpis"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gap: 14,
+                marginBottom: 22,
+              }}
+            >
+              {[
+                { value: noShow, label: "ausências", hint: "confirmados sem entrada", color: "#ea580c", soft: "#fff7ed" },
+                { value: `${taxaNoShow}%`, label: "no-show", hint: `${taxaPresenca}% presença efetiva`, color: "#9a3412", soft: "#ffedd5" },
+                { value: adultosPendentesEntrada, label: "adultos", hint: `${taxaNoShowAdultos}% dos adultos confirmados`, color: "#334155", soft: "#f8fafc" },
+                { value: criancasPendentesEntrada, label: "crianças", hint: `${taxaNoShowCriancas}% das crianças confirmadas`, color: "#db2777", soft: "#fdf2f8" },
+                { value: gruposNoShow, label: "grupos/famílias", hint: "impactados no ranking", color: "#6d28d9", soft: "#f5f3ff" },
+                { value: contatosPrincipaisNoShow, label: "contatos principais", hint: "responsáveis ausentes", color: "#0f172a", soft: "#f8fafc" },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    borderRadius: 24,
+                    background: item.soft,
+                    border: "1px solid #e2e8f0",
+                    padding: 18,
+                    minHeight: 128,
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: "block",
+                      color: item.color,
+                      fontSize: 36,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                      fontWeight: 950,
+                    }}
+                  >
+                    {item.value}
+                  </strong>
+
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 10,
+                      color: "#0f172a",
+                      fontSize: 14,
+                      lineHeight: 1.2,
+                      fontWeight: 900,
+                    }}
+                  >
+                    {item.label}
+                  </span>
+
+                  <small
+                    style={{
+                      display: "block",
+                      marginTop: 6,
+                      color: "#64748b",
+                      fontSize: 12,
+                      lineHeight: 1.25,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {item.hint}
+                  </small>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="relatorios-noshow-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.05fr) minmax(300px, .95fr)",
+                gap: 18,
+                alignItems: "start",
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: 28,
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
+                  padding: 24,
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    color: "#0f172a",
+                    fontSize: 24,
+                    lineHeight: 1,
+                    letterSpacing: "-.04em",
+                    fontWeight: 950,
+                  }}
+                >
+                  Comparativo RSVP x Entrada
+                </h3>
+
+                <div style={{ display: "grid", gap: 14, marginTop: 22 }}>
+                  {[
+                    { label: "Confirmados", value: confirmados, percent: 100, color: "#6d28d9" },
+                    { label: "Entraram", value: entradasConfirmados, percent: taxaPresenca, color: "#16a34a" },
+                    { label: "Não compareceram", value: noShow, percent: taxaNoShow, color: "#ea580c" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span style={{ color: "#64748b", fontSize: 13, fontWeight: 900 }}>
+                          {item.label}
+                        </span>
+                        <strong style={{ color: "#0f172a", fontSize: 13, fontWeight: 950 }}>
+                          {item.value}
+                        </strong>
+                      </div>
+
+                      <div
+                        style={{
+                          height: 11,
+                          borderRadius: 999,
+                          background: "#e8eef6",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: pct(item.percent),
+                            height: "100%",
+                            borderRadius: 999,
+                            background: item.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: 14,
+                    marginTop: 24,
+                  }}
+                >
+                  {[
+                    { value: noShow, label: "lugares vazios estimados" },
+                    { value: noShow, label: "redução estimada buffet" },
+                    { value: noShow, label: "redução estimada bebidas" },
+                    { value: noShowVip, label: "VIPs ausentes" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <strong style={{ display: "block", color: "#64748b", fontSize: 24, fontWeight: 950 }}>
+                        {item.value}
+                      </strong>
+                      <span style={{ display: "block", marginTop: 5, color: "#64748b", fontSize: 12, fontWeight: 850 }}>
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "grid", gap: 10, marginTop: 24 }}>
+                  {noShowPorTipoConvite.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "120px 1fr 42px",
+                        gap: 12,
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ color: "#64748b", fontSize: 12, fontWeight: 900 }}>
+                        {item.label}
+                      </span>
+                      <div style={{ height: 9, borderRadius: 999, background: "#e2e8f0", overflow: "hidden" }}>
+                        <div
+                          style={{
+                            width: `${Math.round((item.total / noShowMaxTipo) * 100)}%`,
+                            height: "100%",
+                            borderRadius: 999,
+                            background: item.label === "Individuais" ? "#fb923c" : "#a78bfa",
+                          }}
+                        />
+                      </div>
+                      <strong style={{ textAlign: "right", color: "#0f172a", fontSize: 13, fontWeight: 950 }}>
+                        {item.total}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <details
+                className="relatorios-ranking-card"
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 28,
+                  padding: 24,
+                  boxShadow: "0 14px 30px rgba(15,23,42,.04)",
+                }}
+              >
+                <summary style={{ listStyle: "none", cursor: "pointer" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: 16,
+                    }}
+                  >
+                    <div>
+                      <h3
+                        style={{
+                          margin: 0,
+                          color: "#0f172a",
+                          fontSize: 24,
+                          lineHeight: 1,
+                          letterSpacing: "-.04em",
+                          fontWeight: 950,
+                        }}
+                      >
+                        Ranking de no-show
+                      </h3>
+                      <p style={{ margin: "8px 0 0", color: "#64748b", fontSize: 14, fontWeight: 750 }}>
+                        Top famílias/grupos ausentes
+                      </p>
+                    </div>
+
+                    <span
+                      className="relatorios-ranking-arrow"
+                      aria-hidden="true"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 999,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#0f172a",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 21,
+                        fontWeight: 900,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ↓
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
+                    {rankingNoShowFamilias.length ? (
+                      rankingNoShowFamilias.slice(0, 2).map((item: any, index: number) => (
+                        <div
+                          key={item.id || item.nome}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "42px 1fr auto",
+                            gap: 14,
+                            alignItems: "center",
+                            padding: "14px 16px",
+                            borderRadius: 18,
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: 999,
+                              background: index === 0 ? "#ffedd5" : "#fef3c7",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#9a3412",
+                              fontWeight: 950,
+                            }}
+                          >
+                            {index + 1}
+                          </div>
+
+                          <div>
+                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, lineHeight: 1.25, fontWeight: 950 }}>
+                              {item.nome}
+                            </strong>
+                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
+                              {item.adultos} adulto(s) · {item.criancas} criança(s) · {item.principais} principal(is)
+                            </small>
+                          </div>
+
+                          <strong style={{ color: "#ea580c", fontSize: 14, fontWeight: 950, whiteSpace: "nowrap" }}>
+                            {item.total}
+                          </strong>
+                        </div>
+                      ))
+                    ) : (
+                      <div
+                        style={{
+                          padding: 18,
+                          borderRadius: 18,
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          color: "#64748b",
+                          fontSize: 14,
+                          fontWeight: 800,
+                        }}
+                      >
+                        Nenhum no-show encontrado.
+                      </div>
+                    )}
+                  </div>
+                </summary>
+
+                {rankingNoShowFamilias.length > 2 && (
+                  <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                    {rankingNoShowFamilias.slice(2, 10).map((item: any, index: number) => {
+                      const position = index + 3;
+
+                      return (
+                        <div
+                          key={item.id || item.nome}
+                          className="relatorios-ranking-extra"
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "42px 1fr auto",
+                            gap: 14,
+                            alignItems: "center",
+                            padding: "14px 16px",
+                            borderRadius: 18,
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: 999,
+                              background: position === 3 ? "#fed7aa" : "#ede9fe",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#0f172a",
+                              fontWeight: 950,
+                            }}
+                          >
+                            {position}
+                          </div>
+
+                          <div>
+                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, lineHeight: 1.25, fontWeight: 950 }}>
+                              {item.nome}
+                            </strong>
+                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
+                              {item.adultos} adulto(s) · {item.criancas} criança(s) · {item.principais} principal(is)
+                            </small>
+                          </div>
+
+                          <strong style={{ color: "#ea580c", fontSize: 14, fontWeight: 950, whiteSpace: "nowrap" }}>
+                            {item.total}
+                          </strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </details>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 14,
+                marginTop: 18,
+              }}
+            >
+              {[
+                { title: "Status inteligente", text: noShowStatusTexto },
+                { title: "Impacto operacional", text: noShowImpactoTexto },
+                { title: "Horário crítico", text: `${noShow} confirmado(s) sem entrada até o momento do relatório.` },
+                { title: "Previsão", text: `${noShow} lugar(es) podem ser tratados como ausência operacional se o check-in já foi encerrado.` },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  style={{
+                    borderRadius: 22,
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    padding: 18,
+                  }}
+                >
+                  <strong style={{ display: "block", color: "#0f172a", fontSize: 14, fontWeight: 950 }}>
+                    {item.title}
+                  </strong>
+                  <span style={{ display: "block", marginTop: 7, color: "#64748b", fontSize: 13, lineHeight: 1.35, fontWeight: 800 }}>
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: 18,
+                borderRadius: 24,
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                padding: 20,
+              }}
+            >
+              <strong
+                style={{
+                  display: "block",
+                  color: "#0f172a",
+                  fontSize: 18,
+                  lineHeight: 1,
+                  letterSpacing: "-.03em",
+                  fontWeight: 950,
+                  marginBottom: 14,
+                }}
+              >
+                Insights automáticos
+              </strong>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {noShowInsights.map((item) => (
+                  <div
+                    key={item}
+                    style={{
+                      borderRadius: 18,
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      padding: 14,
+                      color: "#0f172a",
+                      fontSize: 13,
+                      lineHeight: 1.35,
+                      fontWeight: 850,
+                    }}
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <DetailCard
             title="Envios"
@@ -3647,9 +3408,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
           .relatorios-resultado-grid,
           .relatorios-main-grid,
-          .relatorios-detail-grid,
-          .relatorios-noshow-hero,
-          .relatorios-noshow-bottom {
+          .relatorios-detail-grid {
             grid-template-columns: 1fr !important;
             gap: 18px !important;
           }
@@ -3670,6 +3429,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
 
           .relatorios-composicao-groups,
           .relatorios-composicao-subgrid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .relatorios-noshow-grid {
             grid-template-columns: 1fr !important;
           }
 
