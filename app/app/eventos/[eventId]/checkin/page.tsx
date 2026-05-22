@@ -1482,9 +1482,10 @@ export default function CheckinEventoPage({
     const { data: filaIaCriada, error: filaIaError } = await supabase
       .from("event_gift_ai_queue")
       .insert({
-        gift_record_id: giftRecord.id,
-        status: "pendente",
-      })
+  gift_record_id: giftRecord.id,
+  status: "pendente",
+  tentativas: 0,
+});
       .select("id")
       .single();
 
