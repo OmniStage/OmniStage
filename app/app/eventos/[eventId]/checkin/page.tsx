@@ -77,6 +77,20 @@ type PresenteModal = {
   observacao: string;
   gerar_etiqueta: boolean;
   imprimir_apos_salvar: boolean;
+  foto_file?: File | null;
+  foto_preview?: string | null;
+  preview_etiqueta_codigo?: string | null;
+};
+
+type PresenteEventoRecord = {
+  id: string;
+  convidado_id: string | null;
+  etiqueta_codigo: string | null;
+  nome_presente: string | null;
+  tipo_presente: string | null;
+  status: string | null;
+  foto_url: string | null;
+  created_at: string | null;
 };
 
 export default function CheckinEventoPage({
@@ -109,6 +123,7 @@ export default function CheckinEventoPage({
 
   const [presenteModal, setPresenteModal] = useState<PresenteModal | null>(null);
   const [salvandoPresente, setSalvandoPresente] = useState(false);
+  const [presentesEvento, setPresentesEvento] = useState<PresenteEventoRecord[]>([]);
 
   const somAtivoRef = useRef(true);
 
@@ -166,6 +181,7 @@ export default function CheckinEventoPage({
 
       await carregarEvento(tenantAtual);
       await carregarConvidados(tenantAtual);
+      await carregarPresentesEvento(tenantAtual);
     }
 
     inicializarCheckin();
@@ -605,6 +621,59 @@ export default function CheckinEventoPage({
     const lista = ((data || []) as Convidado[]).map(aplicarEstadoLocal);
     setConvidados(lista);
     setLoading(false);
+  }
+
+  async function carregarPresentesEvento(tenantIdParam?: string) {
+    const tenantAtual = tenantIdParam || tenantIdRef.current || tenantId;
+
+    if (!tenantAtual) {
+      setPresentesEvento([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("event_gift_records")
+      .select("id, convidado_id, etiqueta_codigo, nome_presente, tipo_presente, status, foto_url, created_at")
+      .eq("evento_id", eventoId)
+      .eq("tenant_id", tenantAtual)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setPresentesEvento([]);
+      return;
+    }
+
+    setPresentesEvento((data || []) as PresenteEventoRecord[]);
+  }
+
+  function presentesAtivosDoConvidado(convidadoId: string) {
+    return presentesEvento.filter(
+      (presente) =>
+        presente.convidado_id === convidadoId &&
+        normalizar(presente.status || "ativo") !== "CANCELADO",
+    );
+  }
+
+  function gerarCodigoEtiqueta() {
+    return `PRES-${Date.now().toString().slice(-8)}`;
+  }
+
+  function gerarUrlQrEtiqueta(convidado: Convidado) {
+    const conteudo = JSON.stringify({
+      tipo: "presente_evento",
+      evento_id: eventoId,
+      convidado_id: convidado.id,
+      token: convidado.token,
+      nome: convidado.nome,
+    });
+
+    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(conteudo)}`;
+  }
+
+  function labelTipoPresente(tipo: string | null) {
+    if (tipo === "envelope") return "Envelope";
+    if (tipo === "sem_identificacao") return "Sem identificação";
+    return "Presente físico";
   }
 
   function carregarScriptQr() {
@@ -1183,11 +1252,41 @@ export default function CheckinEventoPage({
       return;
     }
 
+    const confirmar = window.confirm(
+      `Confirmar registro de presente para:\n\n${convidado.nome}\nToken: ${convidado.token}`,
+    );
+
+    if (!confirmar) return;
+
     setSalvandoPresente(true);
 
-    const etiquetaCodigo = presenteModal.gerar_etiqueta
-      ? `PRES-${Date.now().toString().slice(-8)}`
-      : null;
+    const etiquetaCodigo =
+      presenteModal.preview_etiqueta_codigo ||
+      (presenteModal.gerar_etiqueta ? gerarCodigoEtiqueta() : null);
+
+    let fotoUrl: string | null = null;
+
+    if (presenteModal.foto_file) {
+      const extensao = presenteModal.foto_file.name.split(".").pop() || "jpg";
+      const nomeArquivo = `gift-${Date.now()}.${extensao}`;
+      const caminho = `event-gifts/${eventoId}/${nomeArquivo}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("event-assets")
+        .upload(caminho, presenteModal.foto_file, {
+          upsert: true,
+          contentType: presenteModal.foto_file.type || "image/jpeg",
+        });
+
+      if (uploadError) {
+        setSalvandoPresente(false);
+        alert("Erro ao enviar foto do presente: " + uploadError.message);
+        return;
+      }
+
+      const { data } = supabase.storage.from("event-assets").getPublicUrl(caminho);
+      fotoUrl = data.publicUrl;
+    }
 
     const { error } = await supabase.from("event_gift_records").insert({
       tenant_id: tenantAtual,
@@ -1197,6 +1296,7 @@ export default function CheckinEventoPage({
       tipo_presente: presenteModal.tipo_presente,
       nome_presente: presenteModal.nome_presente.trim() || null,
       observacao: presenteModal.observacao.trim() || null,
+      foto_url: fotoUrl,
       etiqueta_codigo: etiquetaCodigo,
       gerou_etiqueta: presenteModal.gerar_etiqueta,
       impresso: presenteModal.imprimir_apos_salvar,
@@ -1204,6 +1304,7 @@ export default function CheckinEventoPage({
       telefone_convidado: convidado.telefone,
       token_convidado: convidado.token,
       grupo: convidado.grupo,
+      status: "ativo",
     });
 
     setSalvandoPresente(false);
@@ -1212,6 +1313,8 @@ export default function CheckinEventoPage({
       alert("Erro ao registrar presente: " + error.message);
       return;
     }
+
+    await carregarPresentesEvento(tenantAtual);
 
     feedbackSincronizado(
       convidado.id,
@@ -1228,6 +1331,10 @@ export default function CheckinEventoPage({
       "ok",
     );
 
+    if (presenteModal.foto_preview) {
+      URL.revokeObjectURL(presenteModal.foto_preview);
+    }
+
     setPresenteModal(null);
 
     if (presenteModal.imprimir_apos_salvar && etiquetaCodigo) {
@@ -1235,6 +1342,57 @@ export default function CheckinEventoPage({
         window.print();
       }, 350);
     }
+  }
+
+  async function cancelarPresenteEvento(presente: PresenteEventoRecord) {
+    const tenantAtual = tenantIdRef.current || tenantId;
+
+    if (!tenantAtual) {
+      alert("Não foi possível identificar o tenant.");
+      return;
+    }
+
+    const motivo = window.prompt(
+      "Motivo do cancelamento do presente:",
+      "Associado ao convidado errado",
+    );
+
+    if (motivo === null) return;
+
+    const confirmar = window.confirm(
+      "Cancelar este registro de presente? O histórico será preservado.",
+    );
+
+    if (!confirmar) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase
+      .from("event_gift_records")
+      .update({
+        status: "cancelado",
+        cancelado_em: new Date().toISOString(),
+        cancelado_por: user?.id || null,
+        motivo_cancelamento: motivo.trim() || "Cancelado no check-in",
+      })
+      .eq("id", presente.id)
+      .eq("evento_id", eventoId)
+      .eq("tenant_id", tenantAtual);
+
+    if (error) {
+      alert("Erro ao cancelar presente: " + error.message);
+      return;
+    }
+
+    await carregarPresentesEvento(tenantAtual);
+
+    atualizarResultado({
+      tipo: "ok",
+      titulo: "Presente cancelado",
+      mensagem: "O registro foi cancelado e mantido no histórico.",
+    });
   }
 
   async function sincronizarPendentes() {
@@ -1533,6 +1691,21 @@ export default function CheckinEventoPage({
         .gift-check-row input { width:16px; height:16px; accent-color:var(--purple); }
         .gift-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap; }
         .gift-textarea { min-height:104px; resize:vertical; font-family:inherit; }
+        .gift-photo-field { display:grid; gap:8px; }
+        .gift-photo-title { font-size:13px; font-weight:900; color:#334155; }
+        .gift-photo-input { width:100%; border:1px dashed #cbd5e1; border-radius:16px; padding:12px; background:#f8fafc; color:#334155; font-weight:800; }
+        .gift-photo-preview { width:100%; max-height:220px; object-fit:cover; border-radius:18px; border:1px solid #e2e8f0; }
+        .gift-label-preview { border:2px dashed #cbd5e1; border-radius:20px; padding:18px; background:#f8fafc; display:grid; gap:10px; }
+        .gift-label-kicker { color:#64748b; font-size:12px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
+        .gift-label-name { color:#0f172a; font-size:20px; font-weight:950; letter-spacing:-.03em; }
+        .gift-label-muted { color:#475569; font-weight:800; }
+        .gift-label-code { color:#7c3aed; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-weight:950; }
+        .gift-label-qr { width:118px; height:118px; border-radius:14px; border:1px solid #e2e8f0; background:#fff; object-fit:contain; padding:8px; }
+        .gift-active-box { margin-top:10px; border:1px solid #fed7aa; background:#fff7ed; color:#9a3412; border-radius:16px; padding:10px; display:grid; gap:8px; }
+        .gift-active-title { font-size:12px; font-weight:950; text-transform:uppercase; letter-spacing:.06em; }
+        .gift-active-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12px; font-weight:850; }
+        .btn.gift-cancel { background:#fff; color:#be123c; border-color:#fecdd3; box-shadow:none; padding:8px 10px; font-size:12px; }
+        .btn.gift-preview { background:#fff; color:#6d28d9; border-color:#ddd6fe; box-shadow:none; }
         @media (max-width:1180px){ .checkin-hero-split,.checkin-operation-card,.main-grid{grid-template-columns:1fr}.actions,.saas-toggles{justify-content:flex-start}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.guest-list{max-height:none}.control-row{grid-template-columns:1fr} }
         @media (max-width:640px){ .checkin-page{padding:16px}.checkin-brand-card{min-height:160px;padding:18px}.checkin-brand-card-inner{min-height:124px}.checkin-operation-card{padding:20px}.hero-brand{align-items:flex-start}.event-logo-title{max-height:98px}.title{font-size:clamp(30px,12vw,44px)}.stats{grid-template-columns:1fr}.control-row,.guest-card{grid-template-columns:1fr}.btn{width:100%}.mini-toggle{flex:1}.reader-box{aspect-ratio:1/1}.group-head{flex-direction:column}.group-meta{justify-content:flex-start}.control-row{grid-template-columns:1fr} }
       `}</style>
@@ -1618,6 +1791,7 @@ export default function CheckinEventoPage({
                 className="btn"
                 onClick={async () => {
                   await carregarConvidados();
+                  await carregarPresentesEvento();
                   await sincronizarPendentes();
                 }}
               >
@@ -1848,6 +2022,42 @@ export default function CheckinEventoPage({
                                   </span>
                                 )}
                               </div>
+
+                              {presentesAtivosDoConvidado(c.id).length > 0 && (
+                                <div className="gift-active-box">
+                                  <div className="gift-active-title">
+                                    🎁 Presente registrado
+                                  </div>
+
+                                  {presentesAtivosDoConvidado(c.id).map(
+                                    (presente) => (
+                                      <div
+                                        key={presente.id}
+                                        className="gift-active-row"
+                                      >
+                                        <span>
+                                          {labelTipoPresente(
+                                            presente.tipo_presente,
+                                          )}
+                                          {presente.etiqueta_codigo
+                                            ? ` • ${presente.etiqueta_codigo}`
+                                            : ""}
+                                        </span>
+
+                                        <button
+                                          type="button"
+                                          className="btn gift-cancel"
+                                          onClick={() =>
+                                            cancelarPresenteEvento(presente)
+                                          }
+                                        >
+                                          Cancelar registro
+                                        </button>
+                                      </div>
+                                    ),
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div className="guest-actions">
                               <button
@@ -1871,6 +2081,9 @@ export default function CheckinEventoPage({
                                     observacao: "",
                                     gerar_etiqueta: true,
                                     imprimir_apos_salvar: false,
+                                    foto_file: null,
+                                    foto_preview: null,
+                                    preview_etiqueta_codigo: gerarCodigoEtiqueta(),
                                   });
                                 }}
                               >
@@ -1946,6 +2159,77 @@ export default function CheckinEventoPage({
                 rows={4}
               />
 
+              <div className="gift-photo-field">
+                <div className="gift-photo-title">Foto do presente</div>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="gift-photo-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+
+                    if (!file) return;
+
+                    const preview = URL.createObjectURL(file);
+
+                    setPresenteModal((prev) => {
+                      if (prev?.foto_preview) {
+                        URL.revokeObjectURL(prev.foto_preview);
+                      }
+
+                      return prev
+                        ? {
+                            ...prev,
+                            foto_file: file,
+                            foto_preview: preview,
+                          }
+                        : prev;
+                    });
+                  }}
+                />
+
+                {presenteModal.foto_preview && (
+                  <img
+                    src={presenteModal.foto_preview}
+                    alt="Preview da foto do presente"
+                    className="gift-photo-preview"
+                  />
+                )}
+              </div>
+
+              {presenteModal.gerar_etiqueta &&
+                presenteModal.preview_etiqueta_codigo && (
+                  <div className="gift-label-preview">
+                    <div className="gift-label-kicker">
+                      Prévia da etiqueta
+                    </div>
+
+                    <div className="gift-label-name">
+                      {presenteModal.convidado.nome}
+                    </div>
+
+                    <div className="gift-label-muted">
+                      {presenteModal.convidado.telefone || "Sem telefone"}
+                    </div>
+
+                    <div className="gift-label-code">
+                      {presenteModal.preview_etiqueta_codigo}
+                    </div>
+
+                    <img
+                      className="gift-label-qr"
+                      src={gerarUrlQrEtiqueta(presenteModal.convidado)}
+                      alt="QR Code da etiqueta"
+                    />
+
+                    <div className="gift-label-muted">
+                      Token: {presenteModal.convidado.token}
+                    </div>
+                  </div>
+                )}
+
               <label className="gift-check-row">
                 <input
                   type="checkbox"
@@ -1953,7 +2237,14 @@ export default function CheckinEventoPage({
                   onChange={(e) =>
                     setPresenteModal((prev) =>
                       prev
-                        ? { ...prev, gerar_etiqueta: e.target.checked }
+                        ? {
+                            ...prev,
+                            gerar_etiqueta: e.target.checked,
+                            preview_etiqueta_codigo: e.target.checked
+                              ? prev.preview_etiqueta_codigo ||
+                                gerarCodigoEtiqueta()
+                              : null,
+                          }
                         : prev,
                     )
                   }
@@ -1986,6 +2277,28 @@ export default function CheckinEventoPage({
               >
                 Cancelar
               </button>
+
+              {presenteModal.gerar_etiqueta && (
+                <button
+                  type="button"
+                  className="btn gift-preview"
+                  onClick={() =>
+                    setPresenteModal((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            preview_etiqueta_codigo:
+                              prev.preview_etiqueta_codigo ||
+                              gerarCodigoEtiqueta(),
+                          }
+                        : prev,
+                    )
+                  }
+                  disabled={salvandoPresente}
+                >
+                  Visualizar etiqueta
+                </button>
+              )}
 
               <button
                 type="button"
