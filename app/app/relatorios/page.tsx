@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import RelatorioActions from "./RelatorioActions";
-import RankingPresentes from "./RankingPresentes";
 
 type PageProps = {
   searchParams?: {
@@ -585,14 +584,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     const responsavel = String(c.responsavel || "").trim();
     const responsavelTelefone = String(c.responsavel_telefone || "").trim();
     const tipoConvite = normalizeText(c.tipo_convite);
-    const grupo = String(c.grupo || "").trim();
 
     return (
       isCrianca(c) &&
       responsavel.length > 0 &&
       responsavelTelefone.length > 0 &&
-      tipoConvite === "individual" &&
-      grupo.length === 0
+      tipoConvite === "individual"
     );
   }).length;
 
@@ -600,7 +597,69 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     (c: any) => c.contato_principal === true
   ).length;
 
-  const noShowList = confirmadosList.filter((c: any) => !entrou(c));
+  const convitesIndividuais = convidados.filter(
+    (c: any) => normalizeText(c.tipo_convite) === "individual"
+  ).length;
+
+  const convidadosEmGrupo = convidados.filter((c: any) => {
+    const tipoConvite = normalizeText(c.tipo_convite);
+    const grupoId = String(c.grupo_id || "").trim();
+    const grupo = String(c.grupo || "").trim();
+
+    return tipoConvite === "grupo" || grupoId.length > 0 || grupo.length > 0;
+  }).length;
+
+  const gruposFamilias = new Set(
+    convidados
+      .filter((c: any) => String(c.grupo_id || c.grupo || "").trim())
+      .map((c: any) => String(c.grupo_id || c.grupo).trim())
+  ).size;
+
+  const recebemComunicacao = convidados.filter(
+    (c: any) => c.recebe_convite === true
+  ).length;
+
+  const naoRecebemComunicacao = Math.max(totalConvidados - recebemComunicacao, 0);
+
+  const cartoesComToken = convidados.filter(
+    (c: any) => String(c.token || "").trim().length > 0
+  ).length;
+
+  const cartoesSemToken = Math.max(totalConvidados - cartoesComToken, 0);
+
+  const criancasIndividuais = convidados.filter(
+    (c: any) => isCrianca(c) && normalizeText(c.tipo_convite) === "individual"
+  ).length;
+
+  const criancasEmGrupo = Math.max(criancas - criancasIndividuais, 0);
+
+  const adultosIndividuais = convidados.filter(
+    (c: any) => !isCrianca(c) && normalizeText(c.tipo_convite) === "individual"
+  ).length;
+
+  const adultosEmGrupo = Math.max(adultos - adultosIndividuais, 0);
+
+  const mediaConvidadosPorContato = contatosPrincipais
+    ? (totalConvidados / contatosPrincipais).toFixed(1).replace(".", ",")
+    : "0";
+
+  const taxaComunicacao = totalConvidados
+    ? Math.round((recebemComunicacao / totalConvidados) * 100)
+    : 0;
+
+  const taxaCartoesComToken = totalConvidados
+    ? Math.round((cartoesComToken / totalConvidados) * 100)
+    : 0;
+
+  const taxaAdultos = totalConvidados
+    ? Math.round((adultos / totalConvidados) * 100)
+    : 0;
+
+  const taxaCriancas = totalConvidados
+    ? Math.round((criancas / totalConvidados) * 100)
+    : 0;
+
+    const noShowList = confirmadosList.filter((c: any) => !entrou(c));
   const noShow = noShowList.length;
 
   const taxaNoShow = confirmados ? Math.round((noShow / confirmados) * 100) : 0;
@@ -651,25 +710,24 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   );
 
   const reservasConfirmadas = giftReservations.filter((p: any) =>
-    statusPagoPresente(p.status) || Number(p.valor_presenteado || 0) > 0,
+    statusPagoPresente(p.status),
   );
 
-  const presentesPendentes = giftReservations.filter(
-    (p: any) =>
-      Number(p.valor_presenteado || 0) <= 0 && statusPendentePresente(p.status),
+  const presentesPendentes = giftReservations.filter((p: any) =>
+    statusPendentePresente(p.status),
   );
 
-  const presentesPagos = reservasConfirmadas.length
-    ? reservasConfirmadas
-    : pagamentosConfirmados;
+  const presentesPagos = pagamentosConfirmados.length
+    ? pagamentosConfirmados
+    : reservasConfirmadas;
 
-  const valorTotalPresentes = reservasConfirmadas.length
-    ? reservasConfirmadas.reduce(
-        (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
+  const valorTotalPresentes = pagamentosConfirmados.length
+    ? pagamentosConfirmados.reduce(
+        (acc: number, item: any) => acc + Number(item.valor || 0),
         0,
       )
-    : pagamentosConfirmados.reduce(
-        (acc: number, item: any) => acc + Number(item.valor || 0),
+    : reservasConfirmadas.reduce(
+        (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
         0,
       );
 
@@ -714,63 +772,45 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   const rankingItensMap = new Map();
 
   giftReservations.forEach((item: any) => {
-    const nomePresente = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
-    const valorPresente = Number(item.valor_presenteado || 0);
+    const nome = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
 
-    if (valorPresente <= 0) return;
-
-    const atual = rankingItensMap.get(nomePresente) || {
-      id: nomePresente,
-      nome: nomePresente,
-      presente: nomePresente,
+    const atual = rankingItensMap.get(nome) || {
+      id: nome,
+      nome,
       quantidade: 0,
       valor: 0,
     };
 
     atual.quantidade += 1;
-    atual.valor += valorPresente;
+    atual.valor += Number(item.valor_presenteado || 0);
 
-    rankingItensMap.set(nomePresente, atual);
+    rankingItensMap.set(nome, atual);
   });
 
   const rankingItensPresentes = Array.from(rankingItensMap.values())
     .sort((a: any, b: any) => b.valor - a.valor)
-    .slice(0, 10);
+    .slice(0, 7);
 
   const rankingPresenteadoresMap = new Map();
 
   giftReservations.forEach((item: any) => {
-    const nomePresenteador = String(item.nome_presenteador || "Convidado").trim() || "Convidado";
-    const nomePresente = giftItemMap.get(String(item.gift_item_id)) || "Presente em valor";
-    const valorPresente = Number(item.valor_presenteado || 0);
+    const nome = String(item.nome_presenteador || "Convidado").trim() || "Convidado";
 
-    if (valorPresente <= 0) return;
-
-    const atual = rankingPresenteadoresMap.get(nomePresenteador) || {
-      id: nomePresenteador,
-      nome: nomePresenteador,
-      presentes: new Set<string>(),
+    const atual = rankingPresenteadoresMap.get(nome) || {
+      nome,
       quantidade: 0,
       valor: 0,
     };
 
     atual.quantidade += 1;
-    atual.valor += valorPresente;
-    atual.presentes.add(nomePresente);
+    atual.valor += Number(item.valor_presenteado || 0);
 
-    rankingPresenteadoresMap.set(nomePresenteador, atual);
+    rankingPresenteadoresMap.set(nome, atual);
   });
 
   const rankingPresenteadores = Array.from(rankingPresenteadoresMap.values())
-    .map((item: any) => ({
-      id: item.id,
-      nome: item.nome,
-      presente: Array.from(item.presentes).join(", "),
-      quantidade: item.quantidade,
-      valor: item.valor,
-    }))
     .sort((a: any, b: any) => b.valor - a.valor)
-    .slice(0, 10);
+    .slice(0, 7);
 
   const entradasComData = convidadosEntraram.filter((c: any) => c.data_checkin);
 
@@ -1258,18 +1298,227 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             gap: 24,
           }}
         >
-          <DetailCard
-            title="Composição do evento"
-            subtitle="Perfil geral da lista"
-            color="#6d28d9"
-            soft="#ede9fe"
+          <div
+            className="relatorios-composicao-card"
+            style={{
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 30,
+              padding: 30,
+              boxShadow: "0 18px 42px rgba(15,23,42,.05)",
+            }}
           >
-            <Metric value={totalConvidados} label="total convidados" />
-            <Metric value={adultos} label="adultos" />
-            <Metric value={criancas} label="crianças" />
-            <Metric value={criancasDesacompanhadas} label="crianças desacompanhadas" />
-            <Metric value={contatosPrincipais} label="contatos principais" />
-          </DetailCard>
+            <div
+              style={{
+                width: 54,
+                height: 54,
+                borderRadius: 18,
+                background: "#ede9fe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 22,
+              }}
+            >
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  background: "#6d28d9",
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 20,
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    color: "#0f172a",
+                    fontSize: 30,
+                    lineHeight: 1,
+                    letterSpacing: "-.05em",
+                    fontWeight: 950,
+                  }}
+                >
+                  Composição do evento
+                </h3>
+
+                <p
+                  style={{
+                    margin: "10px 0 0",
+                    color: "#64748b",
+                    fontSize: 16,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  Leitura dos cartões, responsáveis, grupos/famílias e comunicação.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 999,
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  padding: "10px 14px",
+                  color: "#64748b",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {taxaCartoesComToken}% com token
+              </div>
+            </div>
+
+            <div
+              className="relatorios-composicao-kpis"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 12,
+                marginTop: 26,
+              }}
+            >
+              {[
+                { value: totalConvidados, label: "total convidados", color: "#0f172a" },
+                { value: adultos, label: `adultos · ${taxaAdultos}%`, color: "#334155" },
+                { value: criancas, label: `crianças · ${taxaCriancas}%`, color: "#6d28d9" },
+                { value: criancasDesacompanhadas, label: "crianças desacompanhadas", color: "#db2777" },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    borderRadius: 22,
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    padding: 16,
+                    minHeight: 112,
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: "block",
+                      color: item.color,
+                      fontSize: 30,
+                      lineHeight: 1,
+                      fontWeight: 950,
+                      letterSpacing: "-.05em",
+                    }}
+                  >
+                    {item.value}
+                  </strong>
+
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 10,
+                      color: "#64748b",
+                      fontSize: 13,
+                      lineHeight: 1.2,
+                      fontWeight: 850,
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="relatorios-composicao-groups"
+              style={{
+                marginTop: 18,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: 24,
+                  background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+                  border: "1px solid #e2e8f0",
+                  padding: 18,
+                }}
+              >
+                <strong
+                  style={{
+                    display: "block",
+                    color: "#0f172a",
+                    fontSize: 16,
+                    fontWeight: 950,
+                    marginBottom: 14,
+                  }}
+                >
+                  Cartões e grupos
+                </strong>
+
+                <div
+                  className="relatorios-composicao-subgrid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 14,
+                  }}
+                >
+                  <Metric value={contatosPrincipais} label="contatos principais" />
+                  <Metric value={mediaConvidadosPorContato} label="média por contato" />
+                  <Metric value={convitesIndividuais} label="convites individuais" />
+                  <Metric value={convidadosEmGrupo} label="convidados em grupo" />
+                  <Metric value={gruposFamilias} label="grupos/famílias" />
+                  <Metric value={cartoesComToken} label="cartões com token" />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 24,
+                  background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)",
+                  border: "1px solid #e2e8f0",
+                  padding: 18,
+                }}
+              >
+                <strong
+                  style={{
+                    display: "block",
+                    color: "#0f172a",
+                    fontSize: 16,
+                    fontWeight: 950,
+                    marginBottom: 14,
+                  }}
+                >
+                  Comunicação e perfil
+                </strong>
+
+                <div
+                  className="relatorios-composicao-subgrid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 14,
+                  }}
+                >
+                  <Metric value={`${taxaComunicacao}%`} label="taxa comunicação" />
+                  <Metric value={recebemComunicacao} label="recebem comunicação" />
+                  <Metric value={naoRecebemComunicacao} label="não recebem" />
+                  <Metric value={cartoesSemToken} label="sem token" />
+                  <Metric value={adultosEmGrupo} label="adultos em grupo" />
+                  <Metric value={criancasEmGrupo} label="crianças em grupo" />
+                </div>
+              </div>
+            </div>
+          </div>
 
           <DetailCard
             title="Pico de entrada"
@@ -1462,10 +1711,271 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <Metric value={`${taxaPresentes}%`} label="conversão presentes" />
           </BigProgressCard>
 
-          <RankingPresentes
-            rankingItensPresentes={rankingItensPresentes}
-            rankingPresenteadores={rankingPresenteadores}
-          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 22,
+            }}
+          >
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 30,
+                padding: 28,
+                boxShadow: "0 18px 42px rgba(15,23,42,.06)",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  color: "#0f172a",
+                  fontSize: 26,
+                  lineHeight: 1,
+                  letterSpacing: "-.04em",
+                  fontWeight: 900,
+                }}
+              >
+                Ranking de presentes recebidos
+              </h3>
+
+              <p
+                style={{
+                  margin: "9px 0 22px",
+                  color: "#64748b",
+                  fontSize: 15,
+                  lineHeight: 1.35,
+                  fontWeight: 700,
+                }}
+              >
+                7 presentes com maior valor informado
+              </p>
+
+              <div style={{ display: "grid", gap: 12 }}>
+                {rankingItensPresentes.length ? (
+                  rankingItensPresentes.map((item: any, index: number) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "42px 1fr auto",
+                        gap: 14,
+                        alignItems: "center",
+                        padding: "14px 16px",
+                        borderRadius: 18,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 999,
+                          background:
+                            index === 0
+                              ? "#fef3c7"
+                              : index === 1
+                                ? "#e2e8f0"
+                                : index === 2
+                                  ? "#fed7aa"
+                                  : "#ede9fe",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#0f172a",
+                          fontWeight: 900,
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+
+                      <div>
+                        <strong
+                          style={{
+                            display: "block",
+                            color: "#0f172a",
+                            fontSize: 14,
+                            lineHeight: 1.25,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {item.nome}
+                        </strong>
+
+                        <small
+                          style={{
+                            display: "block",
+                            marginTop: 4,
+                            color: "#64748b",
+                            fontSize: 12,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {item.quantidade} presente(s)
+                        </small>
+                      </div>
+
+                      <strong
+                        style={{
+                          color: "#16a34a",
+                          fontSize: 14,
+                          fontWeight: 900,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {formatCurrencyBR(item.valor)}
+                      </strong>
+                    </div>
+                  ))
+                ) : (
+                  <div
+                    style={{
+                      padding: 18,
+                      borderRadius: 18,
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#64748b",
+                      fontSize: 14,
+                      fontWeight: 800,
+                    }}
+                  >
+                    Nenhum presente recebido encontrado.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 30,
+                padding: 28,
+                boxShadow: "0 18px 42px rgba(15,23,42,.06)",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  color: "#0f172a",
+                  fontSize: 26,
+                  lineHeight: 1,
+                  letterSpacing: "-.04em",
+                  fontWeight: 900,
+                }}
+              >
+                Ranking de presenteadores
+              </h3>
+
+              <p
+                style={{
+                  margin: "9px 0 22px",
+                  color: "#64748b",
+                  fontSize: 15,
+                  lineHeight: 1.35,
+                  fontWeight: 700,
+                }}
+              >
+                7 convidados que mais presentearam por valor
+              </p>
+
+              <div style={{ display: "grid", gap: 12 }}>
+                {rankingPresenteadores.length ? (
+                  rankingPresenteadores.map((item: any, index: number) => (
+                    <div
+                      key={item.nome}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "42px 1fr auto",
+                        gap: 14,
+                        alignItems: "center",
+                        padding: "14px 16px",
+                        borderRadius: 18,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 999,
+                          background:
+                            index === 0
+                              ? "#dcfce7"
+                              : index === 1
+                                ? "#dbeafe"
+                                : index === 2
+                                  ? "#fef3c7"
+                                  : "#ede9fe",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: index === 0 ? "#166534" : "#0f172a",
+                          fontWeight: 900,
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+
+                      <div>
+                        <strong
+                          style={{
+                            display: "block",
+                            color: "#0f172a",
+                            fontSize: 14,
+                            lineHeight: 1.25,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {item.nome}
+                        </strong>
+
+                        <small
+                          style={{
+                            display: "block",
+                            marginTop: 4,
+                            color: "#64748b",
+                            fontSize: 12,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {item.quantidade} presente(s)
+                        </small>
+                      </div>
+
+                      <strong
+                        style={{
+                          color: "#16a34a",
+                          fontSize: 14,
+                          fontWeight: 900,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {formatCurrencyBR(item.valor)}
+                      </strong>
+                    </div>
+                  ))
+                ) : (
+                  <div
+                    style={{
+                      padding: 18,
+                      borderRadius: 18,
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#64748b",
+                      fontSize: 14,
+                      fontWeight: 800,
+                    }}
+                  >
+                    Nenhum presenteador encontrado.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
         <section
@@ -1634,10 +2144,32 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             grid-template-columns: 1fr !important;
           }
 
+          .relatorios-composicao-kpis {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .relatorios-composicao-groups,
+          .relatorios-composicao-subgrid {
+            grid-template-columns: 1fr !important;
+          }
+
           .relatorios-checkins table {
             min-width: 720px;
           }
         }
+
+
+          .relatorios-composicao-kpis {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
+
+          .relatorios-composicao-groups {
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .relatorios-composicao-subgrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
 
         @media (max-width: 560px) {
           .relatorios-page {
