@@ -1139,213 +1139,494 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           className="relatorios-resultado"
           style={{
             marginBottom: 34,
-            background:
-              "linear-gradient(135deg, #111827 0%, #1e1b4b 58%, #6d28d9 100%)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
             borderRadius: 34,
             padding: 34,
-            boxShadow: "0 24px 60px rgba(15,23,42,.18)",
-            color: "#fff",
+            boxShadow: "0 20px 50px rgba(15,23,42,.06)",
+            color: "#0f172a",
             overflow: "hidden",
-            position: "relative",
           }}
         >
           <div
+            className="relatorios-resultado-clean-header"
             style={{
-              position: "absolute",
-              top: -90,
-              right: -70,
-              width: 260,
-              height: 260,
-              borderRadius: 999,
-              background: "rgba(255,255,255,.08)",
-            }}
-          />
-
-          <div
-            className="relatorios-resultado-grid"
-            style={{
-              position: "relative",
-              zIndex: 1,
-              display: "grid",
-              gridTemplateColumns: "1.1fr 1.9fr",
-              gap: 30,
+              display: "flex",
               alignItems: "center",
+              justifyContent: "space-between",
+              gap: 20,
+              flexWrap: "wrap",
+              marginBottom: 28,
             }}
           >
-            <div>
-              <p
-                style={{
-                  margin: 0,
-                  color: "#c4b5fd",
-                  fontSize: 13,
-                  fontWeight: 900,
-                  letterSpacing: ".14em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Resultado do Evento
-              </p>
-
-              <h2
-                style={{
-                  margin: "12px 0 0",
-                  color: "#fff",
-                  fontSize: 42,
-                  lineHeight: 1,
-                  letterSpacing: "-.06em",
-                  fontWeight: 900,
-                }}
-              >
-                Conversão geral
-              </h2>
-
-              <p
-                style={{
-                  margin: "14px 0 0",
-                  color: "#ddd6fe",
-                  fontSize: 16,
-                  lineHeight: 1.5,
-                  maxWidth: 420,
-                }}
-              >
-                {resultadoEventoTexto}
-              </p>
-            </div>
-
-            <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 18,
+              }}
+            >
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))",
-                  gap: 18,
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  background: "#f3e8ff",
+                  color: "#4c1d95",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 28,
+                  fontWeight: 950,
                 }}
               >
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {totalConvidados}
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    convidados
-                  </span>
+                ↗
+              </div>
+
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#0f172a",
+                    fontSize: "clamp(30px, 3vw, 40px)",
+                    lineHeight: 1,
+                    letterSpacing: "-.05em",
+                    fontWeight: 950,
+                  }}
+                >
+                  Conversão geral
+                </h2>
+
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    color: "#64748b",
+                    fontSize: 17,
+                    lineHeight: 1.35,
+                    fontWeight: 700,
+                  }}
+                >
+                  Resumo do evento em tempo real
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                minHeight: 52,
+                borderRadius: 16,
+                border: "1px solid #e2e8f0",
+                background: "#fff",
+                padding: "0 18px",
+                color: "#0f172a",
+                fontSize: 15,
+                fontWeight: 850,
+                boxShadow: "0 10px 24px rgba(15,23,42,.04)",
+              }}
+            >
+              <span style={{ color: "#475569", fontSize: 18 }}>▣</span>
+              Todo o evento
+              <span style={{ color: "#475569", fontSize: 14 }}>⌄</span>
+            </div>
+          </div>
+
+          <div
+            className="relatorios-resultado-kpis"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gap: 0,
+              border: "1px solid #e2e8f0",
+              borderRadius: 26,
+              padding: "30px 22px",
+              background: "#fff",
+              marginBottom: 26,
+            }}
+          >
+            {[
+              { value: totalConvidados, label: "Convidados", icon: "👥", color: "#6d28d9", soft: "#f3e8ff" },
+              { value: confirmados, label: "Confirmados", icon: "✓", color: "#16a34a", soft: "#dcfce7" },
+              { value: entradasConfirmados, label: "Entradas confirmadas", icon: "↪", color: "#2563eb", soft: "#dbeafe" },
+              { value: restantes, label: "No-show", icon: "×", color: "#ea580c", soft: "#ffedd5" },
+            ].map((item, index) => (
+              <div
+                key={item.label}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "76px 1fr",
+                  gap: 18,
+                  alignItems: "center",
+                  padding: "0 22px",
+                  borderLeft: index === 0 ? "0" : "1px solid #e2e8f0",
+                }}
+              >
+                <div
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 999,
+                    background: item.soft,
+                    color: item.color,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: item.icon === "✓" || item.icon === "×" ? 32 : 28,
+                    fontWeight: 950,
+                  }}
+                >
+                  {item.icon}
                 </div>
 
                 <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {confirmados}
+                  <strong
+                    style={{
+                      display: "block",
+                      color: "#0f172a",
+                      fontSize: 42,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                      fontWeight: 950,
+                    }}
+                  >
+                    {item.value}
                   </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    confirmados
-                  </span>
-                </div>
 
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {entradasConfirmados}
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    entradas confirmadas
-                  </span>
-                </div>
-
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {restantes}
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    no-show
-                  </span>
-                </div>
-
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {taxaConfirmacao}%
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    taxa RSVP
-                  </span>
-                </div>
-
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {taxaPresenca}%
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    taxa presença
-                  </span>
-                </div>
-
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {taxaNoShowResultado}%
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    taxa no-show
-                  </span>
-                </div>
-
-                <div>
-                  <strong style={{ display: "block", fontSize: 42, lineHeight: 1, letterSpacing: "-.06em" }}>
-                    {taxaPresencaGeral}%
-                  </strong>
-                  <span style={{ display: "block", marginTop: 8, color: "#ddd6fe", fontWeight: 800 }}>
-                    presença geral
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 8,
+                      color: "#64748b",
+                      fontSize: 17,
+                      lineHeight: 1.15,
+                      fontWeight: 750,
+                    }}
+                  >
+                    {item.label}
                   </span>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="relatorios-presenca-geral" style={{ marginTop: 34 }}>
+          <div
+            className="relatorios-resultado-conversao-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.65fr) minmax(320px, .95fr)",
+              gap: 26,
+              marginBottom: 26,
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 0,
+                border: "1px solid #e2e8f0",
+                borderRadius: 26,
+                padding: "26px 20px",
+                background: "#fff",
+              }}
+            >
+              {[
+                {
+                  value: `${taxaConfirmacao}%`,
+                  label: "Taxa RSVP",
+                  hint: `${confirmados} confirmados`,
+                  color: "#6d28d9",
+                  percent: taxaConfirmacao,
+                },
+                {
+                  value: `${taxaPresenca}%`,
+                  label: "Taxa presença",
+                  hint: `${entradasConfirmados} entradas`,
+                  color: "#2563eb",
+                  percent: taxaPresenca,
+                },
+                {
+                  value: `${taxaNoShowResultado}%`,
+                  label: "Taxa no-show",
+                  hint: `${restantes} ausência(s)`,
+                  color: "#ea580c",
+                  percent: taxaNoShowResultado,
+                },
+              ].map((item, index) => (
                 <div
+                  key={item.label}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 10,
-                    gap: 12,
-                    flexWrap: "wrap",
+                    padding: "0 22px",
+                    borderLeft: index === 0 ? "0" : "1px solid #e2e8f0",
+                    textAlign: "center",
                   }}
                 >
-                  <span
-                    style={{
-                      color: "#ddd6fe",
-                      fontSize: 14,
-                      fontWeight: 800,
-                      letterSpacing: ".02em",
-                    }}
-                  >
-                    Taxa de presença sobre total de convidados
-                  </span>
-
                   <strong
                     style={{
-                      color: "#fff",
-                      fontSize: 16,
+                      display: "block",
+                      color: item.color,
+                      fontSize: 40,
+                      lineHeight: 1,
+                      letterSpacing: "-.06em",
+                      fontWeight: 950,
+                    }}
+                  >
+                    {item.value}
+                  </strong>
+
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 12,
+                      color: "#0f172a",
+                      fontSize: 15,
+                      lineHeight: 1.2,
                       fontWeight: 900,
                     }}
                   >
-                    {taxaPresencaGeral}%
-                  </strong>
-                </div>
+                    {item.label}
+                  </span>
 
-                <div
-                  style={{
-                    height: 18,
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,.14)",
-                    overflow: "hidden",
-                    position: "relative",
-                  }}
-                >
                   <div
                     style={{
-                      width: `${taxaPresencaGeral}%`,
-                      height: "100%",
+                      height: 8,
                       borderRadius: 999,
-                      background:
-                        "linear-gradient(90deg, #7c3aed 0%, #9333ea 45%, #a855f7 100%)",
-                      boxShadow: "0 0 22px rgba(168,85,247,.55)",
+                      background: "#e8eef6",
+                      overflow: "hidden",
+                      marginTop: 22,
                     }}
-                  />
+                  >
+                    <div
+                      style={{
+                        width: pct(item.percent),
+                        height: "100%",
+                        borderRadius: 999,
+                        background: item.color,
+                      }}
+                    />
+                  </div>
+
+                  <small
+                    style={{
+                      display: "block",
+                      marginTop: 13,
+                      color: "#64748b",
+                      fontSize: 13,
+                      lineHeight: 1.25,
+                      fontWeight: 750,
+                    }}
+                  >
+                    {item.hint}
+                  </small>
                 </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                borderRadius: 26,
+                padding: 26,
+                background:
+                  "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 48%, #f3e8ff 100%)",
+                border: "1px solid #ede9fe",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,.7)",
+              }}
+            >
+              <span
+                style={{
+                  display: "block",
+                  color: "#0f172a",
+                  fontSize: 16,
+                  fontWeight: 900,
+                  lineHeight: 1.2,
+                }}
+              >
+                Taxa de presença geral
+              </span>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  marginTop: 18,
+                  flexWrap: "wrap",
+                }}
+              >
+                <strong
+                  style={{
+                    color: "#4c1d95",
+                    fontSize: 44,
+                    lineHeight: 1,
+                    letterSpacing: "-.06em",
+                    fontWeight: 950,
+                  }}
+                >
+                  {taxaPresencaGeral}%
+                </strong>
+
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    borderRadius: 999,
+                    background: "#dcfce7",
+                    color: "#15803d",
+                    padding: "8px 13px",
+                    fontSize: 13,
+                    fontWeight: 950,
+                  }}
+                >
+                  ↑ Ótimo
+                </span>
               </div>
+
+              <div
+                style={{
+                  height: 12,
+                  borderRadius: 999,
+                  background: "#e9d5ff",
+                  overflow: "hidden",
+                  marginTop: 18,
+                }}
+              >
+                <div
+                  style={{
+                    width: pct(taxaPresencaGeral),
+                    height: "100%",
+                    borderRadius: 999,
+                    background:
+                      "linear-gradient(90deg, #6d28d9 0%, #7c3aed 48%, #8b5cf6 100%)",
+                  }}
+                />
+              </div>
+
+              <span
+                style={{
+                  display: "block",
+                  marginTop: 14,
+                  color: "#64748b",
+                  fontSize: 14,
+                  lineHeight: 1.3,
+                  fontWeight: 750,
+                }}
+              >
+                Sobre total de convidados
+              </span>
+            </div>
+          </div>
+
+          <div
+            className="relatorios-resultado-insight"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 18,
+              flexWrap: "wrap",
+              border: "1px solid #e2e8f0",
+              borderRadius: 24,
+              background: "#fff",
+              padding: 22,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  width: 58,
+                  height: 58,
+                  borderRadius: 999,
+                  background: "#f3e8ff",
+                  color: "#7c3aed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 28,
+                  fontWeight: 950,
+                }}
+              >
+                ↗
+              </div>
+
+              <div>
+                <strong
+                  style={{
+                    display: "block",
+                    color: "#0f172a",
+                    fontSize: 18,
+                    lineHeight: 1.15,
+                    fontWeight: 950,
+                  }}
+                >
+                  Excelente resultado!
+                </strong>
+
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 7,
+                    color: "#64748b",
+                    fontSize: 14,
+                    lineHeight: 1.35,
+                    fontWeight: 750,
+                  }}
+                >
+                  {resultadoEventoTexto}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRadius: 999,
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
+                  padding: "10px 14px",
+                  color: "#0f172a",
+                  fontSize: 13,
+                  fontWeight: 900,
+                }}
+              >
+                <span style={{ color: "#16a34a" }}>↗</span>
+                Acima da média
+              </span>
+
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRadius: 999,
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
+                  padding: "10px 14px",
+                  color: "#4c1d95",
+                  fontSize: 13,
+                  fontWeight: 900,
+                }}
+              >
+                <span>◇</span>
+                Resultado excelente
+              </span>
             </div>
           </div>
         </section>
