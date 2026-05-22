@@ -31,6 +31,8 @@ function RankingCard({
   accent: "purple" | "green";
 }) {
   const [open, setOpen] = useState(false);
+  const visibleItems = open ? items.slice(0, 10) : items.slice(0, 2);
+
   const colors = {
     purple: {
       first: "#fef3c7",
@@ -124,10 +126,9 @@ function RankingCard({
         </span>
       </button>
 
-      {open && (
-        <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
-          {items.length ? (
-            items.map((item, index) => (
+      <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
+        {visibleItems.length ? (
+          visibleItems.map((item, index) => (
               <div
                 key={item.id || item.nome}
                 style={{
@@ -231,9 +232,8 @@ function RankingCard({
             >
               {emptyText}
             </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
