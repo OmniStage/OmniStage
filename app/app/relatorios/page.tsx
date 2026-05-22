@@ -1228,74 +1228,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         </section>
 
         <section
-          className="relatorios-main-grid"
+          className="relatorios-composicao-section"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
-            gap: 26,
-          }}
-        >
-          <BigProgressCard
-            title="Confirmações"
-            subtitle="Progresso geral de RSVP"
-            percent={taxaConfirmacao}
-            color="#6d28d9"
-            footer={textoRsvp}
-          >
-            <Metric value={totalConvidados} label="total convidados" />
-            <Metric value={adultos} label="adultos" />
-            <Metric value={criancas} label="crianças" />
-            <Metric value={confirmados} label="confirmados" />
-            <Metric value={adultosConfirmados} label="adultos confirmados" />
-            <Metric value={criancasConfirmadas} label="crianças confirmadas" />
-            <Metric value={pendentes} label="pendentes" />
-            <Metric value={ausenciaConfirmada} label="ausências" />
-            <Metric value={`${taxaConfirmacao}%`} label="taxa confirmação" />
-            <Metric value={`${taxaPendencia}%`} label="taxa pendência" />
-          </BigProgressCard>
-
-          <BigProgressCard
-            title="Check-in"
-            subtitle="Entradas realizadas no evento"
-            percent={taxaPresenca}
-            color="#16a34a"
-            footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
-          >
-            <Metric value={entradas} label="entradas totais" />
-            <Metric
-              value={adultosConfirmadosEntraram}
-              label="adultos confirmados entraram"
-            />
-            <Metric
-              value={criancasConfirmadasEntraram}
-              label="crianças confirmadas entraram"
-            />
-            <Metric
-              value={adultosConfirmadosRestantes}
-              label="adultos confirmados restantes"
-            />
-            <Metric
-              value={criancasConfirmadasRestantes}
-              label="crianças confirmadas restantes"
-            />
-            <Metric value={restantes} label="restantes total" />
-            <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
-            <Metric value={horaPico} label="pico entrada" />
-            <Metric
-              value={ultimaEntrada ? formatDateTimeBR(ultimaEntrada.data_checkin) : "-"}
-              label="última entrada"
-            />
-            <Metric value={`${taxaPresenca}%`} label="presença confirmados" />
-          </BigProgressCard>
-        </section>
-
-        <section
-          className="relatorios-detail-grid"
-          style={{
-            marginTop: 34,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 24,
+            marginBottom: 34,
           }}
         >
           <div
@@ -1418,9 +1353,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 style={{
                   borderRadius: 30,
                   padding: 24,
-                  background:
-                    "linear-gradient(135deg, #0f172a 0%, #1e1b4b 58%, #6d28d9 100%)",
-                  color: "#fff",
+                  background: "#fff",
+                  color: "#0f172a",
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 18px 42px rgba(15,23,42,.06)",
                   position: "relative",
                   overflow: "hidden",
                   minHeight: 260,
@@ -1435,7 +1371,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     width: 180,
                     height: 180,
                     borderRadius: 999,
-                    background: "rgba(255,255,255,.09)",
+                    background: "rgba(124,58,237,.06)",
                     right: -60,
                     top: -70,
                   }}
@@ -1445,7 +1381,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <span
                     style={{
                       display: "block",
-                      color: "#c4b5fd",
+                      color: "#64748b",
                       fontSize: 12,
                       fontWeight: 950,
                       letterSpacing: ".12em",
@@ -1459,7 +1395,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 14,
-                      color: "#fff",
+                      color: "#0f172a",
                       fontSize: 58,
                       lineHeight: .9,
                       letterSpacing: "-.07em",
@@ -1473,7 +1409,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 10,
-                      color: "#ddd6fe",
+                      color: "#64748b",
                       fontSize: 14,
                       fontWeight: 800,
                     }}
@@ -1493,7 +1429,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       height: 12,
                       borderRadius: 999,
-                      background: "rgba(255,255,255,.14)",
+                      background: "#e8eef6",
                       overflow: "hidden",
                     }}
                   >
@@ -1520,7 +1456,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <strong
                         style={{
                           display: "block",
-                          color: "#fff",
+                          color: "#0f172a",
                           fontSize: 22,
                           fontWeight: 950,
                         }}
@@ -1531,7 +1467,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           display: "block",
                           marginTop: 3,
-                          color: "#ddd6fe",
+                          color: "#64748b",
                           fontSize: 12,
                           fontWeight: 800,
                         }}
@@ -1544,7 +1480,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <strong
                         style={{
                           display: "block",
-                          color: "#fff",
+                          color: "#0f172a",
                           fontSize: 22,
                           fontWeight: 950,
                         }}
@@ -1555,7 +1491,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           display: "block",
                           marginTop: 3,
-                          color: "#ddd6fe",
+                          color: "#64748b",
                           fontSize: 12,
                           fontWeight: 800,
                         }}
@@ -1828,6 +1764,79 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             </div>
           </div>
 
+        </section>
+
+        <section
+          className="relatorios-main-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
+            gap: 26,
+          }}
+        >
+          <BigProgressCard
+            title="Confirmações"
+            subtitle="Progresso geral de RSVP"
+            percent={taxaConfirmacao}
+            color="#6d28d9"
+            footer={textoRsvp}
+          >
+            <Metric value={totalConvidados} label="total convidados" />
+            <Metric value={adultos} label="adultos" />
+            <Metric value={criancas} label="crianças" />
+            <Metric value={confirmados} label="confirmados" />
+            <Metric value={adultosConfirmados} label="adultos confirmados" />
+            <Metric value={criancasConfirmadas} label="crianças confirmadas" />
+            <Metric value={pendentes} label="pendentes" />
+            <Metric value={ausenciaConfirmada} label="ausências" />
+            <Metric value={`${taxaConfirmacao}%`} label="taxa confirmação" />
+            <Metric value={`${taxaPendencia}%`} label="taxa pendência" />
+          </BigProgressCard>
+
+          <BigProgressCard
+            title="Check-in"
+            subtitle="Entradas realizadas no evento"
+            percent={taxaPresenca}
+            color="#16a34a"
+            footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
+          >
+            <Metric value={entradas} label="entradas totais" />
+            <Metric
+              value={adultosConfirmadosEntraram}
+              label="adultos confirmados entraram"
+            />
+            <Metric
+              value={criancasConfirmadasEntraram}
+              label="crianças confirmadas entraram"
+            />
+            <Metric
+              value={adultosConfirmadosRestantes}
+              label="adultos confirmados restantes"
+            />
+            <Metric
+              value={criancasConfirmadasRestantes}
+              label="crianças confirmadas restantes"
+            />
+            <Metric value={restantes} label="restantes total" />
+            <Metric value={entrouSemRsvp} label="entrou sem RSVP" />
+            <Metric value={horaPico} label="pico entrada" />
+            <Metric
+              value={ultimaEntrada ? formatDateTimeBR(ultimaEntrada.data_checkin) : "-"}
+              label="última entrada"
+            />
+            <Metric value={`${taxaPresenca}%`} label="presença confirmados" />
+          </BigProgressCard>
+        </section>
+
+        <section
+          className="relatorios-detail-grid"
+          style={{
+            marginTop: 34,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: 24,
+          }}
+        >
           <DetailCard
             title="Pico de entrada"
             subtitle="Movimento por horário"
