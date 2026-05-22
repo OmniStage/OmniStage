@@ -33,6 +33,28 @@ function formatCurrencyBR(value: number) {
   });
 }
 
+function formatPercentBR(value: number, digits = 1) {
+  const safeValue = Number.isFinite(value) ? value : 0;
+
+  return `${safeValue.toLocaleString("pt-BR", {
+    minimumFractionDigits: safeValue % 1 === 0 ? 0 : digits,
+    maximumFractionDigits: digits,
+  })}%`;
+}
+
+function formatDurationFromSeconds(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.round(Number(totalSeconds || 0)));
+
+  if (safeSeconds < 60) return `${safeSeconds}s`;
+
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  if (seconds === 0) return `${minutes}m`;
+
+  return `${minutes}m ${seconds}s`;
+}
+
 function getHourBR(value?: string | null) {
   if (!value) return null;
 
@@ -110,9 +132,10 @@ function getSlot30StartBR(value?: string | null) {
   const parts = getBrazilParts(value);
   if (!parts) return null;
 
+  const hour = parts.hour === 24 ? 0 : parts.hour;
   const slotMinute = parts.minute < 30 ? 0 : 30;
   const date = new Date(
-    `${parts.year}-${parts.month}-${parts.day}T${String(parts.hour).padStart(2, "0")}:${String(slotMinute).padStart(2, "0")}:00-03:00`,
+    `${parts.year}-${parts.month}-${parts.day}T${String(hour).padStart(2, "0")}:${String(slotMinute).padStart(2, "0")}:00-03:00`,
   );
 
   return Number.isNaN(date.getTime()) ? null : date;
@@ -951,7 +974,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       new Date(b.data_checkin).getTime()
   )[0];
 
-  const ultimaEntrada = ultimosCheckins[0];
+  const ultimaEntrada = [...entradasComData]
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.data_checkin).getTime() -
+        new Date(a.data_checkin).getTime()
+    )[0];
 
   const inicioEvento =
     makeBrazilDateTime(eventoAtual?.data_inicio || eventoAtual?.data_evento, eventoAtual?.hora_inicio) ||
@@ -999,12 +1027,53 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
       total,
     }));
 
-  const picoEntrada = movimentoPorIntervalo
-    .filter((item) => item.total > 0)
-    .sort((a, b) => b.total - a.total)[0];
+  const totalEntradasMovimento = movimentoPorIntervalo.reduce(
+    (acc, item) => acc + item.total,
+    0,
+  );
+
+  const movimentoComEntradas = movimentoPorIntervalo.filter(
+    (item) => item.total > 0
+  );
+
+  const picoEntrada = [...movimentoComEntradas].sort(
+    (a, b) => b.total - a.total
+  )[0];
 
   const horaPico = picoEntrada ? picoEntrada.intervalo : "-";
-  const quantidadePico = picoEntrada ? picoEntrada.total : 0;
+  const quantidadePico = Number(picoEntrada?.total || 0);
+  const percentualPico = totalEntradasMovimento
+    ? (quantidadePico / totalEntradasMovimento) * 100
+    : 0;
+
+  const entradasPeriodoPico = picoEntrada
+    ? entradasComData.filter((convidado: any) => {
+        const slot = getSlot30StartBR(convidado.data_checkin);
+        return slot?.getTime() === picoEntrada.time;
+      })
+    : [];
+
+  const gruposPeriodoPico = new Set(
+    entradasPeriodoPico.map((convidado: any) =>
+      String(
+        convidado.grupo_id ||
+          convidado.grupo ||
+          convidado.contato_principal_id ||
+          convidado.telefone ||
+          convidado.id ||
+          ""
+      ).trim()
+    ),
+  );
+
+  const gruposNoPico = gruposPeriodoPico.size;
+  const duracaoPeriodoPicoSegundos = 30 * 60;
+  const tempoMedioEntradaPorConvidado = quantidadePico
+    ? duracaoPeriodoPicoSegundos / quantidadePico
+    : 0;
+  const tempoMedioEntradaPorGrupo = gruposNoPico
+    ? duracaoPeriodoPicoSegundos / gruposNoPico
+    : 0;
 
   return (
     <main
@@ -2202,9 +2271,16 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             subtitle="Entradas realizadas no evento"
             percent={taxaPresenca}
             color="#16a34a"
-            footer={`Pico de entrada: ${horaPico} com ${quantidadePico} entrada(s)`}
+            footer={
+              quantidadePico > 0
+                ? `Pico de entrada: ${horaPico} com ${quantidadePico} check-in(s)`
+                : "Nenhum check-in registrado ainda"
+            }
           >
-            <Metric value={entradas} label="entradas totais" />
+            <Metric
+              value={entradasConfirmados + entrouSemRsvp}
+              label="entradas totais"
+            />
             <Metric
               value={adultosConfirmadosEntraram}
               label="adultos confirmados entraram"
@@ -2264,6 +2340,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <span
                 style={{
                   display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
                   borderRadius: 999,
                   padding: "8px 12px",
                   background: "#dcfce7",
@@ -2272,21 +2350,143 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   fontWeight: 900,
                 }}
               >
-                {quantidadePico} entradas no intervalo de pico
+                {quantidadePico} entradas no intervalo de pico ({formatPercentBR(percentualPico)})
               </span>
             </div>
 
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: 20,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  padding: 18,
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    color: "#64748b",
+                    fontSize: 13,
+                    fontWeight: 850,
+                  }}
+                >
+                  Tempo médio por convidado
+                </span>
+
+                <strong
+                  style={{
+                    display: "block",
+                    marginTop: 8,
+                    color: "#166534",
+                    fontSize: 26,
+                    lineHeight: 1,
+                    fontWeight: 950,
+                    letterSpacing: "-.04em",
+                  }}
+                >
+                  {formatDurationFromSeconds(tempoMedioEntradaPorConvidado)}
+                </strong>
+
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: 7,
+                    color: "#64748b",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  no período de pico
+                </small>
+              </div>
+
+              <div
+                style={{
+                  borderRadius: 20,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  padding: 18,
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    color: "#64748b",
+                    fontSize: 13,
+                    fontWeight: 850,
+                  }}
+                >
+                  Tempo médio por grupo
+                </span>
+
+                <strong
+                  style={{
+                    display: "block",
+                    marginTop: 8,
+                    color: "#166534",
+                    fontSize: 26,
+                    lineHeight: 1,
+                    fontWeight: 950,
+                    letterSpacing: "-.04em",
+                  }}
+                >
+                  {formatDurationFromSeconds(tempoMedioEntradaPorGrupo)}
+                </strong>
+
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: 7,
+                    color: "#64748b",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  {gruposNoPico} grupo(s) no período de pico
+                </small>
+              </div>
+            </div>
+
             <div style={{ gridColumn: "1 / -1", display: "grid", gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "118px 1fr 70px 70px",
+                  gap: 12,
+                  alignItems: "center",
+                  padding: "0 12px",
+                  color: "#64748b",
+                  fontSize: 12,
+                  fontWeight: 900,
+                }}
+              >
+                <span>Intervalo</span>
+                <span />
+                <span style={{ textAlign: "right" }}>Entradas</span>
+                <span style={{ textAlign: "right" }}>% do total</span>
+              </div>
+
               {movimentoPorIntervalo.length ? (
                 movimentoPorIntervalo.map((item) => {
                   const isPico = item.intervalo === horaPico;
+                  const itemPercent = totalEntradasMovimento
+                    ? (item.total / totalEntradasMovimento) * 100
+                    : 0;
 
                   return (
                     <div
                       key={item.time}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "118px 1fr 44px",
+                        gridTemplateColumns: "118px 1fr 70px 70px",
                         gap: 12,
                         alignItems: "center",
                         padding: "10px 12px",
@@ -2316,7 +2516,14 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       >
                         <div
                           style={{
-                            width: `${quantidadePico ? Math.round((item.total / quantidadePico) * 100) : 0}%`,
+                            width: `${
+                              quantidadePico > 0
+                                ? Math.min(
+                                    100,
+                                    Math.round((item.total / quantidadePico) * 100)
+                                  )
+                                : 0
+                            }%`,
                             height: "100%",
                             borderRadius: 999,
                             background: isPico ? "#16a34a" : "#94a3b8",
@@ -2333,6 +2540,18 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         }}
                       >
                         {item.total}
+                      </strong>
+
+                      <strong
+                        style={{
+                          textAlign: "right",
+                          color: isPico ? "#166534" : "#64748b",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {formatPercentBR(itemPercent)}
                       </strong>
                     </div>
                   );
@@ -2352,6 +2571,42 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   Nenhuma entrada com horário registrado.
                 </div>
               )}
+            </div>
+
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                borderRadius: 20,
+                background: "linear-gradient(135deg, #f8fafc 0%, #f5f3ff 100%)",
+                border: "1px solid #e2e8f0",
+                padding: 18,
+              }}
+            >
+              <strong
+                style={{
+                  display: "block",
+                  color: "#0f172a",
+                  fontSize: 16,
+                  lineHeight: 1.15,
+                  fontWeight: 950,
+                }}
+              >
+                Análise do pico
+              </strong>
+
+              <span
+                style={{
+                  display: "block",
+                  marginTop: 7,
+                  color: "#64748b",
+                  fontSize: 13,
+                  lineHeight: 1.35,
+                  fontWeight: 800,
+                }}
+              >
+                {formatPercentBR(percentualPico)} de todas as entradas ocorreram entre {horaPico}.
+                Período de maior concentração de convidados.
+              </span>
             </div>
 
             <Metric
