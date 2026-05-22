@@ -1474,14 +1474,16 @@ export default function CheckinEventoPage({
       return;
     }
 
-    if (giftRecord?.id && fotoUrl) {
+    if (giftRecord?.id) {
       const { error: filaIaError } = await supabase
         .from("event_gift_ai_queue")
         .insert({
           gift_record_id: giftRecord.id,
+          status: "pendente",
         });
 
       if (filaIaError) {
+        alert("Presente salvo, mas não entrou na fila IA: " + filaIaError.message);
         console.warn("Presente salvo, mas não entrou na fila IA:", filaIaError.message);
       }
     }
