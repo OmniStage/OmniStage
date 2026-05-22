@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +8,15 @@ const supabase = createClient(
 
 export async function GET() {
   try {
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { success: false, error: "OPENAI_API_KEY não configurada." },
+        { status: 500 }
+      );
+    }
+
     const { data: fila, error: filaError } = await supabase
       .from("event_gift_ai_queue")
       .select(`
@@ -24,19 +28,33 @@ export async function GET() {
         )
       `)
       .eq("status", "pendente")
+      .order("created_at", { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (filaError || !fila) {
+    if (filaError) throw filaError;
+
+    if (!fila) {
       return NextResponse.json({
-        success: false,
+        success: true,
         message: "Nenhum item pendente",
       });
     }
 
-    const registro: any = fila.event_gift_records;
+    const registro: any = Array.isArray(fila.event_gift_records)
+      ? fila.event_gift_records[0]
+      : fila.event_gift_records;
 
     if (!registro?.foto_url) {
+      await supabase
+        .from("event_gift_ai_queue")
+        .update({
+          status: "erro",
+          erro: "Registro sem foto",
+          processado_em: new Date().toISOString(),
+        })
+        .eq("id", fila.id);
+
       return NextResponse.json({
         success: false,
         message: "Registro sem foto",
@@ -50,48 +68,48 @@ export async function GET() {
       })
       .eq("id", fila.id);
 
-    const resposta = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-
-      messages: [
-        {
-          role: "system",
-          content: `
-Você analisa embalagens de presentes.
-
-Retorne SOMENTE JSON válido.
-
-Formato:
-{
-  "marca": "",
-  "produto": "",
-  "categoria": "",
-  "confianca": 0.95
-}
-          `,
-        },
-
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Analise esta embalagem de presente",
-            },
-
-            {
-              type: "image_url",
-              image_url: {
-                url: registro.foto_url,
+    const resposta = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              'Você analisa embalagens de presentes. Retorne SOMENTE JSON válido no formato: {"marca": "", "produto": "", "categoria": "", "confianca": 0.95}. Se não conseguir identificar, use null nos campos e confianca baixa.',
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Analise esta embalagem de presente.",
               },
-            },
-          ],
-        },
-      ],
+              {
+                type: "image_url",
+                image_url: {
+                  url: registro.foto_url,
+                },
+              },
+            ],
+          },
+        ],
+      }),
     });
 
-    const conteudo = resposta.choices?.[0]?.message?.content;
+    const respostaTexto = await resposta.text();
+
+    if (!resposta.ok) {
+      throw new Error("Erro OpenAI: " + respostaTexto);
+    }
+
+    const respostaJson = JSON.parse(respostaTexto);
+    const conteudo = respostaJson?.choices?.[0]?.message?.content;
 
     if (!conteudo) {
       throw new Error("IA sem resposta");
@@ -105,7 +123,10 @@ Formato:
         marca_detectada: resultado.marca || null,
         produto_detectado: resultado.produto || null,
         categoria_detectada: resultado.categoria || null,
-        ia_confianca: resultado.confianca || null,
+        ia_confianca:
+          typeof resultado.confianca === "number"
+            ? resultado.confianca
+            : null,
         ia_processado: true,
         ia_processado_em: new Date().toISOString(),
       })
