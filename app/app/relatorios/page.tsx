@@ -2061,170 +2061,265 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 style={{
                   listStyle: "none",
                   cursor: "pointer",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 18,
                 }}
               >
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      color: "#0f172a",
-                      fontSize: 26,
-                      lineHeight: 1,
-                      letterSpacing: "-.04em",
-                      fontWeight: 900,
-                    }}
-                  >
-                    Ranking de presentes recebidos
-                  </h3>
-
-                  <p
-                    style={{
-                      margin: "9px 0 0",
-                      color: "#64748b",
-                      fontSize: 15,
-                      lineHeight: 1.35,
-                      fontWeight: 700,
-                    }}
-                  >
-                    10 presentes com maior valor informado
-                  </p>
-                </div>
-
-                <span
-                  className="relatorios-ranking-arrow"
-                  aria-hidden="true"
+                <div
                   style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 999,
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    color: "#0f172a",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 22,
-                    fontWeight: 900,
-                    flexShrink: 0,
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 18,
                   }}
                 >
-                  ↓
-                </span>
-              </summary>
-
-              <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
-                {rankingItensPresentes.length ? (
-                  rankingItensPresentes.map((item: any, index: number) => (
-                    <div
-                      key={item.id}
-                      className={index > 1 ? "relatorios-ranking-extra" : undefined}
+                  <div>
+                    <h3
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "42px 1fr auto",
-                        gap: 14,
-                        alignItems: "center",
-                        padding: "14px 16px",
-                        borderRadius: 18,
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
+                        margin: 0,
+                        color: "#0f172a",
+                        fontSize: 26,
+                        lineHeight: 1,
+                        letterSpacing: "-.04em",
+                        fontWeight: 900,
                       }}
                     >
+                      Ranking de presentes recebidos
+                    </h3>
+
+                    <p
+                      style={{
+                        margin: "9px 0 0",
+                        color: "#64748b",
+                        fontSize: 15,
+                        lineHeight: 1.35,
+                        fontWeight: 700,
+                      }}
+                    >
+                      10 presentes com maior valor informado
+                    </p>
+                  </div>
+
+                  <span
+                    className="relatorios-ranking-arrow"
+                    aria-hidden="true"
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 999,
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#0f172a",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 22,
+                      fontWeight: 900,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ↓
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
+                  {rankingItensPresentes.length ? (
+                    rankingItensPresentes.slice(0, 2).map((item: any, index: number) => (
                       <div
+                        key={item.id}
                         style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: 999,
-                          background:
-                            index === 0
-                              ? "#fef3c7"
-                              : index === 1
-                                ? "#e2e8f0"
-                                : index === 2
-                                  ? "#fed7aa"
-                                  : "#ede9fe",
-                          display: "flex",
+                          display: "grid",
+                          gridTemplateColumns: "42px 1fr auto",
+                          gap: 14,
                           alignItems: "center",
-                          justifyContent: "center",
-                          color: "#0f172a",
-                          fontWeight: 900,
+                          padding: "14px 16px",
+                          borderRadius: 18,
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
-                        {index + 1}
-                      </div>
-
-                      <div>
-                        <strong
+                        <div
                           style={{
-                            display: "block",
+                            width: 42,
+                            height: 42,
+                            borderRadius: 999,
+                            background:
+                              index === 0
+                                ? "#fef3c7"
+                                : index === 1
+                                  ? "#e2e8f0"
+                                  : "#ede9fe",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             color: "#0f172a",
-                            fontSize: 14,
-                            lineHeight: 1.25,
                             fontWeight: 900,
                           }}
                         >
-                          {item.nome}
-                        </strong>
+                          {index + 1}
+                        </div>
 
-                        {item.presente && (
+                        <div>
+                          <strong
+                            style={{
+                              display: "block",
+                              color: "#0f172a",
+                              fontSize: 14,
+                              lineHeight: 1.25,
+                              fontWeight: 900,
+                            }}
+                          >
+                            {item.nome}
+                          </strong>
+
+                          {item.presente && (
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                                color: "#64748b",
+                                fontSize: 12,
+                                lineHeight: 1.3,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {item.presente}
+                            </small>
+                          )}
+
                           <small
                             style={{
                               display: "block",
                               marginTop: 4,
                               color: "#64748b",
                               fontSize: 12,
-                              lineHeight: 1.3,
                               fontWeight: 800,
                             }}
                           >
-                            {item.presente}
+                            {item.quantidade} presente(s)
                           </small>
-                        )}
+                        </div>
 
-                        <small
+                        <strong
                           style={{
-                            display: "block",
-                            marginTop: 4,
-                            color: "#64748b",
-                            fontSize: 12,
-                            fontWeight: 800,
+                            color: "#16a34a",
+                            fontSize: 14,
+                            fontWeight: 900,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {item.quantidade} presente(s)
-                        </small>
+                          {formatCurrencyBR(item.valor)}
+                        </strong>
                       </div>
+                    ))
+                  ) : (
+                    <div
+                      style={{
+                        padding: 18,
+                        borderRadius: 18,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#64748b",
+                        fontSize: 14,
+                        fontWeight: 800,
+                      }}
+                    >
+                      Nenhum presente recebido encontrado.
+                    </div>
+                  )}
+                </div>
+              </summary>
 
-                      <strong
+              {rankingItensPresentes.length > 2 && (
+                <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                  {rankingItensPresentes.slice(2, 10).map((item: any, index: number) => {
+                    const position = index + 3;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="relatorios-ranking-extra"
                         style={{
-                          color: "#16a34a",
-                          fontSize: 14,
-                          fontWeight: 900,
-                          whiteSpace: "nowrap",
+                          display: "grid",
+                          gridTemplateColumns: "42px 1fr auto",
+                          gap: 14,
+                          alignItems: "center",
+                          padding: "14px 16px",
+                          borderRadius: 18,
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
-                        {formatCurrencyBR(item.valor)}
-                      </strong>
-                    </div>
-                  ))
-                ) : (
-                  <div
-                    style={{
-                      padding: 18,
-                      borderRadius: 18,
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
-                      color: "#64748b",
-                      fontSize: 14,
-                      fontWeight: 800,
-                    }}
-                  >
-                    Nenhum presente recebido encontrado.
-                  </div>
-                )}
-              </div>
+                        <div
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 999,
+                            background: position === 3 ? "#fed7aa" : "#ede9fe",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#0f172a",
+                            fontWeight: 900,
+                          }}
+                        >
+                          {position}
+                        </div>
+
+                        <div>
+                          <strong
+                            style={{
+                              display: "block",
+                              color: "#0f172a",
+                              fontSize: 14,
+                              lineHeight: 1.25,
+                              fontWeight: 900,
+                            }}
+                          >
+                            {item.nome}
+                          </strong>
+
+                          {item.presente && (
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                                color: "#64748b",
+                                fontSize: 12,
+                                lineHeight: 1.3,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {item.presente}
+                            </small>
+                          )}
+
+                          <small
+                            style={{
+                              display: "block",
+                              marginTop: 4,
+                              color: "#64748b",
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {item.quantidade} presente(s)
+                          </small>
+                        </div>
+
+                        <strong
+                          style={{
+                            color: "#16a34a",
+                            fontSize: 14,
+                            fontWeight: 900,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {formatCurrencyBR(item.valor)}
+                        </strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </details>
 
             <details
@@ -2241,172 +2336,268 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 style={{
                   listStyle: "none",
                   cursor: "pointer",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 18,
                 }}
               >
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      color: "#0f172a",
-                      fontSize: 26,
-                      lineHeight: 1,
-                      letterSpacing: "-.04em",
-                      fontWeight: 900,
-                    }}
-                  >
-                    Ranking de presenteadores
-                  </h3>
-
-                  <p
-                    style={{
-                      margin: "9px 0 0",
-                      color: "#64748b",
-                      fontSize: 15,
-                      lineHeight: 1.35,
-                      fontWeight: 700,
-                    }}
-                  >
-                    10 convidados que mais presentearam por valor
-                  </p>
-                </div>
-
-                <span
-                  className="relatorios-ranking-arrow"
-                  aria-hidden="true"
+                <div
                   style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 999,
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    color: "#0f172a",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 22,
-                    fontWeight: 900,
-                    flexShrink: 0,
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 18,
                   }}
                 >
-                  ↓
-                </span>
-              </summary>
-
-              <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
-                {rankingPresenteadores.length ? (
-                  rankingPresenteadores.map((item: any, index: number) => (
-                    <div
-                      key={item.nome}
-                      className={index > 1 ? "relatorios-ranking-extra" : undefined}
+                  <div>
+                    <h3
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "42px 1fr auto",
-                        gap: 14,
-                        alignItems: "center",
-                        padding: "14px 16px",
-                        borderRadius: 18,
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
+                        margin: 0,
+                        color: "#0f172a",
+                        fontSize: 26,
+                        lineHeight: 1,
+                        letterSpacing: "-.04em",
+                        fontWeight: 900,
                       }}
                     >
+                      Ranking de presenteadores
+                    </h3>
+
+                    <p
+                      style={{
+                        margin: "9px 0 0",
+                        color: "#64748b",
+                        fontSize: 15,
+                        lineHeight: 1.35,
+                        fontWeight: 700,
+                      }}
+                    >
+                      10 convidados que mais presentearam por valor
+                    </p>
+                  </div>
+
+                  <span
+                    className="relatorios-ranking-arrow"
+                    aria-hidden="true"
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 999,
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#0f172a",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 22,
+                      fontWeight: 900,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ↓
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gap: 12, marginTop: 22 }}>
+                  {rankingPresenteadores.length ? (
+                    rankingPresenteadores.slice(0, 2).map((item: any, index: number) => (
                       <div
+                        key={item.id || item.nome}
                         style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: 999,
-                          background:
-                            index === 0
-                              ? "#dcfce7"
-                              : index === 1
-                                ? "#dbeafe"
-                                : index === 2
-                                  ? "#fef3c7"
-                                  : "#ede9fe",
-                          display: "flex",
+                          display: "grid",
+                          gridTemplateColumns: "42px 1fr auto",
+                          gap: 14,
                           alignItems: "center",
-                          justifyContent: "center",
-                          color: index === 0 ? "#166534" : "#0f172a",
-                          fontWeight: 900,
+                          padding: "14px 16px",
+                          borderRadius: 18,
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
-                        {index + 1}
-                      </div>
-
-                      <div>
-                        <strong
+                        <div
                           style={{
-                            display: "block",
-                            color: "#0f172a",
-                            fontSize: 14,
-                            lineHeight: 1.25,
+                            width: 42,
+                            height: 42,
+                            borderRadius: 999,
+                            background:
+                              index === 0
+                                ? "#dcfce7"
+                                : index === 1
+                                  ? "#dbeafe"
+                                  : "#ede9fe",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: index === 0 ? "#166534" : "#0f172a",
                             fontWeight: 900,
                           }}
                         >
-                          {item.nome}
-                        </strong>
+                          {index + 1}
+                        </div>
 
-                        {item.presente && (
+                        <div>
+                          <strong
+                            style={{
+                              display: "block",
+                              color: "#0f172a",
+                              fontSize: 14,
+                              lineHeight: 1.25,
+                              fontWeight: 900,
+                            }}
+                          >
+                            {item.nome}
+                          </strong>
+
+                          {item.presente && (
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                                color: "#64748b",
+                                fontSize: 12,
+                                lineHeight: 1.3,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {item.presente}
+                            </small>
+                          )}
+
                           <small
                             style={{
                               display: "block",
                               marginTop: 4,
                               color: "#64748b",
                               fontSize: 12,
-                              lineHeight: 1.3,
                               fontWeight: 800,
                             }}
                           >
-                            {item.presente}
+                            {item.quantidade} presente(s)
                           </small>
-                        )}
+                        </div>
 
-                        <small
+                        <strong
                           style={{
-                            display: "block",
-                            marginTop: 4,
-                            color: "#64748b",
-                            fontSize: 12,
-                            fontWeight: 800,
+                            color: "#16a34a",
+                            fontSize: 14,
+                            fontWeight: 900,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {item.quantidade} presente(s)
-                        </small>
+                          {formatCurrencyBR(item.valor)}
+                        </strong>
                       </div>
+                    ))
+                  ) : (
+                    <div
+                      style={{
+                        padding: 18,
+                        borderRadius: 18,
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#64748b",
+                        fontSize: 14,
+                        fontWeight: 800,
+                      }}
+                    >
+                      Nenhum presenteador encontrado.
+                    </div>
+                  )}
+                </div>
+              </summary>
 
-                      <strong
+              {rankingPresenteadores.length > 2 && (
+                <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                  {rankingPresenteadores.slice(2, 10).map((item: any, index: number) => {
+                    const position = index + 3;
+
+                    return (
+                      <div
+                        key={item.id || item.nome}
+                        className="relatorios-ranking-extra"
                         style={{
-                          color: "#16a34a",
-                          fontSize: 14,
-                          fontWeight: 900,
-                          whiteSpace: "nowrap",
+                          display: "grid",
+                          gridTemplateColumns: "42px 1fr auto",
+                          gap: 14,
+                          alignItems: "center",
+                          padding: "14px 16px",
+                          borderRadius: 18,
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
-                        {formatCurrencyBR(item.valor)}
-                      </strong>
-                    </div>
-                  ))
-                ) : (
-                  <div
-                    style={{
-                      padding: 18,
-                      borderRadius: 18,
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
-                      color: "#64748b",
-                      fontSize: 14,
-                      fontWeight: 800,
-                    }}
-                  >
-                    Nenhum presenteador encontrado.
-                  </div>
-                )}
-              </div>
+                        <div
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 999,
+                            background: position === 3 ? "#fef3c7" : "#ede9fe",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#0f172a",
+                            fontWeight: 900,
+                          }}
+                        >
+                          {position}
+                        </div>
+
+                        <div>
+                          <strong
+                            style={{
+                              display: "block",
+                              color: "#0f172a",
+                              fontSize: 14,
+                              lineHeight: 1.25,
+                              fontWeight: 900,
+                            }}
+                          >
+                            {item.nome}
+                          </strong>
+
+                          {item.presente && (
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                                color: "#64748b",
+                                fontSize: 12,
+                                lineHeight: 1.3,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {item.presente}
+                            </small>
+                          )}
+
+                          <small
+                            style={{
+                              display: "block",
+                              marginTop: 4,
+                              color: "#64748b",
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {item.quantidade} presente(s)
+                          </small>
+                        </div>
+
+                        <strong
+                          style={{
+                            color: "#16a34a",
+                            fontSize: 14,
+                            fontWeight: 900,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {formatCurrencyBR(item.valor)}
+                        </strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </details>
-          </div>        </section>
+          </div>
+        </section>
 
         <section
           className="relatorios-checkins"
