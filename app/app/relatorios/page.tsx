@@ -651,24 +651,25 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
   );
 
   const reservasConfirmadas = giftReservations.filter((p: any) =>
-    statusPagoPresente(p.status),
+    statusPagoPresente(p.status) || Number(p.valor_presenteado || 0) > 0,
   );
 
-  const presentesPendentes = giftReservations.filter((p: any) =>
-    statusPendentePresente(p.status),
+  const presentesPendentes = giftReservations.filter(
+    (p: any) =>
+      Number(p.valor_presenteado || 0) <= 0 && statusPendentePresente(p.status),
   );
 
-  const presentesPagos = pagamentosConfirmados.length
-    ? pagamentosConfirmados
-    : reservasConfirmadas;
+  const presentesPagos = reservasConfirmadas.length
+    ? reservasConfirmadas
+    : pagamentosConfirmados;
 
-  const valorTotalPresentes = pagamentosConfirmados.length
-    ? pagamentosConfirmados.reduce(
-        (acc: number, item: any) => acc + Number(item.valor || 0),
+  const valorTotalPresentes = reservasConfirmadas.length
+    ? reservasConfirmadas.reduce(
+        (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
         0,
       )
-    : reservasConfirmadas.reduce(
-        (acc: number, item: any) => acc + Number(item.valor_presenteado || 0),
+    : pagamentosConfirmados.reduce(
+        (acc: number, item: any) => acc + Number(item.valor || 0),
         0,
       );
 
