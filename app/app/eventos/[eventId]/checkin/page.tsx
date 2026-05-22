@@ -1467,26 +1467,41 @@ export default function CheckinEventoPage({
       .select("id")
       .single();
 
-    setSalvandoPresente(false);
-
     if (error) {
+      setSalvandoPresente(false);
       alert("Erro ao registrar presente: " + error.message);
       return;
     }
 
-    if (giftRecord?.id) {
-      const { error: filaIaError } = await supabase
-        .from("event_gift_ai_queue")
-        .insert({
-          gift_record_id: giftRecord.id,
-          status: "pendente",
-        });
-
-      if (filaIaError) {
-        alert("Presente salvo, mas não entrou na fila IA: " + filaIaError.message);
-        console.warn("Presente salvo, mas não entrou na fila IA:", filaIaError.message);
-      }
+    if (!giftRecord?.id) {
+      setSalvandoPresente(false);
+      alert("Presente salvo, mas o sistema não retornou o ID do registro para criar a fila IA.");
+      return;
     }
+
+    const { data: filaIaCriada, error: filaIaError } = await supabase
+      .from("event_gift_ai_queue")
+      .insert({
+        gift_record_id: giftRecord.id,
+        status: "pendente",
+      })
+      .select("id")
+      .single();
+
+    if (filaIaError) {
+      setSalvandoPresente(false);
+      alert("Presente salvo, mas não entrou na fila IA: " + filaIaError.message);
+      console.warn("Presente salvo, mas não entrou na fila IA:", filaIaError);
+      return;
+    }
+
+    if (!filaIaCriada?.id) {
+      setSalvandoPresente(false);
+      alert("Presente salvo, mas a fila IA não confirmou o registro criado.");
+      return;
+    }
+
+    setSalvandoPresente(false);
 
     await carregarPresentesEvento(tenantAtual);
 
