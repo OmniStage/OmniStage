@@ -616,7 +616,7 @@ export default function ListaPresentesPage() {
 
                 <div className="actions">
                   <Link
-                    href={`/app/eventos/${evento.id}/lista-presentes`}
+                    href={`/app/presentes/${evento.id}/lista`}
                     className="primary"
                   >
                     Configurar lista
@@ -649,14 +649,14 @@ export default function ListaPresentesPage() {
                   </button>
 
                   <Link
-                    href={`/app/eventos/${evento.id}/lista-presentes/presenteados`}
+                    href={`/app/presentes/${evento.id}/presenteados`}
                     className="secondary"
                   >
                     Presentes recebidos
                   </Link>
 
                   <Link
-                    href={`/app/eventos/${evento.id}/checkin?registrarPresente=1`}
+                    href={`/app/presentes/${evento.id}/fisicos`}
                     className="secondary gift-action"
                   >
                     🎁 Registrar presente no evento
