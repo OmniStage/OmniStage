@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function GET() {
+  let filaAtual: any = null;
+
   try {
     const apiKey = process.env.OPENAI_API_KEY;
 
@@ -22,12 +27,15 @@ export async function GET() {
       .select(`
         id,
         gift_record_id,
+        status,
+        tentativas,
         event_gift_records (
           id,
           foto_url
         )
       `)
-      .eq("status", "pendente")
+      .in("status", ["pendente", "processando"])
+      .is("processado_em", null)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -40,6 +48,20 @@ export async function GET() {
         message: "Nenhum item pendente",
       });
     }
+
+    filaAtual = fila;
+
+    const tentativasAtuais =
+      typeof fila.tentativas === "number" ? fila.tentativas : 0;
+
+    await supabase
+      .from("event_gift_ai_queue")
+      .update({
+        status: "processando",
+        tentativas: tentativasAtuais + 1,
+        erro: null,
+      })
+      .eq("id", fila.id);
 
     const registro: any = Array.isArray(fila.event_gift_records)
       ? fila.event_gift_records[0]
@@ -58,15 +80,9 @@ export async function GET() {
       return NextResponse.json({
         success: false,
         message: "Registro sem foto",
+        fila_id: fila.id,
       });
     }
-
-    await supabase
-      .from("event_gift_ai_queue")
-      .update({
-        status: "processando",
-      })
-      .eq("id", fila.id);
 
     const resposta = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -124,9 +140,7 @@ export async function GET() {
         produto_detectado: null,
         categoria_detectada: resultado.categoria || null,
         ia_confianca:
-          typeof resultado.confianca === "number"
-            ? resultado.confianca
-            : null,
+          typeof resultado.confianca === "number" ? resultado.confianca : null,
         ia_processado: true,
         ia_processado_em: new Date().toISOString(),
       })
@@ -136,20 +150,39 @@ export async function GET() {
       .from("event_gift_ai_queue")
       .update({
         status: "concluido",
+        erro: null,
         processado_em: new Date().toISOString(),
       })
       .eq("id", fila.id);
 
     return NextResponse.json({
       success: true,
+      fila_id: fila.id,
+      gift_record_id: registro.id,
       resultado,
     });
   } catch (error: any) {
     console.error(error);
 
+    if (filaAtual?.id) {
+      const tentativasAtuais =
+        typeof filaAtual.tentativas === "number" ? filaAtual.tentativas : 0;
+
+      await supabase
+        .from("event_gift_ai_queue")
+        .update({
+          status: tentativasAtuais + 1 >= 3 ? "erro" : "pendente",
+          erro: error.message || "Erro desconhecido ao processar IA",
+          processado_em:
+            tentativasAtuais + 1 >= 3 ? new Date().toISOString() : null,
+        })
+        .eq("id", filaAtual.id);
+    }
+
     return NextResponse.json(
       {
         success: false,
+        fila_id: filaAtual?.id || null,
         error: error.message,
       },
       {
@@ -158,4 +191,3 @@ export async function GET() {
     );
   }
 }
-
