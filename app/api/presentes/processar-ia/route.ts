@@ -31,7 +31,8 @@ export async function GET() {
         tentativas,
         event_gift_records (
           id,
-          foto_url
+          foto_url,
+          status
         )
       `)
       .in("status", ["pendente", "processando"])
@@ -66,6 +67,25 @@ export async function GET() {
     const registro: any = Array.isArray(fila.event_gift_records)
       ? fila.event_gift_records[0]
       : fila.event_gift_records;
+
+    if (registro?.status !== "ativo") {
+      await supabase
+        .from("event_gift_ai_queue")
+        .update({
+          status: "cancelado",
+          erro: "Presente cancelado ignorado pela IA",
+          processado_em: new Date().toISOString(),
+        })
+        .eq("id", fila.id);
+
+      return NextResponse.json({
+        success: false,
+        ignored: true,
+        fila_id: fila.id,
+        gift_record_id: fila.gift_record_id,
+        message: "Presente cancelado ignorado",
+      });
+    }
 
     if (!registro?.foto_url) {
       await supabase
@@ -144,7 +164,8 @@ export async function GET() {
         ia_processado: true,
         ia_processado_em: new Date().toISOString(),
       })
-      .eq("id", registro.id);
+      .eq("id", registro.id)
+      .eq("status", "ativo");
 
     await supabase
       .from("event_gift_ai_queue")
