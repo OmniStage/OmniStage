@@ -53,13 +53,15 @@ export default async function PresentesFisicosPage({
     .eq("id", eventId)
     .single();
 
-  const { data: presentes = [] } = await supabase
+  const { data: presentesData } = await supabase
     .from("event_gift_records")
     .select("*")
     .eq("evento_id", eventId)
     .eq("tipo_presente", "presente_fisico")
     .eq("status", "ativo")
     .order("created_at", { ascending: false });
+
+  const presentes = presentesData || [];
 
   return (
     <div className="min-h-screen bg-[#f6f7fb] p-4 md:p-8">
