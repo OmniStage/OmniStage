@@ -20,24 +20,21 @@ function getIAStatus(record: any) {
   if (!record.foto_url) {
     return {
       label: "Sem foto",
-      className:
-        "bg-gray-100 text-gray-600 border border-gray-200",
+      className: "ia-badge ia-badge-empty",
     };
   }
 
   if (!record.ia_processado) {
     return {
       label: "Processando IA",
-      className:
-        "bg-amber-50 text-amber-700 border border-amber-200",
+      className: "ia-badge ia-badge-processing",
     };
   }
 
   return {
     label: "IA detectada",
-    className:
-      "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    };
+    className: "ia-badge ia-badge-success",
+  };
 }
 
 export default async function PresentesFisicosPage({
@@ -62,212 +59,525 @@ export default async function PresentesFisicosPage({
     .order("created_at", { ascending: false });
 
   const presentes = presentesData || [];
+  const totalIaProcessados = presentes.filter((item: any) => item.ia_processado).length;
+  const totalPendentesIa = presentes.filter((item: any) => !item.ia_processado).length;
+  const totalFotos = presentes.filter((item: any) => item.foto_url).length;
 
   return (
-    <div className="min-h-screen bg-[#f6f7fb] p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="rounded-[32px] border border-white/60 bg-gradient-to-r from-[#f6f0ff] to-[#eefbf5] p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-violet-600">
-                Presentes físicos
-              </div>
+    <div className="presentes-fisicos-page">
+      <style>{styles}</style>
 
-              <h1 className="text-4xl font-black tracking-tight text-[#101828]">
-                Recepção no evento
-              </h1>
+      <div className="presentes-shell">
+        <section className="hero-card">
+          <div className="hero-content">
+            <span className="eyebrow">Presentes físicos</span>
 
-              <p className="mt-3 max-w-3xl text-base text-[#667085]">
-                Controle presentes recebidos no check-in,
-                etiquetas, embalagens e análise automática
-                por IA.
-              </p>
+            <h1>Recepção no evento</h1>
 
-              <div className="mt-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#344054] shadow-sm">
-                {evento?.nome || "Evento"}
-              </div>
-            </div>
-
-            <Link
-              href={`/app/presentes/${eventId}/lista`}
-              className="inline-flex h-12 items-center justify-center rounded-2xl border border-[#d0d5dd] bg-white px-5 text-sm font-semibold text-[#111827] transition hover:bg-[#f9fafb]"
-            >
-              Voltar para presentes
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
-              Presentes físicos
-            </div>
-
-            <div className="mt-2 text-4xl font-black text-[#111827]">
-              {presentes.length}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
-              IA processados
-            </div>
-
-            <div className="mt-2 text-4xl font-black text-[#111827]">
-              {
-                presentes.filter(
-                  (item) => item.ia_processado
-                ).length
-              }
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
-              Pendentes IA
-            </div>
-
-            <div className="mt-2 text-4xl font-black text-[#111827]">
-              {
-                presentes.filter(
-                  (item) => !item.ia_processado
-                ).length
-              }
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
-              Fotos registradas
-            </div>
-
-            <div className="mt-2 text-4xl font-black text-[#111827]">
-              {
-                presentes.filter(
-                  (item) => item.foto_url
-                ).length
-              }
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {presentes.map((presente: any) => {
-            const iaStatus = getIAStatus(presente);
-
-            return (
-              <div
-                key={presente.id}
-                className="overflow-hidden rounded-[32px] border border-[#eaecf0] bg-white shadow-sm"
-              >
-                <div className="relative aspect-[4/3] bg-[#f4f4f5]">
-                  {presente.foto_url ? (
-                    <img
-                      src={presente.foto_url}
-                      alt="Presente"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm font-medium text-[#667085]">
-                      Sem foto
-                    </div>
-                  )}
-
-                  <div className="absolute left-4 top-4">
-                    <div
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${iaStatus.className}`}
-                    >
-                      {iaStatus.label}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-black text-[#111827]">
-                        {presente.nome_convidado ||
-                          "Convidado"}
-                      </h2>
-
-                      <p className="mt-1 text-sm font-medium text-[#667085]">
-                        {presente.grupo || "-"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-full bg-[#f4ebff] px-3 py-1 text-xs font-bold text-violet-700">
-                      {presente.etiqueta_codigo}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3">
-                    <div className="rounded-2xl bg-[#f9fafb] p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
-                        Categoria detectada
-                      </div>
-
-                      <div className="mt-1 text-base font-bold text-[#111827]">
-                        {presente.categoria_detectada ||
-                          "Aguardando IA"}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-[#f9fafb] p-4">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-[#667085]">
-                        Marca detectada
-                      </div>
-
-                      <div className="mt-1 text-base font-bold text-[#111827]">
-                        {presente.marca_detectada ||
-                          "Aguardando IA"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between text-sm text-[#667085]">
-                    <span>
-                      Confiança IA:
-                    </span>
-
-                    <span className="font-bold text-[#111827]">
-                      {presente.ia_confianca
-                        ? `${Math.round(
-                            presente.ia_confianca * 100
-                          )}%`
-                        : "-"}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between text-sm text-[#667085]">
-                    <span>
-                      Registrado em
-                    </span>
-
-                    <span className="font-semibold text-[#111827]">
-                      {formatDate(
-                        presente.created_at
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {!presentes.length && (
-          <div className="mt-8 rounded-[32px] border border-dashed border-[#d0d5dd] bg-white p-16 text-center">
-            <div className="text-lg font-bold text-[#111827]">
-              Nenhum presente físico registrado
-            </div>
-
-            <p className="mt-2 text-[#667085]">
-              Os presentes registrados no check-in
-              aparecerão aqui automaticamente.
+            <p>
+              Controle presentes recebidos no check-in, etiquetas, embalagens e
+              análise automática por IA.
             </p>
+
+            <div className="event-chip">
+              {evento?.nome || "Evento"}
+            </div>
           </div>
+
+          <Link
+            href={`/app/presentes/${eventId}`}
+            className="secondary-action"
+          >
+            Voltar para presentes
+          </Link>
+        </section>
+
+        <section className="metrics-grid">
+          <MetricCard label="Presentes físicos" value={presentes.length} />
+          <MetricCard label="IA processados" value={totalIaProcessados} />
+          <MetricCard label="Pendentes IA" value={totalPendentesIa} />
+          <MetricCard label="Fotos registradas" value={totalFotos} />
+        </section>
+
+        {presentes.length > 0 ? (
+          <section className="gallery-grid">
+            {presentes.map((presente: any) => {
+              const iaStatus = getIAStatus(presente);
+
+              return (
+                <article key={presente.id} className="gift-card">
+                  <div className="photo-wrap">
+                    {presente.foto_url ? (
+                      <img
+                        src={presente.foto_url}
+                        alt="Presente"
+                        className="gift-photo"
+                      />
+                    ) : (
+                      <div className="photo-placeholder">
+                        Sem foto
+                      </div>
+                    )}
+
+                    <div className="photo-badge-wrap">
+                      <span className={iaStatus.className}>
+                        {iaStatus.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="gift-body">
+                    <div className="gift-head">
+                      <div>
+                        <h2>{presente.nome_convidado || "Convidado"}</h2>
+
+                        <p>{presente.grupo || "Sem grupo"}</p>
+                      </div>
+
+                      <span className="tag-code">
+                        {presente.etiqueta_codigo || "Sem etiqueta"}
+                      </span>
+                    </div>
+
+                    <div className="ai-info-grid">
+                      <div className="info-box">
+                        <span>Categoria detectada</span>
+                        <strong>
+                          {presente.categoria_detectada || "Aguardando IA"}
+                        </strong>
+                      </div>
+
+                      <div className="info-box">
+                        <span>Marca detectada</span>
+                        <strong>
+                          {presente.marca_detectada || "Aguardando IA"}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="gift-meta-row">
+                      <span>Confiança IA</span>
+                      <strong>
+                        {presente.ia_confianca
+                          ? `${Math.round(Number(presente.ia_confianca) * 100)}%`
+                          : "-"}
+                      </strong>
+                    </div>
+
+                    <div className="gift-meta-row">
+                      <span>Registrado em</span>
+                      <strong>{formatDate(presente.created_at)}</strong>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="empty-state">
+            <strong>Nenhum presente físico registrado</strong>
+
+            <p>
+              Os presentes registrados no check-in aparecerão aqui automaticamente.
+            </p>
+          </section>
         )}
       </div>
     </div>
   );
 }
+
+function MetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <article className="metric-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+const styles = `
+  .presentes-fisicos-page {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 8% 0%, rgba(124, 58, 237, .10), transparent 34%),
+      radial-gradient(circle at 92% 0%, rgba(16, 185, 129, .09), transparent 30%),
+      #f8fafc;
+    color: #0f172a;
+    padding: 32px;
+  }
+
+  .presentes-shell {
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .hero-card {
+    border: 1px solid rgba(226, 232, 240, .95);
+    border-radius: 34px;
+    padding: 34px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(124, 58, 237, .13), transparent 34%),
+      radial-gradient(circle at 100% 0%, rgba(16, 185, 129, .12), transparent 34%),
+      #ffffff;
+    box-shadow: 0 28px 90px rgba(15, 23, 42, .08);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .hero-content {
+    min-width: 0;
+  }
+
+  .eyebrow {
+    display: inline-block;
+    color: #7c3aed;
+    font-size: 12px;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    margin-bottom: 12px;
+  }
+
+  .hero-card h1 {
+    margin: 0;
+    color: #0f172a;
+    font-size: clamp(38px, 5vw, 64px);
+    line-height: .95;
+    font-weight: 950;
+    letter-spacing: -.065em;
+  }
+
+  .hero-card p {
+    margin: 18px 0 0;
+    max-width: 760px;
+    color: #64748b;
+    font-size: 17px;
+    line-height: 1.65;
+    font-weight: 750;
+  }
+
+  .event-chip {
+    display: inline-flex;
+    margin-top: 22px;
+    align-items: center;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid rgba(226, 232, 240, .95);
+    color: #334155;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 900;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+  }
+
+  .secondary-action {
+    flex: 0 0 auto;
+    height: 46px;
+    padding: 0 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(203, 213, 225, .95);
+    background: #fff;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 950;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .05);
+    transition: transform .16s ease, background .16s ease;
+  }
+
+  .secondary-action:hover {
+    transform: translateY(-1px);
+    background: #f8fafc;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .metric-card {
+    border: 1px solid rgba(226, 232, 240, .95);
+    border-radius: 26px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, .06);
+  }
+
+  .metric-card span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .metric-card strong {
+    display: block;
+    margin-top: 8px;
+    color: #0f172a;
+    font-size: 34px;
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: -.055em;
+  }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .gift-card {
+    overflow: hidden;
+    border-radius: 32px;
+    border: 1px solid rgba(226, 232, 240, .95);
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .08);
+  }
+
+  .photo-wrap {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: #f1f5f9;
+    overflow: hidden;
+  }
+
+  .gift-photo {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    transition: transform .35s ease;
+  }
+
+  .gift-card:hover .gift-photo {
+    transform: scale(1.035);
+  }
+
+  .photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  .photo-badge-wrap {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+  }
+
+  .ia-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 8px 11px;
+    font-size: 11px;
+    font-weight: 950;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .12);
+  }
+
+  .ia-badge-empty {
+    background: rgba(241, 245, 249, .95);
+    color: #475569;
+    border: 1px solid rgba(226, 232, 240, .95);
+  }
+
+  .ia-badge-processing {
+    background: rgba(254, 243, 199, .96);
+    color: #92400e;
+    border: 1px solid rgba(253, 230, 138, .95);
+  }
+
+  .ia-badge-success {
+    background: rgba(220, 252, 231, .96);
+    color: #166534;
+    border: 1px solid rgba(187, 247, 208, .95);
+  }
+
+  .gift-body {
+    padding: 20px;
+  }
+
+  .gift-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .gift-head h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 950;
+    letter-spacing: -.04em;
+  }
+
+  .gift-head p {
+    margin: 7px 0 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.35;
+    font-weight: 850;
+  }
+
+  .tag-code {
+    flex: 0 0 auto;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 999px;
+    background: #f4ebff;
+    color: #6d28d9;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .ai-info-grid {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .info-box {
+    border-radius: 18px;
+    background: #f8fafc;
+    border: 1px solid rgba(226, 232, 240, .85);
+    padding: 14px;
+  }
+
+  .info-box span {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+
+  .info-box strong {
+    display: block;
+    margin-top: 5px;
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 950;
+  }
+
+  .gift-meta-row {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .gift-meta-row strong {
+    color: #0f172a;
+    font-weight: 950;
+    text-align: right;
+  }
+
+  .empty-state {
+    border-radius: 32px;
+    border: 1px dashed rgba(148, 163, 184, .45);
+    background: #fff;
+    padding: 56px 24px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, .05);
+  }
+
+  .empty-state strong {
+    display: block;
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  .empty-state p {
+    margin: 8px auto 0;
+    max-width: 520px;
+    color: #64748b;
+    line-height: 1.55;
+    font-weight: 750;
+  }
+
+  @media (max-width: 1180px) {
+    .gallery-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 900px) {
+    .presentes-fisicos-page {
+      padding: 16px;
+    }
+
+    .hero-card {
+      padding: 24px;
+      border-radius: 26px;
+      flex-direction: column;
+    }
+
+    .secondary-action {
+      width: 100%;
+    }
+
+    .metrics-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gallery-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .presentes-fisicos-page {
+      padding: 12px;
+    }
+
+    .hero-card h1 {
+      font-size: 34px;
+    }
+
+    .hero-card p {
+      font-size: 15px;
+    }
+
+    .metrics-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .gift-head {
+      flex-direction: column;
+    }
+
+    .tag-code {
+      max-width: 100%;
+    }
+  }
+`;
