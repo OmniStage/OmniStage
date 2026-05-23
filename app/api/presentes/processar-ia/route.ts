@@ -1,3 +1,4 @@
+```ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -81,7 +82,7 @@ export async function GET() {
           {
             role: "system",
             content:
-              'Você analisa embalagens de presentes. Retorne SOMENTE JSON válido no formato: {"marca": "", "produto": "", "categoria": "", "confianca": 0.95}. Se não conseguir identificar, use null nos campos e confianca baixa.',
+              'Você analisa embalagens visíveis de presentes em eventos. Detecte apenas a marca visível na embalagem e a categoria provável pela embalagem. Nunca tente adivinhar o produto interno. Retorne SOMENTE JSON válido no formato: {"marca": "", "categoria": "", "confianca": 0.95}. Categorias permitidas: beleza, vestuario, joias, eletronicos, infantil, decoracao, calcados, esporte, premium, outros. Se não conseguir identificar, use null nos campos e confianca baixa.',
           },
           {
             role: "user",
@@ -121,7 +122,7 @@ export async function GET() {
       .from("event_gift_records")
       .update({
         marca_detectada: resultado.marca || null,
-        produto_detectado: resultado.produto || null,
+        produto_detectado: null,
         categoria_detectada: resultado.categoria || null,
         ia_confianca:
           typeof resultado.confianca === "number"
@@ -158,3 +159,5 @@ export async function GET() {
     );
   }
 }
+```
+
