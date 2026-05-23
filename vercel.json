@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/presentes/processar-ia",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
