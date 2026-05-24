@@ -50,6 +50,57 @@ async function atualizarPresenteAction(formData: FormData) {
   revalidatePath(`/app/presentes/${eventId}`);
 }
 
+
+async function incluirNotaFiscalAction(formData: FormData) {
+  "use server";
+
+  const supabase = await createClient();
+
+  const eventId = String(formData.get("eventId") || "");
+  const presenteId = String(formData.get("presenteId") || "");
+  const notaFiscal = formData.get("nota_fiscal");
+
+  if (!eventId || !presenteId) return;
+
+  if (!(notaFiscal instanceof File) || notaFiscal.size === 0) {
+    return;
+  }
+
+  const nomeOriginal = notaFiscal.name || "nota-fiscal";
+  const extensao = nomeOriginal.includes(".")
+    ? nomeOriginal.split(".").pop()
+    : "jpg";
+  const nomeArquivo = `nf-${presenteId}-${Date.now()}.${extensao}`;
+  const caminho = `event-gifts/${eventId}/notas-fiscais/${nomeArquivo}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("event-assets")
+    .upload(caminho, notaFiscal, {
+      upsert: true,
+      contentType: notaFiscal.type || "application/octet-stream",
+    });
+
+  if (uploadError) {
+    throw new Error("Erro ao enviar nota fiscal: " + uploadError.message);
+  }
+
+  const { data } = supabase.storage
+    .from("event-assets")
+    .getPublicUrl(caminho);
+
+  await supabase
+    .from("event_gift_records")
+    .update({
+      nota_fiscal_url: data.publicUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", presenteId)
+    .eq("evento_id", eventId);
+
+  revalidatePath(`/app/presentes/${eventId}/fisicos`);
+  revalidatePath(`/app/presentes/${eventId}`);
+}
+
 async function cancelarPresenteAction(formData: FormData) {
   "use server";
 
@@ -149,10 +200,7 @@ export default async function PresentesFisicosPage({
             <span className="eyebrow">Presentes físicos</span>
 
             <h1>Recepção no evento</h1>
-            
-<p style={{ color: "red", fontWeight: 900 }}>
-  VERSÃO EDITÁVEL ATIVA
-</p>
+
             <p>
               Controle presentes recebidos no check-in, etiquetas, embalagens e
               análise automática por IA.
@@ -164,7 +212,7 @@ export default async function PresentesFisicosPage({
           </div>
 
           <Link
-            href={`/app/presentes/${eventId}`}
+            href="/app/presentes"
             className="secondary-action"
           >
             Voltar para presentes
@@ -240,7 +288,7 @@ export default async function PresentesFisicosPage({
 
                       <div className="edit-grid">
                         <label>
-                          <span>Alterar categoria</span>
+                          <span>Categoria</span>
                           <select
                             name="categoria_detectada"
                             defaultValue={presente.categoria_detectada || ""}
@@ -255,7 +303,7 @@ export default async function PresentesFisicosPage({
                         </label>
 
                         <label>
-                          <span>Alterar marca</span>
+                          <span>Marca</span>
                           <input
                             name="marca_detectada"
                             defaultValue={presente.marca_detectada || ""}
@@ -265,7 +313,37 @@ export default async function PresentesFisicosPage({
                       </div>
 
                       <button type="submit" className="save-action">
-                        Salvar ajuste
+                        Alterar
+                      </button>
+                    </form>
+
+                    <form action={incluirNotaFiscalAction} className="nf-form">
+                      <input type="hidden" name="eventId" value={eventId} />
+                      <input type="hidden" name="presenteId" value={presente.id} />
+
+                      <label className="nf-upload">
+                        <span>Nota fiscal para troca futura</span>
+
+                        <input
+                          type="file"
+                          name="nota_fiscal"
+                          accept="image/*,.pdf"
+                        />
+                      </label>
+
+                      {presente.nota_fiscal_url && (
+                        <a
+                          href={presente.nota_fiscal_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="nf-link"
+                        >
+                          Ver NF anexada
+                        </a>
+                      )}
+
+                      <button type="submit" className="nf-action">
+                        Incluir NF
                       </button>
                     </form>
 
@@ -287,8 +365,13 @@ export default async function PresentesFisicosPage({
                       <input type="hidden" name="eventId" value={eventId} />
                       <input type="hidden" name="presenteId" value={presente.id} />
 
+                      <label className="confirm-row">
+                        <input type="checkbox" required />
+                        Confirmo que desejo cancelar este presente.
+                      </label>
+
                       <button type="submit" className="danger-action">
-                        Excluir / cancelar presente
+                        Cancelar
                       </button>
                     </form>
                   </div>
@@ -672,8 +755,91 @@ const styles = `
     filter: brightness(.98);
   }
 
+  .nf-form {
+    margin-top: 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(191, 219, 254, .95);
+    background: linear-gradient(180deg, rgba(239, 246, 255, .92), rgba(255, 255, 255, .98));
+    padding: 14px;
+  }
+
+  .nf-upload {
+    display: grid;
+    gap: 8px;
+  }
+
+  .nf-upload span {
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+
+  .nf-upload input {
+    width: 100%;
+    min-height: 42px;
+    border: 1px dashed rgba(147, 197, 253, .95);
+    border-radius: 14px;
+    background: #fff;
+    color: #1e3a8a;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 850;
+  }
+
+  .nf-action {
+    width: 100%;
+    margin-top: 10px;
+    min-height: 42px;
+    border: 1px solid rgba(191, 219, 254, .95);
+    border-radius: 14px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 14px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .nf-action:hover {
+    background: #dbeafe;
+  }
+
+  .nf-link {
+    display: inline-flex;
+    margin-top: 10px;
+    color: #1d4ed8;
+    font-size: 13px;
+    font-weight: 950;
+    text-decoration: none;
+  }
+
+  .nf-link:hover {
+    text-decoration: underline;
+  }
+
   .danger-form {
     margin-top: 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(254, 205, 211, .95);
+    background: #fff7f8;
+    padding: 14px;
+  }
+
+  .confirm-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #9f1239;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.35;
+    margin-bottom: 10px;
+  }
+
+  .confirm-row input {
+    margin-top: 1px;
+    accent-color: #be123c;
   }
 
   .danger-action {
