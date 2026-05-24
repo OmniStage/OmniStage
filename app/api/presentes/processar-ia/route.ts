@@ -117,7 +117,7 @@ export async function GET() {
           {
             role: "system",
             content:
-              'Você analisa embalagens visíveis de presentes em eventos. Detecte apenas a marca visível na embalagem e a categoria provável pela embalagem. Nunca tente adivinhar o produto interno. Retorne SOMENTE JSON válido no formato: {"marca": "", "categoria": "", "confianca": 0.95}. Categorias permitidas: beleza, vestuario, joias, eletronicos, infantil, decoracao, calcados, esporte, premium, outros. Se não conseguir identificar, use null nos campos e confianca baixa.',
+              'Você analisa embalagens visíveis de presentes em eventos. Detecte apenas a marca visível na embalagem e a categoria provável pela embalagem. Nunca tente adivinhar o produto interno. Retorne SOMENTE JSON válido no formato: {"marca": "", "categoria": "", "confianca": 0.95}. Categorias permitidas: beleza, vestuario, joias, semijoias, bijuterias, eletronicos, decoracao, infantil, calcados, esporte, brinquedos, premium, outros. Se não conseguir identificar, use null nos campos e confianca baixa.',
           },
           {
             role: "user",
