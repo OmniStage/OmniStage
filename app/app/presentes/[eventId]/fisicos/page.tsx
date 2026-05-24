@@ -149,7 +149,10 @@ export default async function PresentesFisicosPage({
             <span className="eyebrow">Presentes físicos</span>
 
             <h1>Recepção no evento</h1>
-
+            
+<p style={{ color: "red", fontWeight: 900 }}>
+  VERSÃO EDITÁVEL ATIVA
+</p>
             <p>
               Controle presentes recebidos no check-in, etiquetas, embalagens e
               análise automática por IA.
