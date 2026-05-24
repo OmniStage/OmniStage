@@ -785,4 +785,4 @@ const styles = `
       max-width: 100%;
     }
   }
-`;
+
