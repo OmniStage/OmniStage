@@ -1,11 +1,87 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
+
+const CATEGORIAS_PRESENTE = [
+  "beleza",
+  "vestuario",
+  "joias",
+  "semijoias",
+  "bijuterias",
+  "eletronicos",
+  "decoracao",
+  "infantil",
+  "calcados",
+  "esporte",
+  "brinquedos",
+  "outros",
+];
 
 type PageProps = {
   params: Promise<{
     eventId: string;
   }>;
 };
+
+async function atualizarPresenteAction(formData: FormData) {
+  "use server";
+
+  const supabase = await createClient();
+
+  const eventId = String(formData.get("eventId") || "");
+  const presenteId = String(formData.get("presenteId") || "");
+  const marca = String(formData.get("marca_detectada") || "").trim();
+  const categoria = String(formData.get("categoria_detectada") || "").trim();
+
+  if (!eventId || !presenteId) return;
+
+  await supabase
+    .from("event_gift_records")
+    .update({
+      marca_detectada: marca || null,
+      categoria_detectada: categoria || null,
+      ia_processado: true,
+      ia_processado_em: new Date().toISOString(),
+    })
+    .eq("id", presenteId)
+    .eq("evento_id", eventId);
+
+  revalidatePath(`/app/presentes/${eventId}/fisicos`);
+  revalidatePath(`/app/presentes/${eventId}`);
+}
+
+async function cancelarPresenteAction(formData: FormData) {
+  "use server";
+
+  const supabase = await createClient();
+
+  const eventId = String(formData.get("eventId") || "");
+  const presenteId = String(formData.get("presenteId") || "");
+
+  if (!eventId || !presenteId) return;
+
+  await supabase
+    .from("event_gift_records")
+    .update({
+      status: "cancelado",
+      motivo_cancelamento: "Cancelado no módulo de presentes físicos",
+      cancelado_em: new Date().toISOString(),
+    })
+    .eq("id", presenteId)
+    .eq("evento_id", eventId);
+
+  await supabase
+    .from("event_gift_ai_queue")
+    .update({
+      status: "cancelado",
+      erro: "Presente cancelado pelo operador",
+      processado_em: new Date().toISOString(),
+    })
+    .eq("gift_record_id", presenteId);
+
+  revalidatePath(`/app/presentes/${eventId}/fisicos`);
+  revalidatePath(`/app/presentes/${eventId}`);
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -155,6 +231,41 @@ export default async function PresentesFisicosPage({
                       </div>
                     </div>
 
+                    <form action={atualizarPresenteAction} className="edit-panel">
+                      <input type="hidden" name="eventId" value={eventId} />
+                      <input type="hidden" name="presenteId" value={presente.id} />
+
+                      <div className="edit-grid">
+                        <label>
+                          <span>Alterar categoria</span>
+                          <select
+                            name="categoria_detectada"
+                            defaultValue={presente.categoria_detectada || ""}
+                          >
+                            <option value="">Selecione</option>
+                            {CATEGORIAS_PRESENTE.map((categoria) => (
+                              <option key={categoria} value={categoria}>
+                                {categoria}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          <span>Alterar marca</span>
+                          <input
+                            name="marca_detectada"
+                            defaultValue={presente.marca_detectada || ""}
+                            placeholder="Marca da embalagem"
+                          />
+                        </label>
+                      </div>
+
+                      <button type="submit" className="save-action">
+                        Salvar ajuste
+                      </button>
+                    </form>
+
                     <div className="gift-meta-row">
                       <span>Confiança IA</span>
                       <strong>
@@ -168,6 +279,15 @@ export default async function PresentesFisicosPage({
                       <span>Registrado em</span>
                       <strong>{formatDate(presente.created_at)}</strong>
                     </div>
+
+                    <form action={cancelarPresenteAction} className="danger-form">
+                      <input type="hidden" name="eventId" value={eventId} />
+                      <input type="hidden" name="presenteId" value={presente.id} />
+
+                      <button type="submit" className="danger-action">
+                        Excluir / cancelar presente
+                      </button>
+                    </form>
                   </div>
                 </article>
               );
@@ -482,6 +602,91 @@ const styles = `
     color: #0f172a;
     font-size: 15px;
     font-weight: 950;
+  }
+
+  .edit-panel {
+    margin-top: 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(221, 214, 254, .95);
+    background: linear-gradient(180deg, rgba(250, 245, 255, .78), rgba(255, 255, 255, .96));
+    padding: 14px;
+  }
+
+  .edit-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .edit-grid label {
+    display: grid;
+    gap: 6px;
+  }
+
+  .edit-grid label span {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+
+  .edit-grid select,
+  .edit-grid input {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid rgba(203, 213, 225, .95);
+    border-radius: 14px;
+    background: #fff;
+    color: #0f172a;
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 850;
+    outline: none;
+  }
+
+  .edit-grid select:focus,
+  .edit-grid input:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, .12);
+  }
+
+  .save-action {
+    width: 100%;
+    margin-top: 10px;
+    min-height: 42px;
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 950;
+    cursor: pointer;
+    box-shadow: 0 16px 34px rgba(124, 58, 237, .22);
+  }
+
+  .save-action:hover {
+    filter: brightness(.98);
+  }
+
+  .danger-form {
+    margin-top: 14px;
+  }
+
+  .danger-action {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid rgba(254, 205, 211, .95);
+    border-radius: 14px;
+    background: #fff1f2;
+    color: #be123c;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .danger-action:hover {
+    background: #ffe4e6;
   }
 
   .gift-meta-row {
