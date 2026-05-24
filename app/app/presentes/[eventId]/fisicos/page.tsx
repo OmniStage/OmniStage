@@ -282,70 +282,113 @@ export default async function PresentesFisicosPage({
                       </div>
                     </div>
 
-                    <form action={atualizarPresenteAction} className="edit-panel">
-                      <input type="hidden" name="eventId" value={eventId} />
-                      <input type="hidden" name="presenteId" value={presente.id} />
+                    <div className="gift-actions-compact">
+                      <details className="action-disclosure">
+                        <summary className="compact-action compact-action-primary">
+                          Alterar
+                        </summary>
 
-                      <div className="edit-grid">
-                        <label>
-                          <span>Categoria</span>
-                          <select
-                            name="categoria_detectada"
-                            defaultValue={presente.categoria_detectada || ""}
-                          >
-                            <option value="">Selecione</option>
-                            {CATEGORIAS_PRESENTE.map((categoria) => (
-                              <option key={categoria} value={categoria}>
-                                {categoria}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <form action={atualizarPresenteAction} className="edit-panel">
+                          <input type="hidden" name="eventId" value={eventId} />
+                          <input type="hidden" name="presenteId" value={presente.id} />
 
-                        <label>
-                          <span>Marca</span>
-                          <input
-                            name="marca_detectada"
-                            defaultValue={presente.marca_detectada || ""}
-                            placeholder="Marca da embalagem"
-                          />
-                        </label>
-                      </div>
+                          <div className="edit-grid">
+                            <label>
+                              <span>Categoria</span>
+                              <select
+                                name="categoria_detectada"
+                                defaultValue={presente.categoria_detectada || ""}
+                              >
+                                <option value="">Selecione</option>
+                                {CATEGORIAS_PRESENTE.map((categoria) => (
+                                  <option key={categoria} value={categoria}>
+                                    {categoria}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
 
-                      <button type="submit" className="save-action">
-                        Alterar
-                      </button>
-                    </form>
+                            <label>
+                              <span>Marca</span>
+                              <input
+                                name="marca_detectada"
+                                defaultValue={presente.marca_detectada || ""}
+                                placeholder="Marca da embalagem"
+                              />
+                            </label>
+                          </div>
 
-                    <form action={incluirNotaFiscalAction} className="nf-form">
-                      <input type="hidden" name="eventId" value={eventId} />
-                      <input type="hidden" name="presenteId" value={presente.id} />
+                          <button type="submit" className="save-action">
+                            Salvar alteração
+                          </button>
+                        </form>
+                      </details>
 
-                      <label className="nf-upload">
-                        <span>Nota fiscal para troca futura</span>
+                      <details className="action-disclosure">
+                        <summary className="compact-action compact-action-nf">
+                          Incluir NF
+                        </summary>
 
-                        <input
-                          type="file"
-                          name="nota_fiscal"
-                          accept="image/*,.pdf"
-                        />
-                      </label>
+                        <form action={incluirNotaFiscalAction} className="nf-form">
+                          <input type="hidden" name="eventId" value={eventId} />
+                          <input type="hidden" name="presenteId" value={presente.id} />
 
-                      {presente.nota_fiscal_url && (
-                        <a
-                          href={presente.nota_fiscal_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="nf-link"
-                        >
-                          Ver NF anexada
-                        </a>
-                      )}
+                          <label className="nf-upload">
+                            <span>Nota fiscal para troca futura</span>
 
-                      <button type="submit" className="nf-action">
-                        Incluir NF
-                      </button>
-                    </form>
+                            <input
+                              type="file"
+                              name="nota_fiscal"
+                              accept="image/*,.pdf"
+                              required
+                            />
+                          </label>
+
+                          {presente.nota_fiscal_url && (
+                            <a
+                              href={presente.nota_fiscal_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="nf-link"
+                            >
+                              Ver NF anexada
+                            </a>
+                          )}
+
+                          <button type="submit" className="nf-action">
+                            Confirmar NF
+                          </button>
+                        </form>
+                      </details>
+
+                      <details className="action-disclosure">
+                        <summary className="compact-action compact-action-danger">
+                          Cancelar
+                        </summary>
+
+                        <form action={cancelarPresenteAction} className="danger-form">
+                          <input type="hidden" name="eventId" value={eventId} />
+                          <input type="hidden" name="presenteId" value={presente.id} />
+
+                          <div className="danger-confirm-box">
+                            <strong>Confirmar cancelamento</strong>
+                            <p>
+                              Esta ação remove o presente da listagem ativa e encerra
+                              qualquer processamento de IA vinculado.
+                            </p>
+                          </div>
+
+                          <label className="confirm-row">
+                            <input type="checkbox" required />
+                            Confirmo que desejo cancelar este presente.
+                          </label>
+
+                          <button type="submit" className="danger-action">
+                            Confirmar cancelamento
+                          </button>
+                        </form>
+                      </details>
+                    </div>
 
                     <div className="gift-meta-row">
                       <span>Confiança IA</span>
@@ -360,20 +403,6 @@ export default async function PresentesFisicosPage({
                       <span>Registrado em</span>
                       <strong>{formatDate(presente.created_at)}</strong>
                     </div>
-
-                    <form action={cancelarPresenteAction} className="danger-form">
-                      <input type="hidden" name="eventId" value={eventId} />
-                      <input type="hidden" name="presenteId" value={presente.id} />
-
-                      <label className="confirm-row">
-                        <input type="checkbox" required />
-                        Confirmo que desejo cancelar este presente.
-                      </label>
-
-                      <button type="submit" className="danger-action">
-                        Cancelar
-                      </button>
-                    </form>
                   </div>
                 </article>
               );
@@ -691,7 +720,7 @@ const styles = `
   }
 
   .edit-panel {
-    margin-top: 14px;
+    margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(221, 214, 254, .95);
     background: linear-gradient(180deg, rgba(250, 245, 255, .78), rgba(255, 255, 255, .96));
@@ -756,7 +785,7 @@ const styles = `
   }
 
   .nf-form {
-    margin-top: 12px;
+    margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(191, 219, 254, .95);
     background: linear-gradient(180deg, rgba(239, 246, 255, .92), rgba(255, 255, 255, .98));
@@ -819,7 +848,7 @@ const styles = `
   }
 
   .danger-form {
-    margin-top: 14px;
+    margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(254, 205, 211, .95);
     background: #fff7f8;
@@ -856,6 +885,102 @@ const styles = `
 
   .danger-action:hover {
     background: #ffe4e6;
+  }
+
+
+  .gift-actions-compact {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .action-disclosure {
+    position: relative;
+  }
+
+  .action-disclosure summary {
+    list-style: none;
+  }
+
+  .action-disclosure summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .compact-action {
+    min-height: 42px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .16s ease, filter .16s ease, background .16s ease;
+  }
+
+  .compact-action:hover {
+    transform: translateY(-1px);
+  }
+
+  .compact-action-primary {
+    border: 0;
+    background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(124, 58, 237, .18);
+  }
+
+  .compact-action-nf {
+    border: 1px solid rgba(191, 219, 254, .95);
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .compact-action-nf:hover {
+    background: #dbeafe;
+  }
+
+  .compact-action-danger {
+    border: 1px solid rgba(254, 205, 211, .95);
+    background: #fff1f2;
+    color: #be123c;
+  }
+
+  .compact-action-danger:hover {
+    background: #ffe4e6;
+  }
+
+  .action-disclosure[open] {
+    grid-column: 1 / -1;
+  }
+
+  .action-disclosure[open] > summary {
+    margin-bottom: 10px;
+  }
+
+  .danger-confirm-box {
+    border-radius: 16px;
+    background: #fff1f2;
+    border: 1px solid rgba(254, 205, 211, .95);
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .danger-confirm-box strong {
+    display: block;
+    color: #9f1239;
+    font-size: 13px;
+    font-weight: 950;
+  }
+
+  .danger-confirm-box p {
+    margin: 6px 0 0;
+    color: #be123c;
+    font-size: 12px;
+    line-height: 1.45;
+    font-weight: 800;
   }
 
   .gift-meta-row {
@@ -952,6 +1077,14 @@ const styles = `
 
     .tag-code {
       max-width: 100%;
+    }
+
+    .gift-actions-compact {
+      grid-template-columns: 1fr;
+    }
+
+    .action-disclosure[open] {
+      grid-column: auto;
     }
   }
 `;
