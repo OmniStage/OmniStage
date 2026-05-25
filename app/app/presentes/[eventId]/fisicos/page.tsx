@@ -230,6 +230,9 @@ export default async function PresentesFisicosPage({
           <section className="gallery-grid">
             {presentes.map((presente: any) => {
               const iaStatus = getIAStatus(presente);
+              const editPopoverId = `editar-presente-${presente.id}`;
+              const nfPopoverId = `nf-presente-${presente.id}`;
+              const cancelPopoverId = `cancelar-presente-${presente.id}`;
 
               return (
                 <article key={presente.id} className="gift-card">
@@ -283,111 +286,228 @@ export default async function PresentesFisicosPage({
                     </div>
 
                     <div className="gift-actions-compact">
-                      <details className="action-disclosure">
-                        <summary className="compact-action compact-action-primary">
-                          Alterar
-                        </summary>
+                      <button
+                        type="button"
+                        className="compact-action compact-action-primary"
+                        {...{ popovertarget: editPopoverId }}
+                      >
+                        Alterar
+                      </button>
 
-                        <form action={atualizarPresenteAction} className="edit-panel">
-                          <input type="hidden" name="eventId" value={eventId} />
-                          <input type="hidden" name="presenteId" value={presente.id} />
+                      <button
+                        type="button"
+                        className="compact-action compact-action-nf"
+                        {...{ popovertarget: nfPopoverId }}
+                      >
+                        Incluir NF
+                      </button>
 
-                          <div className="edit-grid">
-                            <label>
-                              <span>Categoria</span>
-                              <select
-                                name="categoria_detectada"
-                                defaultValue={presente.categoria_detectada || ""}
-                              >
-                                <option value="">Selecione</option>
-                                {CATEGORIAS_PRESENTE.map((categoria) => (
-                                  <option key={categoria} value={categoria}>
-                                    {categoria}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
+                      <button
+                        type="button"
+                        className="compact-action compact-action-danger"
+                        {...{ popovertarget: cancelPopoverId }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
 
-                            <label>
-                              <span>Marca</span>
-                              <input
-                                name="marca_detectada"
-                                defaultValue={presente.marca_detectada || ""}
-                                placeholder="Marca da embalagem"
-                              />
-                            </label>
-                          </div>
+                    <div
+                      id={editPopoverId}
+                      className="action-popover action-popover-edit"
+                      {...{ popover: "auto" }}
+                    >
+                      <div className="popover-header">
+                        <div>
+                          <span>Alterar presente</span>
+                          <strong>{presente.etiqueta_codigo || "Sem etiqueta"}</strong>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="popover-close"
+                          {...{
+                            popovertarget: editPopoverId,
+                            popovertargetaction: "hide",
+                          }}
+                        >
+                          Fechar
+                        </button>
+                      </div>
+
+                      <form action={atualizarPresenteAction} className="edit-panel edit-panel-popover">
+                        <input type="hidden" name="eventId" value={eventId} />
+                        <input type="hidden" name="presenteId" value={presente.id} />
+
+                        <div className="edit-grid">
+                          <label>
+                            <span>Categoria</span>
+                            <select
+                              name="categoria_detectada"
+                              defaultValue={presente.categoria_detectada || ""}
+                            >
+                              <option value="">Selecione</option>
+                              {CATEGORIAS_PRESENTE.map((categoria) => (
+                                <option key={categoria} value={categoria}>
+                                  {categoria}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label>
+                            <span>Marca</span>
+                            <input
+                              name="marca_detectada"
+                              defaultValue={presente.marca_detectada || ""}
+                              placeholder="Marca da embalagem"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="popover-actions-row">
+                          <button
+                            type="button"
+                            className="modal-secondary-action"
+                            {...{
+                              popovertarget: editPopoverId,
+                              popovertargetaction: "hide",
+                            }}
+                          >
+                            Cancelar
+                          </button>
 
                           <button type="submit" className="save-action">
                             Salvar alteração
                           </button>
-                        </form>
-                      </details>
+                        </div>
+                      </form>
+                    </div>
 
-                      <details className="action-disclosure">
-                        <summary className="compact-action compact-action-nf">
-                          Incluir NF
-                        </summary>
+                    <div
+                      id={nfPopoverId}
+                      className="action-popover action-popover-nf"
+                      {...{ popover: "auto" }}
+                    >
+                      <div className="popover-header">
+                        <div>
+                          <span>Incluir nota fiscal</span>
+                          <strong>{presente.etiqueta_codigo || "Sem etiqueta"}</strong>
+                        </div>
 
-                        <form action={incluirNotaFiscalAction} className="nf-form">
-                          <input type="hidden" name="eventId" value={eventId} />
-                          <input type="hidden" name="presenteId" value={presente.id} />
+                        <button
+                          type="button"
+                          className="popover-close"
+                          {...{
+                            popovertarget: nfPopoverId,
+                            popovertargetaction: "hide",
+                          }}
+                        >
+                          Fechar
+                        </button>
+                      </div>
 
-                          <label className="nf-upload">
-                            <span>Nota fiscal para troca futura</span>
+                      <form action={incluirNotaFiscalAction} className="nf-form nf-form-popover">
+                        <input type="hidden" name="eventId" value={eventId} />
+                        <input type="hidden" name="presenteId" value={presente.id} />
 
-                            <input
-                              type="file"
-                              name="nota_fiscal"
-                              accept="image/*,.pdf"
-                              required
-                            />
-                          </label>
+                        <label className="nf-upload">
+                          <span>Nota fiscal para troca futura</span>
 
-                          {presente.nota_fiscal_url && (
-                            <a
-                              href={presente.nota_fiscal_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="nf-link"
-                            >
-                              Ver NF anexada
-                            </a>
-                          )}
+                          <input
+                            type="file"
+                            name="nota_fiscal"
+                            accept="image/*,.pdf"
+                            required
+                          />
+                        </label>
+
+                        {presente.nota_fiscal_url && (
+                          <a
+                            href={presente.nota_fiscal_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="nf-link"
+                          >
+                            Ver NF anexada
+                          </a>
+                        )}
+
+                        <div className="popover-actions-row">
+                          <button
+                            type="button"
+                            className="modal-secondary-action"
+                            {...{
+                              popovertarget: nfPopoverId,
+                              popovertargetaction: "hide",
+                            }}
+                          >
+                            Cancelar
+                          </button>
 
                           <button type="submit" className="nf-action">
                             Confirmar NF
                           </button>
-                        </form>
-                      </details>
+                        </div>
+                      </form>
+                    </div>
 
-                      <details className="action-disclosure">
-                        <summary className="compact-action compact-action-danger">
-                          Cancelar
-                        </summary>
+                    <div
+                      id={cancelPopoverId}
+                      className="action-popover action-popover-cancel"
+                      {...{ popover: "auto" }}
+                    >
+                      <div className="popover-header">
+                        <div>
+                          <span>Cancelar presente</span>
+                          <strong>{presente.etiqueta_codigo || "Sem etiqueta"}</strong>
+                        </div>
 
-                        <form action={cancelarPresenteAction} className="danger-form">
-                          <input type="hidden" name="eventId" value={eventId} />
-                          <input type="hidden" name="presenteId" value={presente.id} />
+                        <button
+                          type="button"
+                          className="popover-close"
+                          {...{
+                            popovertarget: cancelPopoverId,
+                            popovertargetaction: "hide",
+                          }}
+                        >
+                          Fechar
+                        </button>
+                      </div>
 
-                          <div className="danger-confirm-box">
-                            <strong>Confirmar cancelamento</strong>
-                            <p>
-                              Esta ação remove o presente da listagem ativa e encerra
-                              qualquer processamento de IA vinculado.
-                            </p>
-                          </div>
+                      <form action={cancelarPresenteAction} className="danger-form danger-form-popover">
+                        <input type="hidden" name="eventId" value={eventId} />
+                        <input type="hidden" name="presenteId" value={presente.id} />
 
-                          <label className="confirm-row">
-                            <input type="checkbox" required />
-                            Confirmo que desejo cancelar este presente.
-                          </label>
+                        <div className="danger-confirm-box">
+                          <strong>Confirmar cancelamento</strong>
+                          <p>
+                            Esta ação remove o presente da listagem ativa e encerra
+                            qualquer processamento de IA vinculado.
+                          </p>
+                        </div>
+
+                        <label className="confirm-row">
+                          <input type="checkbox" required />
+                          Confirmo que desejo cancelar este presente.
+                        </label>
+
+                        <div className="popover-actions-row">
+                          <button
+                            type="button"
+                            className="modal-secondary-action"
+                            {...{
+                              popovertarget: cancelPopoverId,
+                              popovertargetaction: "hide",
+                            }}
+                          >
+                            Voltar
+                          </button>
 
                           <button type="submit" className="danger-action">
                             Confirmar cancelamento
                           </button>
-                        </form>
-                      </details>
+                        </div>
+                      </form>
                     </div>
 
                     <div className="gift-meta-row">
@@ -895,18 +1015,6 @@ const styles = `
     gap: 10px;
   }
 
-  .action-disclosure {
-    position: relative;
-  }
-
-  .action-disclosure summary {
-    list-style: none;
-  }
-
-  .action-disclosure summary::-webkit-details-marker {
-    display: none;
-  }
-
   .compact-action {
     min-height: 42px;
     border-radius: 14px;
@@ -918,6 +1026,8 @@ const styles = `
     font-weight: 950;
     cursor: pointer;
     user-select: none;
+    border: 0;
+    font-family: inherit;
     transition: transform .16s ease, filter .16s ease, background .16s ease;
   }
 
@@ -926,7 +1036,6 @@ const styles = `
   }
 
   .compact-action-primary {
-    border: 0;
     background: linear-gradient(135deg, #7c3aed, #8b5cf6);
     color: #fff;
     box-shadow: 0 14px 28px rgba(124, 58, 237, .18);
@@ -952,12 +1061,95 @@ const styles = `
     background: #ffe4e6;
   }
 
-  .action-disclosure[open] {
-    grid-column: 1 / -1;
+  .action-popover {
+    width: min(92vw, 520px);
+    max-height: min(86vh, 680px);
+    overflow-y: auto;
+    border: 1px solid rgba(226, 232, 240, .95);
+    border-radius: 28px;
+    background: #fff;
+    padding: 18px;
+    color: #0f172a;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, .28);
   }
 
-  .action-disclosure[open] > summary {
-    margin-bottom: 10px;
+  .action-popover::backdrop {
+    background: rgba(15, 23, 42, .34);
+    backdrop-filter: blur(4px);
+  }
+
+  .action-popover:popover-open {
+    inset: 0;
+    margin: auto;
+  }
+
+  .popover-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .popover-header span {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .popover-header strong {
+    display: block;
+    margin-top: 5px;
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  .popover-close {
+    flex: 0 0 auto;
+    min-height: 36px;
+    border: 1px solid rgba(203, 213, 225, .95);
+    border-radius: 12px;
+    background: #fff;
+    color: #475569;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .edit-panel-popover,
+  .nf-form-popover,
+  .danger-form-popover {
+    margin-top: 0;
+  }
+
+  .popover-actions-row {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .modal-secondary-action {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid rgba(203, 213, 225, .95);
+    border-radius: 14px;
+    background: #fff;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .modal-secondary-action:hover {
+    background: #f8fafc;
   }
 
   .danger-confirm-box {
@@ -1081,10 +1273,6 @@ const styles = `
 
     .gift-actions-compact {
       grid-template-columns: 1fr;
-    }
-
-    .action-disclosure[open] {
-      grid-column: auto;
     }
   }
 `;
