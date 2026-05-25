@@ -417,6 +417,7 @@ export default async function PresentesFisicosPage({
                             type="file"
                             name="nota_fiscal"
                             accept="image/*,.pdf"
+                            capture="environment"
                             required
                           />
                         </label>
