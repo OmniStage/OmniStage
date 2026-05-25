@@ -260,7 +260,6 @@ export default async function PresentesFisicosPage({
               const iaStatus = getIAStatus(presente);
               const editPopoverId = `editar-presente-${presente.id}`;
               const nfPopoverId = `nf-presente-${presente.id}`;
-              const removeNfPopoverId = `remover-nf-presente-${presente.id}`;
               const cancelPopoverId = `cancelar-presente-${presente.id}`;
 
               return (
@@ -323,32 +322,21 @@ export default async function PresentesFisicosPage({
                         Alterar
                       </button>
 
-                      <button
-                        type="button"
-                        className="compact-action compact-action-nf"
-                        {...{ popovertarget: nfPopoverId }}
-                      >
-                        Incluir NF
-                      </button>
-
-                      {presente.nota_fiscal_url && (
-                        <a
-                          href={presente.nota_fiscal_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="compact-action compact-action-view-nf"
-                        >
-                          Ver NF
-                        </a>
-                      )}
-
-                      {presente.nota_fiscal_url && (
+                      {presente.nota_fiscal_url ? (
                         <button
                           type="button"
-                          className="compact-action compact-action-remove-nf"
-                          {...{ popovertarget: removeNfPopoverId }}
+                          className="compact-action compact-action-view-nf"
+                          {...{ popovertarget: nfPopoverId }}
                         >
-                          Remover NF
+                          Visualizar NF
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="compact-action compact-action-nf"
+                          {...{ popovertarget: nfPopoverId }}
+                        >
+                          Incluir NF
                         </button>
                       )}
 
@@ -440,7 +428,11 @@ export default async function PresentesFisicosPage({
                     >
                       <div className="popover-header">
                         <div>
-                          <span>Incluir nota fiscal</span>
+                          <span>
+                            {presente.nota_fiscal_url
+                              ? "Visualizar nota fiscal"
+                              : "Incluir nota fiscal"}
+                          </span>
                           <strong>{presente.etiqueta_codigo || "Sem etiqueta"}</strong>
                         </div>
 
@@ -456,113 +448,118 @@ export default async function PresentesFisicosPage({
                         </button>
                       </div>
 
-                      <form action={incluirNotaFiscalAction} className="nf-form nf-form-popover">
-                        <input type="hidden" name="eventId" value={eventId} />
-                        <input type="hidden" name="presenteId" value={presente.id} />
-
-                        <label className="nf-upload">
-                          <span>Nota fiscal para troca futura</span>
-
-                          <div className="nf-choice-grid">
-                            <label className="nf-choice-card nf-choice-camera">
-                              <strong>Tirar foto</strong>
-                              <small>Abre diretamente a câmera traseira no celular</small>
-                              <input
-                                type="file"
-                                name="nota_fiscal_camera"
-                                accept="image/*"
-                                capture="environment"
+                      {presente.nota_fiscal_url ? (
+                        <div className="nf-view-panel">
+                          <div className="nf-preview-box">
+                            {String(presente.nota_fiscal_url).toLowerCase().includes(".pdf") ? (
+                              <iframe
+                                src={presente.nota_fiscal_url}
+                                className="nf-preview-frame"
+                                title="Nota fiscal anexada"
                               />
-                            </label>
-
-                            <label className="nf-choice-card nf-choice-file">
-                              <strong>Importar arquivo</strong>
-                              <small>Importar JPG, PNG ou PDF salvo no aparelho</small>
-                              <input
-                                type="file"
-                                name="nota_fiscal_arquivo"
-                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                            ) : (
+                              <img
+                                src={presente.nota_fiscal_url}
+                                alt="Nota fiscal anexada"
+                                className="nf-preview-image"
                               />
-                            </label>
+                            )}
                           </div>
-                        </label>
 
-                        <div className="popover-actions-row">
-                          <button
-                            type="button"
-                            className="modal-secondary-action"
-                            {...{
-                              popovertarget: nfPopoverId,
-                              popovertargetaction: "hide",
-                            }}
+                          <a
+                            href={presente.nota_fiscal_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="nf-open-link"
                           >
-                            Cancelar
-                          </button>
+                            Abrir NF em nova aba
+                          </a>
 
-                          <button type="submit" className="nf-action">
-                            Confirmar NF
-                          </button>
+                          <form action={removerNotaFiscalAction} className="danger-form danger-form-popover">
+                            <input type="hidden" name="eventId" value={eventId} />
+                            <input type="hidden" name="presenteId" value={presente.id} />
+
+                            <div className="danger-confirm-box">
+                              <strong>Remover nota fiscal</strong>
+                              <p>
+                                Esta ação remove o vínculo da nota fiscal deste presente.
+                                O presente continuará ativo no evento.
+                              </p>
+                            </div>
+
+                            <label className="confirm-row">
+                              <input type="checkbox" required />
+                              Confirmo que desejo remover a nota fiscal anexada.
+                            </label>
+
+                            <div className="popover-actions-row">
+                              <button
+                                type="button"
+                                className="modal-secondary-action"
+                                {...{
+                                  popovertarget: nfPopoverId,
+                                  popovertargetaction: "hide",
+                                }}
+                              >
+                                Voltar
+                              </button>
+
+                              <button type="submit" className="danger-action">
+                                Remover NF
+                              </button>
+                            </div>
+                          </form>
                         </div>
-                      </form>
-                    </div>
+                      ) : (
+                        <form action={incluirNotaFiscalAction} className="nf-form nf-form-popover">
+                          <input type="hidden" name="eventId" value={eventId} />
+                          <input type="hidden" name="presenteId" value={presente.id} />
 
-                    <div
-                      id={removeNfPopoverId}
-                      className="action-popover action-popover-cancel"
-                      {...{ popover: "auto" }}
-                    >
-                      <div className="popover-header">
-                        <div>
-                          <span>Remover nota fiscal</span>
-                          <strong>{presente.etiqueta_codigo || "Sem etiqueta"}</strong>
-                        </div>
+                          <div className="nf-upload">
+                            <span>Nota fiscal para troca futura</span>
 
-                        <button
-                          type="button"
-                          className="popover-close"
-                          {...{
-                            popovertarget: removeNfPopoverId,
-                            popovertargetaction: "hide",
-                          }}
-                        >
-                          Fechar
-                        </button>
-                      </div>
+                            <div className="nf-choice-grid">
+                              <label className="nf-choice-card nf-choice-camera">
+                                <strong>Tirar foto</strong>
+                                <small>Abre diretamente a câmera traseira no celular</small>
+                                <input
+                                  type="file"
+                                  name="nota_fiscal_camera"
+                                  accept="image/*"
+                                  capture="environment"
+                                />
+                              </label>
 
-                      <form action={removerNotaFiscalAction} className="danger-form danger-form-popover">
-                        <input type="hidden" name="eventId" value={eventId} />
-                        <input type="hidden" name="presenteId" value={presente.id} />
+                              <label className="nf-choice-card nf-choice-file">
+                                <strong>Importar arquivo</strong>
+                                <small>Importar JPG, PNG ou PDF salvo no aparelho</small>
+                                <input
+                                  type="file"
+                                  name="nota_fiscal_arquivo"
+                                  accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                />
+                              </label>
+                            </div>
+                          </div>
 
-                        <div className="danger-confirm-box">
-                          <strong>Confirmar remoção da NF</strong>
-                          <p>
-                            Esta ação remove o vínculo da nota fiscal deste presente.
-                            O presente continuará ativo no evento.
-                          </p>
-                        </div>
+                          <div className="popover-actions-row">
+                            <button
+                              type="button"
+                              className="modal-secondary-action"
+                              {...{
+                                popovertarget: nfPopoverId,
+                                popovertargetaction: "hide",
+                              }}
+                            >
+                              Cancelar
+                            </button>
 
-                        <label className="confirm-row">
-                          <input type="checkbox" required />
-                          Confirmo que desejo remover a nota fiscal anexada.
-                        </label>
-
-                        <div className="popover-actions-row">
-                          <button
-                            type="button"
-                            className="modal-secondary-action"
-                            {...{
-                              popovertarget: removeNfPopoverId,
-                              popovertargetaction: "hide",
-                            }}
-                          >
-                            Voltar
-                          </button>
-
-                          <button type="submit" className="danger-action">
-                            Remover NF
-                          </button>
-                        </div>
-                      </form>
+                            <button type="submit" className="nf-action">
+                              Confirmar NF
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
 
                     <div
@@ -1117,6 +1114,58 @@ const styles = `
     text-decoration: underline;
   }
 
+  .nf-view-panel {
+    display: grid;
+    gap: 12px;
+  }
+
+  .nf-preview-box {
+    width: 100%;
+    min-height: 280px;
+    max-height: 58vh;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid rgba(191, 219, 254, .95);
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nf-preview-image {
+    width: 100%;
+    height: 100%;
+    max-height: 58vh;
+    display: block;
+    object-fit: contain;
+    background: #fff;
+  }
+
+  .nf-preview-frame {
+    width: 100%;
+    height: 58vh;
+    border: 0;
+    background: #fff;
+  }
+
+  .nf-open-link {
+    min-height: 42px;
+    border-radius: 14px;
+    border: 1px solid rgba(187, 247, 208, .95);
+    background: #ecfdf5;
+    color: #047857;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 950;
+  }
+
+  .nf-open-link:hover {
+    background: #d1fae5;
+  }
+
   .danger-form {
     margin-top: 0;
     border-radius: 20px;
@@ -1161,7 +1210,7 @@ const styles = `
   .gift-actions-compact {
     margin-top: 14px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
   }
 
