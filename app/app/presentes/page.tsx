@@ -303,11 +303,12 @@ export default function PresentesPage() {
         .badge-green { background:#dcfce7; color:#166534; }
         .badge-orange { background:#ffedd5; color:#9a3412; }
         .badge-gray { background:#f1f5f9; color:#475569; }
-        .event-numbers { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+        .event-numbers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
         .event-number { border:1px solid rgba(226,232,240,.95); background:#f8fafc; border-radius:20px; padding:14px; }
         .event-number-label { color:#64748b; font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.06em; }
         .event-number-value { margin-top:6px; color:#0f172a; font-size:24px; font-weight:950; }
         .event-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:auto; }
+        .event-action-wide { grid-column:1 / -1; }
         .empty { background:#fff; border:1px dashed rgba(148,163,184,.45); border-radius:28px; padding:42px; text-align:center; color:#64748b; font-weight:850; }
         @media (max-width:860px){ .hero{padding:24px;border-radius:26px}.title{font-size:38px}.toolbar{grid-template-columns:1fr}.event-actions{grid-template-columns:1fr}.event-numbers{grid-template-columns:1fr}.btn{width:100%} }
       `}</style>
@@ -317,8 +318,8 @@ export default function PresentesPage() {
           <span className="eyebrow">OmniStage</span>
           <h1 className="title">Presentes</h1>
           <p className="subtitle">
-            Centralize lista pública, presentes em valor, experiências, presentes físicos,
-            etiquetas, recepção e inteligência artificial em um único módulo.
+            Centralize lista de presentes, recebidos antes do evento e presentes recebidos
+            durante a operação do evento.
           </p>
         </div>
 
@@ -329,9 +330,8 @@ export default function PresentesPage() {
 
       <section className="metrics">
         <Metric label="Eventos" value={resumo.eventos} />
-        <Metric label="Lista pública" value={resumo.lista} />
-        <Metric label="Físicos no evento" value={resumo.fisicos} />
-        <Metric label="IA processados" value={resumo.ia} />
+        <Metric label="Lista de presentes" value={resumo.lista} />
+        <Metric label="Presentes no Evento" value={resumo.fisicos} />
         <Metric label="Valor confirmado" value={formatarMoeda(resumo.valor)} />
       </section>
 
@@ -351,8 +351,8 @@ export default function PresentesPage() {
           >
             <option value="todos">Todos os eventos</option>
             <option value="ativos">Com presentes/lista ativa</option>
-            <option value="lista">Lista pública</option>
-            <option value="fisicos">Presentes físicos</option>
+            <option value="lista">Lista de presentes</option>
+            <option value="fisicos">Presentes no Evento</option>
           </select>
         </div>
       </section>
@@ -379,31 +379,24 @@ export default function PresentesPage() {
 
                 <div className="event-numbers">
                   <div className="event-number">
-                    <div className="event-number-label">Lista</div>
+                    <div className="event-number-label">Lista de Presentes</div>
                     <div className="event-number-value">{metricas.lista}</div>
                   </div>
                   <div className="event-number">
-                    <div className="event-number-label">Físicos</div>
+                    <div className="event-number-label">Presentes no Evento</div>
                     <div className="event-number-value">{metricas.fisicos}</div>
-                  </div>
-                  <div className="event-number">
-                    <div className="event-number-label">IA</div>
-                    <div className="event-number-value">{metricas.iaProcessados}/{metricas.comFoto}</div>
                   </div>
                 </div>
 
                 <div className="event-actions">
                   <button className="btn primary" onClick={() => router.push(`/app/presentes/${evento.id}/lista`)}>
-                    Lista pública
-                  </button>
-                  <button className="btn orange" onClick={() => router.push(`/app/presentes/${evento.id}/fisicos`)}>
-                    Físicos
+                    Lista de Presentes
                   </button>
                   <button className="btn green" onClick={() => router.push(`/app/presentes/${evento.id}/presenteados`)}>
-                    Presenteados
+                    Recebidos antes do evento
                   </button>
-                  <button className="btn" onClick={() => router.push(`/app/eventos/${evento.id}/checkin`)}>
-                    Check-in
+                  <button className="btn orange event-action-wide" onClick={() => router.push(`/app/presentes/${evento.id}/fisicos`)}>
+                    Presentes no Evento
                   </button>
                 </div>
               </article>
