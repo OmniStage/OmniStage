@@ -58,12 +58,7 @@ async function incluirNotaFiscalAction(formData: FormData) {
 
   const eventId = String(formData.get("eventId") || "");
   const presenteId = String(formData.get("presenteId") || "");
-  const notaFiscalCamera = formData.get("nota_fiscal_camera");
-  const notaFiscalArquivo = formData.get("nota_fiscal_arquivo");
-  const notaFiscal =
-    notaFiscalCamera instanceof File && notaFiscalCamera.size > 0
-      ? notaFiscalCamera
-      : notaFiscalArquivo;
+  const notaFiscal = formData.get("nota_fiscal_arquivo");
 
   if (!eventId || !presenteId) return;
 
@@ -516,30 +511,22 @@ export default async function PresentesFisicosPage({
                           <input type="hidden" name="presenteId" value={presente.id} />
 
                           <div className="nf-upload">
-                            <span>Nota fiscal para troca futura</span>
+                            <span>Nota fiscal / cupom fiscal</span>
 
-                            <div className="nf-choice-grid">
-                              <label className="nf-choice-card nf-choice-camera">
-                                <strong>Tirar foto</strong>
-                                <small>Abre diretamente a câmera traseira no celular</small>
-                                <input
-                                  type="file"
-                                  name="nota_fiscal_camera"
-                                  accept="image/*"
-                                  capture="environment"
-                                />
-                              </label>
+                            <label className="nf-single-upload">
+                              <strong>Anexar comprovante</strong>
+                              <small>
+                                No celular, escolha tirar foto, usar galeria ou buscar em arquivos.
+                                No computador, selecione JPG, PNG ou PDF.
+                              </small>
 
-                              <label className="nf-choice-card nf-choice-file">
-                                <strong>Importar arquivo</strong>
-                                <small>Importar JPG, PNG ou PDF salvo no aparelho</small>
-                                <input
-                                  type="file"
-                                  name="nota_fiscal_arquivo"
-                                  accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                                />
-                              </label>
-                            </div>
+                              <input
+                                type="file"
+                                name="nota_fiscal_arquivo"
+                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                required
+                              />
+                            </label>
                           </div>
 
                           <div className="popover-actions-row">
@@ -1036,51 +1023,43 @@ const styles = `
     letter-spacing: .07em;
   }
 
-  .nf-choice-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .nf-choice-card {
-    min-height: 104px;
+  .nf-single-upload {
+    min-height: 138px;
     border: 1px dashed rgba(147, 197, 253, .95);
-    border-radius: 16px;
+    border-radius: 18px;
     background: #fff;
     color: #1e3a8a;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    justify-content: center;
+    padding: 16px;
+    display: grid;
+    gap: 8px;
     cursor: pointer;
     transition: transform .16s ease, background .16s ease, border-color .16s ease;
   }
 
-  .nf-choice-card:hover {
+  .nf-single-upload:hover {
     transform: translateY(-1px);
     background: #eff6ff;
     border-color: rgba(59, 130, 246, .95);
   }
 
-  .nf-choice-card strong {
+  .nf-single-upload strong {
     color: #1d4ed8;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 950;
   }
 
-  .nf-choice-card small {
+  .nf-single-upload small {
     color: #64748b;
     font-size: 12px;
     font-weight: 800;
-    line-height: 1.35;
+    line-height: 1.45;
   }
 
-  .nf-choice-card input {
+  .nf-single-upload input {
     width: 100%;
-    margin-top: 6px;
+    margin-top: 4px;
     color: #1e3a8a;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 850;
   }
 
@@ -1495,8 +1474,5 @@ const styles = `
       grid-template-columns: 1fr;
     }
 
-    .nf-choice-grid {
-      grid-template-columns: 1fr;
-    }
   }
 `;
