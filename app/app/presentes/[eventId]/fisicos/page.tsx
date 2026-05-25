@@ -58,7 +58,12 @@ async function incluirNotaFiscalAction(formData: FormData) {
 
   const eventId = String(formData.get("eventId") || "");
   const presenteId = String(formData.get("presenteId") || "");
-  const notaFiscal = formData.get("nota_fiscal");
+  const notaFiscalCamera = formData.get("nota_fiscal_camera");
+  const notaFiscalArquivo = formData.get("nota_fiscal_arquivo");
+  const notaFiscal =
+    notaFiscalCamera instanceof File && notaFiscalCamera.size > 0
+      ? notaFiscalCamera
+      : notaFiscalArquivo;
 
   if (!eventId || !presenteId) return;
 
@@ -413,13 +418,28 @@ export default async function PresentesFisicosPage({
                         <label className="nf-upload">
                           <span>Nota fiscal para troca futura</span>
 
-                          <input
-                            type="file"
-                            name="nota_fiscal"
-                            accept="image/*"
-                            capture="environment"
-                            required
-                          />
+                          <div className="nf-choice-grid">
+                            <label className="nf-choice-card nf-choice-camera">
+                              <strong>Tirar foto</strong>
+                              <small>Abre a câmera do celular</small>
+                              <input
+                                type="file"
+                                name="nota_fiscal_camera"
+                                accept="image/*"
+                                capture="environment"
+                              />
+                            </label>
+
+                            <label className="nf-choice-card nf-choice-file">
+                              <strong>Importar arquivo</strong>
+                              <small>Escolher imagem ou PDF</small>
+                              <input
+                                type="file"
+                                name="nota_fiscal_arquivo"
+                                accept="image/*,.pdf"
+                              />
+                            </label>
+                          </div>
                         </label>
 
                         {presente.nota_fiscal_url && (
@@ -926,15 +946,51 @@ const styles = `
     letter-spacing: .07em;
   }
 
-  .nf-upload input {
-    width: 100%;
-    min-height: 42px;
+  .nf-choice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .nf-choice-card {
+    min-height: 104px;
     border: 1px dashed rgba(147, 197, 253, .95);
-    border-radius: 14px;
+    border-radius: 16px;
     background: #fff;
     color: #1e3a8a;
-    padding: 10px 12px;
-    font-size: 13px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .16s ease, background .16s ease, border-color .16s ease;
+  }
+
+  .nf-choice-card:hover {
+    transform: translateY(-1px);
+    background: #eff6ff;
+    border-color: rgba(59, 130, 246, .95);
+  }
+
+  .nf-choice-card strong {
+    color: #1d4ed8;
+    font-size: 14px;
+    font-weight: 950;
+  }
+
+  .nf-choice-card small {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  .nf-choice-card input {
+    width: 100%;
+    margin-top: 6px;
+    color: #1e3a8a;
+    font-size: 12px;
     font-weight: 850;
   }
 
@@ -1273,6 +1329,10 @@ const styles = `
     }
 
     .gift-actions-compact {
+      grid-template-columns: 1fr;
+    }
+
+    .nf-choice-grid {
       grid-template-columns: 1fr;
     }
   }
