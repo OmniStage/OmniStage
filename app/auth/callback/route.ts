@@ -17,9 +17,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", requestUrl.origin));
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Skip auth if env vars are not configured
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.redirect(new URL("/login?error=Supabase+not+configured", requestUrl.origin));
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey,
     {
       cookies: {
         getAll() {
