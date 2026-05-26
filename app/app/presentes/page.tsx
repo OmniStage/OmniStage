@@ -88,6 +88,7 @@ export default function PresentesPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<"todos" | "lista" | "fisicos" | "ativos">("todos");
+  const [eventoSelecionadoId, setEventoSelecionadoId] = useState<string>("");
 
   useEffect(() => {
     carregarTudo();
@@ -176,7 +177,10 @@ export default function PresentesPage() {
       alert("Erro ao carregar presentes físicos: " + fisicosResp.error.message);
     }
 
-    setEventos((eventosData || []) as Evento[]);
+    const eventosCarregados = (eventosData || []) as Evento[];
+
+    setEventos(eventosCarregados);
+    setEventoSelecionadoId((atual) => atual || eventosCarregados[0]?.id || "");
     setReservas((reservasResp.data || []) as GiftReservation[]);
     setPayments((paymentsResp.data || []) as GiftPayment[]);
     setPresentesFisicos((fisicosResp.data || []) as EventGiftRecord[]);
@@ -243,6 +247,26 @@ export default function PresentesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, eventos, filtro, reservas, payments, presentesFisicos]);
 
+  const eventoSelecionado = useMemo(() => {
+    return eventos.find((evento) => evento.id === eventoSelecionadoId) || eventos[0] || null;
+  }, [eventos, eventoSelecionadoId]);
+
+  const metricasSelecionadas = useMemo(() => {
+    if (!eventoSelecionado?.id) {
+      return {
+        lista: 0,
+        valor: 0,
+        fisicos: 0,
+        comFoto: 0,
+        iaProcessados: 0,
+        total: 0,
+      };
+    }
+
+    return metricasEvento(eventoSelecionado.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventoSelecionado?.id, reservas, payments, presentesFisicos]);
+
   const resumo = useMemo(() => {
     const totalLista = reservas.filter(
       (item) => normalizar(item.status || "") !== "cancelado",
@@ -280,7 +304,11 @@ export default function PresentesPage() {
         .eyebrow { display:inline-block; color:#7c3aed; font-size:12px; font-weight:950; text-transform:uppercase; letter-spacing:.14em; margin-bottom:10px; }
         .title { margin:0; color:#0f172a; font-size:48px; line-height:1; font-weight:950; letter-spacing:-.065em; }
         .subtitle { margin:14px 0 0; color:#64748b; font-size:16px; line-height:1.62; max-width:790px; font-weight:750; }
-        .actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+        .hero-event-control { min-width:320px; max-width:440px; display:grid; gap:10px; }
+        .hero-event-control label { color:#334155; font-size:14px; font-weight:950; }
+        .hero-event-select { width:100%; min-height:56px; padding:0 16px; border-radius:18px; border:1px solid rgba(203,213,225,.95); background:#fff; color:#0f172a; outline:none; font-size:16px; font-weight:950; box-shadow:0 12px 28px rgba(15,23,42,.05); }
+        .hero-event-select:focus { border-color:rgba(124,58,237,.55); box-shadow:0 0 0 4px rgba(124,58,237,.10); }
         .btn { border:1px solid rgba(203,213,225,.95); border-radius:16px; background:#fff; color:#0f172a; padding:13px 16px; font-weight:950; cursor:pointer; font-family:inherit; font-size:14px; transition:transform .16s ease, box-shadow .16s ease; }
         .btn:hover { transform:translateY(-1px); box-shadow:0 12px 28px rgba(15,23,42,.07); }
         .btn.primary { border-color:transparent; color:white; background:linear-gradient(135deg,#7c3aed,#5b21b6); box-shadow:0 18px 38px rgba(124,58,237,.22); }
@@ -307,10 +335,13 @@ export default function PresentesPage() {
         .event-number { border:1px solid rgba(226,232,240,.95); background:#f8fafc; border-radius:20px; padding:14px; }
         .event-number-label { color:#64748b; font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.06em; }
         .event-number-value { margin-top:6px; color:#0f172a; font-size:24px; font-weight:950; }
-        .event-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:auto; }
-        .event-action-wide { grid-column:1 / -1; }
+        .event-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:auto; }
+        .event-action-wide { grid-column:auto; }
+        .module-action-card { min-height:86px; border-radius:22px; padding:18px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:7px; text-align:left; }
+        .module-action-card strong { display:block; font-size:15px; line-height:1.1; font-weight:950; }
+        .module-action-card span { display:block; font-size:12px; line-height:1.35; font-weight:800; opacity:.82; }
         .empty { background:#fff; border:1px dashed rgba(148,163,184,.45); border-radius:28px; padding:42px; text-align:center; color:#64748b; font-weight:850; }
-        @media (max-width:860px){ .hero{padding:24px;border-radius:26px}.title{font-size:38px}.toolbar{grid-template-columns:1fr}.event-actions{grid-template-columns:1fr}.event-numbers{grid-template-columns:1fr}.btn{width:100%} }
+        @media (max-width:860px){ .hero{padding:24px;border-radius:26px}.title{font-size:38px}.toolbar{grid-template-columns:1fr}.event-actions{grid-template-columns:1fr}.event-numbers{grid-template-columns:1fr}.btn{width:100%}.hero-event-control{width:100%;max-width:none;min-width:0} }
       `}</style>
 
       <section className="hero">
@@ -324,6 +355,22 @@ export default function PresentesPage() {
         </div>
 
         <div className="actions">
+          <div className="hero-event-control">
+            <label htmlFor="presentes-evento-selecionado">Evento</label>
+            <select
+              id="presentes-evento-selecionado"
+              className="hero-event-select"
+              value={eventoSelecionado?.id || ""}
+              onChange={(event) => setEventoSelecionadoId(event.target.value)}
+            >
+              {eventos.map((evento) => (
+                <option key={evento.id} value={evento.id}>
+                  {evento.nome || "Evento sem nome"}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button className="btn" onClick={carregarTudo}>Atualizar</button>
         </div>
       </section>
@@ -334,6 +381,47 @@ export default function PresentesPage() {
         <Metric label="Presentes no Evento" value={resumo.fisicos} />
         <Metric label="Valor confirmado" value={formatarMoeda(resumo.valor)} />
       </section>
+
+      {eventoSelecionado && (
+        <section className="event-card">
+          <div>
+            <h2 className="event-title">{eventoSelecionado.nome || "Evento sem nome"}</h2>
+            <div className="event-meta">
+              <span className="badge badge-purple">{eventoSelecionado.categoria_evento || eventoSelecionado.tipo_evento || "Evento"}</span>
+              <span className="badge badge-gray">{formatarData(eventoSelecionado.data_evento)}</span>
+              {eventoSelecionado.cidade && <span className="badge badge-gray">{eventoSelecionado.cidade}</span>}
+              <span className="badge badge-green">{labelStatusAprovacao(eventoSelecionado.status_aprovacao)}</span>
+              {eventoSelecionado.lista_presentes_ativa && <span className="badge badge-orange">Lista ativa</span>}
+            </div>
+          </div>
+
+          <div className="event-numbers">
+            <div className="event-number">
+              <div className="event-number-label">Lista de Presentes</div>
+              <div className="event-number-value">{metricasSelecionadas.lista}</div>
+            </div>
+            <div className="event-number">
+              <div className="event-number-label">Presentes no Evento</div>
+              <div className="event-number-value">{metricasSelecionadas.fisicos}</div>
+            </div>
+          </div>
+
+          <div className="event-actions">
+            <button className="btn primary module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/lista`)}>
+              <strong>Lista de Presentes</strong>
+              <span>Lista pública, reservas e presenteados.</span>
+            </button>
+            <button className="btn green module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/presenteados`)}>
+              <strong>Recebidos antes</strong>
+              <span>Registrar presentes entregues antes do evento.</span>
+            </button>
+            <button className="btn orange module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/fisicos`)}>
+              <strong>No Evento</strong>
+              <span>Recepção, etiqueta, foto, NF e controle físico.</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="toolbar">
@@ -389,14 +477,17 @@ export default function PresentesPage() {
                 </div>
 
                 <div className="event-actions">
-                  <button className="btn primary" onClick={() => router.push(`/app/presentes/${evento.id}/lista`)}>
-                    Lista de Presentes
+                  <button className="btn primary module-action-card" onClick={() => router.push(`/app/presentes/${evento.id}/lista`)}>
+                    <strong>Lista de Presentes</strong>
+                    <span>Lista pública e reservas</span>
                   </button>
-                  <button className="btn green" onClick={() => router.push(`/app/presentes/${evento.id}/presenteados`)}>
-                    Recebidos antes do evento
+                  <button className="btn green module-action-card" onClick={() => router.push(`/app/presentes/${evento.id}/presenteados`)}>
+                    <strong>Recebidos antes</strong>
+                    <span>Pré-evento</span>
                   </button>
-                  <button className="btn orange event-action-wide" onClick={() => router.push(`/app/presentes/${evento.id}/fisicos`)}>
-                    Presentes no Evento
+                  <button className="btn orange module-action-card" onClick={() => router.push(`/app/presentes/${evento.id}/fisicos`)}>
+                    <strong>No Evento</strong>
+                    <span>Recepção e físicos</span>
                   </button>
                 </div>
               </article>
