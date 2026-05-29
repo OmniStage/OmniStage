@@ -319,6 +319,9 @@ export default function PresentesPage() {
         .metric-label { margin:0; color:#64748b; font-size:12px; font-weight:950; text-transform:uppercase; letter-spacing:.08em; }
         .metric-value { display:block; margin-top:8px; color:#0f172a; font-size:31px; line-height:1; font-weight:950; letter-spacing:-.035em; }
         .panel { border-radius:26px; padding:20px; }
+        .module-note { color:#64748b; font-weight:800; line-height:1.55; }
+        .module-note strong { display:block; color:#0f172a; font-size:16px; font-weight:950; margin-bottom:4px; }
+        .module-note p { margin:0; }
         .toolbar { display:grid; grid-template-columns:1fr 230px; gap:12px; }
         .input, .select { width:100%; padding:15px 16px; border-radius:17px; border:1px solid rgba(203,213,225,.95); background:#fff; color:#0f172a; outline:none; font-size:14px; font-weight:850; }
         .input:focus, .select:focus { border-color:rgba(124,58,237,.45); box-shadow:0 0 0 4px rgba(124,58,237,.10); }
@@ -335,13 +338,17 @@ export default function PresentesPage() {
         .event-number { border:1px solid rgba(226,232,240,.95); background:#f8fafc; border-radius:20px; padding:14px; }
         .event-number-label { color:#64748b; font-size:11px; font-weight:950; text-transform:uppercase; letter-spacing:.06em; }
         .event-number-value { margin-top:6px; color:#0f172a; font-size:24px; font-weight:950; }
-        .event-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:auto; }
+        .event-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:auto; }
         .event-action-wide { grid-column:auto; }
-        .module-action-card { min-height:86px; border-radius:22px; padding:18px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:7px; text-align:left; }
-        .module-action-card strong { display:block; font-size:15px; line-height:1.1; font-weight:950; }
-        .module-action-card span { display:block; font-size:12px; line-height:1.35; font-weight:800; opacity:.82; }
+        .module-action-card { min-height:124px; border-radius:22px; padding:20px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:12px; text-align:left; background:#f8fafc; border:1px solid rgba(226,232,240,.95); color:#374151; box-shadow:none; }
+        .module-action-card:hover { background:#f5f3ff; border-color:rgba(124,58,237,.35); box-shadow:0 14px 34px rgba(15,23,42,.08); }
+        .module-action-icon { width:32px; height:32px; color:#4b5563; }
+        .module-action-card strong { display:block; color:#374151; font-size:21px; line-height:1.14; font-weight:950; letter-spacing:-.035em; }
+        .module-action-card span { display:none; }
+        .btn.primary.module-action-card, .btn.green.module-action-card, .btn.orange.module-action-card { background:#f8fafc; color:#374151; border-color:rgba(226,232,240,.95); box-shadow:none; }
+        .btn.primary.module-action-card:hover, .btn.green.module-action-card:hover, .btn.orange.module-action-card:hover { background:#f5f3ff; border-color:rgba(124,58,237,.35); }
         .empty { background:#fff; border:1px dashed rgba(148,163,184,.45); border-radius:28px; padding:42px; text-align:center; color:#64748b; font-weight:850; }
-        @media (max-width:860px){ .hero{padding:24px;border-radius:26px}.title{font-size:38px}.toolbar{grid-template-columns:1fr}.event-actions{grid-template-columns:1fr}.event-numbers{grid-template-columns:1fr}.btn{width:100%}.hero-event-control{width:100%;max-width:none;min-width:0} }
+        @media (max-width:860px){ .hero{padding:24px;border-radius:26px}.title{font-size:38px}.toolbar{grid-template-columns:1fr}.event-actions{grid-template-columns:1fr}.event-numbers{grid-template-columns:1fr}.btn{width:100%}.hero-event-control{width:100%;max-width:none;min-width:0}.module-action-card{min-height:96px} }
       `}</style>
 
       <section className="hero">
@@ -407,15 +414,18 @@ export default function PresentesPage() {
           </div>
 
           <div className="event-actions">
-            <button className="btn primary module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/lista`)}>
+            <button className="btn module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/lista`)}>
+              <IconLista />
               <strong>Lista de Presentes</strong>
               <span>Lista pública, reservas e presenteados.</span>
             </button>
-            <button className="btn green module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/presenteados`)}>
-              <strong>Recebidos antes</strong>
+            <button className="btn module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/presenteados`)}>
+              <IconCaixa />
+              <strong>Recebidos Antes</strong>
               <span>Registrar presentes entregues antes do evento.</span>
             </button>
-            <button className="btn orange module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/fisicos`)}>
+            <button className="btn module-action-card" onClick={() => router.push(`/app/presentes/${eventoSelecionado.id}/fisicos`)}>
+              <IconCalendario />
               <strong>No Evento</strong>
               <span>Recepção, etiqueta, foto, NF e controle físico.</span>
             </button>
@@ -423,79 +433,50 @@ export default function PresentesPage() {
         </section>
       )}
 
-      <section className="panel">
-        <div className="toolbar">
-          <input
-            className="input"
-            value={busca}
-            onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar por evento, cidade, categoria, status ou tipo"
-          />
-
-          <select
-            className="select"
-            value={filtro}
-            onChange={(event) => setFiltro(event.target.value as typeof filtro)}
-          >
-            <option value="todos">Todos os eventos</option>
-            <option value="ativos">Com presentes/lista ativa</option>
-            <option value="lista">Lista de presentes</option>
-            <option value="fisicos">Presentes no Evento</option>
-          </select>
-        </div>
+      <section className="panel module-note">
+        <strong>Controle centralizado do evento selecionado</strong>
+        <p>
+          Use os cards acima para acessar lista de presentes, recebidos antes do evento
+          e presentes recebidos durante a operação.
+        </p>
       </section>
 
-      {eventosFiltrados.length === 0 ? (
-        <div className="empty">Nenhum evento encontrado no módulo de presentes.</div>
-      ) : (
-        <section className="events-grid">
-          {eventosFiltrados.map((evento) => {
-            const metricas = metricasEvento(evento.id);
-
-            return (
-              <article key={evento.id} className="event-card">
-                <div>
-                  <h2 className="event-title">{evento.nome || "Evento sem nome"}</h2>
-                  <div className="event-meta">
-                    <span className="badge badge-purple">{evento.categoria_evento || evento.tipo_evento || "Evento"}</span>
-                    <span className="badge badge-gray">{formatarData(evento.data_evento)}</span>
-                    {evento.cidade && <span className="badge badge-gray">{evento.cidade}</span>}
-                    <span className="badge badge-green">{labelStatusAprovacao(evento.status_aprovacao)}</span>
-                    {evento.lista_presentes_ativa && <span className="badge badge-orange">Lista ativa</span>}
-                  </div>
-                </div>
-
-                <div className="event-numbers">
-                  <div className="event-number">
-                    <div className="event-number-label">Lista de Presentes</div>
-                    <div className="event-number-value">{metricas.lista}</div>
-                  </div>
-                  <div className="event-number">
-                    <div className="event-number-label">Presentes no Evento</div>
-                    <div className="event-number-value">{metricas.fisicos}</div>
-                  </div>
-                </div>
-
-                <div className="event-actions">
-                  <button className="btn primary module-action-card" onClick={() => router.push(`/app/presentes/${evento.id}/lista`)}>
-                    <strong>Lista de Presentes</strong>
-                    <span>Lista pública e reservas</span>
-                  </button>
-                  <button className="btn green module-action-card" onClick={() => router.push(`/app/presentes/${evento.id}/presenteados`)}>
-                    <strong>Recebidos antes</strong>
-                    <span>Pré-evento</span>
-                  </button>
-                  <button className="btn orange module-action-card" onClick={() => router.push(`/app/presentes/${evento.id}/fisicos`)}>
-                    <strong>No Evento</strong>
-                    <span>Recepção e físicos</span>
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </section>
-      )}
     </main>
+  );
+}
+
+function IconLista() {
+  return (
+    <svg className="module-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 6h13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 12h13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 18h13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3 6.2l1.2 1.2L6.6 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 12.2l1.2 1.2L6.6 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 18.2l1.2 1.2L6.6 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconCaixa() {
+  return (
+    <svg className="module-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3 21 8l-9 5-9-5 9-5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M3 8v8l9 5 9-5V8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M12 13v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="m7.5 5.5 9 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconCalendario() {
+  return (
+    <svg className="module-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M17 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 8h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
   );
 }
 
