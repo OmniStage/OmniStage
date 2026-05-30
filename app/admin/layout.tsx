@@ -24,6 +24,7 @@ export default function AdminLayout({
   const menu = [
     { name: "Dashboard", href: "/admin" },
     { name: "Clientes / Empresas", href: "/admin/clientes" },
+    { name: "Contatos", href: "/admin/contatos" },
     { name: "Redes / Franquias", href: "/admin/redes" },
     { name: "Eventos", href: "/admin/eventos" },
     { name: "Modelos de Convite", href: "/admin/modelos-convites" },
