@@ -5,7 +5,16 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Aba = "pessoas" | "nucleos";
-type ModalTipo = "historico" | "editarPessoa" | "importarPessoa" | "membrosNucleo" | "importarNucleo" | null;
+type ModalTipo =
+  | "criarPessoa"
+  | "editarPessoa"
+  | "historico"
+  | "importarPessoa"
+  | "criarNucleo"
+  | "editarNucleo"
+  | "membrosNucleo"
+  | "importarNucleo"
+  | null;
 
 type Pessoa = {
   id: string;
@@ -49,10 +58,17 @@ type HistoricoEvento = {
   evento_id: string | null;
   status_rsvp: string | null;
   status_checkin: string | null;
-  eventos?: {
-    nome?: string | null;
-    data_evento?: string | null;
-  } | null;
+  created_at?: string | null;
+  eventos?:
+    | {
+        nome?: string | null;
+        data_evento?: string | null;
+      }
+    | {
+        nome?: string | null;
+        data_evento?: string | null;
+      }[]
+    | null;
 };
 
 type Evento = {
@@ -71,14 +87,26 @@ type PessoaForm = {
   consentimento_comunicacao: boolean;
 };
 
+type NucleoForm = {
+  nome: string;
+  tipo_nucleo: string;
+  descricao: string;
+};
+
 const pessoaFormVazio: PessoaForm = {
   nome: "",
   telefone: "",
   email: "",
-  tipo_contato: "pessoa",
+  tipo_contato: "adulto",
   responsavel_nome: "",
   responsavel_telefone: "",
   consentimento_comunicacao: false,
+};
+
+const nucleoFormVazio: NucleoForm = {
+  nome: "",
+  tipo_nucleo: "familia",
+  descricao: "",
 };
 
 export default function ContatosPage() {
@@ -99,6 +127,7 @@ export default function ContatosPage() {
   const [nucleoSelecionado, setNucleoSelecionado] = useState<Nucleo | null>(null);
   const [eventoImportacaoId, setEventoImportacaoId] = useState("");
   const [pessoaForm, setPessoaForm] = useState<PessoaForm>(pessoaFormVazio);
+  const [nucleoForm, setNucleoForm] = useState<NucleoForm>(nucleoFormVazio);
 
   useEffect(() => {
     iniciarTela();
@@ -124,6 +153,18 @@ export default function ContatosPage() {
     }
   }
 
+  async function recarregarBase() {
+    if (!tenantId) return;
+
+    await Promise.all([
+      carregarPessoas(tenantId),
+      carregarNucleos(tenantId),
+      carregarMembros(tenantId),
+      carregarHistorico(tenantId),
+      carregarEventos(tenantId),
+    ]);
+  }
+
   async function carregarTenant() {
     const {
       data: { user },
@@ -138,11 +179,12 @@ export default function ContatosPage() {
       .from("tenant_members")
       .select("tenant_id")
       .eq("user_id", user.id)
+      .eq("status", "ativo")
       .limit(1)
       .maybeSingle();
 
     if (error || !data?.tenant_id) {
-      alert("Este usuário ainda não está vinculado a uma empresa.");
+      alert("Este usuário ainda não está vinculado a uma empresa ativa.");
       return null;
     }
 
@@ -240,6 +282,7 @@ export default function ContatosPage() {
         evento_id,
         status_rsvp,
         status_checkin,
+        created_at,
         eventos (
           nome,
           data_evento
@@ -272,257 +315,6 @@ export default function ContatosPage() {
     }
 
     setEventos((data || []) as Evento[]);
-  }
-
-  function abrirHistorico(pessoa: Pessoa) {
-    setPessoaSelecionada(pessoa);
-    setNucleoSelecionado(null);
-    setModal("historico");
-  }
-
-  function abrirEditarPessoa(pessoa: Pessoa) {
-    setPessoaSelecionada(pessoa);
-    setNucleoSelecionado(null);
-    setPessoaForm({
-      nome: pessoa.nome || "",
-      telefone: pessoa.telefone || "",
-      email: pessoa.email || "",
-      tipo_contato: pessoa.tipo_contato || "pessoa",
-      responsavel_nome: pessoa.responsavel_nome || "",
-      responsavel_telefone: pessoa.responsavel_telefone || "",
-      consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
-    });
-    setModal("editarPessoa");
-  }
-
-  function abrirImportarPessoa(pessoa: Pessoa) {
-    setPessoaSelecionada(pessoa);
-    setNucleoSelecionado(null);
-    setEventoImportacaoId(eventos[0]?.id || "");
-    setModal("importarPessoa");
-  }
-
-  function abrirMembrosNucleo(nucleo: Nucleo) {
-    setNucleoSelecionado(nucleo);
-    setPessoaSelecionada(null);
-    setModal("membrosNucleo");
-  }
-
-  function abrirImportarNucleo(nucleo: Nucleo) {
-    setNucleoSelecionado(nucleo);
-    setPessoaSelecionada(null);
-    setEventoImportacaoId(eventos[0]?.id || "");
-    setModal("importarNucleo");
-  }
-
-  function fecharModal() {
-    setModal(null);
-    setPessoaSelecionada(null);
-    setNucleoSelecionado(null);
-    setPessoaForm(pessoaFormVazio);
-    setEventoImportacaoId("");
-    setAcaoLoading(false);
-  }
-
-  function updatePessoaForm(field: keyof PessoaForm, value: string | boolean) {
-    setPessoaForm((current) => ({ ...current, [field]: value }));
-  }
-
-  async function salvarPessoa() {
-    if (!tenantId || !pessoaSelecionada) return;
-
-    if (!pessoaForm.nome.trim()) {
-      alert("Informe o nome da pessoa.");
-      return;
-    }
-
-    setAcaoLoading(true);
-
-    try {
-      const telefoneNormalizado = normalizarTelefone(pessoaForm.telefone);
-
-      const { error } = await supabase
-        .from("tenant_contatos")
-        .update({
-          nome: pessoaForm.nome.trim(),
-          telefone: pessoaForm.telefone.trim() || null,
-          telefone_normalizado: telefoneNormalizado || null,
-          email: pessoaForm.email.trim() || null,
-          tipo_contato: pessoaForm.tipo_contato || null,
-          responsavel_nome: pessoaForm.responsavel_nome.trim() || null,
-          responsavel_telefone: pessoaForm.responsavel_telefone.trim() || null,
-          consentimento_comunicacao: pessoaForm.consentimento_comunicacao,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", pessoaSelecionada.id)
-        .eq("tenant_id", tenantId);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      await carregarPessoas(tenantId);
-      fecharModal();
-      alert("Pessoa atualizada.");
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao atualizar pessoa.");
-    } finally {
-      setAcaoLoading(false);
-    }
-  }
-
-  async function importarPessoaParaEvento() {
-    if (!tenantId || !pessoaSelecionada || !eventoImportacaoId) {
-      alert("Selecione um evento.");
-      return;
-    }
-
-    setAcaoLoading(true);
-
-    try {
-      const jaExiste = await convidadoJaExisteNoEvento({
-        tenantContatoId: pessoaSelecionada.id,
-        eventoId: eventoImportacaoId,
-      });
-
-      if (jaExiste) {
-        alert("Esta pessoa já está como convidada neste evento.");
-        return;
-      }
-
-      const { error } = await supabase.from("convidados").insert({
-        tenant_id: tenantId,
-        evento_id: eventoImportacaoId,
-        tenant_contato_id: pessoaSelecionada.id,
-        nome: pessoaSelecionada.nome,
-        telefone: pessoaSelecionada.telefone,
-        email: pessoaSelecionada.email,
-        token: gerarToken(),
-        status_rsvp: "pendente",
-        status_envio: "pendente",
-        status_checkin: "nao_entrou",
-        tipo_convite: "individual",
-        contato_principal: true,
-        recebe_convite: Boolean(pessoaSelecionada.telefone),
-        origem_importacao: "contatos",
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      await carregarHistorico(tenantId);
-      fecharModal();
-      alert("Pessoa importada para o evento.");
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao importar pessoa.");
-    } finally {
-      setAcaoLoading(false);
-    }
-  }
-
-  async function importarNucleoParaEvento() {
-    if (!tenantId || !nucleoSelecionado || !eventoImportacaoId) {
-      alert("Selecione um evento.");
-      return;
-    }
-
-    const vinculos = membrosPorNucleo.get(nucleoSelecionado.id) || [];
-    const membrosValidos = vinculos
-      .map((membro) => ({
-        membro,
-        pessoa: pessoasPorId.get(membro.tenant_contato_id),
-      }))
-      .filter((item): item is { membro: MembroNucleo; pessoa: Pessoa } =>
-        Boolean(item.pessoa),
-      );
-
-    if (membrosValidos.length === 0) {
-      alert("Este núcleo não possui membros válidos.");
-      return;
-    }
-
-    setAcaoLoading(true);
-
-    try {
-      let criados = 0;
-      let ignorados = 0;
-
-      for (const { membro, pessoa } of membrosValidos) {
-        const jaExiste = await convidadoJaExisteNoEvento({
-          tenantContatoId: pessoa.id,
-          eventoId: eventoImportacaoId,
-        });
-
-        if (jaExiste) {
-          ignorados += 1;
-          continue;
-        }
-
-        const papel = getPapelMembro(membro);
-        const contatoPrincipal = papel === "responsavel" || Boolean(membro.principal_envio);
-
-        const { error } = await supabase.from("convidados").insert({
-          tenant_id: tenantId,
-          evento_id: eventoImportacaoId,
-          tenant_contato_id: pessoa.id,
-          nome: pessoa.nome,
-          telefone: pessoa.telefone,
-          email: pessoa.email,
-          grupo: nucleoSelecionado.nome,
-          token: gerarToken(),
-          status_rsvp: "pendente",
-          status_envio: "pendente",
-          status_checkin: "nao_entrou",
-          tipo_convite: "grupo",
-          crianca: papel === "crianca" ? "sim" : null,
-          contato_principal: contatoPrincipal,
-          recebe_convite: Boolean(membro.recebe_comunicacao || contatoPrincipal || pessoa.telefone),
-          responsavel: pessoa.responsavel_nome,
-          responsavel_telefone: pessoa.responsavel_telefone,
-          origem_importacao: "nucleo_contatos",
-        });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        criados += 1;
-      }
-
-      await carregarHistorico(tenantId);
-      fecharModal();
-      alert(`Núcleo importado. Criados: ${criados}. Ignorados por duplicidade: ${ignorados}.`);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao importar núcleo.");
-    } finally {
-      setAcaoLoading(false);
-    }
-  }
-
-  async function convidadoJaExisteNoEvento({
-    tenantContatoId,
-    eventoId,
-  }: {
-    tenantContatoId: string;
-    eventoId: string;
-  }) {
-    if (!tenantId) return false;
-
-    const { data, error } = await supabase
-      .from("convidados")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("evento_id", eventoId)
-      .eq("tenant_contato_id", tenantContatoId)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return Boolean(data?.id);
   }
 
   const pessoasPorId = useMemo(() => {
@@ -623,10 +415,395 @@ export default function ContatosPage() {
   const totalRecebeComunicacao = membros.filter(
     (membro) => membro.recebe_comunicacao || membro.principal_envio,
   ).length;
+  const totalFamilias = nucleos.filter((nucleo) => getTipoNucleo(nucleo) === "familia").length;
 
-  const totalFamilias = nucleos.filter(
-    (nucleo) => getTipoNucleo(nucleo) === "familia",
-  ).length;
+  function abrirCriarPessoa() {
+    setPessoaSelecionada(null);
+    setNucleoSelecionado(null);
+    setPessoaForm(pessoaFormVazio);
+    setModal("criarPessoa");
+  }
+
+  function abrirEditarPessoa(pessoa: Pessoa) {
+    setPessoaSelecionada(pessoa);
+    setNucleoSelecionado(null);
+    setPessoaForm({
+      nome: pessoa.nome || "",
+      telefone: pessoa.telefone || "",
+      email: pessoa.email || "",
+      tipo_contato: pessoa.tipo_contato || "adulto",
+      responsavel_nome: pessoa.responsavel_nome || "",
+      responsavel_telefone: pessoa.responsavel_telefone || "",
+      consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
+    });
+    setModal("editarPessoa");
+  }
+
+  function abrirHistorico(pessoa: Pessoa) {
+    setPessoaSelecionada(pessoa);
+    setNucleoSelecionado(null);
+    setModal("historico");
+  }
+
+  function abrirImportarPessoa(pessoa: Pessoa) {
+    setPessoaSelecionada(pessoa);
+    setNucleoSelecionado(null);
+    setEventoImportacaoId(eventos[0]?.id || "");
+    setModal("importarPessoa");
+  }
+
+  function abrirCriarNucleo() {
+    setPessoaSelecionada(null);
+    setNucleoSelecionado(null);
+    setNucleoForm(nucleoFormVazio);
+    setModal("criarNucleo");
+  }
+
+  function abrirEditarNucleo(nucleo: Nucleo) {
+    setPessoaSelecionada(null);
+    setNucleoSelecionado(nucleo);
+    setNucleoForm({
+      nome: nucleo.nome || "",
+      tipo_nucleo: getTipoNucleo(nucleo),
+      descricao: nucleo.descricao || "",
+    });
+    setModal("editarNucleo");
+  }
+
+  function abrirMembrosNucleo(nucleo: Nucleo) {
+    setPessoaSelecionada(null);
+    setNucleoSelecionado(nucleo);
+    setModal("membrosNucleo");
+  }
+
+  function abrirImportarNucleo(nucleo: Nucleo) {
+    setPessoaSelecionada(null);
+    setNucleoSelecionado(nucleo);
+    setEventoImportacaoId(eventos[0]?.id || "");
+    setModal("importarNucleo");
+  }
+
+  function fecharModal() {
+    setModal(null);
+    setPessoaSelecionada(null);
+    setNucleoSelecionado(null);
+    setPessoaForm(pessoaFormVazio);
+    setNucleoForm(nucleoFormVazio);
+    setEventoImportacaoId("");
+    setAcaoLoading(false);
+  }
+
+  function updatePessoaForm(field: keyof PessoaForm, value: string | boolean) {
+    setPessoaForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateNucleoForm(field: keyof NucleoForm, value: string) {
+    setNucleoForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function salvarPessoa() {
+    if (!tenantId) return;
+
+    if (!pessoaForm.nome.trim()) {
+      alert("Informe o nome da pessoa.");
+      return;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      const telefoneNormalizado = normalizarTelefone(pessoaForm.telefone);
+      const payload = {
+        nome: pessoaForm.nome.trim(),
+        telefone: pessoaForm.telefone.trim() || null,
+        telefone_normalizado: telefoneNormalizado || null,
+        email: pessoaForm.email.trim() || null,
+        tipo_contato: pessoaForm.tipo_contato || null,
+        responsavel_nome: pessoaForm.responsavel_nome.trim() || null,
+        responsavel_telefone: pessoaForm.responsavel_telefone.trim() || null,
+        consentimento_comunicacao: pessoaForm.consentimento_comunicacao,
+        updated_at: new Date().toISOString(),
+      };
+
+      const query = pessoaSelecionada
+        ? await supabase
+            .from("tenant_contatos")
+            .update(payload)
+            .eq("id", pessoaSelecionada.id)
+            .eq("tenant_id", tenantId)
+        : await supabase.from("tenant_contatos").insert({
+            ...payload,
+            tenant_id: tenantId,
+            origem: "cadastro_manual",
+          });
+
+      if (query.error) {
+        throw new Error(query.error.message);
+      }
+
+      await carregarPessoas(tenantId);
+      fecharModal();
+      alert(pessoaSelecionada ? "Pessoa atualizada." : "Pessoa criada.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao salvar pessoa.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function excluirPessoa(pessoa: Pessoa) {
+    if (!tenantId) return;
+
+    const vinculos = membrosPorPessoa.get(pessoa.id) || [];
+    const eventosPessoa = historicoPorPessoa.get(pessoa.id) || [];
+
+    if (eventosPessoa.length > 0) {
+      alert("Esta pessoa possui histórico de eventos. Por segurança, não é possível excluir este contato; use edição/observação ou remova o vínculo apenas se for um contato criado por engano.");
+      return;
+    }
+
+    if (vinculos.length > 0) {
+      alert("Esta pessoa está vinculada a um núcleo. Remova o vínculo do núcleo antes de excluir.");
+      return;
+    }
+
+    const confirmar = window.confirm(`Excluir o contato "${pessoa.nome}"?`);
+    if (!confirmar) return;
+
+    setAcaoLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("tenant_contatos")
+        .delete()
+        .eq("id", pessoa.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw new Error(error.message);
+
+      await carregarPessoas(tenantId);
+      alert("Pessoa excluída.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao excluir pessoa.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function salvarNucleo() {
+    if (!tenantId) return;
+
+    if (!nucleoForm.nome.trim()) {
+      alert("Informe o nome do núcleo.");
+      return;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      const payload = {
+        nome: nucleoForm.nome.trim(),
+        tipo: nucleoForm.tipo_nucleo,
+        tipo_nucleo: nucleoForm.tipo_nucleo,
+        descricao: nucleoForm.descricao.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const query = nucleoSelecionado
+        ? await supabase
+            .from("contato_grupos")
+            .update(payload)
+            .eq("id", nucleoSelecionado.id)
+            .eq("tenant_id", tenantId)
+        : await supabase.from("contato_grupos").insert({
+            ...payload,
+            tenant_id: tenantId,
+            origem: "cadastro_manual",
+          });
+
+      if (query.error) throw new Error(query.error.message);
+
+      await carregarNucleos(tenantId);
+      fecharModal();
+      alert(nucleoSelecionado ? "Núcleo atualizado." : "Núcleo criado.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao salvar núcleo.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function excluirNucleo(nucleo: Nucleo) {
+    if (!tenantId) return;
+
+    const vinculos = membrosPorNucleo.get(nucleo.id) || [];
+
+    if (vinculos.length > 0) {
+      alert("Este núcleo possui membros vinculados. Remova os membros antes de excluir o núcleo.");
+      return;
+    }
+
+    const confirmar = window.confirm(`Excluir o núcleo "${nucleo.nome}"?`);
+    if (!confirmar) return;
+
+    setAcaoLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("contato_grupos")
+        .delete()
+        .eq("id", nucleo.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw new Error(error.message);
+
+      await carregarNucleos(tenantId);
+      alert("Núcleo excluído.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao excluir núcleo.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function importarPessoaParaEvento() {
+    if (!tenantId || !pessoaSelecionada || !eventoImportacaoId) {
+      alert("Selecione um evento.");
+      return;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      const jaExiste = await convidadoJaExisteNoEvento({
+        tenantContatoId: pessoaSelecionada.id,
+        eventoId: eventoImportacaoId,
+      });
+
+      if (jaExiste) {
+        alert("Esta pessoa já está como convidada neste evento.");
+        return;
+      }
+
+      const { error } = await supabase.from("convidados").insert({
+        tenant_id: tenantId,
+        evento_id: eventoImportacaoId,
+        tenant_contato_id: pessoaSelecionada.id,
+        nome: pessoaSelecionada.nome,
+        telefone: pessoaSelecionada.telefone,
+        email: pessoaSelecionada.email,
+        token: gerarToken(),
+        status_rsvp: "pendente",
+        status_envio: "pendente",
+        status_checkin: "nao_entrou",
+        tipo_convite: "individual",
+        contato_principal: true,
+        recebe_convite: Boolean(pessoaSelecionada.telefone),
+        origem_importacao: "contatos",
+      });
+
+      if (error) throw new Error(error.message);
+
+      await carregarHistorico(tenantId);
+      fecharModal();
+      alert("Pessoa importada para o evento.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao importar pessoa.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function importarNucleoParaEvento() {
+    if (!tenantId || !nucleoSelecionado || !eventoImportacaoId) {
+      alert("Selecione um evento.");
+      return;
+    }
+
+    const vinculos = membrosPorNucleo.get(nucleoSelecionado.id) || [];
+
+    if (vinculos.length === 0) {
+      alert("Este núcleo não possui membros.");
+      return;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      let criados = 0;
+      let ignorados = 0;
+
+      for (const vinculo of vinculos) {
+        const pessoa = pessoasPorId.get(vinculo.tenant_contato_id);
+        if (!pessoa) continue;
+
+        const jaExiste = await convidadoJaExisteNoEvento({
+          tenantContatoId: pessoa.id,
+          eventoId: eventoImportacaoId,
+        });
+
+        if (jaExiste) {
+          ignorados += 1;
+          continue;
+        }
+
+        const papel = getPapelMembro(vinculo);
+        const principal = Boolean(vinculo.principal_envio) || papel === "responsavel";
+
+        const { error } = await supabase.from("convidados").insert({
+          tenant_id: tenantId,
+          evento_id: eventoImportacaoId,
+          tenant_contato_id: pessoa.id,
+          nome: pessoa.nome,
+          telefone: pessoa.telefone,
+          email: pessoa.email,
+          grupo: nucleoSelecionado.nome,
+          token: gerarToken(),
+          status_rsvp: "pendente",
+          status_envio: "pendente",
+          status_checkin: "nao_entrou",
+          tipo_convite: "grupo",
+          contato_principal: principal,
+          recebe_convite: Boolean(vinculo.recebe_comunicacao || vinculo.principal_envio || principal),
+          crianca: papel === "crianca" ? "sim" : null,
+          responsavel: pessoa.responsavel_nome,
+          responsavel_telefone: pessoa.responsavel_telefone,
+          origem_importacao: "contatos_nucleo",
+        });
+
+        if (error) throw new Error(error.message);
+        criados += 1;
+      }
+
+      await carregarHistorico(tenantId);
+      fecharModal();
+      alert(`${criados} convidado(s) importado(s). ${ignorados} já existia(m) no evento.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao importar núcleo.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function convidadoJaExisteNoEvento({
+    tenantContatoId,
+    eventoId,
+  }: {
+    tenantContatoId: string;
+    eventoId: string;
+  }) {
+    const { data, error } = await supabase
+      .from("convidados")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("evento_id", eventoId)
+      .eq("tenant_contato_id", tenantContatoId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return Boolean(data?.id);
+  }
 
   return (
     <main style={pageStyle}>
@@ -683,9 +860,7 @@ export default function ContatosPage() {
       <section style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <div>
-            <h2 style={cardTitleStyle}>
-              {aba === "pessoas" ? "Pessoas" : "Núcleos"}
-            </h2>
+            <h2 style={cardTitleStyle}>{aba === "pessoas" ? "Pessoas" : "Núcleos"}</h2>
             <p style={sectionSubtitleStyle}>
               {aba === "pessoas"
                 ? "Pessoas únicas do cliente, com histórico e vínculos."
@@ -695,7 +870,7 @@ export default function ContatosPage() {
 
           <button
             type="button"
-            onClick={() => alert("Criação manual será a próxima etapa.")}
+            onClick={aba === "pessoas" ? abrirCriarPessoa : abrirCriarNucleo}
             style={buttonStyle}
           >
             {aba === "pessoas" ? "+ Nova pessoa" : "+ Novo núcleo"}
@@ -724,88 +899,69 @@ export default function ContatosPage() {
         )}
 
         {!loading && aba === "pessoas" && (
-          <div style={compactGridStyle}>
+          <div style={listStyle}>
             {pessoasFiltradas.map((pessoa) => {
               const vinculos = membrosPorPessoa.get(pessoa.id) || [];
               const eventosPessoa = historicoPorPessoa.get(pessoa.id) || [];
               const ultimoEvento = getUltimoEvento(eventosPessoa);
 
               return (
-                <article key={pessoa.id} style={compactCardStyle}>
-                  <div style={compactCardTopStyle}>
+                <article key={pessoa.id} style={rowCardStyle}>
+                  <div style={rowCardMainStyle}>
                     <div style={avatarStyle}>{getInitials(pessoa.nome)}</div>
 
-                    <div style={{ minWidth: 0 }}>
-                      <h3 style={itemTitleStyle}>{pessoa.nome}</h3>
+                    <div style={rowContentStyle}>
+                      <div style={rowTopStyle}>
+                        <div style={{ minWidth: 0 }}>
+                          <h3 style={itemTitleStyle}>{pessoa.nome}</h3>
+                          <p style={mutedStyle}>
+                            {pessoa.telefone || "Sem telefone"} · {pessoa.email || "Sem e-mail"}
+                          </p>
+                        </div>
+                      </div>
 
-                      <p style={mutedStyle}>
-                        {pessoa.telefone || "Sem telefone"} ·{" "}
-                        {pessoa.email || "Sem e-mail"}
-                      </p>
+                      <div style={badgesStyle}>
+                        <Badge>{labelTipoContato(pessoa.tipo_contato)}</Badge>
+                        {vinculos.length > 0 && <Badge>{vinculos.length} núcleo(s)</Badge>}
+                        {eventosPessoa.length > 0 && <Badge>{eventosPessoa.length} evento(s)</Badge>}
+                        {pessoa.consentimento_comunicacao && <Badge>Recebe comunicação</Badge>}
+                      </div>
+
+                      {vinculos.length > 0 && (
+                        <div style={miniListStyle}>
+                          {vinculos.slice(0, 3).map((membro) => {
+                            const nucleo = nucleosPorId.get(membro.grupo_contato_id);
+                            if (!nucleo) return null;
+
+                            return (
+                              <span key={membro.id} style={miniItemStyle}>
+                                {nucleo.nome} · {labelPapel(getPapelMembro(membro))}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {ultimoEvento && (
+                        <p style={smallMutedStyle}>
+                          Último evento: <strong>{getEventoNome(ultimoEvento)}</strong>
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div style={badgesStyle}>
-                    <Badge>{labelTipoContato(pessoa.tipo_contato)}</Badge>
-
-                    {pessoa.responsavel_nome && (
-                      <Badge>Resp.: {pessoa.responsavel_nome}</Badge>
-                    )}
-
-                    {vinculos.length > 0 && (
-                      <Badge>{vinculos.length} núcleo(s)</Badge>
-                    )}
-
-                    {eventosPessoa.length > 0 && (
-                      <Badge>{eventosPessoa.length} evento(s)</Badge>
-                    )}
-                  </div>
-
-                  {vinculos.length > 0 && (
-                    <div style={miniListStyle}>
-                      {vinculos.slice(0, 3).map((membro) => {
-                        const nucleo = nucleosPorId.get(membro.grupo_contato_id);
-                        if (!nucleo) return null;
-
-                        return (
-                          <span key={membro.id} style={miniItemStyle}>
-                            {nucleo.nome} · {labelPapel(getPapelMembro(membro))}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {ultimoEvento && (
-                    <p style={smallMutedStyle}>
-                      Último evento:{" "}
-                      <strong>{ultimoEvento.eventos?.nome || "Evento"}</strong>
-                    </p>
-                  )}
-
-                  <div style={compactActionsStyle}>
-                    <button
-                      type="button"
-                      onClick={() => abrirHistorico(pessoa)}
-                      style={secondaryButtonStyle}
-                    >
+                  <div style={rowActionsStyle}>
+                    <button type="button" onClick={() => abrirHistorico(pessoa)} style={secondaryButtonStyle}>
                       Histórico
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => abrirImportarPessoa(pessoa)}
-                      style={secondaryButtonStyle}
-                    >
+                    <button type="button" onClick={() => abrirImportarPessoa(pessoa)} style={secondaryButtonStyle}>
                       Importar
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => abrirEditarPessoa(pessoa)}
-                      style={secondaryButtonStyle}
-                    >
+                    <button type="button" onClick={() => abrirEditarPessoa(pessoa)} style={secondaryButtonStyle}>
                       Editar
+                    </button>
+                    <button type="button" onClick={() => excluirPessoa(pessoa)} style={dangerButtonStyle}>
+                      Excluir
                     </button>
                   </div>
                 </article>
@@ -815,67 +971,55 @@ export default function ContatosPage() {
         )}
 
         {!loading && aba === "nucleos" && (
-          <div style={compactGridStyle}>
+          <div style={listStyle}>
             {nucleosFiltrados.map((nucleo) => {
               const vinculos = membrosPorNucleo.get(nucleo.id) || [];
-              const responsaveis = vinculos.filter(
-                (membro) => getPapelMembro(membro) === "responsavel",
-              );
+              const responsaveis = vinculos.filter((membro) => getPapelMembro(membro) === "responsavel");
               const membrosComPessoa = vinculos
-                .map((membro) => ({
-                  membro,
-                  pessoa: pessoasPorId.get(membro.tenant_contato_id),
-                }))
+                .map((membro) => ({ membro, pessoa: pessoasPorId.get(membro.tenant_contato_id) }))
                 .filter((item) => item.pessoa);
 
               return (
-                <article key={nucleo.id} style={compactCardStyle}>
-                  <div style={compactCardTopStyle}>
+                <article key={nucleo.id} style={rowCardStyle}>
+                  <div style={rowCardMainStyle}>
                     <div style={nucleoIconStyle}>N</div>
 
-                    <div style={{ minWidth: 0 }}>
+                    <div style={rowContentStyle}>
                       <h3 style={itemTitleStyle}>{nucleo.nome}</h3>
-
                       <p style={mutedStyle}>
-                        Tipo: {labelTipoNucleo(getTipoNucleo(nucleo))} ·{" "}
-                        {vinculos.length} membro(s)
+                        Tipo: {labelTipoNucleo(getTipoNucleo(nucleo))} · {vinculos.length} membro(s) · {responsaveis.length} responsável(is)
                       </p>
+
+                      {nucleo.descricao && <p style={smallMutedStyle}>{nucleo.descricao}</p>}
+
+                      <div style={badgesStyle}>
+                        <Badge>{labelTipoNucleo(getTipoNucleo(nucleo))}</Badge>
+                        <Badge>{vinculos.length} membro(s)</Badge>
+                        <Badge>{responsaveis.length} responsável(is)</Badge>
+                      </div>
+
+                      <div style={miniListStyle}>
+                        {membrosComPessoa.slice(0, 6).map(({ membro, pessoa }) => (
+                          <span key={membro.id} style={miniItemStyle}>
+                            {pessoa?.nome} · {labelPapel(getPapelMembro(membro))}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  {nucleo.descricao && (
-                    <p style={smallMutedStyle}>{nucleo.descricao}</p>
-                  )}
-
-                  <div style={badgesStyle}>
-                    <Badge>{labelTipoNucleo(getTipoNucleo(nucleo))}</Badge>
-                    <Badge>{vinculos.length} membro(s)</Badge>
-                    <Badge>{responsaveis.length} responsável(is)</Badge>
-                  </div>
-
-                  <div style={miniListStyle}>
-                    {membrosComPessoa.slice(0, 5).map(({ membro, pessoa }) => (
-                      <span key={membro.id} style={miniItemStyle}>
-                        {pessoa?.nome} · {labelPapel(getPapelMembro(membro))}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div style={compactActionsStyle}>
-                    <button
-                      type="button"
-                      onClick={() => abrirMembrosNucleo(nucleo)}
-                      style={secondaryButtonStyle}
-                    >
+                  <div style={rowActionsStyle}>
+                    <button type="button" onClick={() => abrirMembrosNucleo(nucleo)} style={secondaryButtonStyle}>
                       Membros
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => abrirImportarNucleo(nucleo)}
-                      style={secondaryButtonStyle}
-                    >
+                    <button type="button" onClick={() => abrirImportarNucleo(nucleo)} style={secondaryButtonStyle}>
                       Importar
+                    </button>
+                    <button type="button" onClick={() => abrirEditarNucleo(nucleo)} style={secondaryButtonStyle}>
+                      Editar
+                    </button>
+                    <button type="button" onClick={() => excluirNucleo(nucleo)} style={dangerButtonStyle}>
+                      Excluir
                     </button>
                   </div>
                 </article>
@@ -888,6 +1032,8 @@ export default function ContatosPage() {
       {modal && (
         <div
           style={modalOverlayStyle}
+          role="dialog"
+          aria-modal="true"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) fecharModal();
           }}
@@ -895,7 +1041,7 @@ export default function ContatosPage() {
           <section style={modalCardStyle} onMouseDown={(event) => event.stopPropagation()}>
             <div style={modalHeaderStyle}>
               <div>
-                <div style={eyebrowStyle}>Contatos</div>
+                <div style={modalKickerStyle}>Contatos</div>
                 <h2 style={modalTitleStyle}>{getModalTitulo(modal)}</h2>
               </div>
 
@@ -904,110 +1050,40 @@ export default function ContatosPage() {
               </button>
             </div>
 
-            {modal === "historico" && pessoaSelecionada && (
-              <HistoricoPessoa
-                pessoa={pessoaSelecionada}
-                eventos={historicoPorPessoa.get(pessoaSelecionada.id) || []}
-                vinculos={membrosPorPessoa.get(pessoaSelecionada.id) || []}
-                nucleosPorId={nucleosPorId}
+            {(modal === "criarPessoa" || modal === "editarPessoa") && (
+              <PessoaFormModal
+                pessoaForm={pessoaForm}
+                acaoLoading={acaoLoading}
+                onChange={updatePessoaForm}
+                onSubmit={salvarPessoa}
+                onCancel={fecharModal}
+                submitLabel={modal === "criarPessoa" ? "Criar pessoa" : "Salvar alterações"}
               />
             )}
 
-            {modal === "editarPessoa" && pessoaSelecionada && (
-              <div style={modalFormStyle}>
-                <label style={fieldStyle}>
-                  <span>Nome</span>
-                  <input
-                    value={pessoaForm.nome}
-                    onChange={(event) => updatePessoaForm("nome", event.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Telefone</span>
-                  <input
-                    value={pessoaForm.telefone}
-                    onChange={(event) => updatePessoaForm("telefone", event.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>E-mail</span>
-                  <input
-                    value={pessoaForm.email}
-                    onChange={(event) => updatePessoaForm("email", event.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Tipo</span>
-                  <select
-                    value={pessoaForm.tipo_contato}
-                    onChange={(event) => updatePessoaForm("tipo_contato", event.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="pessoa">Pessoa</option>
-                    <option value="principal">Principal</option>
-                    <option value="adulto">Adulto</option>
-                    <option value="dependente">Dependente</option>
-                    <option value="crianca">Criança</option>
-                    <option value="individual">Individual</option>
-                  </select>
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Responsável</span>
-                  <input
-                    value={pessoaForm.responsavel_nome}
-                    onChange={(event) => updatePessoaForm("responsavel_nome", event.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Telefone do responsável</span>
-                  <input
-                    value={pessoaForm.responsavel_telefone}
-                    onChange={(event) => updatePessoaForm("responsavel_telefone", event.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={toggleFieldStyle}>
-                  <input
-                    type="checkbox"
-                    checked={pessoaForm.consentimento_comunicacao}
-                    onChange={(event) =>
-                      updatePessoaForm("consentimento_comunicacao", event.target.checked)
-                    }
-                  />
-                  <span>Recebe comunicação / consentimento ativo</span>
-                </label>
-
-                <div style={modalActionsStyle}>
-                  <button
-                    type="button"
-                    onClick={salvarPessoa}
-                    disabled={acaoLoading}
-                    style={buttonStyle}
-                  >
-                    {acaoLoading ? "Salvando..." : "Salvar alterações"}
-                  </button>
-                </div>
-              </div>
+            {modal === "historico" && pessoaSelecionada && (
+              <HistoricoModal pessoa={pessoaSelecionada} historico={historicoPorPessoa.get(pessoaSelecionada.id) || []} />
             )}
 
             {modal === "importarPessoa" && pessoaSelecionada && (
               <ImportarPessoaModal
                 pessoa={pessoaSelecionada}
                 eventos={eventos}
-                eventoId={eventoImportacaoId}
-                setEventoId={setEventoImportacaoId}
+                eventoImportacaoId={eventoImportacaoId}
+                acaoLoading={acaoLoading}
+                onEventoChange={setEventoImportacaoId}
                 onImportar={importarPessoaParaEvento}
-                loading={acaoLoading}
+              />
+            )}
+
+            {(modal === "criarNucleo" || modal === "editarNucleo") && (
+              <NucleoFormModal
+                nucleoForm={nucleoForm}
+                acaoLoading={acaoLoading}
+                onChange={updateNucleoForm}
+                onSubmit={salvarNucleo}
+                onCancel={fecharModal}
+                submitLabel={modal === "criarNucleo" ? "Criar núcleo" : "Salvar alterações"}
               />
             )}
 
@@ -1023,12 +1099,12 @@ export default function ContatosPage() {
               <ImportarNucleoModal
                 nucleo={nucleoSelecionado}
                 membros={membrosPorNucleo.get(nucleoSelecionado.id) || []}
-                pessoasPorId={pessoasPorId}
                 eventos={eventos}
-                eventoId={eventoImportacaoId}
-                setEventoId={setEventoImportacaoId}
+                eventoImportacaoId={eventoImportacaoId}
+                acaoLoading={acaoLoading}
+                pessoasPorId={pessoasPorId}
+                onEventoChange={setEventoImportacaoId}
                 onImportar={importarNucleoParaEvento}
-                loading={acaoLoading}
               />
             )}
           </section>
@@ -1038,62 +1114,148 @@ export default function ContatosPage() {
   );
 }
 
-function HistoricoPessoa({
-  pessoa,
-  eventos,
-  vinculos,
-  nucleosPorId,
+function PessoaFormModal({
+  pessoaForm,
+  acaoLoading,
+  onChange,
+  onSubmit,
+  onCancel,
+  submitLabel,
 }: {
-  pessoa: Pessoa;
-  eventos: HistoricoEvento[];
-  vinculos: MembroNucleo[];
-  nucleosPorId: Map<string, Nucleo>;
+  pessoaForm: PessoaForm;
+  acaoLoading: boolean;
+  onChange: (field: keyof PessoaForm, value: string | boolean) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitLabel: string;
 }) {
   return (
+    <div style={modalFormStyle}>
+      <label style={fieldStyle}>
+        <span>Nome</span>
+        <input value={pessoaForm.nome} onChange={(event) => onChange("nome", event.target.value)} style={inputStyle} />
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Telefone</span>
+        <input value={pessoaForm.telefone} onChange={(event) => onChange("telefone", event.target.value)} style={inputStyle} />
+      </label>
+
+      <label style={fieldStyle}>
+        <span>E-mail</span>
+        <input value={pessoaForm.email} onChange={(event) => onChange("email", event.target.value)} style={inputStyle} />
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Tipo</span>
+        <select value={pessoaForm.tipo_contato} onChange={(event) => onChange("tipo_contato", event.target.value)} style={inputStyle}>
+          <option value="adulto">Adulto</option>
+          <option value="crianca">Criança</option>
+          <option value="dependente">Dependente</option>
+          <option value="individual">Individual</option>
+          <option value="principal">Principal</option>
+        </select>
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Nome do responsável</span>
+        <input value={pessoaForm.responsavel_nome} onChange={(event) => onChange("responsavel_nome", event.target.value)} style={inputStyle} />
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Telefone do responsável</span>
+        <input value={pessoaForm.responsavel_telefone} onChange={(event) => onChange("responsavel_telefone", event.target.value)} style={inputStyle} />
+      </label>
+
+      <label style={toggleStyle}>
+        <input
+          type="checkbox"
+          checked={pessoaForm.consentimento_comunicacao}
+          onChange={(event) => onChange("consentimento_comunicacao", event.target.checked)}
+        />
+        <span>Recebe comunicação</span>
+      </label>
+
+      <div style={modalActionsStyle}>
+        <button type="button" onClick={onCancel} style={secondaryButtonStyle} disabled={acaoLoading}>
+          Cancelar
+        </button>
+        <button type="button" onClick={onSubmit} style={buttonStyle} disabled={acaoLoading}>
+          {acaoLoading ? "Salvando..." : submitLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NucleoFormModal({
+  nucleoForm,
+  acaoLoading,
+  onChange,
+  onSubmit,
+  onCancel,
+  submitLabel,
+}: {
+  nucleoForm: NucleoForm;
+  acaoLoading: boolean;
+  onChange: (field: keyof NucleoForm, value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  submitLabel: string;
+}) {
+  return (
+    <div style={modalFormStyle}>
+      <label style={fieldStyle}>
+        <span>Nome do núcleo</span>
+        <input value={nucleoForm.nome} onChange={(event) => onChange("nome", event.target.value)} style={inputStyle} />
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Tipo</span>
+        <select value={nucleoForm.tipo_nucleo} onChange={(event) => onChange("tipo_nucleo", event.target.value)} style={inputStyle}>
+          <option value="familia">Família</option>
+          <option value="empresa">Empresa</option>
+          <option value="politico">Político</option>
+          <option value="corporativo">Corporativo</option>
+          <option value="igreja">Igreja</option>
+          <option value="associacao">Associação</option>
+          <option value="fornecedor">Fornecedor</option>
+          <option value="outro">Outro</option>
+        </select>
+      </label>
+
+      <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+        <span>Descrição</span>
+        <textarea value={nucleoForm.descricao} onChange={(event) => onChange("descricao", event.target.value)} style={textareaStyle} />
+      </label>
+
+      <div style={modalActionsStyle}>
+        <button type="button" onClick={onCancel} style={secondaryButtonStyle} disabled={acaoLoading}>
+          Cancelar
+        </button>
+        <button type="button" onClick={onSubmit} style={buttonStyle} disabled={acaoLoading}>
+          {acaoLoading ? "Salvando..." : submitLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HistoricoModal({ pessoa, historico }: { pessoa: Pessoa; historico: HistoricoEvento[] }) {
+  return (
     <div style={modalContentStyle}>
-      <h3 style={itemTitleStyle}>{pessoa.nome}</h3>
+      <h3 style={modalSectionTitleStyle}>{pessoa.nome}</h3>
 
-      <p style={mutedStyle}>
-        {pessoa.telefone || "Sem telefone"} · {pessoa.email || "Sem e-mail"}
-      </p>
+      {historico.length === 0 && <div style={emptyStyle}>Nenhum evento encontrado para esta pessoa.</div>}
 
-      <div style={detailBlockStyle}>
-        <strong>Núcleos</strong>
-
-        {vinculos.length === 0 && <span style={mutedStyle}>Sem núcleo vinculado.</span>}
-
-        {vinculos.map((vinculo) => {
-          const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
-          if (!nucleo) return null;
-
-          return (
-            <div key={vinculo.id} style={detailRowStyle}>
-              <span>{nucleo.nome}</span>
-              <Badge>{labelPapel(getPapelMembro(vinculo))}</Badge>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={detailBlockStyle}>
-        <strong>Eventos</strong>
-
-        {eventos.length === 0 && <span style={mutedStyle}>Sem histórico de eventos.</span>}
-
-        {eventos.map((evento, index) => (
-          <div key={`${evento.evento_id}-${index}`} style={detailRowStyle}>
-            <span>
-              {evento.eventos?.nome || "Evento"}{" "}
-              {evento.eventos?.data_evento ? `· ${formatarData(evento.eventos.data_evento)}` : ""}
-            </span>
-
-            <span style={historyBadgesStyle}>
-              <Badge>{labelRsvp(evento.status_rsvp)}</Badge>
-              <Badge>{labelCheckin(evento.status_checkin)}</Badge>
-            </span>
-          </div>
-        ))}
-      </div>
+      {historico.map((item, index) => (
+        <div key={`${item.evento_id || index}-${index}`} style={historyRowStyle}>
+          <strong>{getEventoNome(item)}</strong>
+          <span>Data: {formatarDataEvento(getEventoData(item))}</span>
+          <span>RSVP: {labelRsvp(item.status_rsvp)}</span>
+          <span>Check-in: {labelCheckin(item.status_checkin)}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1101,49 +1263,36 @@ function HistoricoPessoa({
 function ImportarPessoaModal({
   pessoa,
   eventos,
-  eventoId,
-  setEventoId,
+  eventoImportacaoId,
+  acaoLoading,
+  onEventoChange,
   onImportar,
-  loading,
 }: {
   pessoa: Pessoa;
   eventos: Evento[];
-  eventoId: string;
-  setEventoId: (value: string) => void;
+  eventoImportacaoId: string;
+  acaoLoading: boolean;
+  onEventoChange: (id: string) => void;
   onImportar: () => void;
-  loading: boolean;
 }) {
   return (
     <div style={modalContentStyle}>
       <p style={mutedStyle}>
-        Importe <strong>{pessoa.nome}</strong> para um evento. O sistema criará
-        um convidado novo vinculado a esta pessoa.
+        Selecione o evento para importar <strong>{pessoa.nome}</strong> como convidado individual.
       </p>
 
-      <label style={fieldStyle}>
-        <span>Evento</span>
-        <select
-          value={eventoId}
-          onChange={(event) => setEventoId(event.target.value)}
-          style={inputStyle}
-        >
-          <option value="">Selecione um evento</option>
-          {eventos.map((evento) => (
-            <option key={evento.id} value={evento.id}>
-              {evento.nome}
-            </option>
-          ))}
-        </select>
-      </label>
+      <select value={eventoImportacaoId} onChange={(event) => onEventoChange(event.target.value)} style={inputStyle}>
+        <option value="">Selecione um evento</option>
+        {eventos.map((evento) => (
+          <option key={evento.id} value={evento.id}>
+            {evento.nome}
+          </option>
+        ))}
+      </select>
 
       <div style={modalActionsStyle}>
-        <button
-          type="button"
-          onClick={onImportar}
-          disabled={loading || !eventoId}
-          style={buttonStyle}
-        >
-          {loading ? "Importando..." : "Importar para evento"}
+        <button type="button" onClick={onImportar} style={buttonStyle} disabled={acaoLoading || !eventoImportacaoId}>
+          {acaoLoading ? "Importando..." : "Importar pessoa"}
         </button>
       </div>
     </div>
@@ -1161,26 +1310,22 @@ function MembrosNucleoModal({
 }) {
   return (
     <div style={modalContentStyle}>
-      <h3 style={itemTitleStyle}>{nucleo.nome}</h3>
+      <h3 style={modalSectionTitleStyle}>{nucleo.nome}</h3>
 
-      <p style={mutedStyle}>
-        Tipo: {labelTipoNucleo(getTipoNucleo(nucleo))} · {membros.length} membro(s)
-      </p>
+      {membros.length === 0 && <div style={emptyStyle}>Nenhum membro vinculado.</div>}
 
-      <div style={detailBlockStyle}>
-        {membros.length === 0 && <span style={mutedStyle}>Nenhum membro vinculado.</span>}
+      {membros.map((membro) => {
+        const pessoa = pessoasPorId.get(membro.tenant_contato_id);
 
-        {membros.map((membro) => {
-          const pessoa = pessoasPorId.get(membro.tenant_contato_id);
-
-          return (
-            <div key={membro.id} style={detailRowStyle}>
-              <span>{pessoa?.nome || "Pessoa não encontrada"}</span>
-              <Badge>{labelPapel(getPapelMembro(membro))}</Badge>
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <div key={membro.id} style={historyRowStyle}>
+            <strong>{pessoa?.nome || "Pessoa não encontrada"}</strong>
+            <span>{pessoa?.telefone || "Sem telefone"}</span>
+            <span>Papel: {labelPapel(getPapelMembro(membro))}</span>
+            <span>{membro.recebe_comunicacao || membro.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1188,59 +1333,51 @@ function MembrosNucleoModal({
 function ImportarNucleoModal({
   nucleo,
   membros,
-  pessoasPorId,
   eventos,
-  eventoId,
-  setEventoId,
+  eventoImportacaoId,
+  acaoLoading,
+  pessoasPorId,
+  onEventoChange,
   onImportar,
-  loading,
 }: {
   nucleo: Nucleo;
   membros: MembroNucleo[];
-  pessoasPorId: Map<string, Pessoa>;
   eventos: Evento[];
-  eventoId: string;
-  setEventoId: (value: string) => void;
+  eventoImportacaoId: string;
+  acaoLoading: boolean;
+  pessoasPorId: Map<string, Pessoa>;
+  onEventoChange: (id: string) => void;
   onImportar: () => void;
-  loading: boolean;
 }) {
-  const membrosValidos = membros
-    .map((membro) => pessoasPorId.get(membro.tenant_contato_id))
-    .filter(Boolean);
-
   return (
     <div style={modalContentStyle}>
       <p style={mutedStyle}>
-        Importe o núcleo <strong>{nucleo.nome}</strong> para um evento. Serão
-        criados convidados para os membros vinculados.
+        Selecione o evento para importar o núcleo <strong>{nucleo.nome}</strong>.
       </p>
 
-      <Badge>{membrosValidos.length} pessoa(s) no núcleo</Badge>
+      <div style={miniListStyle}>
+        {membros.slice(0, 8).map((membro) => {
+          const pessoa = pessoasPorId.get(membro.tenant_contato_id);
+          return (
+            <span key={membro.id} style={miniItemStyle}>
+              {pessoa?.nome || "Pessoa"} · {labelPapel(getPapelMembro(membro))}
+            </span>
+          );
+        })}
+      </div>
 
-      <label style={fieldStyle}>
-        <span>Evento</span>
-        <select
-          value={eventoId}
-          onChange={(event) => setEventoId(event.target.value)}
-          style={inputStyle}
-        >
-          <option value="">Selecione um evento</option>
-          {eventos.map((evento) => (
-            <option key={evento.id} value={evento.id}>
-              {evento.nome}
-            </option>
-          ))}
-        </select>
-      </label>
+      <select value={eventoImportacaoId} onChange={(event) => onEventoChange(event.target.value)} style={inputStyle}>
+        <option value="">Selecione um evento</option>
+        {eventos.map((evento) => (
+          <option key={evento.id} value={evento.id}>
+            {evento.nome}
+          </option>
+        ))}
+      </select>
 
       <div style={modalActionsStyle}>
-        <button
-          type="button"
-          onClick={onImportar}
-          disabled={loading || !eventoId}
-          style={buttonStyle}
-        >
-          {loading ? "Importando..." : "Importar núcleo"}
+        <button type="button" onClick={onImportar} style={buttonStyle} disabled={acaoLoading || !eventoImportacaoId}>
+          {acaoLoading ? "Importando..." : "Importar núcleo"}
         </button>
       </div>
     </div>
@@ -1258,15 +1395,6 @@ function MetricCard({ label, value }: { label: string; value: number }) {
 
 function Badge({ children }: { children: ReactNode }) {
   return <span style={badgeStyle}>{children}</span>;
-}
-
-function normalizarTelefone(telefone: string | null) {
-  if (!telefone) return "";
-  return telefone.replace(/\D/g, "");
-}
-
-function gerarToken() {
-  return "EVT-" + Math.floor(100000 + Math.random() * 900000);
 }
 
 function getTipoNucleo(nucleo: Nucleo) {
@@ -1309,28 +1437,15 @@ function labelPapel(papel: string | null) {
 }
 
 function labelRsvp(status: string | null) {
-  if (status === "confirmado") return "RSVP confirmado";
+  if (status === "confirmado") return "Confirmado";
   if (status === "nao") return "Não vai";
-  return "RSVP pendente";
+  return "Pendente";
 }
 
 function labelCheckin(status: string | null) {
   if (status === "entrou") return "Entrou";
-  if (status === "entrou_excecao" || status === "entrou_sem_rsvp") {
-    return "Entrou sem RSVP";
-  }
-
+  if (status === "entrou_sem_rsvp" || status === "entrou_excecao") return "Entrou sem RSVP";
   return "Não entrou";
-}
-
-function formatarData(data: string | null) {
-  if (!data) return "";
-
-  const parsed = new Date(`${data}T00:00:00`);
-
-  if (Number.isNaN(parsed.getTime())) return "";
-
-  return parsed.toLocaleDateString("pt-BR");
 }
 
 function getInitials(nome: string) {
@@ -1345,16 +1460,48 @@ function getInitials(nome: string) {
 
 function getUltimoEvento(eventos: HistoricoEvento[]) {
   return [...eventos].sort((a, b) => {
-    const dataA = a.eventos?.data_evento || "";
-    const dataB = b.eventos?.data_evento || "";
+    const dataA = getEventoData(a) || a.created_at || "";
+    const dataB = getEventoData(b) || b.created_at || "";
     return dataB.localeCompare(dataA);
   })[0];
 }
 
+function getEventoRelacao(item: HistoricoEvento) {
+  return Array.isArray(item.eventos) ? item.eventos[0] : item.eventos;
+}
+
+function getEventoNome(item: HistoricoEvento) {
+  return getEventoRelacao(item)?.nome || "Evento";
+}
+
+function getEventoData(item: HistoricoEvento) {
+  return getEventoRelacao(item)?.data_evento || null;
+}
+
+function formatarDataEvento(data: string | null | undefined) {
+  if (!data) return "Sem data";
+
+  const parsed = new Date(`${data}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return data;
+
+  return parsed.toLocaleDateString("pt-BR");
+}
+
+function normalizarTelefone(telefone: string) {
+  return String(telefone || "").replace(/\D/g, "");
+}
+
+function gerarToken() {
+  return "EVT-" + Math.floor(100000 + Math.random() * 900000);
+}
+
 function getModalTitulo(modal: ModalTipo) {
-  if (modal === "historico") return "Histórico da pessoa";
+  if (modal === "criarPessoa") return "Nova pessoa";
   if (modal === "editarPessoa") return "Editar pessoa";
+  if (modal === "historico") return "Histórico da pessoa";
   if (modal === "importarPessoa") return "Importar pessoa para evento";
+  if (modal === "criarNucleo") return "Novo núcleo";
+  if (modal === "editarNucleo") return "Editar núcleo";
   if (modal === "membrosNucleo") return "Membros do núcleo";
   if (modal === "importarNucleo") return "Importar núcleo para evento";
   return "Contatos";
@@ -1500,7 +1647,7 @@ const fieldStyle: CSSProperties = {
   gap: 8,
   color: "#374151",
   fontSize: 14,
-  fontWeight: 900,
+  fontWeight: 850,
 };
 
 const inputStyle: CSSProperties = {
@@ -1516,6 +1663,13 @@ const inputStyle: CSSProperties = {
   fontWeight: 700,
   outline: "none",
   marginBottom: 18,
+};
+
+const textareaStyle: CSSProperties = {
+  ...inputStyle,
+  minHeight: 110,
+  padding: 16,
+  resize: "vertical",
 };
 
 const buttonStyle: CSSProperties = {
@@ -1543,40 +1697,63 @@ const secondaryButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const compactGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
-  gap: 14,
+const dangerButtonStyle: CSSProperties = {
+  ...secondaryButtonStyle,
+  border: "1px solid rgba(220,38,38,0.24)",
+  color: "#b91c1c",
+  background: "#fff1f2",
 };
 
-const compactCardStyle: CSSProperties = {
+const listStyle: CSSProperties = {
   display: "grid",
+  gridTemplateColumns: "1fr",
   gap: 12,
-  alignContent: "start",
-  padding: 16,
+};
+
+const rowCardStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 18,
+  padding: "16px 18px",
   borderRadius: 22,
   border: "1px solid #e5e7eb",
   background: "#f9fafb",
-  minHeight: 0,
+  flexWrap: "wrap",
 };
 
-const compactCardTopStyle: CSSProperties = {
+const rowCardMainStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
-  gap: 12,
+  gap: 14,
+  flex: "1 1 620px",
   minWidth: 0,
 };
 
-const compactActionsStyle: CSSProperties = {
+const rowContentStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+};
+
+const rowTopStyle: CSSProperties = {
   display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+};
+
+const rowActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
   gap: 8,
   flexWrap: "wrap",
-  marginTop: 2,
+  flex: "0 0 auto",
 };
 
 const avatarStyle: CSSProperties = {
-  width: 46,
-  height: 46,
+  width: 44,
+  height: 44,
   borderRadius: 16,
   background: "#ede9fe",
   color: "#6d28d9",
@@ -1677,35 +1854,38 @@ const modalOverlayStyle: CSSProperties = {
 };
 
 const modalCardStyle: CSSProperties = {
-  width: "min(820px, 100%)",
+  width: "min(880px, 100%)",
   maxHeight: "calc(100vh - 32px)",
   overflowY: "auto",
-  padding: 24,
+  padding: "clamp(18px, 4vw, 28px)",
   borderRadius: 28,
-  background: "#ffffff",
   border: "1px solid #e5e7eb",
+  background: "#ffffff",
   boxShadow: "0 28px 90px rgba(15,23,42,0.28)",
 };
 
 const modalHeaderStyle: CSSProperties = {
   display: "flex",
-  alignItems: "flex-start",
   justifyContent: "space-between",
+  alignItems: "flex-start",
   gap: 16,
   marginBottom: 18,
 };
 
-const modalTitleStyle: CSSProperties = {
-  margin: 0,
-  color: "#0f172a",
-  fontSize: 26,
+const modalKickerStyle: CSSProperties = {
+  color: "#6b7280",
+  fontSize: 12,
   fontWeight: 950,
-  letterSpacing: "-0.03em",
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
 };
 
-const modalContentStyle: CSSProperties = {
-  display: "grid",
-  gap: 16,
+const modalTitleStyle: CSSProperties = {
+  margin: "4px 0 0",
+  color: "#0f172a",
+  fontSize: 28,
+  fontWeight: 950,
+  letterSpacing: "-0.03em",
 };
 
 const modalFormStyle: CSSProperties = {
@@ -1714,48 +1894,46 @@ const modalFormStyle: CSSProperties = {
   gap: 14,
 };
 
+const modalContentStyle: CSSProperties = {
+  display: "grid",
+  gap: 12,
+};
+
 const modalActionsStyle: CSSProperties = {
   gridColumn: "1 / -1",
   display: "flex",
   justifyContent: "flex-end",
   gap: 10,
-  marginTop: 4,
+  flexWrap: "wrap",
+  marginTop: 8,
 };
 
-const toggleFieldStyle: CSSProperties = {
-  gridColumn: "1 / -1",
+const modalSectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 20,
+  fontWeight: 950,
+};
+
+const historyRowStyle: CSSProperties = {
+  display: "grid",
+  gap: 5,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  color: "#374151",
+  fontWeight: 750,
+};
+
+const toggleStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 10,
   padding: 14,
   borderRadius: 16,
-  border: "1px solid #d1d5db",
-  background: "#f9fafb",
-  color: "#374151",
-  fontWeight: 900,
-};
-
-const detailBlockStyle: CSSProperties = {
-  display: "grid",
-  gap: 10,
-  padding: 14,
-  borderRadius: 18,
   border: "1px solid #e5e7eb",
   background: "#f9fafb",
-};
-
-const detailRowStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 10,
-  flexWrap: "wrap",
-  padding: "8px 0",
-  borderTop: "1px solid #e5e7eb",
-};
-
-const historyBadgesStyle: CSSProperties = {
-  display: "flex",
-  gap: 6,
-  flexWrap: "wrap",
+  color: "#374151",
+  fontWeight: 850,
 };
