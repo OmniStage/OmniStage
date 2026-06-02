@@ -59,6 +59,7 @@ type HistoricoEvento = {
   evento_id: string | null;
   status_rsvp: string | null;
   status_checkin: string | null;
+  relacao_evento?: string | null;
   created_at?: string | null;
   eventos?:
     | {
@@ -127,6 +128,7 @@ export default function ContatosPage() {
   const [pessoaSelecionada, setPessoaSelecionada] = useState<Pessoa | null>(null);
   const [nucleoSelecionado, setNucleoSelecionado] = useState<Nucleo | null>(null);
   const [eventoImportacaoId, setEventoImportacaoId] = useState("");
+  const [relacaoEventoImportacao, setRelacaoEventoImportacao] = useState("");
   const [vinculoNucleoId, setVinculoNucleoId] = useState("");
   const [vinculoPessoaId, setVinculoPessoaId] = useState("");
   const [vinculoRelacao, setVinculoRelacao] = useState("membro");
@@ -288,6 +290,7 @@ export default function ContatosPage() {
         evento_id,
         status_rsvp,
         status_checkin,
+        relacao_evento,
         created_at,
         eventos (
           nome,
@@ -470,6 +473,7 @@ export default function ContatosPage() {
     setPessoaSelecionada(pessoa);
     setNucleoSelecionado(null);
     setEventoImportacaoId(eventos[0]?.id || "");
+    setRelacaoEventoImportacao("");
     setModal("importarPessoa");
   }
 
@@ -502,6 +506,7 @@ export default function ContatosPage() {
     setPessoaSelecionada(null);
     setNucleoSelecionado(nucleo);
     setEventoImportacaoId(eventos[0]?.id || "");
+    setRelacaoEventoImportacao("");
     setModal("importarNucleo");
   }
 
@@ -512,6 +517,7 @@ export default function ContatosPage() {
     setPessoaForm(pessoaFormVazio);
     setNucleoForm(nucleoFormVazio);
     setEventoImportacaoId("");
+    setRelacaoEventoImportacao("");
     limparFormularioVinculo();
     setAcaoLoading(false);
   }
@@ -522,6 +528,38 @@ export default function ContatosPage() {
 
   function updateNucleoForm(field: keyof NucleoForm, value: string) {
     setNucleoForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function buscarContatoExistente({
+    nome,
+    telefoneNormalizado,
+    ignorarPessoaId,
+  }: {
+    nome: string;
+    telefoneNormalizado: string;
+    ignorarPessoaId?: string;
+  }) {
+    if (!tenantId) return null;
+
+    let query = supabase
+      .from("tenant_contatos")
+      .select("id, nome, telefone, telefone_normalizado")
+      .eq("tenant_id", tenantId)
+      .limit(1);
+
+    if (telefoneNormalizado) {
+      query = query.eq("telefone_normalizado", telefoneNormalizado);
+    } else {
+      query = query.eq("nome", nome.trim());
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!data?.id) return null;
+    if (ignorarPessoaId && data.id === ignorarPessoaId) return null;
+
+    return data as { id: string; nome: string; telefone: string | null; telefone_normalizado: string | null };
   }
 
   async function salvarPessoa() {
@@ -536,6 +574,19 @@ export default function ContatosPage() {
 
     try {
       const telefoneNormalizado = normalizarTelefone(pessoaForm.telefone);
+      const contatoExistente = await buscarContatoExistente({
+        nome: pessoaForm.nome,
+        telefoneNormalizado,
+        ignorarPessoaId: pessoaSelecionada?.id,
+      });
+
+      if (contatoExistente) {
+        alert(
+          `Já existe um contato cadastrado para "${contatoExistente.nome}". Use o contato existente ou edite o cadastro atual para evitar duplicidade.`,
+        );
+        return;
+      }
+
       const payload = {
         nome: pessoaForm.nome.trim(),
         telefone: pessoaForm.telefone.trim() || null,
@@ -844,6 +895,7 @@ export default function ContatosPage() {
         status_envio: "pendente",
         status_checkin: "nao_entrou",
         tipo_convite: "individual",
+        relacao_evento: relacaoEventoImportacao.trim() || null,
         contato_principal: true,
         recebe_convite: Boolean(pessoaSelecionada.telefone),
         origem_importacao: "contatos",
@@ -910,6 +962,7 @@ export default function ContatosPage() {
           status_envio: "pendente",
           status_checkin: "nao_entrou",
           tipo_convite: "grupo",
+          relacao_evento: relacaoEventoImportacao.trim() || null,
           contato_principal: principal,
           recebe_convite: Boolean(vinculo.recebe_comunicacao || vinculo.principal_envio || principal),
           crianca: papel === "crianca" ? "sim" : null,
@@ -1240,8 +1293,10 @@ export default function ContatosPage() {
                 pessoa={pessoaSelecionada}
                 eventos={eventos}
                 eventoImportacaoId={eventoImportacaoId}
+                relacaoEventoImportacao={relacaoEventoImportacao}
                 acaoLoading={acaoLoading}
                 onEventoChange={setEventoImportacaoId}
+                onRelacaoEventoChange={setRelacaoEventoImportacao}
                 onImportar={importarPessoaParaEvento}
               />
             )}
@@ -1283,9 +1338,11 @@ export default function ContatosPage() {
                 membros={membrosPorNucleo.get(nucleoSelecionado.id) || []}
                 eventos={eventos}
                 eventoImportacaoId={eventoImportacaoId}
+                relacaoEventoImportacao={relacaoEventoImportacao}
                 acaoLoading={acaoLoading}
                 pessoasPorId={pessoasPorId}
                 onEventoChange={setEventoImportacaoId}
+                onRelacaoEventoChange={setRelacaoEventoImportacao}
                 onImportar={importarNucleoParaEvento}
               />
             )}
@@ -1311,52 +1368,130 @@ function PessoaFormModal({
   onCancel: () => void;
   submitLabel: string;
 }) {
+  const isCriancaOuDependente = pessoaForm.tipo_contato === "crianca" || pessoaForm.tipo_contato === "dependente";
+
   return (
-    <div style={modalFormStyle}>
-      <label style={fieldStyle}>
-        <span>Nome</span>
-        <input value={pessoaForm.nome} onChange={(event) => onChange("nome", event.target.value)} style={inputStyle} />
-      </label>
+    <div style={stackStyle}>
+      <section style={formSectionStyle}>
+        <div style={formSectionHeaderStyle}>
+          <span style={formStepStyle}>01</span>
+          <div>
+            <h3 style={formSectionTitleStyle}>Dados do contato</h3>
+            <p style={formSectionDescriptionStyle}>
+              Use os mesmos dados-base do convidado para manter importação e exportação consistentes.
+            </p>
+          </div>
+        </div>
 
-      <label style={fieldStyle}>
-        <span>Telefone</span>
-        <input value={pessoaForm.telefone} onChange={(event) => onChange("telefone", event.target.value)} style={inputStyle} />
-      </label>
+        <div style={modalFormStyle}>
+          <label style={fieldStyle}>
+            <span>Nome do contato</span>
+            <input
+              value={pessoaForm.nome}
+              onChange={(event) => onChange("nome", event.target.value)}
+              placeholder="Ex: Andrezza Ferraz"
+              style={inputStyle}
+            />
+          </label>
 
-      <label style={fieldStyle}>
-        <span>E-mail</span>
-        <input value={pessoaForm.email} onChange={(event) => onChange("email", event.target.value)} style={inputStyle} />
-      </label>
+          <label style={fieldStyle}>
+            <span>Telefone do contato</span>
+            <input
+              value={pessoaForm.telefone}
+              onChange={(event) => onChange("telefone", event.target.value)}
+              placeholder="Ex: 5522999999999"
+              style={inputStyle}
+            />
+          </label>
 
-      <label style={fieldStyle}>
-        <span>Tipo</span>
-        <select value={pessoaForm.tipo_contato} onChange={(event) => onChange("tipo_contato", event.target.value)} style={inputStyle}>
-          <option value="adulto">Adulto</option>
-          <option value="crianca">Criança</option>
-          <option value="dependente">Dependente</option>
-          <option value="individual">Individual</option>
-          <option value="principal">Principal</option>
-        </select>
-      </label>
+          <label style={fieldStyle}>
+            <span>E-mail</span>
+            <input
+              value={pessoaForm.email}
+              onChange={(event) => onChange("email", event.target.value)}
+              placeholder="email@email.com"
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </section>
 
-      <label style={fieldStyle}>
-        <span>Nome do responsável</span>
-        <input value={pessoaForm.responsavel_nome} onChange={(event) => onChange("responsavel_nome", event.target.value)} style={inputStyle} />
-      </label>
+      <section style={formSectionStyle}>
+        <div style={formSectionHeaderStyle}>
+          <span style={formStepStyle}>02</span>
+          <div>
+            <h3 style={formSectionTitleStyle}>Perfil do contato</h3>
+            <p style={formSectionDescriptionStyle}>
+              Defina se é adulto, criança ou dependente. Quando for criança/dependente, informe quem receberá a comunicação.
+            </p>
+          </div>
+        </div>
 
-      <label style={fieldStyle}>
-        <span>Telefone do responsável</span>
-        <input value={pessoaForm.responsavel_telefone} onChange={(event) => onChange("responsavel_telefone", event.target.value)} style={inputStyle} />
-      </label>
+        <div style={modalFormStyle}>
+          <label style={fieldStyle}>
+            <span>Tipo de contato</span>
+            <select value={pessoaForm.tipo_contato} onChange={(event) => onChange("tipo_contato", event.target.value)} style={inputStyle}>
+              <option value="adulto">Adulto</option>
+              <option value="crianca">Criança</option>
+              <option value="dependente">Dependente</option>
+              <option value="individual">Individual</option>
+              <option value="principal">Principal</option>
+            </select>
+          </label>
+        </div>
 
-      <label style={toggleStyle}>
-        <input
-          type="checkbox"
-          checked={pessoaForm.consentimento_comunicacao}
-          onChange={(event) => onChange("consentimento_comunicacao", event.target.checked)}
-        />
-        <span>Recebe comunicação</span>
-      </label>
+        {isCriancaOuDependente && (
+          <div style={responsavelBoxStyle}>
+            <h4 style={responsavelTitleStyle}>Responsável pelo envio</h4>
+            <p style={formSectionDescriptionStyle}>
+              Criança/dependente sem núcleo: a comunicação será enviada para este responsável.
+            </p>
+
+            <div style={modalFormStyle}>
+              <label style={fieldStyle}>
+                <span>Nome do responsável</span>
+                <input
+                  value={pessoaForm.responsavel_nome}
+                  onChange={(event) => onChange("responsavel_nome", event.target.value)}
+                  placeholder="Ex: Jessica Amaral"
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={fieldStyle}>
+                <span>Telefone do responsável</span>
+                <input
+                  value={pessoaForm.responsavel_telefone}
+                  onChange={(event) => onChange("responsavel_telefone", event.target.value)}
+                  placeholder="Ex: 5522999999999"
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section style={formSectionStyle}>
+        <div style={formSectionHeaderStyle}>
+          <span style={formStepStyle}>03</span>
+          <div>
+            <h3 style={formSectionTitleStyle}>Comunicação e CRM</h3>
+            <p style={formSectionDescriptionStyle}>
+              Esta configuração é do contato permanente. A comunicação específica de grupos fica nos vínculos com núcleos.
+            </p>
+          </div>
+        </div>
+
+        <label style={toggleStyle}>
+          <input
+            type="checkbox"
+            checked={pessoaForm.consentimento_comunicacao}
+            onChange={(event) => onChange("consentimento_comunicacao", event.target.checked)}
+          />
+          <span>Recebe comunicação como contato individual</span>
+        </label>
+      </section>
 
       <div style={modalActionsStyle}>
         <button type="button" onClick={onCancel} style={secondaryButtonStyle} disabled={acaoLoading}>
@@ -1434,6 +1569,7 @@ function HistoricoModal({ pessoa, historico }: { pessoa: Pessoa; historico: Hist
         <div key={`${item.evento_id || index}-${index}`} style={historyRowStyle}>
           <strong>{getEventoNome(item)}</strong>
           <span>Data: {formatarDataEvento(getEventoData(item))}</span>
+          {item.relacao_evento && <span>Relação no evento: {item.relacao_evento}</span>}
           <span>RSVP: {labelRsvp(item.status_rsvp)}</span>
           <span>Check-in: {labelCheckin(item.status_checkin)}</span>
         </div>
@@ -1446,15 +1582,19 @@ function ImportarPessoaModal({
   pessoa,
   eventos,
   eventoImportacaoId,
+  relacaoEventoImportacao,
   acaoLoading,
   onEventoChange,
+  onRelacaoEventoChange,
   onImportar,
 }: {
   pessoa: Pessoa;
   eventos: Evento[];
   eventoImportacaoId: string;
+  relacaoEventoImportacao: string;
   acaoLoading: boolean;
   onEventoChange: (id: string) => void;
+  onRelacaoEventoChange: (valor: string) => void;
   onImportar: () => void;
 }) {
   return (
@@ -1463,14 +1603,27 @@ function ImportarPessoaModal({
         Selecione o evento para importar <strong>{pessoa.nome}</strong> como convidado individual.
       </p>
 
-      <select value={eventoImportacaoId} onChange={(event) => onEventoChange(event.target.value)} style={inputStyle}>
-        <option value="">Selecione um evento</option>
-        {eventos.map((evento) => (
-          <option key={evento.id} value={evento.id}>
-            {evento.nome}
-          </option>
-        ))}
-      </select>
+      <label style={fieldStyle}>
+        <span>Evento</span>
+        <select value={eventoImportacaoId} onChange={(event) => onEventoChange(event.target.value)} style={inputStyle}>
+          <option value="">Selecione um evento</option>
+          {eventos.map((evento) => (
+            <option key={evento.id} value={evento.id}>
+              {evento.nome}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Relação no evento</span>
+        <input
+          value={relacaoEventoImportacao}
+          onChange={(event) => onRelacaoEventoChange(event.target.value)}
+          placeholder="Ex: Aniversariante, Mãe, Padrinho, Fornecedor, Palestrante"
+          style={inputStyle}
+        />
+      </label>
 
       <div style={modalActionsStyle}>
         <button type="button" onClick={onImportar} style={buttonStyle} disabled={acaoLoading || !eventoImportacaoId}>
@@ -1480,7 +1633,6 @@ function ImportarPessoaModal({
     </div>
   );
 }
-
 
 function VinculosPessoaModal({
   pessoa,
@@ -1706,18 +1858,22 @@ function ImportarNucleoModal({
   membros,
   eventos,
   eventoImportacaoId,
+  relacaoEventoImportacao,
   acaoLoading,
   pessoasPorId,
   onEventoChange,
+  onRelacaoEventoChange,
   onImportar,
 }: {
   nucleo: Nucleo;
   membros: MembroNucleo[];
   eventos: Evento[];
   eventoImportacaoId: string;
+  relacaoEventoImportacao: string;
   acaoLoading: boolean;
   pessoasPorId: Map<string, Pessoa>;
   onEventoChange: (id: string) => void;
+  onRelacaoEventoChange: (valor: string) => void;
   onImportar: () => void;
 }) {
   return (
@@ -1737,14 +1893,27 @@ function ImportarNucleoModal({
         })}
       </div>
 
-      <select value={eventoImportacaoId} onChange={(event) => onEventoChange(event.target.value)} style={inputStyle}>
-        <option value="">Selecione um evento</option>
-        {eventos.map((evento) => (
-          <option key={evento.id} value={evento.id}>
-            {evento.nome}
-          </option>
-        ))}
-      </select>
+      <label style={fieldStyle}>
+        <span>Evento</span>
+        <select value={eventoImportacaoId} onChange={(event) => onEventoChange(event.target.value)} style={inputStyle}>
+          <option value="">Selecione um evento</option>
+          {eventos.map((evento) => (
+            <option key={evento.id} value={evento.id}>
+              {evento.nome}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label style={fieldStyle}>
+        <span>Relação no evento</span>
+        <input
+          value={relacaoEventoImportacao}
+          onChange={(event) => onRelacaoEventoChange(event.target.value)}
+          placeholder="Ex: Família da aniversariante, Convidado, Equipe, Fornecedor"
+          style={inputStyle}
+        />
+      </label>
 
       <div style={modalActionsStyle}>
         <button type="button" onClick={onImportar} style={buttonStyle} disabled={acaoLoading || !eventoImportacaoId}>
@@ -1804,7 +1973,7 @@ function labelPapel(papel: string | null) {
   if (papel === "conjuge") return "Cônjuge";
   if (papel === "lider") return "Líder";
   if (papel === "financeiro") return "Financeiro";
-  return "Membro";
+  return papel ? titleCase(papel) : "Membro";
 }
 
 function labelRsvp(status: string | null) {
@@ -1860,6 +2029,13 @@ function formatarDataEvento(data: string | null | undefined) {
 
 function normalizarTelefone(telefone: string) {
   return String(telefone || "").replace(/\D/g, "");
+}
+
+function titleCase(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
 }
 
 function gerarToken() {
@@ -2318,6 +2494,62 @@ const memberSubTextStyle: CSSProperties = {
   color: "#6b7280",
   fontSize: 13,
   fontWeight: 750,
+};
+
+const stackStyle: CSSProperties = {
+  display: "grid",
+  gap: 18,
+};
+
+const formSectionStyle: CSSProperties = {
+  padding: "clamp(16px, 3vw, 24px)",
+  borderRadius: 22,
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
+};
+
+const formSectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 14,
+  marginBottom: 16,
+};
+
+const formStepStyle: CSSProperties = {
+  minWidth: 34,
+  color: "#0f172a",
+  fontSize: 18,
+  fontWeight: 900,
+};
+
+const formSectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 18,
+  fontWeight: 950,
+};
+
+const formSectionDescriptionStyle: CSSProperties = {
+  margin: "7px 0 0",
+  color: "#6b7280",
+  fontSize: 14,
+  lineHeight: 1.4,
+  fontWeight: 700,
+};
+
+const responsavelBoxStyle: CSSProperties = {
+  marginTop: 14,
+  padding: 16,
+  borderRadius: 20,
+  border: "1px solid rgba(124,58,237,0.28)",
+  background: "#faf7ff",
+};
+
+const responsavelTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 16,
+  fontWeight: 950,
 };
 
 const toggleStyle: CSSProperties = {
