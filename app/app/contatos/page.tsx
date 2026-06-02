@@ -443,6 +443,8 @@ export default function ContatosPage() {
   }
 
   function abrirEditarPessoa(pessoa: Pessoa) {
+    const vinculoAtual = (membrosPorPessoa.get(pessoa.id) || [])[0] || null;
+
     setPessoaSelecionada(pessoa);
     setNucleoSelecionado(null);
     setPessoaForm({
@@ -454,7 +456,17 @@ export default function ContatosPage() {
       responsavel_telefone: pessoa.responsavel_telefone || "",
       consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
     });
-    limparFormularioVinculo();
+
+    if (vinculoAtual) {
+      setVinculoNucleoId(vinculoAtual.grupo_contato_id || "");
+      setVinculoPessoaId("");
+      setVinculoRelacao(getPapelMembro(vinculoAtual));
+      setVinculoRecebeComunicacao(Boolean(vinculoAtual.recebe_comunicacao));
+      setVinculoPrincipalEnvio(Boolean(vinculoAtual.principal_envio));
+    } else {
+      limparFormularioVinculo();
+    }
+
     setModal("editarPessoa");
   }
 
@@ -687,19 +699,34 @@ export default function ContatosPage() {
       const pessoaIdSalva = pessoaSelecionada?.id || query.data?.id;
 
       if (pessoaIdSalva && vinculoNucleoId) {
-        const vinculoJaExiste = membros.some(
+        const relacaoFinal = vinculoRelacao.trim() || (perfilContato === "crianca" ? "filho" : "membro");
+        const vinculoExistente = membros.find(
           (membro) =>
             membro.tenant_contato_id === pessoaIdSalva &&
             membro.grupo_contato_id === vinculoNucleoId,
         );
 
-        if (!vinculoJaExiste) {
+        if (vinculoExistente) {
+          const { error: vinculoError } = await supabase
+            .from("contato_grupo_membros")
+            .update({
+              papel: relacaoFinal,
+              papel_nucleo: relacaoFinal,
+              recebe_comunicacao: vinculoRecebeComunicacao,
+              principal_envio: vinculoPrincipalEnvio,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", vinculoExistente.id)
+            .eq("tenant_id", tenantId);
+
+          if (vinculoError) throw new Error(vinculoError.message);
+        } else {
           const { error: vinculoError } = await supabase.from("contato_grupo_membros").insert({
             tenant_id: tenantId,
             grupo_contato_id: vinculoNucleoId,
             tenant_contato_id: pessoaIdSalva,
-            papel: vinculoRelacao.trim() || (perfilContato === "crianca" ? "filho" : "membro"),
-            papel_nucleo: vinculoRelacao.trim() || (perfilContato === "crianca" ? "filho" : "membro"),
+            papel: relacaoFinal,
+            papel_nucleo: relacaoFinal,
             recebe_comunicacao: vinculoRecebeComunicacao,
             principal_envio: vinculoPrincipalEnvio,
           });
