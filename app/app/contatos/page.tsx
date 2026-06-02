@@ -1593,27 +1593,6 @@ function PessoaFormModal({
         <div style={formSectionHeaderStyle}>
           <span style={formStepStyle}>03</span>
           <div>
-            <h3 style={formSectionTitleStyle}>Comunicação e CRM</h3>
-            <p style={formSectionDescriptionStyle}>
-              Esta configuração é do contato permanente. A comunicação específica de grupos fica nos vínculos com núcleos.
-            </p>
-          </div>
-        </div>
-
-        <label style={toggleStyle}>
-          <input
-            type="checkbox"
-            checked={pessoaForm.consentimento_comunicacao}
-            onChange={(event) => onChange("consentimento_comunicacao", event.target.checked)}
-          />
-          <span>Recebe comunicação como contato individual</span>
-        </label>
-      </section>
-
-      <section style={formSectionStyle}>
-        <div style={formSectionHeaderStyle}>
-          <span style={formStepStyle}>04</span>
-          <div>
             <h3 style={formSectionTitleStyle}>Núcleo inicial</h3>
             <p style={formSectionDescriptionStyle}>
               Opcional. Vincule este contato a uma família, empresa ou outro núcleo já no cadastro.
