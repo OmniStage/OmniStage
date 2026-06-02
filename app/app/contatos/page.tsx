@@ -931,6 +931,85 @@ export default function ContatosPage() {
     }
   }
 
+
+
+  async function criarPessoaDiretoNoNucleo(dados: PessoaForm) {
+    if (!tenantId || !nucleoSelecionado) return false;
+
+    if (!dados.nome.trim()) {
+      alert("Informe o nome da pessoa.");
+      return false;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      const telefoneNormalizado = normalizarTelefone(dados.telefone);
+      const perfilContato = normalizarPerfilContato(dados.tipo_contato);
+      const isCrianca = perfilContato === "crianca";
+      const responsavelDoNucleo = isCrianca ? getResponsavelPrincipalDoNucleo(nucleoSelecionado.id) : null;
+      const contatoExistente = await buscarContatoExistente({
+        nome: dados.nome,
+        telefoneNormalizado,
+      });
+
+      if (contatoExistente) {
+        alert(
+          `Já existe um contato cadastrado para "${contatoExistente.nome}". Use a opção "Adicionar pessoa" para vincular o contato existente ao núcleo.`,
+        );
+        return false;
+      }
+
+      const { data: pessoaCriada, error: pessoaError } = await supabase
+        .from("tenant_contatos")
+        .insert({
+          tenant_id: tenantId,
+          nome: dados.nome.trim(),
+          telefone: dados.telefone.trim() || null,
+          telefone_normalizado: telefoneNormalizado || null,
+          email: dados.email.trim() || null,
+          tipo_contato: perfilContato,
+          responsavel_nome: isCrianca
+            ? dados.responsavel_nome.trim() || responsavelDoNucleo?.nome || null
+            : null,
+          responsavel_telefone: isCrianca
+            ? dados.responsavel_telefone.trim() || responsavelDoNucleo?.telefone || null
+            : null,
+          consentimento_comunicacao: false,
+          origem: "cadastro_manual_nucleo",
+          updated_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (pessoaError) throw new Error(pessoaError.message);
+      if (!pessoaCriada?.id) throw new Error("Contato criado, mas o ID não retornou.");
+
+      const relacaoPadrao = isCrianca ? "filho" : "membro";
+      const { error: vinculoError } = await supabase.from("contato_grupo_membros").insert({
+        tenant_id: tenantId,
+        grupo_contato_id: nucleoSelecionado.id,
+        tenant_contato_id: pessoaCriada.id,
+        papel: vinculoRelacao.trim() || relacaoPadrao,
+        papel_nucleo: vinculoRelacao.trim() || relacaoPadrao,
+        recebe_comunicacao: vinculoRecebeComunicacao,
+        principal_envio: vinculoPrincipalEnvio,
+      });
+
+      if (vinculoError) throw new Error(vinculoError.message);
+
+      await Promise.all([carregarPessoas(tenantId), carregarMembros(tenantId)]);
+      limparFormularioVinculo();
+      alert("Contato criado e vinculado ao núcleo.");
+      return true;
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao criar contato no núcleo.");
+      return false;
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
   async function removerVinculoNucleo(membro: MembroNucleo) {
     if (!tenantId) return;
 
@@ -1430,6 +1509,7 @@ export default function ContatosPage() {
                 onRecebeChange={setVinculoRecebeComunicacao}
                 onPrincipalChange={setVinculoPrincipalEnvio}
                 onSalvar={salvarMembroNoNucleo}
+                onCriarPessoaDireta={criarPessoaDiretoNoNucleo}
                 onRemover={removerVinculoNucleo}
               />
             )}
@@ -2012,6 +2092,7 @@ function MembrosNucleoModal({
   onRecebeChange,
   onPrincipalChange,
   onSalvar,
+  onCriarPessoaDireta,
   onRemover,
 }: {
   nucleo: Nucleo;
@@ -2028,11 +2109,54 @@ function MembrosNucleoModal({
   onRecebeChange: (valor: boolean) => void;
   onPrincipalChange: (valor: boolean) => void;
   onSalvar: () => void;
+  onCriarPessoaDireta: (dados: PessoaForm) => Promise<boolean>;
   onRemover: (membro: MembroNucleo) => void;
 }) {
   const pessoasDisponiveis = pessoas.filter(
     (pessoa) => !membros.some((membro) => membro.tenant_contato_id === pessoa.id),
   );
+  const [mostrarCriacaoDireta, setMostrarCriacaoDireta] = useState(false);
+  const [novaPessoaNucleoForm, setNovaPessoaNucleoForm] = useState<PessoaForm>(pessoaFormVazio);
+
+  const responsavelPrincipalNucleo = useMemo(() => {
+    const vinculoResponsavel =
+      membros.find((membro) => Boolean(membro.principal_envio)) ||
+      membros.find((membro) => getPapelMembro(membro) === "responsavel") ||
+      membros.find((membro) => Boolean(pessoasPorId.get(membro.tenant_contato_id)?.telefone));
+
+    if (!vinculoResponsavel) return null;
+    return pessoasPorId.get(vinculoResponsavel.tenant_contato_id) || null;
+  }, [membros, pessoasPorId]);
+
+  function updateNovaPessoaNucleoForm(field: keyof PessoaForm, value: string | boolean) {
+    if (field === "tipo_contato") {
+      const perfil = normalizarPerfilContato(String(value));
+
+      setNovaPessoaNucleoForm((current) => ({
+        ...current,
+        tipo_contato: perfil,
+        responsavel_nome: perfil === "crianca" ? responsavelPrincipalNucleo?.nome || current.responsavel_nome : "",
+        responsavel_telefone: perfil === "crianca" ? responsavelPrincipalNucleo?.telefone || current.responsavel_telefone : "",
+      }));
+
+      if (perfil === "crianca" && vinculoRelacao === "membro") {
+        onRelacaoChange("filho");
+      }
+
+      return;
+    }
+
+    setNovaPessoaNucleoForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function criarPessoaDireta() {
+    const criado = await onCriarPessoaDireta(novaPessoaNucleoForm);
+
+    if (criado) {
+      setNovaPessoaNucleoForm(pessoaFormVazio);
+      setMostrarCriacaoDireta(false);
+    }
+  }
 
   return (
     <div style={modalContentStyle}>
@@ -2099,6 +2223,116 @@ function MembrosNucleoModal({
             {acaoLoading ? "Salvando..." : "Adicionar membro"}
           </button>
         </div>
+      </div>
+
+      <div style={historyRowStyle}>
+        <div style={memberManageRowStyle}>
+          <div>
+            <strong>Criar novo contato neste núcleo</strong>
+            <span style={memberSubTextStyle}>
+              Use quando a pessoa ainda não existe em Contatos. Ela será criada e vinculada automaticamente a {nucleo.nome}.
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMostrarCriacaoDireta((current) => !current)}
+            style={secondaryButtonStyle}
+            disabled={acaoLoading}
+          >
+            {mostrarCriacaoDireta ? "Ocultar cadastro" : "+ Novo contato"}
+          </button>
+        </div>
+
+        {mostrarCriacaoDireta && (
+          <div style={stackStyle}>
+            <div style={modalFormStyle}>
+              <label style={fieldStyle}>
+                <span>Nome do contato</span>
+                <input
+                  value={novaPessoaNucleoForm.nome}
+                  onChange={(event) => updateNovaPessoaNucleoForm("nome", event.target.value)}
+                  placeholder="Ex: Andrezza Ferraz"
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={fieldStyle}>
+                <span>Telefone do contato</span>
+                <input
+                  value={novaPessoaNucleoForm.telefone}
+                  onChange={(event) => updateNovaPessoaNucleoForm("telefone", event.target.value)}
+                  placeholder="Ex: 5522999999999"
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={fieldStyle}>
+                <span>E-mail</span>
+                <input
+                  value={novaPessoaNucleoForm.email}
+                  onChange={(event) => updateNovaPessoaNucleoForm("email", event.target.value)}
+                  placeholder="email@email.com"
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={fieldStyle}>
+                <span>Perfil do contato</span>
+                <select
+                  value={novaPessoaNucleoForm.tipo_contato}
+                  onChange={(event) => updateNovaPessoaNucleoForm("tipo_contato", event.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="adulto">Adulto</option>
+                  <option value="crianca">Criança</option>
+                </select>
+              </label>
+            </div>
+
+            {novaPessoaNucleoForm.tipo_contato === "crianca" && (
+              <div style={responsavelBoxStyle}>
+                <h4 style={responsavelTitleStyle}>Responsável pelo envio</h4>
+                <p style={formSectionDescriptionStyle}>
+                  Quando o núcleo já possui responsável/principal, estes campos são preenchidos automaticamente.
+                </p>
+
+                <div style={modalFormStyle}>
+                  <label style={fieldStyle}>
+                    <span>Nome do responsável</span>
+                    <input
+                      value={novaPessoaNucleoForm.responsavel_nome}
+                      onChange={(event) => updateNovaPessoaNucleoForm("responsavel_nome", event.target.value)}
+                      placeholder="Ex: Jessica Amaral"
+                      style={inputStyle}
+                    />
+                  </label>
+
+                  <label style={fieldStyle}>
+                    <span>Telefone do responsável</span>
+                    <input
+                      value={novaPessoaNucleoForm.responsavel_telefone}
+                      onChange={(event) => updateNovaPessoaNucleoForm("responsavel_telefone", event.target.value)}
+                      placeholder="Ex: 5522999999999"
+                      style={inputStyle}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                onClick={criarPessoaDireta}
+                style={buttonStyle}
+                disabled={acaoLoading || !novaPessoaNucleoForm.nome.trim()}
+              >
+                {acaoLoading ? "Criando..." : "Criar contato e vincular"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
