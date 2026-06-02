@@ -438,6 +438,7 @@ export default function ContatosPage() {
     setPessoaSelecionada(null);
     setNucleoSelecionado(null);
     setPessoaForm(pessoaFormVazio);
+    limparFormularioVinculo();
     setModal("criarPessoa");
   }
 
@@ -453,6 +454,7 @@ export default function ContatosPage() {
       responsavel_telefone: pessoa.responsavel_telefone || "",
       consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
     });
+    limparFormularioVinculo();
     setModal("editarPessoa");
   }
 
@@ -522,7 +524,66 @@ export default function ContatosPage() {
     setAcaoLoading(false);
   }
 
+  function getResponsavelPrincipalDoNucleo(nucleoId: string) {
+    const vinculos = membrosPorNucleo.get(nucleoId) || [];
+
+    const vinculoResponsavel =
+      vinculos.find((membro) => Boolean(membro.principal_envio)) ||
+      vinculos.find((membro) => getPapelMembro(membro) === "responsavel") ||
+      vinculos.find((membro) => Boolean(pessoasPorId.get(membro.tenant_contato_id)?.telefone));
+
+    if (!vinculoResponsavel) return null;
+
+    return pessoasPorId.get(vinculoResponsavel.tenant_contato_id) || null;
+  }
+
+  function preencherResponsavelPorNucleo(nucleoId: string) {
+    if (!nucleoId) return;
+
+    const responsavel = getResponsavelPrincipalDoNucleo(nucleoId);
+    if (!responsavel) return;
+
+    setPessoaForm((current) => {
+      if (normalizarPerfilContato(current.tipo_contato) !== "crianca") return current;
+
+      return {
+        ...current,
+        responsavel_nome: responsavel.nome || current.responsavel_nome,
+        responsavel_telefone: responsavel.telefone || current.responsavel_telefone,
+      };
+    });
+  }
+
+  function selecionarNucleoInicialPessoa(nucleoId: string) {
+    setVinculoNucleoId(nucleoId);
+
+    if (nucleoId && normalizarPerfilContato(pessoaForm.tipo_contato) === "crianca") {
+      if (vinculoRelacao === "membro") setVinculoRelacao("filho");
+      preencherResponsavelPorNucleo(nucleoId);
+    }
+  }
+
   function updatePessoaForm(field: keyof PessoaForm, value: string | boolean) {
+    if (field === "tipo_contato") {
+      const perfil = normalizarPerfilContato(String(value));
+      const responsavelDoNucleo = perfil === "crianca" && vinculoNucleoId
+        ? getResponsavelPrincipalDoNucleo(vinculoNucleoId)
+        : null;
+
+      setPessoaForm((current) => ({
+        ...current,
+        tipo_contato: perfil,
+        responsavel_nome: perfil === "crianca" ? responsavelDoNucleo?.nome || current.responsavel_nome : "",
+        responsavel_telefone: perfil === "crianca" ? responsavelDoNucleo?.telefone || current.responsavel_telefone : "",
+      }));
+
+      if (perfil === "crianca" && vinculoRelacao === "membro") {
+        setVinculoRelacao("filho");
+      }
+
+      return;
+    }
+
     setPessoaForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -607,17 +668,47 @@ export default function ContatosPage() {
             .update(payload)
             .eq("id", pessoaSelecionada.id)
             .eq("tenant_id", tenantId)
-        : await supabase.from("tenant_contatos").insert({
-            ...payload,
-            tenant_id: tenantId,
-            origem: "cadastro_manual",
-          });
+            .select("id")
+            .maybeSingle()
+        : await supabase
+            .from("tenant_contatos")
+            .insert({
+              ...payload,
+              tenant_id: tenantId,
+              origem: "cadastro_manual",
+            })
+            .select("id")
+            .single();
 
       if (query.error) {
         throw new Error(query.error.message);
       }
 
-      await carregarPessoas(tenantId);
+      const pessoaIdSalva = pessoaSelecionada?.id || query.data?.id;
+
+      if (pessoaIdSalva && vinculoNucleoId) {
+        const vinculoJaExiste = membros.some(
+          (membro) =>
+            membro.tenant_contato_id === pessoaIdSalva &&
+            membro.grupo_contato_id === vinculoNucleoId,
+        );
+
+        if (!vinculoJaExiste) {
+          const { error: vinculoError } = await supabase.from("contato_grupo_membros").insert({
+            tenant_id: tenantId,
+            grupo_contato_id: vinculoNucleoId,
+            tenant_contato_id: pessoaIdSalva,
+            papel: vinculoRelacao.trim() || (perfilContato === "crianca" ? "filho" : "membro"),
+            papel_nucleo: vinculoRelacao.trim() || (perfilContato === "crianca" ? "filho" : "membro"),
+            recebe_comunicacao: vinculoRecebeComunicacao,
+            principal_envio: vinculoPrincipalEnvio,
+          });
+
+          if (vinculoError) throw new Error(vinculoError.message);
+        }
+      }
+
+      await Promise.all([carregarPessoas(tenantId), carregarMembros(tenantId)]);
       fecharModal();
       alert(pessoaSelecionada ? "Pessoa atualizada." : "Pessoa criada.");
     } catch (error) {
@@ -1258,8 +1349,17 @@ export default function ContatosPage() {
             {(modal === "criarPessoa" || modal === "editarPessoa") && (
               <PessoaFormModal
                 pessoaForm={pessoaForm}
+                nucleos={nucleos}
+                vinculoNucleoId={vinculoNucleoId}
+                vinculoRelacao={vinculoRelacao}
+                vinculoRecebeComunicacao={vinculoRecebeComunicacao}
+                vinculoPrincipalEnvio={vinculoPrincipalEnvio}
                 acaoLoading={acaoLoading}
                 onChange={updatePessoaForm}
+                onNucleoChange={selecionarNucleoInicialPessoa}
+                onRelacaoChange={setVinculoRelacao}
+                onRecebeChange={setVinculoRecebeComunicacao}
+                onPrincipalChange={setVinculoPrincipalEnvio}
                 onSubmit={salvarPessoa}
                 onCancel={fecharModal}
                 submitLabel={modal === "criarPessoa" ? "Criar pessoa" : "Salvar alterações"}
@@ -1357,15 +1457,33 @@ export default function ContatosPage() {
 
 function PessoaFormModal({
   pessoaForm,
+  nucleos,
+  vinculoNucleoId,
+  vinculoRelacao,
+  vinculoRecebeComunicacao,
+  vinculoPrincipalEnvio,
   acaoLoading,
   onChange,
+  onNucleoChange,
+  onRelacaoChange,
+  onRecebeChange,
+  onPrincipalChange,
   onSubmit,
   onCancel,
   submitLabel,
 }: {
   pessoaForm: PessoaForm;
+  nucleos: Nucleo[];
+  vinculoNucleoId: string;
+  vinculoRelacao: string;
+  vinculoRecebeComunicacao: boolean;
+  vinculoPrincipalEnvio: boolean;
   acaoLoading: boolean;
   onChange: (field: keyof PessoaForm, value: string | boolean) => void;
+  onNucleoChange: (id: string) => void;
+  onRelacaoChange: (valor: string) => void;
+  onRecebeChange: (valor: boolean) => void;
+  onPrincipalChange: (valor: boolean) => void;
   onSubmit: () => void;
   onCancel: () => void;
   submitLabel: string;
@@ -1490,6 +1608,52 @@ function PessoaFormModal({
           />
           <span>Recebe comunicação como contato individual</span>
         </label>
+      </section>
+
+      <section style={formSectionStyle}>
+        <div style={formSectionHeaderStyle}>
+          <span style={formStepStyle}>04</span>
+          <div>
+            <h3 style={formSectionTitleStyle}>Núcleo inicial</h3>
+            <p style={formSectionDescriptionStyle}>
+              Opcional. Vincule este contato a uma família, empresa ou outro núcleo já no cadastro.
+            </p>
+          </div>
+        </div>
+
+        <div style={modalFormStyle}>
+          <label style={fieldStyle}>
+            <span>Núcleo</span>
+            <select value={vinculoNucleoId} onChange={(event) => onNucleoChange(event.target.value)} style={inputStyle}>
+              <option value="">Sem núcleo inicial</option>
+              {nucleos.map((nucleo) => (
+                <option key={nucleo.id} value={nucleo.id}>
+                  {nucleo.nome} · {labelTipoNucleo(getTipoNucleo(nucleo))}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={fieldStyle}>
+            <span>Relação no núcleo</span>
+            <input
+              value={vinculoRelacao}
+              onChange={(event) => onRelacaoChange(event.target.value)}
+              placeholder={isCrianca ? "Ex: Filho, Filha, Neto" : "Ex: Mãe, Pai, Financeiro, Diretor"}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={toggleStyle}>
+            <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
+            <span>Recebe comunicação por este núcleo</span>
+          </label>
+
+          <label style={toggleStyle}>
+            <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
+            <span>Principal para envio neste núcleo</span>
+          </label>
+        </div>
       </section>
 
       <div style={modalActionsStyle}>
@@ -2564,4 +2728,3 @@ const toggleStyle: CSSProperties = {
   color: "#374151",
   fontWeight: 850,
 };
-
