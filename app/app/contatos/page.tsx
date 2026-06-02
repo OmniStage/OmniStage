@@ -1537,6 +1537,7 @@ export default function ContatosPage() {
                 onPrincipalChange={setVinculoPrincipalEnvio}
                 onSalvar={salvarMembroNoNucleo}
                 onCriarPessoaDireta={criarPessoaDiretoNoNucleo}
+                onEditarPessoa={abrirEditarPessoa}
                 onRemover={removerVinculoNucleo}
               />
             )}
@@ -2120,6 +2121,7 @@ function MembrosNucleoModal({
   onPrincipalChange,
   onSalvar,
   onCriarPessoaDireta,
+  onEditarPessoa,
   onRemover,
 }: {
   nucleo: Nucleo;
@@ -2137,6 +2139,7 @@ function MembrosNucleoModal({
   onPrincipalChange: (valor: boolean) => void;
   onSalvar: () => void;
   onCriarPessoaDireta: (dados: PessoaForm) => Promise<boolean>;
+  onEditarPessoa: (pessoa: Pessoa) => void;
   onRemover: (membro: MembroNucleo) => void;
 }) {
   const pessoasDisponiveis = pessoas.filter(
@@ -2205,9 +2208,22 @@ function MembrosNucleoModal({
               </span>
             </div>
 
-            <button type="button" onClick={() => onRemover(membro)} style={dangerButtonStyle} disabled={acaoLoading}>
-              Remover
-            </button>
+            <div style={memberActionsStyle}>
+              {pessoa && (
+                <button
+                  type="button"
+                  onClick={() => onEditarPessoa(pessoa)}
+                  style={secondaryButtonStyle}
+                  disabled={acaoLoading}
+                >
+                  Alterar
+                </button>
+              )}
+
+              <button type="button" onClick={() => onRemover(membro)} style={dangerButtonStyle} disabled={acaoLoading}>
+                Remover
+              </button>
+            </div>
           </div>
         );
       })}
@@ -2999,6 +3015,14 @@ const memberManageRowStyle: CSSProperties = {
   background: "#f9fafb",
   color: "#374151",
   fontWeight: 800,
+  flexWrap: "wrap",
+};
+
+const memberActionsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 8,
   flexWrap: "wrap",
 };
 
