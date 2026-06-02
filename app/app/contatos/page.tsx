@@ -448,7 +448,7 @@ export default function ContatosPage() {
       nome: pessoa.nome || "",
       telefone: pessoa.telefone || "",
       email: pessoa.email || "",
-      tipo_contato: pessoa.tipo_contato || "adulto",
+      tipo_contato: normalizarPerfilContato(pessoa.tipo_contato),
       responsavel_nome: pessoa.responsavel_nome || "",
       responsavel_telefone: pessoa.responsavel_telefone || "",
       consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
@@ -574,6 +574,8 @@ export default function ContatosPage() {
 
     try {
       const telefoneNormalizado = normalizarTelefone(pessoaForm.telefone);
+      const perfilContato = normalizarPerfilContato(pessoaForm.tipo_contato);
+      const isCrianca = perfilContato === "crianca";
       const contatoExistente = await buscarContatoExistente({
         nome: pessoaForm.nome,
         telefoneNormalizado,
@@ -592,9 +594,9 @@ export default function ContatosPage() {
         telefone: pessoaForm.telefone.trim() || null,
         telefone_normalizado: telefoneNormalizado || null,
         email: pessoaForm.email.trim() || null,
-        tipo_contato: pessoaForm.tipo_contato || null,
-        responsavel_nome: pessoaForm.responsavel_nome.trim() || null,
-        responsavel_telefone: pessoaForm.responsavel_telefone.trim() || null,
+        tipo_contato: perfilContato,
+        responsavel_nome: isCrianca ? pessoaForm.responsavel_nome.trim() || null : null,
+        responsavel_telefone: isCrianca ? pessoaForm.responsavel_telefone.trim() || null : null,
         consentimento_comunicacao: pessoaForm.consentimento_comunicacao,
         updated_at: new Date().toISOString(),
       };
@@ -1368,7 +1370,7 @@ function PessoaFormModal({
   onCancel: () => void;
   submitLabel: string;
 }) {
-  const isCriancaOuDependente = pessoaForm.tipo_contato === "crianca" || pessoaForm.tipo_contato === "dependente";
+  const isCrianca = pessoaForm.tipo_contato === "crianca";
 
   return (
     <div style={stackStyle}>
@@ -1422,14 +1424,14 @@ function PessoaFormModal({
           <div>
             <h3 style={formSectionTitleStyle}>Perfil do contato</h3>
             <p style={formSectionDescriptionStyle}>
-              Defina se é adulto, criança ou dependente. Quando for criança/dependente, informe quem receberá a comunicação.
+              Defina se o contato é adulto ou criança. Quando for criança, informe quem receberá a comunicação.
             </p>
           </div>
         </div>
 
         <div style={modalFormStyle}>
           <label style={fieldStyle}>
-            <span>Tipo de contato</span>
+            <span>Perfil do contato</span>
             <select value={pessoaForm.tipo_contato} onChange={(event) => onChange("tipo_contato", event.target.value)} style={inputStyle}>
               <option value="adulto">Adulto</option>
               <option value="crianca">Criança</option>
@@ -1437,11 +1439,11 @@ function PessoaFormModal({
           </label>
         </div>
 
-        {isCriancaOuDependente && (
+        {isCrianca && (
           <div style={responsavelBoxStyle}>
             <h4 style={responsavelTitleStyle}>Responsável pelo envio</h4>
             <p style={formSectionDescriptionStyle}>
-              Criança/dependente sem núcleo: a comunicação será enviada para este responsável.
+              Criança sem núcleo: a comunicação será enviada para este responsável.
             </p>
 
             <div style={modalFormStyle}>
@@ -1942,13 +1944,15 @@ function getPapelMembro(membro: MembroNucleo) {
   return membro.papel_nucleo || membro.papel || "membro";
 }
 
+function normalizarPerfilContato(tipo: string | null | undefined) {
+  if (tipo === "crianca" || tipo === "dependente") return "crianca";
+  return "adulto";
+}
+
 function labelTipoContato(tipo: string | null) {
-  if (tipo === "crianca") return "Criança";
-  if (tipo === "dependente") return "Dependente";
-  if (tipo === "individual") return "Individual";
-  if (tipo === "adulto") return "Adulto";
-  if (tipo === "principal") return "Principal";
-  return "Pessoa";
+  const perfil = normalizarPerfilContato(tipo);
+  if (perfil === "crianca") return "Criança";
+  return "Adulto";
 }
 
 function labelTipoNucleo(tipo: string | null) {
