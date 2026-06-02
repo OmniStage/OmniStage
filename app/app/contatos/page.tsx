@@ -1433,9 +1433,6 @@ function PessoaFormModal({
             <select value={pessoaForm.tipo_contato} onChange={(event) => onChange("tipo_contato", event.target.value)} style={inputStyle}>
               <option value="adulto">Adulto</option>
               <option value="crianca">Criança</option>
-              <option value="dependente">Dependente</option>
-              <option value="individual">Individual</option>
-              <option value="principal">Principal</option>
             </select>
           </label>
         </div>
