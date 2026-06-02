@@ -9,6 +9,7 @@ type ModalTipo =
   | "criarPessoa"
   | "editarPessoa"
   | "historico"
+  | "vinculosPessoa"
   | "importarPessoa"
   | "criarNucleo"
   | "editarNucleo"
@@ -126,6 +127,11 @@ export default function ContatosPage() {
   const [pessoaSelecionada, setPessoaSelecionada] = useState<Pessoa | null>(null);
   const [nucleoSelecionado, setNucleoSelecionado] = useState<Nucleo | null>(null);
   const [eventoImportacaoId, setEventoImportacaoId] = useState("");
+  const [vinculoNucleoId, setVinculoNucleoId] = useState("");
+  const [vinculoPessoaId, setVinculoPessoaId] = useState("");
+  const [vinculoRelacao, setVinculoRelacao] = useState("membro");
+  const [vinculoRecebeComunicacao, setVinculoRecebeComunicacao] = useState(false);
+  const [vinculoPrincipalEnvio, setVinculoPrincipalEnvio] = useState(false);
   const [pessoaForm, setPessoaForm] = useState<PessoaForm>(pessoaFormVazio);
   const [nucleoForm, setNucleoForm] = useState<NucleoForm>(nucleoFormVazio);
 
@@ -417,6 +423,14 @@ export default function ContatosPage() {
   ).length;
   const totalFamilias = nucleos.filter((nucleo) => getTipoNucleo(nucleo) === "familia").length;
 
+  function limparFormularioVinculo() {
+    setVinculoNucleoId("");
+    setVinculoPessoaId("");
+    setVinculoRelacao("membro");
+    setVinculoRecebeComunicacao(false);
+    setVinculoPrincipalEnvio(false);
+  }
+
   function abrirCriarPessoa() {
     setPessoaSelecionada(null);
     setNucleoSelecionado(null);
@@ -443,6 +457,13 @@ export default function ContatosPage() {
     setPessoaSelecionada(pessoa);
     setNucleoSelecionado(null);
     setModal("historico");
+  }
+
+  function abrirVinculosPessoa(pessoa: Pessoa) {
+    setPessoaSelecionada(pessoa);
+    setNucleoSelecionado(null);
+    limparFormularioVinculo();
+    setModal("vinculosPessoa");
   }
 
   function abrirImportarPessoa(pessoa: Pessoa) {
@@ -473,6 +494,7 @@ export default function ContatosPage() {
   function abrirMembrosNucleo(nucleo: Nucleo) {
     setPessoaSelecionada(null);
     setNucleoSelecionado(nucleo);
+    limparFormularioVinculo();
     setModal("membrosNucleo");
   }
 
@@ -490,6 +512,7 @@ export default function ContatosPage() {
     setPessoaForm(pessoaFormVazio);
     setNucleoForm(nucleoFormVazio);
     setEventoImportacaoId("");
+    limparFormularioVinculo();
     setAcaoLoading(false);
   }
 
@@ -661,6 +684,130 @@ export default function ContatosPage() {
       alert("Núcleo excluído.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao excluir núcleo.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function salvarVinculoPessoaNucleo() {
+    if (!tenantId || !pessoaSelecionada) return;
+
+    if (!vinculoNucleoId) {
+      alert("Selecione um núcleo.");
+      return;
+    }
+
+    if (!vinculoRelacao.trim()) {
+      alert("Informe a relação no núcleo.");
+      return;
+    }
+
+    const jaExiste = membros.some(
+      (membro) =>
+        membro.tenant_contato_id === pessoaSelecionada.id &&
+        membro.grupo_contato_id === vinculoNucleoId,
+    );
+
+    if (jaExiste) {
+      alert("Esta pessoa já está vinculada a este núcleo.");
+      return;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      const { error } = await supabase.from("contato_grupo_membros").insert({
+        tenant_id: tenantId,
+        grupo_contato_id: vinculoNucleoId,
+        tenant_contato_id: pessoaSelecionada.id,
+        papel: vinculoRelacao.trim(),
+        papel_nucleo: vinculoRelacao.trim(),
+        recebe_comunicacao: vinculoRecebeComunicacao,
+        principal_envio: vinculoPrincipalEnvio,
+      });
+
+      if (error) throw new Error(error.message);
+
+      await carregarMembros(tenantId);
+      limparFormularioVinculo();
+      alert("Vínculo criado.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao criar vínculo.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function salvarMembroNoNucleo() {
+    if (!tenantId || !nucleoSelecionado) return;
+
+    if (!vinculoPessoaId) {
+      alert("Selecione uma pessoa.");
+      return;
+    }
+
+    if (!vinculoRelacao.trim()) {
+      alert("Informe a relação no núcleo.");
+      return;
+    }
+
+    const jaExiste = membros.some(
+      (membro) =>
+        membro.tenant_contato_id === vinculoPessoaId &&
+        membro.grupo_contato_id === nucleoSelecionado.id,
+    );
+
+    if (jaExiste) {
+      alert("Esta pessoa já está vinculada a este núcleo.");
+      return;
+    }
+
+    setAcaoLoading(true);
+
+    try {
+      const { error } = await supabase.from("contato_grupo_membros").insert({
+        tenant_id: tenantId,
+        grupo_contato_id: nucleoSelecionado.id,
+        tenant_contato_id: vinculoPessoaId,
+        papel: vinculoRelacao.trim(),
+        papel_nucleo: vinculoRelacao.trim(),
+        recebe_comunicacao: vinculoRecebeComunicacao,
+        principal_envio: vinculoPrincipalEnvio,
+      });
+
+      if (error) throw new Error(error.message);
+
+      await carregarMembros(tenantId);
+      limparFormularioVinculo();
+      alert("Membro adicionado ao núcleo.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao adicionar membro.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+  async function removerVinculoNucleo(membro: MembroNucleo) {
+    if (!tenantId) return;
+
+    const confirmar = window.confirm("Remover este vínculo do núcleo?");
+    if (!confirmar) return;
+
+    setAcaoLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("contato_grupo_membros")
+        .delete()
+        .eq("id", membro.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw new Error(error.message);
+
+      await carregarMembros(tenantId);
+      alert("Vínculo removido.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao remover vínculo.");
     } finally {
       setAcaoLoading(false);
     }
@@ -954,6 +1101,9 @@ export default function ContatosPage() {
                     <button type="button" onClick={() => abrirHistorico(pessoa)} style={secondaryButtonStyle}>
                       Histórico
                     </button>
+                    <button type="button" onClick={() => abrirVinculosPessoa(pessoa)} style={secondaryButtonStyle}>
+                      Vínculos
+                    </button>
                     <button type="button" onClick={() => abrirImportarPessoa(pessoa)} style={secondaryButtonStyle}>
                       Importar
                     </button>
@@ -1065,6 +1215,26 @@ export default function ContatosPage() {
               <HistoricoModal pessoa={pessoaSelecionada} historico={historicoPorPessoa.get(pessoaSelecionada.id) || []} />
             )}
 
+            {modal === "vinculosPessoa" && pessoaSelecionada && (
+              <VinculosPessoaModal
+                pessoa={pessoaSelecionada}
+                vinculos={membrosPorPessoa.get(pessoaSelecionada.id) || []}
+                nucleos={nucleos}
+                nucleosPorId={nucleosPorId}
+                vinculoNucleoId={vinculoNucleoId}
+                vinculoRelacao={vinculoRelacao}
+                vinculoRecebeComunicacao={vinculoRecebeComunicacao}
+                vinculoPrincipalEnvio={vinculoPrincipalEnvio}
+                acaoLoading={acaoLoading}
+                onNucleoChange={setVinculoNucleoId}
+                onRelacaoChange={setVinculoRelacao}
+                onRecebeChange={setVinculoRecebeComunicacao}
+                onPrincipalChange={setVinculoPrincipalEnvio}
+                onSalvar={salvarVinculoPessoaNucleo}
+                onRemover={removerVinculoNucleo}
+              />
+            )}
+
             {modal === "importarPessoa" && pessoaSelecionada && (
               <ImportarPessoaModal
                 pessoa={pessoaSelecionada}
@@ -1091,7 +1261,19 @@ export default function ContatosPage() {
               <MembrosNucleoModal
                 nucleo={nucleoSelecionado}
                 membros={membrosPorNucleo.get(nucleoSelecionado.id) || []}
+                pessoas={pessoas}
                 pessoasPorId={pessoasPorId}
+                vinculoPessoaId={vinculoPessoaId}
+                vinculoRelacao={vinculoRelacao}
+                vinculoRecebeComunicacao={vinculoRecebeComunicacao}
+                vinculoPrincipalEnvio={vinculoPrincipalEnvio}
+                acaoLoading={acaoLoading}
+                onPessoaChange={setVinculoPessoaId}
+                onRelacaoChange={setVinculoRelacao}
+                onRecebeChange={setVinculoRecebeComunicacao}
+                onPrincipalChange={setVinculoPrincipalEnvio}
+                onSalvar={salvarMembroNoNucleo}
+                onRemover={removerVinculoNucleo}
               />
             )}
 
@@ -1299,15 +1481,156 @@ function ImportarPessoaModal({
   );
 }
 
+
+function VinculosPessoaModal({
+  pessoa,
+  vinculos,
+  nucleos,
+  nucleosPorId,
+  vinculoNucleoId,
+  vinculoRelacao,
+  vinculoRecebeComunicacao,
+  vinculoPrincipalEnvio,
+  acaoLoading,
+  onNucleoChange,
+  onRelacaoChange,
+  onRecebeChange,
+  onPrincipalChange,
+  onSalvar,
+  onRemover,
+}: {
+  pessoa: Pessoa;
+  vinculos: MembroNucleo[];
+  nucleos: Nucleo[];
+  nucleosPorId: Map<string, Nucleo>;
+  vinculoNucleoId: string;
+  vinculoRelacao: string;
+  vinculoRecebeComunicacao: boolean;
+  vinculoPrincipalEnvio: boolean;
+  acaoLoading: boolean;
+  onNucleoChange: (id: string) => void;
+  onRelacaoChange: (valor: string) => void;
+  onRecebeChange: (valor: boolean) => void;
+  onPrincipalChange: (valor: boolean) => void;
+  onSalvar: () => void;
+  onRemover: (membro: MembroNucleo) => void;
+}) {
+  const nucleosDisponiveis = nucleos.filter(
+    (nucleo) => !vinculos.some((vinculo) => vinculo.grupo_contato_id === nucleo.id),
+  );
+
+  return (
+    <div style={modalContentStyle}>
+      <h3 style={modalSectionTitleStyle}>{pessoa.nome}</h3>
+      <p style={mutedStyle}>
+        A pessoa pode participar de vários núcleos. Cada vínculo tem uma relação própria com aquele núcleo.
+      </p>
+
+      <div style={historyRowStyle}>
+        <strong>Núcleos vinculados</strong>
+        {vinculos.length === 0 && <span>Nenhum núcleo vinculado.</span>}
+
+        {vinculos.map((vinculo) => {
+          const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
+
+          return (
+            <div key={vinculo.id} style={memberManageRowStyle}>
+              <div>
+                <strong>{nucleo?.nome || "Núcleo não encontrado"}</strong>
+                <span style={memberSubTextStyle}>
+                  Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
+                  {vinculo.recebe_comunicacao || vinculo.principal_envio ? " · Recebe comunicação" : ""}
+                </span>
+              </div>
+
+              <button type="button" onClick={() => onRemover(vinculo)} style={dangerButtonStyle} disabled={acaoLoading}>
+                Remover
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={modalFormStyle}>
+        <label style={fieldStyle}>
+          <span>Núcleo</span>
+          <select value={vinculoNucleoId} onChange={(event) => onNucleoChange(event.target.value)} style={inputStyle}>
+            <option value="">Selecione um núcleo</option>
+            {nucleosDisponiveis.map((nucleo) => (
+              <option key={nucleo.id} value={nucleo.id}>
+                {nucleo.nome} · {labelTipoNucleo(getTipoNucleo(nucleo))}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label style={fieldStyle}>
+          <span>Relação no núcleo</span>
+          <input
+            value={vinculoRelacao}
+            onChange={(event) => onRelacaoChange(event.target.value)}
+            placeholder="Ex: Mãe, Financeiro, Diretor, Líder"
+            style={inputStyle}
+          />
+        </label>
+
+        <label style={toggleStyle}>
+          <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
+          <span>Recebe comunicação por este núcleo</span>
+        </label>
+
+        <label style={toggleStyle}>
+          <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
+          <span>Principal para envio neste núcleo</span>
+        </label>
+
+        <div style={modalActionsStyle}>
+          <button type="button" onClick={onSalvar} style={buttonStyle} disabled={acaoLoading || !vinculoNucleoId}>
+            {acaoLoading ? "Salvando..." : "Vincular núcleo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MembrosNucleoModal({
   nucleo,
   membros,
+  pessoas,
   pessoasPorId,
+  vinculoPessoaId,
+  vinculoRelacao,
+  vinculoRecebeComunicacao,
+  vinculoPrincipalEnvio,
+  acaoLoading,
+  onPessoaChange,
+  onRelacaoChange,
+  onRecebeChange,
+  onPrincipalChange,
+  onSalvar,
+  onRemover,
 }: {
   nucleo: Nucleo;
   membros: MembroNucleo[];
+  pessoas: Pessoa[];
   pessoasPorId: Map<string, Pessoa>;
+  vinculoPessoaId: string;
+  vinculoRelacao: string;
+  vinculoRecebeComunicacao: boolean;
+  vinculoPrincipalEnvio: boolean;
+  acaoLoading: boolean;
+  onPessoaChange: (id: string) => void;
+  onRelacaoChange: (valor: string) => void;
+  onRecebeChange: (valor: boolean) => void;
+  onPrincipalChange: (valor: boolean) => void;
+  onSalvar: () => void;
+  onRemover: (membro: MembroNucleo) => void;
 }) {
+  const pessoasDisponiveis = pessoas.filter(
+    (pessoa) => !membros.some((membro) => membro.tenant_contato_id === pessoa.id),
+  );
+
   return (
     <div style={modalContentStyle}>
       <h3 style={modalSectionTitleStyle}>{nucleo.nome}</h3>
@@ -1318,14 +1641,62 @@ function MembrosNucleoModal({
         const pessoa = pessoasPorId.get(membro.tenant_contato_id);
 
         return (
-          <div key={membro.id} style={historyRowStyle}>
-            <strong>{pessoa?.nome || "Pessoa não encontrada"}</strong>
-            <span>{pessoa?.telefone || "Sem telefone"}</span>
-            <span>Papel: {labelPapel(getPapelMembro(membro))}</span>
-            <span>{membro.recebe_comunicacao || membro.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}</span>
+          <div key={membro.id} style={memberManageRowStyle}>
+            <div>
+              <strong>{pessoa?.nome || "Pessoa não encontrada"}</strong>
+              <span style={memberSubTextStyle}>{pessoa?.telefone || "Sem telefone"}</span>
+              <span style={memberSubTextStyle}>Relação no núcleo: {labelPapel(getPapelMembro(membro))}</span>
+              <span style={memberSubTextStyle}>
+                {membro.recebe_comunicacao || membro.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}
+              </span>
+            </div>
+
+            <button type="button" onClick={() => onRemover(membro)} style={dangerButtonStyle} disabled={acaoLoading}>
+              Remover
+            </button>
           </div>
         );
       })}
+
+      <div style={modalFormStyle}>
+        <label style={fieldStyle}>
+          <span>Adicionar pessoa</span>
+          <select value={vinculoPessoaId} onChange={(event) => onPessoaChange(event.target.value)} style={inputStyle}>
+            <option value="">Selecione uma pessoa</option>
+            {pessoasDisponiveis.map((pessoa) => (
+              <option key={pessoa.id} value={pessoa.id}>
+                {pessoa.nome} {pessoa.telefone ? `· ${pessoa.telefone}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label style={fieldStyle}>
+          <span>Relação no núcleo</span>
+          <input
+            value={vinculoRelacao}
+            onChange={(event) => onRelacaoChange(event.target.value)}
+            placeholder="Ex: Mãe, Filho, Financeiro, Líder"
+            style={inputStyle}
+          />
+        </label>
+
+        <label style={toggleStyle}>
+          <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
+          <span>Recebe comunicação por este núcleo</span>
+        </label>
+
+        <label style={toggleStyle}>
+          <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
+          <span>Principal para envio neste núcleo</span>
+        </label>
+
+        <div style={modalActionsStyle}>
+          <button type="button" onClick={onSalvar} style={buttonStyle} disabled={acaoLoading || !vinculoPessoaId}>
+            {acaoLoading ? "Salvando..." : "Adicionar membro"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1499,6 +1870,7 @@ function getModalTitulo(modal: ModalTipo) {
   if (modal === "criarPessoa") return "Nova pessoa";
   if (modal === "editarPessoa") return "Editar pessoa";
   if (modal === "historico") return "Histórico da pessoa";
+  if (modal === "vinculosPessoa") return "Vínculos da pessoa";
   if (modal === "importarPessoa") return "Importar pessoa para evento";
   if (modal === "criarNucleo") return "Novo núcleo";
   if (modal === "editarNucleo") return "Editar núcleo";
@@ -1926,6 +2298,28 @@ const historyRowStyle: CSSProperties = {
   fontWeight: 750,
 };
 
+const memberManageRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  color: "#374151",
+  fontWeight: 800,
+  flexWrap: "wrap",
+};
+
+const memberSubTextStyle: CSSProperties = {
+  display: "block",
+  marginTop: 4,
+  color: "#6b7280",
+  fontSize: 13,
+  fontWeight: 750,
+};
+
 const toggleStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -1937,3 +2331,4 @@ const toggleStyle: CSSProperties = {
   color: "#374151",
   fontWeight: 850,
 };
+
