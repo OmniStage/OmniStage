@@ -2458,7 +2458,7 @@ function getPapelMembro(membro: MembroNucleo) {
 }
 
 function normalizarPerfilContato(tipo: string | null | undefined) {
-  if (tipo === "crianca" || tipo === "dependente") return "crianca";
+  if (tipo === "crianca") return "crianca";
   return "adulto";
 }
 
