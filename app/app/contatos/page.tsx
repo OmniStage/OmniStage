@@ -1622,17 +1622,14 @@ function PessoaFormModal({
         </div>
 
         <div style={modalFormStyle}>
-          <label style={fieldStyle}>
-            <span>Núcleo</span>
-            <select value={vinculoNucleoId} onChange={(event) => onNucleoChange(event.target.value)} style={inputStyle}>
-              <option value="">Sem núcleo inicial</option>
-              {nucleos.map((nucleo) => (
-                <option key={nucleo.id} value={nucleo.id}>
-                  {nucleo.nome} · {labelTipoNucleo(getTipoNucleo(nucleo))}
-                </option>
-              ))}
-            </select>
-          </label>
+          <NucleoSearchSelector
+            nucleos={nucleos}
+            value={vinculoNucleoId}
+            onChange={onNucleoChange}
+            placeholder="Buscar núcleo inicial pelo nome..."
+            allowClear
+            clearLabel="Sem núcleo inicial"
+          />
 
           <label style={fieldStyle}>
             <span>Relação no núcleo</span>
@@ -1797,6 +1794,121 @@ function ImportarPessoaModal({
   );
 }
 
+
+function NucleoSearchSelector({
+  nucleos,
+  value,
+  onChange,
+  placeholder,
+  allowClear = true,
+  clearLabel = "Sem núcleo selecionado",
+}: {
+  nucleos: Nucleo[];
+  value: string;
+  onChange: (id: string) => void;
+  placeholder: string;
+  allowClear?: boolean;
+  clearLabel?: string;
+}) {
+  const [buscaNucleo, setBuscaNucleo] = useState("");
+  const nucleoSelecionado = useMemo(
+    () => nucleos.find((nucleo) => nucleo.id === value) || null,
+    [nucleos, value],
+  );
+
+  const nucleosFiltrados = useMemo(() => {
+    const termo = buscaNucleo.trim().toLowerCase();
+
+    if (!termo) return [];
+
+    return nucleos
+      .filter((nucleo) =>
+        [
+          nucleo.nome,
+          nucleo.tipo,
+          nucleo.tipo_nucleo,
+          labelTipoNucleo(getTipoNucleo(nucleo)),
+        ]
+          .filter(Boolean)
+          .some((valor) => String(valor).toLowerCase().includes(termo)),
+      )
+      .slice(0, 12);
+  }, [nucleos, buscaNucleo]);
+
+  function selecionarNucleo(nucleoId: string) {
+    onChange(nucleoId);
+    setBuscaNucleo("");
+  }
+
+  return (
+    <div style={fieldStyle}>
+      <span>Núcleo</span>
+
+      {nucleoSelecionado ? (
+        <div style={selectedNucleoStyle}>
+          <div>
+            <strong>{nucleoSelecionado.nome}</strong>
+            <span style={memberSubTextStyle}>
+              {labelTipoNucleo(getTipoNucleo(nucleoSelecionado))}
+            </span>
+          </div>
+
+          {allowClear && (
+            <button type="button" onClick={() => selecionarNucleo("")} style={secondaryButtonStyle}>
+              Trocar
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={selectedNucleoStyle}>
+          <div>
+            <strong>{clearLabel}</strong>
+            <span style={memberSubTextStyle}>{nucleos.length} núcleo(s) disponível(is)</span>
+          </div>
+        </div>
+      )}
+
+      <input
+        value={buscaNucleo}
+        onChange={(event) => setBuscaNucleo(event.target.value)}
+        placeholder={placeholder}
+        style={inputStyle}
+      />
+
+      {buscaNucleo.trim() && (
+        <div style={searchResultListStyle}>
+          {allowClear && (
+            <button
+              type="button"
+              onClick={() => selecionarNucleo("")}
+              style={searchResultButtonStyle}
+            >
+              {clearLabel}
+            </button>
+          )}
+
+          {nucleosFiltrados.length === 0 && (
+            <div style={emptySearchResultStyle}>Nenhum núcleo encontrado.</div>
+          )}
+
+          {nucleosFiltrados.map((nucleo) => (
+            <button
+              key={nucleo.id}
+              type="button"
+              onClick={() => selecionarNucleo(nucleo.id)}
+              style={searchResultButtonStyle}
+            >
+              <strong>{nucleo.nome}</strong>
+              <span>{labelTipoNucleo(getTipoNucleo(nucleo))}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function VinculosPessoaModal({
   pessoa,
   vinculos,
@@ -1867,17 +1979,14 @@ function VinculosPessoaModal({
       </div>
 
       <div style={modalFormStyle}>
-        <label style={fieldStyle}>
-          <span>Núcleo</span>
-          <select value={vinculoNucleoId} onChange={(event) => onNucleoChange(event.target.value)} style={inputStyle}>
-            <option value="">Selecione um núcleo</option>
-            {nucleosDisponiveis.map((nucleo) => (
-              <option key={nucleo.id} value={nucleo.id}>
-                {nucleo.nome} · {labelTipoNucleo(getTipoNucleo(nucleo))}
-              </option>
-            ))}
-          </select>
-        </label>
+        <NucleoSearchSelector
+          nucleos={nucleosDisponiveis}
+          value={vinculoNucleoId}
+          onChange={onNucleoChange}
+          placeholder="Buscar núcleo pelo nome..."
+          allowClear
+          clearLabel="Selecione um núcleo"
+        />
 
         <label style={fieldStyle}>
           <span>Relação no núcleo</span>
@@ -2716,6 +2825,61 @@ const responsavelTitleStyle: CSSProperties = {
   fontSize: 16,
   fontWeight: 950,
 };
+
+
+const selectedNucleoStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  color: "#374151",
+  fontWeight: 850,
+  flexWrap: "wrap",
+};
+
+const searchResultListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  maxHeight: 280,
+  overflowY: "auto",
+  padding: 10,
+  borderRadius: 18,
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.08)",
+  marginTop: -10,
+};
+
+const searchResultButtonStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  color: "#0f172a",
+  fontSize: 14,
+  fontWeight: 850,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const emptySearchResultStyle: CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px dashed #d1d5db",
+  color: "#6b7280",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
 
 const toggleStyle: CSSProperties = {
   display: "flex",
