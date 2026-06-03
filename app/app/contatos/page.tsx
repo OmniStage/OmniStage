@@ -79,6 +79,12 @@ type Evento = {
   data_evento: string | null;
 };
 
+type Toast = {
+  tipo: "sucesso" | "erro" | "info";
+  titulo: string;
+  mensagem?: string;
+};
+
 type PessoaForm = {
   nome: string;
   telefone: string;
@@ -136,6 +142,7 @@ export default function ContatosPage() {
   const [vinculoPrincipalEnvio, setVinculoPrincipalEnvio] = useState(false);
   const [pessoaForm, setPessoaForm] = useState<PessoaForm>(pessoaFormVazio);
   const [nucleoForm, setNucleoForm] = useState<NucleoForm>(nucleoFormVazio);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   useEffect(() => {
     iniciarTela();
@@ -536,6 +543,14 @@ export default function ContatosPage() {
     setAcaoLoading(false);
   }
 
+  function mostrarFeedback(tipo: Toast["tipo"], titulo: string, mensagem?: string) {
+    setToast({ tipo, titulo, mensagem });
+
+    window.setTimeout(() => {
+      setToast(null);
+    }, 3200);
+  }
+
   function getResponsavelPrincipalDoNucleo(nucleoId: string) {
     const vinculos = membrosPorNucleo.get(nucleoId) || [];
 
@@ -696,7 +711,15 @@ export default function ContatosPage() {
         throw new Error(query.error.message);
       }
 
-      const pessoaIdSalva = pessoaSelecionada?.id || query.data?.id;
+      if (!query.data?.id) {
+        throw new Error(
+          pessoaSelecionada
+            ? "A alteração não foi gravada. Verifique a permissão de UPDATE em tenant_contatos e tente novamente."
+            : "A pessoa não foi criada. Tente novamente.",
+        );
+      }
+
+      const pessoaIdSalva = query.data.id;
 
       if (pessoaIdSalva && vinculoNucleoId) {
         const relacaoFinal = vinculoRelacao.trim() || (perfilContato === "crianca" ? "filho" : "membro");
@@ -736,8 +759,9 @@ export default function ContatosPage() {
       }
 
       await Promise.all([carregarPessoas(tenantId), carregarMembros(tenantId)]);
+      const mensagemSucesso = pessoaSelecionada ? "Pessoa atualizada." : "Pessoa criada.";
       fecharModal();
-      alert(pessoaSelecionada ? "Pessoa atualizada." : "Pessoa criada.");
+      mostrarFeedback("sucesso", mensagemSucesso, "As informações foram salvas com segurança.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao salvar pessoa.");
     } finally {
@@ -776,7 +800,7 @@ export default function ContatosPage() {
       if (error) throw new Error(error.message);
 
       await carregarPessoas(tenantId);
-      alert("Pessoa excluída.");
+      mostrarFeedback("sucesso", "Pessoa excluída.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao excluir pessoa.");
     } finally {
@@ -819,7 +843,7 @@ export default function ContatosPage() {
 
       await carregarNucleos(tenantId);
       fecharModal();
-      alert(nucleoSelecionado ? "Núcleo atualizado." : "Núcleo criado.");
+      mostrarFeedback("sucesso", nucleoSelecionado ? "Núcleo atualizado." : "Núcleo criado.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao salvar núcleo.");
     } finally {
@@ -852,7 +876,7 @@ export default function ContatosPage() {
       if (error) throw new Error(error.message);
 
       await carregarNucleos(tenantId);
-      alert("Núcleo excluído.");
+      mostrarFeedback("sucesso", "Núcleo excluído.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao excluir núcleo.");
     } finally {
@@ -899,7 +923,7 @@ export default function ContatosPage() {
 
         await carregarMembros(tenantId);
         limparFormularioVinculo();
-        alert("Vínculo atualizado.");
+        mostrarFeedback("sucesso", "Vínculo atualizado.");
         return;
       }
 
@@ -917,7 +941,7 @@ export default function ContatosPage() {
 
       await carregarMembros(tenantId);
       limparFormularioVinculo();
-      alert("Vínculo criado.");
+      mostrarFeedback("sucesso", "Vínculo criado.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao salvar vínculo.");
     } finally {
@@ -1011,7 +1035,7 @@ export default function ContatosPage() {
 
       await carregarMembros(tenantId);
       limparFormularioVinculo();
-      alert("Membro adicionado ao núcleo.");
+      mostrarFeedback("sucesso", "Membro adicionado ao núcleo.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao adicionar membro.");
     } finally {
@@ -1088,7 +1112,7 @@ export default function ContatosPage() {
 
       await Promise.all([carregarPessoas(tenantId), carregarMembros(tenantId)]);
       limparFormularioVinculo();
-      alert("Contato criado e vinculado ao núcleo.");
+      mostrarFeedback("sucesso", "Contato criado e vinculado ao núcleo.");
       return true;
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao criar contato no núcleo.");
@@ -1116,7 +1140,7 @@ export default function ContatosPage() {
       if (error) throw new Error(error.message);
 
       await carregarMembros(tenantId);
-      alert("Vínculo removido.");
+      mostrarFeedback("sucesso", "Vínculo removido.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao remover vínculo.");
     } finally {
@@ -1165,7 +1189,7 @@ export default function ContatosPage() {
 
       await carregarHistorico(tenantId);
       fecharModal();
-      alert("Pessoa importada para o evento.");
+      mostrarFeedback("sucesso", "Pessoa importada para o evento.");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao importar pessoa.");
     } finally {
@@ -1237,7 +1261,7 @@ export default function ContatosPage() {
 
       await carregarHistorico(tenantId);
       fecharModal();
-      alert(`${criados} convidado(s) importado(s). ${ignorados} já existia(m) no evento.`);
+      mostrarFeedback("sucesso", `${criados} convidado(s) importado(s).`, `${ignorados} já existia(m) no evento.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao importar núcleo.");
     } finally {
@@ -1622,6 +1646,18 @@ export default function ContatosPage() {
               />
             )}
           </section>
+        </div>
+      )}
+
+      {toast && (
+        <div style={toastWrapperStyle}>
+          <div style={toastCardStyle}>
+            <div style={toastIconStyle}>{toast.tipo === "sucesso" ? "✓" : "!"}</div>
+            <div>
+              <strong style={toastTitleStyle}>{toast.titulo}</strong>
+              {toast.mensagem && <span style={toastMessageStyle}>{toast.mensagem}</span>}
+            </div>
+          </div>
         </div>
       )}
     </main>
@@ -2879,6 +2915,57 @@ function getModalTitulo(modal: ModalTipo) {
   return "Contatos";
 }
 
+const toastWrapperStyle: CSSProperties = {
+  position: "fixed",
+  top: 22,
+  right: 22,
+  zIndex: 10050,
+  pointerEvents: "none",
+};
+
+const toastCardStyle: CSSProperties = {
+  minWidth: 280,
+  maxWidth: 420,
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  padding: "14px 16px",
+  borderRadius: 20,
+  border: "1px solid rgba(16,185,129,0.18)",
+  background: "rgba(255,255,255,0.96)",
+  boxShadow: "0 22px 60px rgba(15,23,42,0.18)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+};
+
+const toastIconStyle: CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 999,
+  background: "#16a34a",
+  color: "#ffffff",
+  display: "grid",
+  placeItems: "center",
+  fontSize: 18,
+  fontWeight: 950,
+  flex: "0 0 auto",
+};
+
+const toastTitleStyle: CSSProperties = {
+  display: "block",
+  color: "#0f172a",
+  fontSize: 14,
+  fontWeight: 950,
+};
+
+const toastMessageStyle: CSSProperties = {
+  display: "block",
+  marginTop: 2,
+  color: "#6b7280",
+  fontSize: 13,
+  fontWeight: 750,
+};
+
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "clamp(14px, 3vw, 24px)",
@@ -3471,4 +3558,3 @@ const toggleStyle: CSSProperties = {
   color: "#374151",
   fontWeight: 850,
 };
-
