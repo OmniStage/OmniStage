@@ -584,31 +584,50 @@ export async function POST(req: Request) {
         (existingByLegacy || []).map((item) => item.legacy_id)
       );
 
-      const previewRows = parsedGuests.map((guest) => ({
-        batch_id: batch.id,
-        tenant_id: tenantId,
-        event_id: eventoId,
-        legacy_id: guest.legacy_id,
-        origem_importacao:
-          mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
-        nome: guest.name,
-        telefone: guest.phone,
-        grupo: guest.grupo,
-        crianca: guest.crianca,
-        mae: guest.mae,
-        idade_crianca: guest.idade_crianca,
-        contato_principal: guest.contato_principal,
-        recebe_convite: guest.recebe_convite,
-        quantidade: 1,
-        status_rsvp: guest.status_rsvp || "pendente",
-        status_envio: guest.status_envio || "pendente",
-        data_hora_rsvp: guest.data_hora_rsvp || null,
-        data_hora_envio: guest.data_hora_envio || null,
-        is_duplicate:
-          Boolean(guest.phone && existingPhones.has(guest.phone)) ||
-          Boolean(guest.legacy_id && existingLegacyIds.has(guest.legacy_id)),
-        raw_data: guest.raw || guest,
-      }));
+      const previewRows = parsedGuests.map((guest) => {
+        const isCrianca = normalizeTipoContato(
+          guest.tipo_contato,
+          guest.crianca,
+          guest.mae || guest.responsavel_nome
+        ) === "crianca";
+
+        return {
+          batch_id: batch.id,
+          tenant_id: tenantId,
+          event_id: eventoId,
+          legacy_id: guest.legacy_id,
+          origem_importacao:
+            mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
+          nome: guest.name,
+          telefone: guest.phone,
+          email: cleanText(guest.email),
+          grupo: guest.grupo,
+          crianca: isCrianca ? "sim" : normalizeCrianca(guest.crianca, guest.mae || guest.responsavel_nome),
+          mae: guest.mae,
+          idade_crianca: guest.idade_crianca,
+          tipo_contato: isCrianca ? "crianca" : "adulto",
+          responsavel_nome: cleanText(guest.responsavel_nome) || cleanText(guest.mae),
+          responsavel_telefone: cleanPhone(guest.responsavel_telefone) || cleanText(guest.responsavel_telefone),
+          tipo_nucleo: cleanText(guest.tipo_nucleo),
+          nucleo: cleanText(guest.nucleo),
+          relacao_nucleo: cleanText(guest.relacao_nucleo),
+          relacao_responsavel_nucleo: cleanText(guest.relacao_responsavel_nucleo),
+          relacao_evento: cleanText(guest.relacao_evento),
+          recebe_comunicacao: Boolean(guest.recebe_comunicacao),
+          principal_envio: Boolean(guest.principal_envio),
+          contato_principal: Boolean(guest.principal_envio) || guest.contato_principal,
+          recebe_convite: Boolean(guest.recebe_comunicacao) || guest.recebe_convite,
+          quantidade: 1,
+          status_rsvp: guest.status_rsvp || "pendente",
+          status_envio: guest.status_envio || "pendente",
+          data_hora_rsvp: guest.data_hora_rsvp || null,
+          data_hora_envio: guest.data_hora_envio || null,
+          is_duplicate:
+            Boolean(guest.phone && existingPhones.has(guest.phone)) ||
+            Boolean(guest.legacy_id && existingLegacyIds.has(guest.legacy_id)),
+          raw_data: guest.raw || guest,
+        };
+      });
 
       const duplicatedRows = previewRows.filter((row) => row.is_duplicate).length;
 
@@ -690,17 +709,17 @@ export async function POST(req: Request) {
       for (const item of previewRows || []) {
         const raw = item.raw_data || {};
         const responsavelNome =
-          cleanText(raw.responsavel_nome) || cleanText(item.mae) || cleanText(raw.mae);
+          cleanText(item.responsavel_nome) || cleanText(raw.responsavel_nome) || cleanText(item.mae) || cleanText(raw.mae);
         const responsavelTelefone =
-          cleanPhone(raw.responsavel_telefone) || cleanText(raw.responsavel_telefone);
-        const tipoContato = normalizeTipoContato(raw.tipo_contato, item.crianca, responsavelNome || item.mae);
+          cleanPhone(item.responsavel_telefone) || cleanPhone(raw.responsavel_telefone) || cleanText(item.responsavel_telefone) || cleanText(raw.responsavel_telefone);
+        const tipoContato = normalizeTipoContato(item.tipo_contato || raw.tipo_contato, item.crianca, responsavelNome || item.mae);
         const isCrianca = tipoContato === "crianca" || normalizeCrianca(item.crianca, responsavelNome || item.mae) === "sim";
-        const nucleoNome = cleanText(raw.nucleo) || cleanText(item.grupo);
-        const tipoNucleo = cleanText(raw.tipo_nucleo) || (nucleoNome ? "familia" : null);
-        const relacaoNucleo = normalizePapelNucleo(raw.relacao_nucleo, isCrianca ? "filho" : "membro");
-        const relacaoResponsavelNucleo = normalizePapelNucleo(raw.relacao_responsavel_nucleo, "responsavel");
-        const recebeComunicacao = normalizeBoolean(raw.recebe_comunicacao, Boolean(item.recebe_convite));
-        const principalEnvio = normalizeBoolean(raw.principal_envio, Boolean(item.contato_principal));
+        const nucleoNome = cleanText(item.nucleo) || cleanText(raw.nucleo) || cleanText(item.grupo);
+        const tipoNucleo = cleanText(item.tipo_nucleo) || cleanText(raw.tipo_nucleo) || (nucleoNome ? "familia" : null);
+        const relacaoNucleo = normalizePapelNucleo(item.relacao_nucleo || raw.relacao_nucleo, isCrianca ? "filho" : "membro");
+        const relacaoResponsavelNucleo = normalizePapelNucleo(item.relacao_responsavel_nucleo || raw.relacao_responsavel_nucleo, "responsavel");
+        const recebeComunicacao = normalizeBoolean(item.recebe_comunicacao ?? raw.recebe_comunicacao, Boolean(item.recebe_convite));
+        const principalEnvio = normalizeBoolean(item.principal_envio ?? raw.principal_envio, Boolean(item.contato_principal));
 
         const tenantContatoId = await ensureTenantContato(supabase, {
           tenantId,
@@ -762,7 +781,7 @@ export async function POST(req: Request) {
           origem_importacao: item.origem_importacao || "planilha_legada",
           nome: item.nome,
           telefone: item.telefone,
-          email: cleanText(raw.email) || null,
+          email: cleanText(item.email) || cleanText(raw.email) || null,
           grupo: nucleoNome || item.grupo,
           crianca: isCrianca ? "sim" : normalizeCrianca(item.crianca, responsavelNome || item.mae),
           mae: cleanText(item.mae),
@@ -778,7 +797,7 @@ export async function POST(req: Request) {
           responsavel: isCrianca ? responsavelNome : null,
           responsavel_telefone: isCrianca ? responsavelTelefone : null,
           tenant_contato_id: tenantContatoId,
-          relacao_evento: cleanText(raw.relacao_evento) || null,
+          relacao_evento: cleanText(item.relacao_evento) || cleanText(raw.relacao_evento) || null,
           token: gerarToken(),
         });
       }
