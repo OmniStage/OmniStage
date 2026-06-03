@@ -925,6 +925,51 @@ export default function ContatosPage() {
     }
   }
 
+  async function atualizarFlagsVinculoNucleo(
+    membro: MembroNucleo,
+    updates: { recebe_comunicacao?: boolean; principal_envio?: boolean },
+  ) {
+    if (!tenantId) return;
+
+    setAcaoLoading(true);
+
+    try {
+      const payload = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.principal_envio === true) {
+        const { error: limparPrincipaisError } = await supabase
+          .from("contato_grupo_membros")
+          .update({
+            principal_envio: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("tenant_id", tenantId)
+          .eq("grupo_contato_id", membro.grupo_contato_id)
+          .neq("id", membro.id);
+
+        if (limparPrincipaisError) throw new Error(limparPrincipaisError.message);
+      }
+
+      const { error } = await supabase
+        .from("contato_grupo_membros")
+        .update(payload)
+        .eq("id", membro.id)
+        .eq("tenant_id", tenantId);
+
+      if (error) throw new Error(error.message);
+
+      await carregarMembros(tenantId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao atualizar vínculo.");
+    } finally {
+      setAcaoLoading(false);
+    }
+  }
+
+
   async function salvarMembroNoNucleo() {
     if (!tenantId || !nucleoSelecionado) return;
 
@@ -1484,6 +1529,7 @@ export default function ContatosPage() {
                 onRelacaoChange={setVinculoRelacao}
                 onRecebeChange={setVinculoRecebeComunicacao}
                 onPrincipalChange={setVinculoPrincipalEnvio}
+                onQuickUpdateVinculo={atualizarFlagsVinculoNucleo}
                 onSubmit={salvarPessoa}
                 onCancel={fecharModal}
                 submitLabel={modal === "criarPessoa" ? "Criar pessoa" : "Salvar alterações"}
@@ -1509,6 +1555,7 @@ export default function ContatosPage() {
                 onRelacaoChange={setVinculoRelacao}
                 onRecebeChange={setVinculoRecebeComunicacao}
                 onPrincipalChange={setVinculoPrincipalEnvio}
+                onQuickUpdateVinculo={atualizarFlagsVinculoNucleo}
                 onSalvar={salvarVinculoPessoaNucleo}
                 onRemover={removerVinculoNucleo}
               />
@@ -1596,6 +1643,7 @@ function PessoaFormModal({
   onRelacaoChange,
   onRecebeChange,
   onPrincipalChange,
+  onQuickUpdateVinculo,
   onSubmit,
   onCancel,
   submitLabel,
@@ -1614,6 +1662,7 @@ function PessoaFormModal({
   onRelacaoChange: (valor: string) => void;
   onRecebeChange: (valor: boolean) => void;
   onPrincipalChange: (valor: boolean) => void;
+  onQuickUpdateVinculo: (membro: MembroNucleo, updates: { recebe_comunicacao?: boolean; principal_envio?: boolean }) => void;
   onSubmit: () => void;
   onCancel: () => void;
   submitLabel: string;
@@ -1764,10 +1813,39 @@ function PessoaFormModal({
                       <span style={memberSubTextStyle}>
                         Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
                       </span>
-                      <span style={memberSubTextStyle}>
-                        {vinculo.recebe_comunicacao || vinculo.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}
-                        {vinculo.principal_envio ? " · Principal para envio" : ""}
-                      </span>
+                      <div style={vinculoInlineFlagsStyle}>
+                        <label style={compactToggleStyle}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(vinculo.recebe_comunicacao)}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              if (vinculo.grupo_contato_id === vinculoNucleoId) onRecebeChange(checked);
+                              onQuickUpdateVinculo(vinculo, {
+                                recebe_comunicacao: checked,
+                              });
+                            }}
+                            disabled={acaoLoading}
+                          />
+                          <span>Recebe comunicação</span>
+                        </label>
+
+                        <label style={compactToggleStyle}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(vinculo.principal_envio)}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              if (vinculo.grupo_contato_id === vinculoNucleoId) onPrincipalChange(checked);
+                              onQuickUpdateVinculo(vinculo, {
+                                principal_envio: checked,
+                              });
+                            }}
+                            disabled={acaoLoading}
+                          />
+                          <span>Principal núcleo</span>
+                        </label>
+                      </div>
                     </div>
 
                     <button
@@ -2115,6 +2193,7 @@ function VinculosPessoaModal({
   onRelacaoChange,
   onRecebeChange,
   onPrincipalChange,
+  onQuickUpdateVinculo,
   onSalvar,
   onRemover,
 }: {
@@ -2131,6 +2210,7 @@ function VinculosPessoaModal({
   onRelacaoChange: (valor: string) => void;
   onRecebeChange: (valor: boolean) => void;
   onPrincipalChange: (valor: boolean) => void;
+  onQuickUpdateVinculo: (membro: MembroNucleo, updates: { recebe_comunicacao?: boolean; principal_envio?: boolean }) => void;
   onSalvar: () => void;
   onRemover: (membro: MembroNucleo) => void;
 }) {
@@ -2193,10 +2273,37 @@ function VinculosPessoaModal({
                       <span style={memberSubTextStyle}>
                         Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
                       </span>
-                      <span style={memberSubTextStyle}>
-                        {vinculo.recebe_comunicacao || vinculo.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}
-                        {vinculo.principal_envio ? " · Principal para envio" : ""}
-                      </span>
+                      <div style={vinculoInlineFlagsStyle}>
+                        <label style={compactToggleStyle}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(vinculo.recebe_comunicacao)}
+                            onChange={(event) =>
+                              onQuickUpdateVinculo(vinculo, {
+                                recebe_comunicacao: event.target.checked,
+                              })
+                            }
+                            disabled={acaoLoading}
+                          />
+                          <span>Recebe comunicação</span>
+                        </label>
+
+                        <label style={compactToggleStyle}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(vinculo.principal_envio)}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              if (vinculo.grupo_contato_id === vinculoNucleoId) onPrincipalChange(checked);
+                              onQuickUpdateVinculo(vinculo, {
+                                principal_envio: checked,
+                              });
+                            }}
+                            disabled={acaoLoading}
+                          />
+                          <span>Principal núcleo</span>
+                        </label>
+                      </div>
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -3332,6 +3439,27 @@ const emptySearchResultStyle: CSSProperties = {
 };
 
 
+
+const vinculoInlineFlagsStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 8,
+};
+
+const compactToggleStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 10px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
+  color: "#374151",
+  fontSize: 12,
+  fontWeight: 900,
+};
+
 const toggleStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -3343,3 +3471,4 @@ const toggleStyle: CSSProperties = {
   color: "#374151",
   fontWeight: 850,
 };
+
