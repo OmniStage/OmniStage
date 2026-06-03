@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Aba = "pessoas" | "nucleos";
+type VisualizacaoNucleo = "cards" | "lista";
 type ModalTipo =
   | "criarPessoa"
   | "editarPessoa"
@@ -117,10 +118,25 @@ const nucleoFormVazio: NucleoForm = {
   descricao: "",
 };
 
+const tiposNucleoFiltro = [
+  { value: "todos", label: "Todos" },
+  { value: "familia", label: "Família" },
+  { value: "escola", label: "Escola" },
+  { value: "empresa", label: "Empresa" },
+  { value: "igreja", label: "Igreja" },
+  { value: "associacao", label: "Associação" },
+  { value: "fornecedor", label: "Fornecedor" },
+  { value: "corporativo", label: "Corporativo" },
+  { value: "politico", label: "Político" },
+  { value: "outro", label: "Outro" },
+];
+
 export default function ContatosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [aba, setAba] = useState<Aba>("pessoas");
   const [busca, setBusca] = useState("");
+  const [tipoNucleoFiltro, setTipoNucleoFiltro] = useState("todos");
+  const [visualizacaoNucleos, setVisualizacaoNucleos] = useState<VisualizacaoNucleo>("cards");
   const [loading, setLoading] = useState(true);
   const [acaoLoading, setAcaoLoading] = useState(false);
 
@@ -406,11 +422,14 @@ export default function ContatosPage() {
     const termo = busca.trim().toLowerCase();
 
     return nucleos.filter((nucleo) => {
+      const tipoNucleo = getTipoNucleo(nucleo);
       const vinculos = membrosPorNucleo.get(nucleo.id) || [];
       const nomesMembros = vinculos
         .map((membro) => pessoasPorId.get(membro.tenant_contato_id)?.nome)
         .filter(Boolean)
         .join(" ");
+
+      if (tipoNucleoFiltro !== "todos" && tipoNucleo !== tipoNucleoFiltro) return false;
 
       if (!termo) return true;
 
@@ -418,13 +437,14 @@ export default function ContatosPage() {
         nucleo.nome,
         nucleo.tipo,
         nucleo.tipo_nucleo,
+        labelTipoNucleo(tipoNucleo),
         nucleo.descricao,
         nomesMembros,
       ]
         .filter(Boolean)
         .some((valor) => String(valor).toLowerCase().includes(termo));
     });
-  }, [nucleos, busca, membrosPorNucleo, pessoasPorId]);
+  }, [nucleos, busca, tipoNucleoFiltro, membrosPorNucleo, pessoasPorId]);
 
   const totalComTelefone = pessoas.filter((pessoa) => pessoa.telefone).length;
   const totalComEmail = pessoas.filter((pessoa) => pessoa.email).length;
@@ -432,6 +452,8 @@ export default function ContatosPage() {
     (membro) => membro.recebe_comunicacao || membro.principal_envio,
   ).length;
   const totalFamilias = nucleos.filter((nucleo) => getTipoNucleo(nucleo) === "familia").length;
+  const totalEscolas = nucleos.filter((nucleo) => getTipoNucleo(nucleo) === "escola").length;
+  const totalEmpresas = nucleos.filter((nucleo) => getTipoNucleo(nucleo) === "empresa").length;
 
   function limparFormularioVinculo() {
     setVinculoNucleoId("");
@@ -1332,6 +1354,8 @@ export default function ContatosPage() {
           <>
             <MetricCard label="Núcleos" value={nucleos.length} />
             <MetricCard label="Famílias" value={totalFamilias} />
+            <MetricCard label="Escolas" value={totalEscolas} />
+            <MetricCard label="Empresas" value={totalEmpresas} />
             <MetricCard label="Membros vinculados" value={membros.length} />
             <MetricCard
               label="Responsáveis"
@@ -1348,7 +1372,7 @@ export default function ContatosPage() {
             <p style={sectionSubtitleStyle}>
               {aba === "pessoas"
                 ? "Pessoas únicas do cliente, com histórico e vínculos."
-                : "Agrupamentos como famílias, empresas, políticos, igrejas ou associações."}
+                : "Agrupamentos como famílias, escolas, empresas, políticos, igrejas ou associações."}
             </p>
           </div>
 
@@ -1371,6 +1395,40 @@ export default function ContatosPage() {
           }
           style={inputStyle}
         />
+
+        {aba === "nucleos" && (
+          <div style={nucleoToolbarStyle}>
+            <div style={filterPillsStyle}>
+              {tiposNucleoFiltro.map((tipo) => (
+                <button
+                  key={tipo.value}
+                  type="button"
+                  onClick={() => setTipoNucleoFiltro(tipo.value)}
+                  style={tipoNucleoFiltro === tipo.value ? filterPillActiveStyle : filterPillStyle}
+                >
+                  {tipo.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={viewToggleStyle}>
+              <button
+                type="button"
+                onClick={() => setVisualizacaoNucleos("cards")}
+                style={visualizacaoNucleos === "cards" ? viewToggleActiveStyle : viewToggleButtonStyle}
+              >
+                Cards
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisualizacaoNucleos("lista")}
+                style={visualizacaoNucleos === "lista" ? viewToggleActiveStyle : viewToggleButtonStyle}
+              >
+                Lista
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading && <div style={emptyStyle}>Carregando contatos...</div>}
 
@@ -1458,7 +1516,7 @@ export default function ContatosPage() {
         )}
 
         {!loading && aba === "nucleos" && (
-          <div style={listStyle}>
+          <div style={visualizacaoNucleos === "lista" ? compactListStyle : listStyle}>
             {nucleosFiltrados.map((nucleo) => {
               const vinculos = membrosPorNucleo.get(nucleo.id) || [];
               const responsaveis = vinculos.filter((membro) => getPapelMembro(membro) === "responsavel");
@@ -1467,9 +1525,9 @@ export default function ContatosPage() {
                 .filter((item) => item.pessoa);
 
               return (
-                <article key={nucleo.id} style={rowCardStyle}>
-                  <div style={rowCardMainStyle}>
-                    <div style={nucleoIconStyle}>N</div>
+                <article key={nucleo.id} style={visualizacaoNucleos === "lista" ? compactRowCardStyle : rowCardStyle}>
+                  <div style={visualizacaoNucleos === "lista" ? compactRowCardMainStyle : rowCardMainStyle}>
+                    <div style={nucleoIconStyle}>{getInitials(labelTipoNucleo(getTipoNucleo(nucleo)))}</div>
 
                     <div style={rowContentStyle}>
                       <h3 style={itemTitleStyle}>{nucleo.nome}</h3>
@@ -1486,7 +1544,7 @@ export default function ContatosPage() {
                       </div>
 
                       <div style={miniListStyle}>
-                        {membrosComPessoa.slice(0, 6).map(({ membro, pessoa }) => (
+                        {membrosComPessoa.slice(0, visualizacaoNucleos === "lista" ? 3 : 6).map(({ membro, pessoa }) => (
                           <span key={membro.id} style={miniItemStyle}>
                             {pessoa?.nome} · {labelPapel(getPapelMembro(membro))}
                           </span>
@@ -1495,7 +1553,7 @@ export default function ContatosPage() {
                     </div>
                   </div>
 
-                  <div style={rowActionsStyle}>
+                  <div style={visualizacaoNucleos === "lista" ? compactRowActionsStyle : rowActionsStyle}>
                     <button type="button" onClick={() => abrirMembrosNucleo(nucleo)} style={secondaryButtonStyle}>
                       Membros
                     </button>
@@ -3126,6 +3184,69 @@ const inputStyle: CSSProperties = {
   marginBottom: 18,
 };
 
+
+const nucleoToolbarStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  margin: "-2px 0 18px",
+};
+
+const filterPillsStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const filterPillStyle: CSSProperties = {
+  padding: "9px 12px",
+  minHeight: 38,
+  borderRadius: 999,
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
+  color: "#374151",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const filterPillActiveStyle: CSSProperties = {
+  ...filterPillStyle,
+  background: "#ede9fe",
+  border: "1px solid rgba(124,58,237,0.28)",
+  color: "#6d28d9",
+};
+
+const viewToggleStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  padding: 4,
+  borderRadius: 999,
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
+};
+
+const viewToggleButtonStyle: CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "#6b7280",
+  borderRadius: 999,
+  padding: "8px 12px",
+  fontSize: 13,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const viewToggleActiveStyle: CSSProperties = {
+  ...viewToggleButtonStyle,
+  background: "#0f172a",
+  color: "#ffffff",
+};
+
 const textareaStyle: CSSProperties = {
   ...inputStyle,
   minHeight: 110,
@@ -3183,12 +3304,32 @@ const rowCardStyle: CSSProperties = {
   flexWrap: "wrap",
 };
 
+
+const compactListStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: 8,
+};
+
+const compactRowCardStyle: CSSProperties = {
+  ...rowCardStyle,
+  padding: "12px 14px",
+  borderRadius: 18,
+  alignItems: "center",
+};
+
 const rowCardMainStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   gap: 14,
   flex: "1 1 620px",
   minWidth: 0,
+};
+
+
+const compactRowCardMainStyle: CSSProperties = {
+  ...rowCardMainStyle,
+  flex: "1 1 520px",
 };
 
 const rowContentStyle: CSSProperties = {
@@ -3210,6 +3351,12 @@ const rowActionsStyle: CSSProperties = {
   gap: 8,
   flexWrap: "wrap",
   flex: "0 0 auto",
+};
+
+
+const compactRowActionsStyle: CSSProperties = {
+  ...rowActionsStyle,
+  gap: 6,
 };
 
 const avatarStyle: CSSProperties = {
