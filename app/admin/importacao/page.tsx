@@ -653,9 +653,20 @@ export default function AdminImportacaoPage() {
         const grupo = getColumnValue(row, mapping.grupo);
         const nome = getColumnValue(row, mapping.nome);
         const telefone = getColumnValue(row, mapping.telefone);
+        const email = getColumnValue(row, mapping.email);
         const mae = getColumnValue(row, mapping.mae);
         const crianca = normalizarCriancaPorMae(getColumnValue(row, mapping.crianca), mae);
         const idadeCrianca = getColumnValue(row, mapping.idade_crianca);
+        const tipoContato = getColumnValue(row, mapping.tipo_contato);
+        const responsavelNome = getColumnValue(row, mapping.responsavel_nome);
+        const responsavelTelefone = getColumnValue(row, mapping.responsavel_telefone);
+        const tipoNucleo = getColumnValue(row, mapping.tipo_nucleo);
+        const nucleo = getColumnValue(row, mapping.nucleo);
+        const relacaoNucleo = getColumnValue(row, mapping.relacao_nucleo);
+        const relacaoResponsavelNucleo = getColumnValue(row, mapping.relacao_responsavel_nucleo);
+        const relacaoEvento = getColumnValue(row, mapping.relacao_evento);
+        const recebeComunicacao = getColumnValue(row, mapping.recebe_comunicacao);
+        const principalEnvio = getColumnValue(row, mapping.principal_envio);
         const statusRsvp = getColumnValue(row, mapping.status_rsvp);
         const dataHoraRsvp = getColumnValue(row, mapping.data_hora_rsvp);
         const statusEnvio = getColumnValue(row, mapping.status_envio);
@@ -666,9 +677,20 @@ export default function AdminImportacaoPage() {
           grupo,
           nome,
           telefone,
+          email,
           crianca,
           mae,
           idadeCrianca,
+          tipoContato,
+          responsavelNome,
+          responsavelTelefone,
+          tipoNucleo,
+          nucleo,
+          relacaoNucleo,
+          relacaoResponsavelNucleo,
+          relacaoEvento,
+          recebeComunicacao,
+          principalEnvio,
           statusRsvp,
           dataHoraRsvp,
           statusEnvio,
@@ -776,7 +798,7 @@ export default function AdminImportacaoPage() {
     }
 
     setMapping({
-      legacy_id: findHeader(["id"]),
+      legacy_id: findHeader(["legacy_id", "id legado", "codigo", "código", "cod", "cód"]),
       grupo: findHeader(["grupo", "familia", "família"]),
       nome: findHeader(["nome", "convidado"]),
       telefone: findHeader(["telefone", "whatsapp", "celular"]),
