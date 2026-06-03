@@ -233,6 +233,9 @@ export default function ConvidadosPage() {
   const [envioConvitePendenteConfirmacao, setEnvioConvitePendenteConfirmacao] =
     useState<Convidado | null>(null);
   const [confirmandoEnvioConvite, setConfirmandoEnvioConvite] = useState(false);
+  const [convidadoPendenteExclusao, setConvidadoPendenteExclusao] =
+    useState<Convidado | null>(null);
+  const [excluindoConvidado, setExcluindoConvidado] = useState(false);
 
   const [importAberto, setImportAberto] = useState(false);
   const [importText, setImportText] = useState("");
@@ -1037,30 +1040,45 @@ ${eventoAtual?.nome || "OmniStage"}`);
     setFormAberto(true);
   }
 
-  async function excluirConvidado(convidado: Convidado) {
-    if (!tenantId || !eventoId) return;
+  function solicitarExclusaoConvidado(convidado: Convidado) {
+    setConvidadoPendenteExclusao(convidado);
+  }
 
-    const confirmar = confirm(
-      `Tem certeza que deseja excluir "${convidado.nome}"?`,
-    );
-    if (!confirmar) return;
+  function cancelarExclusaoConvidado() {
+    if (excluindoConvidado) return;
+    setConvidadoPendenteExclusao(null);
+  }
 
-    const { error } = await supabase
-      .from("convidados")
-      .delete()
-      .eq("id", convidado.id)
-      .eq("tenant_id", tenantId)
-      .eq("evento_id", eventoId);
+  async function confirmarExclusaoConvidado() {
+    if (!tenantId || !eventoId || !convidadoPendenteExclusao) return;
 
-    if (error) {
-      alert("Erro ao excluir convidado: " + error.message);
-      return;
+    setExcluindoConvidado(true);
+
+    try {
+      const { error } = await supabase
+        .from("convidados")
+        .delete()
+        .eq("id", convidadoPendenteExclusao.id)
+        .eq("tenant_id", tenantId)
+        .eq("evento_id", eventoId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setConvidados((current) =>
+        current.filter((item) => item.id !== convidadoPendenteExclusao.id),
+      );
+      setConvidadoPendenteExclusao(null);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? "Erro ao excluir convidado: " + error.message
+          : "Erro ao excluir convidado.",
+      );
+    } finally {
+      setExcluindoConvidado(false);
     }
-
-    setConvidados((current) =>
-      current.filter((item) => item.id !== convidado.id),
-    );
-    alert("Convidado excluído.");
   }
 
   function convidadoTemDadosImportados(convidado: Convidado) {
@@ -2257,7 +2275,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               Editar
                             </button>
                             <button
-                              onClick={() => excluirConvidado(convidado)}
+                              onClick={() => solicitarExclusaoConvidado(convidado)}
                               style={{
                                 ...smallButtonStyle,
                                 background: "#dc2626",
@@ -2276,6 +2294,56 @@ ${eventoAtual?.nome || "OmniStage"}`);
           })}
         </div>
       </section>
+
+      {convidadoPendenteExclusao && (
+        <div
+          style={deleteConfirmOverlayStyle}
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cancelarExclusaoConvidado();
+          }}
+        >
+          <div style={deleteConfirmModalStyle} onMouseDown={(event) => event.stopPropagation()}>
+            <div style={deleteConfirmIconStyle}>!</div>
+
+            <span style={deleteConfirmEyebrowStyle}>Excluir convidado</span>
+
+            <h3 style={deleteConfirmTitleStyle}>
+              Excluir {convidadoPendenteExclusao.nome || "este convidado"}?
+            </h3>
+
+            <p style={deleteConfirmTextStyle}>
+              Esta ação remove o convidado deste evento e não poderá ser desfeita.
+              Confirme apenas se este cadastro foi criado por engano.
+            </p>
+
+            <div style={deleteConfirmActionsStyle}>
+              <button
+                type="button"
+                onClick={cancelarExclusaoConvidado}
+                disabled={excluindoConvidado}
+                style={deleteCancelButtonStyle}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmarExclusaoConvidado}
+                disabled={excluindoConvidado}
+                style={
+                  excluindoConvidado
+                    ? { ...deleteConfirmButtonStyle, opacity: 0.65, cursor: "wait" }
+                    : deleteConfirmButtonStyle
+                }
+              >
+                {excluindoConvidado ? "Excluindo..." : "Excluir convidado"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {envioConvitePendenteConfirmacao && (
         <div style={sendConfirmOverlayStyle}>
@@ -3339,9 +3407,99 @@ const sendConfirmButtonStyle: CSSProperties = {
   boxShadow: "0 12px 30px rgba(22,163,74,0.22)",
 };
 
+const deleteConfirmOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 10000,
+  display: "grid",
+  placeItems: "center",
+  padding: 20,
+  background: "rgba(15,23,42,0.42)",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+};
+
+const deleteConfirmModalStyle: CSSProperties = {
+  width: "min(480px, 100%)",
+  borderRadius: 28,
+  padding: 24,
+  background: "#ffffff",
+  border: "1px solid rgba(226,232,240,0.95)",
+  boxShadow: "0 30px 90px rgba(15,23,42,0.30)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+const deleteConfirmIconStyle: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 16,
+  display: "grid",
+  placeItems: "center",
+  background: "#fee2e2",
+  color: "#dc2626",
+  fontWeight: 950,
+  fontSize: 22,
+};
+
+const deleteConfirmEyebrowStyle: CSSProperties = {
+  color: "#dc2626",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+};
+
+const deleteConfirmTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 24,
+  fontWeight: 950,
+  letterSpacing: "-0.03em",
+};
+
+const deleteConfirmTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#64748b",
+  fontSize: 15,
+  lineHeight: 1.5,
+  fontWeight: 700,
+};
+
+const deleteConfirmActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 8,
+};
+
+const deleteCancelButtonStyle: CSSProperties = {
+  border: "1px solid rgba(148,163,184,0.5)",
+  background: "#ffffff",
+  color: "#334155",
+  padding: "12px 16px",
+  borderRadius: 999,
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const deleteConfirmButtonStyle: CSSProperties = {
+  border: "none",
+  background: "#dc2626",
+  color: "#ffffff",
+  padding: "12px 16px",
+  borderRadius: 999,
+  fontWeight: 950,
+  cursor: "pointer",
+  boxShadow: "0 12px 30px rgba(220,38,38,0.24)",
+};
+
 const emptyStyle: CSSProperties = {
   padding: 18,
   borderRadius: 12,
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
+
