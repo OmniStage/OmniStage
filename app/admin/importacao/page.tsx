@@ -22,10 +22,23 @@ type PreviewRow = {
   legacy_id: string | null;
   nome: string;
   telefone: string | null;
+  email?: string | null;
   grupo: string | null;
   crianca: string | null;
   mae: string | null;
   idade_crianca: string | number | null;
+  tipo_contato?: string | null;
+  responsavel_nome?: string | null;
+  responsavel_telefone?: string | null;
+  tipo_nucleo?: string | null;
+  nucleo?: string | null;
+  relacao_nucleo?: string | null;
+  relacao_responsavel_nucleo?: string | null;
+  relacao_evento?: string | null;
+  recebe_comunicacao?: boolean | null;
+  principal_envio?: boolean | null;
+  contato_principal?: boolean | null;
+  recebe_convite?: boolean | null;
   status_rsvp: string | null;
   status_envio: string | null;
   data_hora_rsvp: string | null;
@@ -1541,14 +1554,33 @@ export default function AdminImportacaoPage() {
                       <strong style={{ fontSize: 20, color: "#0f172a" }}>{item.nome}</strong>
 
                       <p style={{ color: "#64748b", margin: "6px 0 0" }}>
-                        Legacy ID: {item.legacy_id || "sem ID"} · Grupo:{" "}
-                        {item.grupo || "sem grupo"} · Telefone:{" "}
-                        {item.telefone || "sem telefone"}
+                        Legacy ID: {item.legacy_id || "sem ID"} · Telefone:{" "}
+                        {item.telefone || "sem telefone"} · E-mail: {item.email || "sem e-mail"}
                       </p>
 
                       <p style={{ color: "#334155", margin: "6px 0 0" }}>
-                        Criança: {item.crianca || "-"} · Mãe: {item.mae || "-"} · Idade criança:{" "}
-                        {item.idade_crianca || "-"}
+                        Tipo contato: {item.tipo_contato || (item.crianca === "sim" ? "crianca" : "adulto")} · Criança:{" "}
+                        {item.crianca || "-"} · Idade criança: {item.idade_crianca || "-"}
+                      </p>
+
+                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
+                        Responsável: {item.responsavel_nome || item.mae || "-"} · Telefone responsável:{" "}
+                        {item.responsavel_telefone || "-"}
+                      </p>
+
+                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
+                        Núcleo: {item.nucleo || item.grupo || "sem núcleo"} · Tipo núcleo:{" "}
+                        {item.tipo_nucleo || "-"} · Relação: {item.relacao_nucleo || "-"}
+                      </p>
+
+                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
+                        Relação responsável: {item.relacao_responsavel_nucleo || "-"} · Relação evento:{" "}
+                        {item.relacao_evento || "-"}
+                      </p>
+
+                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
+                        Recebe comunicação: {item.recebe_comunicacao ? "Sim" : "Não"} · Principal envio:{" "}
+                        {item.principal_envio ? "Sim" : "Não"}
                       </p>
 
                       <p style={{ color: "#334155", margin: "6px 0 0" }}>
