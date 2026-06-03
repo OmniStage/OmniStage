@@ -53,9 +53,20 @@ type SheetMapping = {
   grupo: string;
   nome: string;
   telefone: string;
+  email: string;
   crianca: string;
   mae: string;
   idade_crianca: string;
+  tipo_contato: string;
+  responsavel_nome: string;
+  responsavel_telefone: string;
+  tipo_nucleo: string;
+  nucleo: string;
+  relacao_nucleo: string;
+  relacao_responsavel_nucleo: string;
+  relacao_evento: string;
+  recebe_comunicacao: string;
+  principal_envio: string;
   status_rsvp: string;
   status_envio: string;
   data_hora_rsvp: string;
@@ -73,9 +84,20 @@ type MappedRow = {
   grupo: string;
   nome: string;
   telefone: string;
+  email: string;
   crianca: string;
   mae: string;
   idade_crianca: string;
+  tipo_contato: string;
+  responsavel_nome: string;
+  responsavel_telefone: string;
+  tipo_nucleo: string;
+  nucleo: string;
+  relacao_nucleo: string;
+  relacao_responsavel_nucleo: string;
+  relacao_evento: string;
+  recebe_comunicacao: string;
+  principal_envio: string;
   status_rsvp: string;
   status_envio: string;
   data_hora_rsvp: string;
@@ -87,9 +109,20 @@ const initialMapping: SheetMapping = {
   grupo: "",
   nome: "",
   telefone: "",
+  email: "",
   crianca: "",
   mae: "",
   idade_crianca: "",
+  tipo_contato: "",
+  responsavel_nome: "",
+  responsavel_telefone: "",
+  tipo_nucleo: "",
+  nucleo: "",
+  relacao_nucleo: "",
+  relacao_responsavel_nucleo: "",
+  relacao_evento: "",
+  recebe_comunicacao: "",
+  principal_envio: "",
   status_rsvp: "",
   status_envio: "",
   data_hora_rsvp: "",
@@ -660,12 +693,23 @@ export default function AdminImportacaoPage() {
         grupo: getColumnValue(row, mapping.grupo),
         nome: getColumnValue(row, mapping.nome),
         telefone: getColumnValue(row, mapping.telefone),
+        email: getColumnValue(row, mapping.email),
         crianca: normalizarCriancaPorMae(
           getColumnValue(row, mapping.crianca),
           getColumnValue(row, mapping.mae)
         ),
         mae: getColumnValue(row, mapping.mae),
         idade_crianca: getColumnValue(row, mapping.idade_crianca),
+        tipo_contato: getColumnValue(row, mapping.tipo_contato),
+        responsavel_nome: getColumnValue(row, mapping.responsavel_nome),
+        responsavel_telefone: getColumnValue(row, mapping.responsavel_telefone),
+        tipo_nucleo: getColumnValue(row, mapping.tipo_nucleo),
+        nucleo: getColumnValue(row, mapping.nucleo),
+        relacao_nucleo: getColumnValue(row, mapping.relacao_nucleo),
+        relacao_responsavel_nucleo: getColumnValue(row, mapping.relacao_responsavel_nucleo),
+        relacao_evento: getColumnValue(row, mapping.relacao_evento),
+        recebe_comunicacao: getColumnValue(row, mapping.recebe_comunicacao),
+        principal_envio: getColumnValue(row, mapping.principal_envio),
         status_rsvp: getColumnValue(row, mapping.status_rsvp),
         status_envio: getColumnValue(row, mapping.status_envio),
         data_hora_rsvp: getColumnValue(row, mapping.data_hora_rsvp),
@@ -681,9 +725,20 @@ export default function AdminImportacaoPage() {
         grupo: contact.grupo || "",
         nome: contact.nome,
         telefone: contact.telefone || "",
+        email: "",
         crianca: "",
         mae: "",
         idade_crianca: "",
+        tipo_contato: "adulto",
+        responsavel_nome: "",
+        responsavel_telefone: "",
+        tipo_nucleo: "",
+        nucleo: contact.grupo || "",
+        relacao_nucleo: "",
+        relacao_responsavel_nucleo: "",
+        relacao_evento: "",
+        recebe_comunicacao: "",
+        principal_envio: "",
         status_rsvp: "pendente",
         status_envio: "",
         data_hora_rsvp: "",
@@ -725,9 +780,20 @@ export default function AdminImportacaoPage() {
       grupo: findHeader(["grupo", "familia", "família"]),
       nome: findHeader(["nome", "convidado"]),
       telefone: findHeader(["telefone", "whatsapp", "celular"]),
+      email: findHeader(["email", "e-mail", "mail"]),
       crianca: findHeader(["crianca", "criança"]),
       mae: findHeader(["mae", "mãe", "mae/responsavel", "mãe/responsável"]),
       idade_crianca: findHeader(["idade_crianca", "idade criança", "idade crianca", "idade"]),
+      tipo_contato: findHeader(["tipo_contato", "tipo contato", "perfil contato", "perfil do contato"]),
+      responsavel_nome: findHeader(["responsavel_nome", "nome responsavel", "nome responsável", "responsavel", "responsável"]),
+      responsavel_telefone: findHeader(["responsavel_telefone", "telefone responsavel", "telefone responsável", "telefone do responsavel", "telefone do responsável"]),
+      tipo_nucleo: findHeader(["tipo_nucleo", "tipo de nucleo", "tipo de núcleo"]),
+      nucleo: findHeader(["nucleo", "núcleo", "nome nucleo", "nome núcleo"]),
+      relacao_nucleo: findHeader(["relacao_nucleo", "relação nucleo", "relação núcleo", "relacao com o nucleo", "relação com o núcleo"]),
+      relacao_responsavel_nucleo: findHeader(["relacao_responsavel_nucleo", "relação responsavel núcleo", "relação responsável núcleo", "relacao do responsavel com o nucleo", "relação do responsável com o núcleo"]),
+      relacao_evento: findHeader(["relacao_evento", "relação evento", "relacao com o evento", "relação com o evento"]),
+      recebe_comunicacao: findHeader(["recebe_comunicacao", "recebe comunicação", "recebe comunicacao", "recebe convite"]),
+      principal_envio: findHeader(["principal_envio", "principal envio", "contato principal"]),
       status_rsvp: findHeader(["status_rsvp", "rsvp", "confirma"]),
       status_envio: findHeader(["status_envio", "envio", "enviado", "status"]),
       data_hora_rsvp: findHeader(["data_resposta", "resposta"]),
@@ -1280,12 +1346,23 @@ export default function AdminImportacaoPage() {
 
             <div style={mappingGridStyle}>
               <MappingSelect label="legacy_id" value={mapping.legacy_id} headers={sheetHeaders} onChange={(value) => updateMapping("legacy_id", value)} />
-              <MappingSelect label="grupo" value={mapping.grupo} headers={sheetHeaders} onChange={(value) => updateMapping("grupo", value)} />
+              <MappingSelect label="grupo legado" value={mapping.grupo} headers={sheetHeaders} onChange={(value) => updateMapping("grupo", value)} />
               <MappingSelect label="nome" value={mapping.nome} headers={sheetHeaders} onChange={(value) => updateMapping("nome", value)} />
               <MappingSelect label="telefone" value={mapping.telefone} headers={sheetHeaders} onChange={(value) => updateMapping("telefone", value)} />
+              <MappingSelect label="email" value={mapping.email} headers={sheetHeaders} onChange={(value) => updateMapping("email", value)} />
               <MappingSelect label="crianca" value={mapping.crianca} headers={sheetHeaders} onChange={(value) => updateMapping("crianca", value)} />
-              <MappingSelect label="mae" value={mapping.mae} headers={sheetHeaders} onChange={(value) => updateMapping("mae", value)} />
+              <MappingSelect label="mae legado" value={mapping.mae} headers={sheetHeaders} onChange={(value) => updateMapping("mae", value)} />
               <MappingSelect label="idade_crianca" value={mapping.idade_crianca} headers={sheetHeaders} onChange={(value) => updateMapping("idade_crianca", value)} />
+              <MappingSelect label="tipo_contato" value={mapping.tipo_contato} headers={sheetHeaders} onChange={(value) => updateMapping("tipo_contato", value)} />
+              <MappingSelect label="responsavel_nome" value={mapping.responsavel_nome} headers={sheetHeaders} onChange={(value) => updateMapping("responsavel_nome", value)} />
+              <MappingSelect label="responsavel_telefone" value={mapping.responsavel_telefone} headers={sheetHeaders} onChange={(value) => updateMapping("responsavel_telefone", value)} />
+              <MappingSelect label="tipo_nucleo" value={mapping.tipo_nucleo} headers={sheetHeaders} onChange={(value) => updateMapping("tipo_nucleo", value)} />
+              <MappingSelect label="nucleo" value={mapping.nucleo} headers={sheetHeaders} onChange={(value) => updateMapping("nucleo", value)} />
+              <MappingSelect label="relacao_nucleo" value={mapping.relacao_nucleo} headers={sheetHeaders} onChange={(value) => updateMapping("relacao_nucleo", value)} />
+              <MappingSelect label="relacao_responsavel_nucleo" value={mapping.relacao_responsavel_nucleo} headers={sheetHeaders} onChange={(value) => updateMapping("relacao_responsavel_nucleo", value)} />
+              <MappingSelect label="relacao_evento" value={mapping.relacao_evento} headers={sheetHeaders} onChange={(value) => updateMapping("relacao_evento", value)} />
+              <MappingSelect label="recebe_comunicacao" value={mapping.recebe_comunicacao} headers={sheetHeaders} onChange={(value) => updateMapping("recebe_comunicacao", value)} />
+              <MappingSelect label="principal_envio" value={mapping.principal_envio} headers={sheetHeaders} onChange={(value) => updateMapping("principal_envio", value)} />
               <MappingSelect label="status_rsvp" value={mapping.status_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("status_rsvp", value)} />
               <MappingSelect label="status_envio" value={mapping.status_envio} headers={sheetHeaders} onChange={(value) => updateMapping("status_envio", value)} />
               <MappingSelect label="data_hora_rsvp" value={mapping.data_hora_rsvp} headers={sheetHeaders} onChange={(value) => updateMapping("data_hora_rsvp", value)} />
