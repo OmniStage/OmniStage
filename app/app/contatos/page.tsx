@@ -2549,6 +2549,7 @@ function MembrosNucleoModal({
     (pessoa) => !membros.some((membro) => membro.tenant_contato_id === pessoa.id),
   );
   const [mostrarCriacaoDireta, setMostrarCriacaoDireta] = useState(false);
+  const [mostrarAdicionarExistente, setMostrarAdicionarExistente] = useState(false);
   const [novaPessoaNucleoForm, setNovaPessoaNucleoForm] = useState<PessoaForm>(pessoaFormVazio);
 
   const responsavelPrincipalNucleo = useMemo(() => {
@@ -2631,44 +2632,68 @@ function MembrosNucleoModal({
         );
       })}
 
-      <div style={modalFormStyle}>
-        <label style={fieldStyle}>
-          <span>Adicionar pessoa</span>
-          <select value={vinculoPessoaId} onChange={(event) => onPessoaChange(event.target.value)} style={inputStyle}>
-            <option value="">Selecione uma pessoa</option>
-            {pessoasDisponiveis.map((pessoa) => (
-              <option key={pessoa.id} value={pessoa.id}>
-                {pessoa.nome} {pessoa.telefone ? `· ${pessoa.telefone}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div style={historyRowStyle}>
+        <div style={memberManageRowStyle}>
+          <div>
+            <strong>Adicionar contato existente a este núcleo</strong>
+            <span style={memberSubTextStyle}>
+              Use quando a pessoa já existe em Contatos. Ela será vinculada automaticamente a {nucleo.nome}.
+            </span>
+          </div>
 
-        <label style={fieldStyle}>
-          <span>Relação no núcleo</span>
-          <input
-            value={vinculoRelacao}
-            onChange={(event) => onRelacaoChange(event.target.value)}
-            placeholder="Ex: Mãe, Filho, Financeiro, Líder"
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={toggleStyle}>
-          <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
-          <span>Recebe comunicação por este núcleo</span>
-        </label>
-
-        <label style={toggleStyle}>
-          <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
-          <span>Principal para envio neste núcleo</span>
-        </label>
-
-        <div style={modalActionsStyle}>
-          <button type="button" onClick={onSalvar} style={buttonStyle} disabled={acaoLoading || !vinculoPessoaId}>
-            {acaoLoading ? "Salvando..." : "Adicionar membro"}
+          <button
+            type="button"
+            onClick={() => setMostrarAdicionarExistente((current) => !current)}
+            style={secondaryButtonStyle}
+            disabled={acaoLoading}
+          >
+            {mostrarAdicionarExistente ? "Ocultar vínculo" : "+ Adicionar membro"}
           </button>
         </div>
+
+        {mostrarAdicionarExistente && (
+          <div style={stackStyle}>
+            <div style={modalFormStyle}>
+              <label style={fieldStyle}>
+                <span>Adicionar pessoa</span>
+                <select value={vinculoPessoaId} onChange={(event) => onPessoaChange(event.target.value)} style={inputStyle}>
+                  <option value="">Selecione uma pessoa</option>
+                  {pessoasDisponiveis.map((pessoa) => (
+                    <option key={pessoa.id} value={pessoa.id}>
+                      {pessoa.nome} {pessoa.telefone ? `· ${pessoa.telefone}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={fieldStyle}>
+                <span>Relação no núcleo</span>
+                <input
+                  value={vinculoRelacao}
+                  onChange={(event) => onRelacaoChange(event.target.value)}
+                  placeholder="Ex: Mãe, Filho, Financeiro, Líder"
+                  style={inputStyle}
+                />
+              </label>
+
+              <label style={toggleStyle}>
+                <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
+                <span>Recebe comunicação por este núcleo</span>
+              </label>
+
+              <label style={toggleStyle}>
+                <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
+                <span>Principal para envio neste núcleo</span>
+              </label>
+
+              <div style={modalActionsStyle}>
+                <button type="button" onClick={onSalvar} style={buttonStyle} disabled={acaoLoading || !vinculoPessoaId}>
+                  {acaoLoading ? "Salvando..." : "Adicionar membro"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={historyRowStyle}>
