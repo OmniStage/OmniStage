@@ -19,11 +19,23 @@ type NucleoContato = {
   tipo_nucleo: string | null;
 };
 
+type VinculoContatoNucleo = {
+  id: string;
+  tenant_id: string | null;
+  grupo_contato_id: string;
+  tenant_contato_id: string;
+  papel: string | null;
+  papel_nucleo: string | null;
+  recebe_comunicacao: boolean | null;
+  principal_envio: boolean | null;
+};
+
 type Convidado = {
   id: string;
   nome: string;
   telefone: string | null;
   email: string | null;
+  tenant_contato_id?: string | null;
   grupo: string | null;
   crianca: string | null;
   mae: string | null;
@@ -225,6 +237,7 @@ export default function ConvidadosPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
   const [nucleosContatos, setNucleosContatos] = useState<NucleoContato[]>([]);
+  const [vinculosContatos, setVinculosContatos] = useState<VinculoContatoNucleo[]>([]);
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [presentesPreEvento, setPresentesPreEvento] = useState<PresentePreEvento[]>([]);
   const [form, setForm] = useState<ConvidadoForm>(initialForm);
@@ -344,6 +357,22 @@ export default function ConvidadosPage() {
     : form.tipo_convite === "grupo" && form.grupo.trim()
       ? "Núcleo manual"
       : "";
+
+  const nucleosContatosPorId = useMemo(() => {
+    return new Map(nucleosContatos.map((nucleo) => [nucleo.id, nucleo]));
+  }, [nucleosContatos]);
+
+  const vinculosContatosPorPessoa = useMemo(() => {
+    const mapa = new Map<string, VinculoContatoNucleo[]>();
+
+    vinculosContatos.forEach((vinculo) => {
+      const atual = mapa.get(vinculo.tenant_contato_id) || [];
+      mapa.set(vinculo.tenant_contato_id, [...atual, vinculo]);
+    });
+
+    return mapa;
+  }, [vinculosContatos]);
+
 
   const gruposConvidados = useMemo(() => {
     const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>(
@@ -787,6 +816,32 @@ ${eventoAtual?.nome || "OmniStage"}`);
     setNucleosContatos((data || []) as NucleoContato[]);
   }
 
+  async function carregarVinculosContatos(tenant: string) {
+    const { data, error } = await supabase
+      .from("contato_grupo_membros")
+      .select(
+        `
+        id,
+        tenant_id,
+        grupo_contato_id,
+        tenant_contato_id,
+        papel,
+        papel_nucleo,
+        recebe_comunicacao,
+        principal_envio
+      `,
+      )
+      .eq("tenant_id", tenant);
+
+    if (error) {
+      console.error("Erro ao carregar vínculos dos contatos:", error.message);
+      setVinculosContatos([]);
+      return;
+    }
+
+    setVinculosContatos((data || []) as VinculoContatoNucleo[]);
+  }
+
   async function carregarPresentesPreEvento(evento: string) {
     if (!evento) {
       setPresentesPreEvento([]);
@@ -863,6 +918,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         nome,
         telefone,
         email,
+        tenant_contato_id,
         grupo,
         crianca,
         mae,
@@ -915,6 +971,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       await Promise.all([
         carregarEventos(tenant),
         carregarNucleosContatos(tenant),
+        carregarVinculosContatos(tenant),
       ]);
     }
   }
@@ -1074,14 +1131,45 @@ ${eventoAtual?.nome || "OmniStage"}`);
     }
   }
 
+  function getPapelVinculoContato(vinculo: VinculoContatoNucleo) {
+    return vinculo.papel_nucleo || vinculo.papel || "membro";
+  }
+
+  function getNucleoPrincipalDoContato(tenantContatoId: string | null | undefined) {
+    if (!tenantContatoId) return null;
+
+    const vinculos = vinculosContatosPorPessoa.get(tenantContatoId) || [];
+    const vinculoPrincipal =
+      vinculos.find((vinculo) => Boolean(vinculo.principal_envio)) ||
+      vinculos.find((vinculo) => Boolean(vinculo.recebe_comunicacao)) ||
+      vinculos.find((vinculo) => getPapelVinculoContato(vinculo) === "responsavel") ||
+      vinculos[0] ||
+      null;
+
+    if (!vinculoPrincipal) return null;
+
+    const nucleo = nucleosContatosPorId.get(vinculoPrincipal.grupo_contato_id);
+    if (!nucleo) return null;
+
+    return { nucleo, vinculo: vinculoPrincipal };
+  }
+
   function editarConvidado(convidado: Convidado) {
     formReturnScrollYRef.current = window.scrollY;
+
+    const nucleoImportado = getNucleoPrincipalDoContato(convidado.tenant_contato_id);
+    const grupoFinal = convidado.grupo || nucleoImportado?.nucleo.nome || "";
+    const contatoPrincipalFinal =
+      convidado.contato_principal ?? Boolean(nucleoImportado?.vinculo.principal_envio);
+    const recebeConviteFinal =
+      convidado.recebe_convite ?? Boolean(nucleoImportado?.vinculo.recebe_comunicacao || nucleoImportado?.vinculo.principal_envio);
+
     setEditandoId(convidado.id);
     setForm({
       nome: convidado.nome || "",
       telefone: convidado.telefone || "",
       email: convidado.email || "",
-      grupo: convidado.grupo || "",
+      grupo: grupoFinal,
       crianca: convidado.responsavel || convidado.mae ? "sim" : convidado.crianca || "",
       responsavel: convidado.responsavel || convidado.mae || "",
       responsavel_telefone: convidado.responsavel_telefone || "",
@@ -1090,9 +1178,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
         ? String(convidado.idade_crianca)
         : "",
       tamanho_chinelo: convidado.tamanho_chinelo || "",
-      contato_principal: Boolean(convidado.contato_principal),
-      recebe_convite: Boolean(convidado.recebe_convite),
-      tipo_convite: convidado.tipo_convite || (convidado.grupo ? "grupo" : "individual"),
+      contato_principal: Boolean(contatoPrincipalFinal),
+      recebe_convite: Boolean(recebeConviteFinal),
+      tipo_convite: convidado.tipo_convite || (grupoFinal ? "grupo" : "individual"),
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
       status_envio: convidado.status_envio || "pendente",
@@ -1707,30 +1795,17 @@ ${eventoAtual?.nome || "OmniStage"}`);
               {form.tipo_convite === "grupo" && (
                 <>
                   <div style={formBlockGridStyle}>
-                    <label style={fieldStyle}>
-                      <span>Núcleo</span>
-                      <input
-                        value={form.grupo}
-                        onChange={(event) => {
-                          const grupo = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            grupo,
-                            tipo_convite: "grupo",
-                          }));
-                        }}
-                        placeholder="Ex: FAMILIA_SILVA"
-                        list="nucleos-contatos-lista"
-                        style={inputStyle}
-                      />
-                      <datalist id="nucleos-contatos-lista">
-                        {nucleosContatos.map((nucleo) => (
-                          <option key={nucleo.id} value={nucleo.nome}>
-                            {labelTipoNucleoConvite(getTipoNucleoConvite(nucleo))}
-                          </option>
-                        ))}
-                      </datalist>
-                    </label>
+                    <NucleoConviteSelector
+                      nucleos={nucleosContatos}
+                      value={form.grupo}
+                      onChange={(grupo) => {
+                        setForm((current) => ({
+                          ...current,
+                          grupo,
+                          tipo_convite: "grupo",
+                        }));
+                      }}
+                    />
 
                     <label style={fieldStyle}>
                       <span>Tipo do núcleo</span>
@@ -2657,6 +2732,154 @@ function getEnvioStyle(status: string | null): CSSProperties {
   };
 }
 
+function NucleoConviteSelector({
+  nucleos,
+  value,
+  onChange,
+}: {
+  nucleos: NucleoContato[];
+  value: string;
+  onChange: (valor: string) => void;
+}) {
+  const [buscaNucleo, setBuscaNucleo] = useState("");
+  const [aberto, setAberto] = useState(false);
+  const valorAtual = value.trim();
+
+  function getTipoNucleoSelector(nucleo: NucleoContato) {
+    return nucleo.tipo_nucleo || nucleo.tipo || "outro";
+  }
+
+  function labelTipoNucleoSelector(tipo: string | null | undefined) {
+    if (tipo === "familia") return "Família";
+    if (tipo === "empresa") return "Empresa";
+    if (tipo === "politico") return "Político";
+    if (tipo === "corporativo") return "Corporativo";
+    if (tipo === "igreja") return "Igreja";
+    if (tipo === "associacao") return "Associação";
+    if (tipo === "fornecedor") return "Fornecedor";
+    return "Outro";
+  }
+
+  const nucleoSelecionado = useMemo(() => {
+    const grupoAtual = valorAtual.toLowerCase();
+
+    if (!grupoAtual) return null;
+
+    return (
+      nucleos.find((nucleo) => nucleo.nome.trim().toLowerCase() === grupoAtual) || null
+    );
+  }, [nucleos, valorAtual]);
+
+  const nucleosFiltrados = useMemo(() => {
+    const termo = buscaNucleo.trim().toLowerCase();
+
+    if (!termo) return nucleos.slice(0, 8);
+
+    return nucleos
+      .filter((nucleo) =>
+        [
+          nucleo.nome,
+          nucleo.tipo,
+          nucleo.tipo_nucleo,
+          labelTipoNucleoSelector(getTipoNucleoSelector(nucleo)),
+        ]
+          .filter(Boolean)
+          .some((item) => String(item).toLowerCase().includes(termo)),
+      )
+      .slice(0, 12);
+  }, [buscaNucleo, nucleos]);
+
+  function selecionarNucleo(nucleo: NucleoContato) {
+    onChange(nucleo.nome);
+    setBuscaNucleo("");
+    setAberto(false);
+  }
+
+  return (
+    <label style={fieldStyle}>
+      <span>Núcleo</span>
+
+      {nucleoSelecionado ? (
+        <div style={nucleoSelecionadoConviteStyle}>
+          <div>
+            <strong>{nucleoSelecionado.nome}</strong>
+            <span>{labelTipoNucleoSelector(getTipoNucleoSelector(nucleoSelecionado))}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setBuscaNucleo("");
+              setAberto(true);
+            }}
+            style={secondaryButtonStyle}
+          >
+            Trocar
+          </button>
+        </div>
+      ) : valorAtual ? (
+        <div style={nucleoSelecionadoConviteStyle}>
+          <div>
+            <strong>{valorAtual}</strong>
+            <span>Núcleo manual</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setBuscaNucleo("");
+              setAberto(true);
+            }}
+            style={secondaryButtonStyle}
+          >
+            Limpar
+          </button>
+        </div>
+      ) : (
+        <div style={nucleoSelecionadoConviteStyle}>
+          <div>
+            <strong>Selecione um núcleo de Contatos</strong>
+            <span>{nucleos.length} núcleo(s) disponível(is)</span>
+          </div>
+        </div>
+      )}
+
+      <input
+        value={buscaNucleo}
+        onFocus={() => setAberto(true)}
+        onChange={(event) => {
+          setBuscaNucleo(event.target.value);
+          setAberto(true);
+        }}
+        placeholder="Buscar núcleo pelo nome..."
+        style={inputStyle}
+      />
+
+      {aberto && (
+        <div style={nucleoSearchResultListStyle}>
+          {nucleosFiltrados.length === 0 && (
+            <div style={nucleoEmptySearchResultStyle}>Nenhum núcleo encontrado.</div>
+          )}
+
+          {nucleosFiltrados.map((nucleo) => (
+            <button
+              key={nucleo.id}
+              type="button"
+              onClick={() => selecionarNucleo(nucleo)}
+              style={nucleoSearchResultButtonStyle}
+            >
+              <strong>{nucleo.nome}</strong>
+              <span>{labelTipoNucleoSelector(getTipoNucleoSelector(nucleo))}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </label>
+  );
+}
+
 function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
   return isDark
     ? {
@@ -2708,6 +2931,60 @@ function getPageStyle(
     transition: "background 180ms ease, color 180ms ease",
   };
 }
+
+const nucleoSelecionadoConviteStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "14px 16px",
+  borderRadius: 18,
+  border: "1px solid var(--border-strong)",
+  background: "var(--soft-bg)",
+  color: "var(--text-secondary)",
+  fontWeight: 850,
+  flexWrap: "wrap",
+};
+
+const nucleoSearchResultListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  maxHeight: 280,
+  overflowY: "auto",
+  padding: 10,
+  borderRadius: 18,
+  border: "1px solid var(--border)",
+  background: "var(--section-bg)",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.08)",
+  marginTop: -10,
+  marginBottom: 18,
+};
+
+const nucleoSearchResultButtonStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--border)",
+  background: "var(--soft-bg)",
+  color: "var(--text)",
+  fontSize: 14,
+  fontWeight: 850,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const nucleoEmptySearchResultStyle: CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px dashed var(--border-strong)",
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 800,
+};
 
 const heroCardStyle: CSSProperties = {
   padding: "clamp(18px, 4vw, 30px)",
