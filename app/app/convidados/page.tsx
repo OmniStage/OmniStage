@@ -12,6 +12,13 @@ type Evento = {
   lista_presentes_mensagem: string | null;
 };
 
+type NucleoContato = {
+  id: string;
+  nome: string;
+  tipo: string | null;
+  tipo_nucleo: string | null;
+};
+
 type Convidado = {
   id: string;
   nome: string;
@@ -217,6 +224,7 @@ export default function ConvidadosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
+  const [nucleosContatos, setNucleosContatos] = useState<NucleoContato[]>([]);
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [presentesPreEvento, setPresentesPreEvento] = useState<PresentePreEvento[]>([]);
   const [form, setForm] = useState<ConvidadoForm>(initialForm);
@@ -318,6 +326,24 @@ export default function ConvidadosPage() {
       return nomeA.localeCompare(nomeB, "pt-BR");
     });
   }, [convidados, busca, filtroRsvp, filtroEnvio, filtroTipo]);
+
+  const nucleoSelecionadoConvite = useMemo(() => {
+    const grupoAtual = form.grupo.trim().toLowerCase();
+
+    if (!grupoAtual) return null;
+
+    return (
+      nucleosContatos.find(
+        (nucleo) => nucleo.nome.trim().toLowerCase() === grupoAtual,
+      ) || null
+    );
+  }, [form.grupo, nucleosContatos]);
+
+  const tipoNucleoConvite = nucleoSelecionadoConvite
+    ? labelTipoNucleoConvite(getTipoNucleoConvite(nucleoSelecionadoConvite))
+    : form.tipo_convite === "grupo" && form.grupo.trim()
+      ? "Núcleo manual"
+      : "";
 
   const gruposConvidados = useMemo(() => {
     const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>(
@@ -431,7 +457,22 @@ export default function ConvidadosPage() {
     return "EVT-" + Math.floor(100000 + Math.random() * 900000);
   }
 
-  function normalizarTelefone(telefone: string | null) {
+  function getTipoNucleoConvite(nucleo: NucleoContato) {
+  return nucleo.tipo_nucleo || nucleo.tipo || "outro";
+}
+
+function labelTipoNucleoConvite(tipo: string | null | undefined) {
+  if (tipo === "familia") return "Família";
+  if (tipo === "empresa") return "Empresa";
+  if (tipo === "politico") return "Político";
+  if (tipo === "corporativo") return "Corporativo";
+  if (tipo === "igreja") return "Igreja";
+  if (tipo === "associacao") return "Associação";
+  if (tipo === "fornecedor") return "Fornecedor";
+  return "Outro";
+}
+
+function normalizarTelefone(telefone: string | null) {
     if (!telefone) return "";
     return telefone.replace(/\D/g, "");
   }
@@ -730,6 +771,22 @@ ${eventoAtual?.nome || "OmniStage"}`);
     }
   }
 
+  async function carregarNucleosContatos(tenant: string) {
+    const { data, error } = await supabase
+      .from("contato_grupos")
+      .select("id, nome, tipo, tipo_nucleo")
+      .eq("tenant_id", tenant)
+      .order("nome", { ascending: true });
+
+    if (error) {
+      console.error("Erro ao carregar núcleos de contatos:", error.message);
+      setNucleosContatos([]);
+      return;
+    }
+
+    setNucleosContatos((data || []) as NucleoContato[]);
+  }
+
   async function carregarPresentesPreEvento(evento: string) {
     if (!evento) {
       setPresentesPreEvento([]);
@@ -855,7 +912,10 @@ ${eventoAtual?.nome || "OmniStage"}`);
     const tenant = await carregarTenant();
 
     if (tenant) {
-      await carregarEventos(tenant);
+      await Promise.all([
+        carregarEventos(tenant),
+        carregarNucleosContatos(tenant),
+      ]);
     }
   }
 
@@ -900,7 +960,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         criancaSelecionada && !grupoFinal && Boolean(responsavelNormalizado);
 
       if (conviteEhGrupo && !grupoFinal) {
-        alert("Informe o nome do grupo/família ou altere o tipo do convite para Individual.");
+        alert("Informe o núcleo ou altere o tipo do convite para Individual.");
         return;
       }
 
@@ -1613,7 +1673,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 <span>03</span>
                 <div>
                   <strong>Perfil do convite</strong>
-                  <p>Defina se este convite será individual ou para um grupo/família. Os campos de grupo aparecem somente quando necessário.</p>
+                  <p>Defina se este convite será individual ou vinculado a um núcleo. Os campos de núcleo aparecem somente quando necessário.</p>
                 </div>
               </div>
 
@@ -1639,7 +1699,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     style={inputStyle}
                   >
                     <option value="individual">Individual</option>
-                    <option value="grupo">Grupo / Família</option>
+                    <option value="grupo">Núcleo</option>
                   </select>
                 </label>
               </div>
@@ -1648,7 +1708,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 <>
                   <div style={formBlockGridStyle}>
                     <label style={fieldStyle}>
-                      <span>Nome do grupo/família</span>
+                      <span>Núcleo</span>
                       <input
                         value={form.grupo}
                         onChange={(event) => {
@@ -1659,8 +1719,30 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             tipo_convite: "grupo",
                           }));
                         }}
-                        placeholder="Ex: Família Silva"
+                        placeholder="Ex: FAMILIA_SILVA"
+                        list="nucleos-contatos-lista"
                         style={inputStyle}
+                      />
+                      <datalist id="nucleos-contatos-lista">
+                        {nucleosContatos.map((nucleo) => (
+                          <option key={nucleo.id} value={nucleo.nome}>
+                            {labelTipoNucleoConvite(getTipoNucleoConvite(nucleo))}
+                          </option>
+                        ))}
+                      </datalist>
+                    </label>
+
+                    <label style={fieldStyle}>
+                      <span>Tipo do núcleo</span>
+                      <input
+                        value={tipoNucleoConvite}
+                        readOnly
+                        placeholder="Selecione um núcleo de Contatos"
+                        style={{
+                          ...inputStyle,
+                          background: "#f9fafb",
+                          color: tipoNucleoConvite ? "#0f172a" : "#9ca3af",
+                        }}
                       />
                     </label>
                   </div>
@@ -1682,7 +1764,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       />
                       <div style={toggleTextStyle}>
                         <strong>Contato principal</strong>
-                        <span>Identifica quem representa o grupo/família no envio.</span>
+                        <span>Identifica quem representa o núcleo no envio.</span>
                       </div>
                     </label>
 
@@ -1697,7 +1779,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       />
                       <div style={toggleTextStyle}>
                         <strong>Recebe comunicação</strong>
-                        <span>Usado no envio: esta pessoa recebe o convite/comunicação do grupo.</span>
+                        <span>Usado no envio: esta pessoa recebe o convite/comunicação do núcleo.</span>
                       </div>
                     </label>
                   </div>
