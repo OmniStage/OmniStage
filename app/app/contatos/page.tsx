@@ -1456,6 +1456,8 @@ export default function ContatosPage() {
               <PessoaFormModal
                 pessoaForm={pessoaForm}
                 nucleos={nucleos}
+                nucleosPorId={nucleosPorId}
+                vinculosPessoa={pessoaSelecionada ? membrosPorPessoa.get(pessoaSelecionada.id) || [] : []}
                 vinculoNucleoId={vinculoNucleoId}
                 vinculoRelacao={vinculoRelacao}
                 vinculoRecebeComunicacao={vinculoRecebeComunicacao}
@@ -1566,6 +1568,8 @@ export default function ContatosPage() {
 function PessoaFormModal({
   pessoaForm,
   nucleos,
+  nucleosPorId,
+  vinculosPessoa,
   vinculoNucleoId,
   vinculoRelacao,
   vinculoRecebeComunicacao,
@@ -1582,6 +1586,8 @@ function PessoaFormModal({
 }: {
   pessoaForm: PessoaForm;
   nucleos: Nucleo[];
+  nucleosPorId: Map<string, Nucleo>;
+  vinculosPessoa: MembroNucleo[];
   vinculoNucleoId: string;
   vinculoRelacao: string;
   vinculoRecebeComunicacao: boolean;
@@ -1597,6 +1603,23 @@ function PessoaFormModal({
   submitLabel: string;
 }) {
   const isCrianca = pessoaForm.tipo_contato === "crianca";
+  const [mostrarFormularioNucleo, setMostrarFormularioNucleo] = useState(false);
+
+  function abrirFormularioNovoNucleo() {
+    onNucleoChange("");
+    onRelacaoChange(isCrianca ? "filho" : "membro");
+    onRecebeChange(false);
+    onPrincipalChange(false);
+    setMostrarFormularioNucleo(true);
+  }
+
+  function abrirFormularioAlterarNucleo(vinculo: MembroNucleo) {
+    onNucleoChange(vinculo.grupo_contato_id);
+    onRelacaoChange(getPapelMembro(vinculo));
+    onRecebeChange(Boolean(vinculo.recebe_comunicacao));
+    onPrincipalChange(Boolean(vinculo.principal_envio));
+    setMostrarFormularioNucleo(true);
+  }
 
   return (
     <div style={stackStyle}>
@@ -1701,42 +1724,108 @@ function PessoaFormModal({
         <div style={formSectionHeaderStyle}>
           <span style={formStepStyle}>03</span>
           <div>
-            <h3 style={formSectionTitleStyle}>Núcleo inicial</h3>
+            <h3 style={formSectionTitleStyle}>Núcleos vinculados</h3>
             <p style={formSectionDescriptionStyle}>
-              Opcional. Vincule este contato a uma família, empresa ou outro núcleo já no cadastro.
+              A pessoa pode estar em mais de um núcleo. Altere um vínculo existente ou adicione um novo núcleo.
             </p>
           </div>
         </div>
 
-        <div style={modalFormStyle}>
-          <NucleoSearchSelector
-            nucleos={nucleos}
-            value={vinculoNucleoId}
-            onChange={onNucleoChange}
-            placeholder="Buscar núcleo inicial pelo nome..."
-            allowClear
-            clearLabel="Sem núcleo inicial"
-          />
+        <div style={stackStyle}>
+          {vinculosPessoa.length === 0 && (
+            <div style={emptyStyle}>Nenhum núcleo vinculado a esta pessoa.</div>
+          )}
 
-          <label style={fieldStyle}>
-            <span>Relação no núcleo</span>
-            <input
-              value={vinculoRelacao}
-              onChange={(event) => onRelacaoChange(event.target.value)}
-              placeholder={isCrianca ? "Ex: Filho, Filha, Neto" : "Ex: Mãe, Pai, Financeiro, Diretor"}
-              style={inputStyle}
-            />
-          </label>
+          {vinculosPessoa.length > 0 && (
+            <div style={stackStyle}>
+              {vinculosPessoa.map((vinculo) => {
+                const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
 
-          <label style={toggleStyle}>
-            <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
-            <span>Recebe comunicação por este núcleo</span>
-          </label>
+                return (
+                  <div key={vinculo.id} style={memberManageRowStyle}>
+                    <div>
+                      <strong>{nucleo?.nome || "Núcleo não encontrado"}</strong>
+                      <span style={memberSubTextStyle}>
+                        Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
+                      </span>
+                      <span style={memberSubTextStyle}>
+                        {vinculo.recebe_comunicacao || vinculo.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}
+                        {vinculo.principal_envio ? " · Principal para envio" : ""}
+                      </span>
+                    </div>
 
-          <label style={toggleStyle}>
-            <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
-            <span>Principal para envio neste núcleo</span>
-          </label>
+                    <button
+                      type="button"
+                      onClick={() => abrirFormularioAlterarNucleo(vinculo)}
+                      style={secondaryButtonStyle}
+                      disabled={acaoLoading}
+                    >
+                      Alterar
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!mostrarFormularioNucleo && (
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                onClick={abrirFormularioNovoNucleo}
+                style={secondaryButtonStyle}
+                disabled={acaoLoading}
+              >
+                + Adicionar núcleo
+              </button>
+            </div>
+          )}
+
+          {mostrarFormularioNucleo && (
+            <div style={historyRowStyle}>
+              <div style={modalFormStyle}>
+                <NucleoSearchSelector
+                  nucleos={nucleos}
+                  value={vinculoNucleoId}
+                  onChange={onNucleoChange}
+                  placeholder="Buscar núcleo pelo nome..."
+                  allowClear
+                  clearLabel="Sem núcleo selecionado"
+                />
+
+                <label style={fieldStyle}>
+                  <span>Relação no núcleo</span>
+                  <input
+                    value={vinculoRelacao}
+                    onChange={(event) => onRelacaoChange(event.target.value)}
+                    placeholder={isCrianca ? "Ex: Filho, Filha, Neto" : "Ex: Mãe, Pai, Financeiro, Diretor"}
+                    style={inputStyle}
+                  />
+                </label>
+
+                <label style={toggleStyle}>
+                  <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
+                  <span>Recebe comunicação por este núcleo</span>
+                </label>
+
+                <label style={toggleStyle}>
+                  <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
+                  <span>Principal para envio neste núcleo</span>
+                </label>
+
+                <div style={modalActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarFormularioNucleo(false)}
+                    style={secondaryButtonStyle}
+                    disabled={acaoLoading}
+                  >
+                    Ocultar vínculo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
