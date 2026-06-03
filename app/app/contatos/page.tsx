@@ -1544,11 +1544,25 @@ export default function ContatosPage() {
                       </div>
 
                       <div style={miniListStyle}>
-                        {membrosComPessoa.slice(0, visualizacaoNucleos === "lista" ? 3 : 6).map(({ membro, pessoa }) => (
-                          <span key={membro.id} style={miniItemStyle}>
-                            {pessoa?.nome} · {labelPapel(getPapelMembro(membro))}
-                          </span>
-                        ))}
+                        {membrosComPessoa.slice(0, visualizacaoNucleos === "lista" ? 3 : 6).map(({ membro, pessoa }) => {
+                          const pessoaCrianca = normalizarPerfilContato(pessoa?.tipo_contato) === "crianca";
+                          const responsavelNome = pessoa?.responsavel_nome?.trim() || "Não informado";
+                          const responsavelTelefone = pessoa?.responsavel_telefone?.trim() || "Não informado";
+
+                          return (
+                            <span key={membro.id} style={pessoaCrianca ? miniItemDetailedStyle : miniItemStyle}>
+                              <span>
+                                {pessoa?.nome} · {labelPapel(getPapelMembro(membro))}
+                              </span>
+
+                              {pessoaCrianca && (
+                                <span style={miniItemDetailStyle}>
+                                  Responsável: {responsavelNome} · Telefone: {responsavelTelefone}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -3438,6 +3452,27 @@ const miniItemStyle: CSSProperties = {
   fontWeight: 900,
   maxWidth: "100%",
   overflowWrap: "anywhere",
+};
+
+const miniItemDetailedStyle: CSSProperties = {
+  display: "inline-flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: 3,
+  padding: "8px 11px",
+  borderRadius: 14,
+  background: "#eef2ff",
+  color: "#3730a3",
+  fontSize: 12,
+  fontWeight: 900,
+  maxWidth: "100%",
+  overflowWrap: "anywhere",
+};
+
+const miniItemDetailStyle: CSSProperties = {
+  color: "#64748b",
+  fontSize: 11,
+  fontWeight: 850,
 };
 
 const emptyStyle: CSSProperties = {
