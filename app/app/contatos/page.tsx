@@ -873,20 +873,36 @@ export default function ContatosPage() {
       return;
     }
 
-    const jaExiste = membros.some(
+    const vinculoExistente = membros.find(
       (membro) =>
         membro.tenant_contato_id === pessoaSelecionada.id &&
         membro.grupo_contato_id === vinculoNucleoId,
     );
 
-    if (jaExiste) {
-      alert("Esta pessoa já está vinculada a este núcleo.");
-      return;
-    }
-
     setAcaoLoading(true);
 
     try {
+      if (vinculoExistente) {
+        const { error } = await supabase
+          .from("contato_grupo_membros")
+          .update({
+            papel: vinculoRelacao.trim(),
+            papel_nucleo: vinculoRelacao.trim(),
+            recebe_comunicacao: vinculoRecebeComunicacao,
+            principal_envio: vinculoPrincipalEnvio,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", vinculoExistente.id)
+          .eq("tenant_id", tenantId);
+
+        if (error) throw new Error(error.message);
+
+        await carregarMembros(tenantId);
+        limparFormularioVinculo();
+        alert("Vínculo atualizado.");
+        return;
+      }
+
       const { error } = await supabase.from("contato_grupo_membros").insert({
         tenant_id: tenantId,
         grupo_contato_id: vinculoNucleoId,
@@ -903,7 +919,7 @@ export default function ContatosPage() {
       limparFormularioVinculo();
       alert("Vínculo criado.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao criar vínculo.");
+      alert(error instanceof Error ? error.message : "Erro ao salvar vínculo.");
     } finally {
       setAcaoLoading(false);
     }
@@ -2118,76 +2134,158 @@ function VinculosPessoaModal({
   onSalvar: () => void;
   onRemover: (membro: MembroNucleo) => void;
 }) {
-  const nucleosDisponiveis = nucleos.filter(
-    (nucleo) => !vinculos.some((vinculo) => vinculo.grupo_contato_id === nucleo.id),
-  );
+  const [mostrarFormularioNucleo, setMostrarFormularioNucleo] = useState(false);
+
+  const nucleosDisponiveis = useMemo(() => {
+    return nucleos.filter(
+      (nucleo) =>
+        nucleo.id === vinculoNucleoId ||
+        !vinculos.some((vinculo) => vinculo.grupo_contato_id === nucleo.id),
+    );
+  }, [nucleos, vinculos, vinculoNucleoId]);
+
+  function abrirFormularioNovoNucleo() {
+    onNucleoChange("");
+    onRelacaoChange("membro");
+    onRecebeChange(false);
+    onPrincipalChange(false);
+    setMostrarFormularioNucleo(true);
+  }
+
+  function abrirFormularioAlterarNucleo(vinculo: MembroNucleo) {
+    onNucleoChange(vinculo.grupo_contato_id);
+    onRelacaoChange(getPapelMembro(vinculo));
+    onRecebeChange(Boolean(vinculo.recebe_comunicacao));
+    onPrincipalChange(Boolean(vinculo.principal_envio));
+    setMostrarFormularioNucleo(true);
+  }
 
   return (
     <div style={modalContentStyle}>
       <h3 style={modalSectionTitleStyle}>{pessoa.nome}</h3>
       <p style={mutedStyle}>
-        A pessoa pode participar de vários núcleos. Cada vínculo tem uma relação própria com aquele núcleo.
+        A pessoa pode participar de vários núcleos. Altere um vínculo existente ou adicione um novo núcleo.
       </p>
 
-      <div style={historyRowStyle}>
-        <strong>Núcleos vinculados</strong>
-        {vinculos.length === 0 && <span>Nenhum núcleo vinculado.</span>}
+      <div style={formSectionStyle}>
+        <div style={formSectionHeaderStyle}>
+          <span style={formStepStyle}>01</span>
+          <div>
+            <h3 style={formSectionTitleStyle}>Núcleos vinculados</h3>
+            <p style={formSectionDescriptionStyle}>
+              Cada vínculo tem uma relação própria, comunicação e principal para envio.
+            </p>
+          </div>
+        </div>
 
-        {vinculos.map((vinculo) => {
-          const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
+        <div style={stackStyle}>
+          {vinculos.length === 0 && <div style={emptyStyle}>Nenhum núcleo vinculado.</div>}
 
-          return (
-            <div key={vinculo.id} style={memberManageRowStyle}>
-              <div>
-                <strong>{nucleo?.nome || "Núcleo não encontrado"}</strong>
-                <span style={memberSubTextStyle}>
-                  Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
-                  {vinculo.recebe_comunicacao || vinculo.principal_envio ? " · Recebe comunicação" : ""}
-                </span>
-              </div>
+          {vinculos.length > 0 && (
+            <div style={stackStyle}>
+              {vinculos.map((vinculo) => {
+                const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
 
-              <button type="button" onClick={() => onRemover(vinculo)} style={dangerButtonStyle} disabled={acaoLoading}>
-                Remover
+                return (
+                  <div key={vinculo.id} style={memberManageRowStyle}>
+                    <div>
+                      <strong>{nucleo?.nome || "Núcleo não encontrado"}</strong>
+                      <span style={memberSubTextStyle}>
+                        Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
+                      </span>
+                      <span style={memberSubTextStyle}>
+                        {vinculo.recebe_comunicacao || vinculo.principal_envio ? "Recebe comunicação" : "Não recebe comunicação"}
+                        {vinculo.principal_envio ? " · Principal para envio" : ""}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => abrirFormularioAlterarNucleo(vinculo)}
+                        style={secondaryButtonStyle}
+                        disabled={acaoLoading}
+                      >
+                        Alterar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onRemover(vinculo)}
+                        style={dangerButtonStyle}
+                        disabled={acaoLoading}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!mostrarFormularioNucleo && (
+            <div style={modalActionsStyle}>
+              <button
+                type="button"
+                onClick={abrirFormularioNovoNucleo}
+                style={secondaryButtonStyle}
+                disabled={acaoLoading}
+              >
+                + Adicionar núcleo
               </button>
             </div>
-          );
-        })}
-      </div>
+          )}
 
-      <div style={modalFormStyle}>
-        <NucleoSearchSelector
-          nucleos={nucleosDisponiveis}
-          value={vinculoNucleoId}
-          onChange={onNucleoChange}
-          placeholder="Buscar núcleo pelo nome..."
-          allowClear
-          clearLabel="Selecione um núcleo"
-        />
+          {mostrarFormularioNucleo && (
+            <div style={historyRowStyle}>
+              <div style={modalFormStyle}>
+                <NucleoSearchSelector
+                  nucleos={nucleosDisponiveis}
+                  value={vinculoNucleoId}
+                  onChange={onNucleoChange}
+                  placeholder="Buscar núcleo pelo nome..."
+                  allowClear
+                  clearLabel="Selecione um núcleo"
+                />
 
-        <label style={fieldStyle}>
-          <span>Relação no núcleo</span>
-          <input
-            value={vinculoRelacao}
-            onChange={(event) => onRelacaoChange(event.target.value)}
-            placeholder="Ex: Mãe, Financeiro, Diretor, Líder"
-            style={inputStyle}
-          />
-        </label>
+                <label style={fieldStyle}>
+                  <span>Relação no núcleo</span>
+                  <input
+                    value={vinculoRelacao}
+                    onChange={(event) => onRelacaoChange(event.target.value)}
+                    placeholder="Ex: Mãe, Financeiro, Diretor, Líder"
+                    style={inputStyle}
+                  />
+                </label>
 
-        <label style={toggleStyle}>
-          <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
-          <span>Recebe comunicação por este núcleo</span>
-        </label>
+                <label style={toggleStyle}>
+                  <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
+                  <span>Recebe comunicação por este núcleo</span>
+                </label>
 
-        <label style={toggleStyle}>
-          <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
-          <span>Principal para envio neste núcleo</span>
-        </label>
+                <label style={toggleStyle}>
+                  <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
+                  <span>Principal para envio neste núcleo</span>
+                </label>
 
-        <div style={modalActionsStyle}>
-          <button type="button" onClick={onSalvar} style={buttonStyle} disabled={acaoLoading || !vinculoNucleoId}>
-            {acaoLoading ? "Salvando..." : "Vincular núcleo"}
-          </button>
+                <div style={modalActionsStyle}>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarFormularioNucleo(false)}
+                    style={secondaryButtonStyle}
+                    disabled={acaoLoading}
+                  >
+                    Ocultar vínculo
+                  </button>
+
+                  <button type="button" onClick={onSalvar} style={buttonStyle} disabled={acaoLoading || !vinculoNucleoId}>
+                    {acaoLoading ? "Salvando..." : "Salvar vínculo"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
