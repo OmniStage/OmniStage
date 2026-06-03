@@ -7,9 +7,20 @@ type ImportGuest = {
   grupo: string | null;
   name: string;
   phone: string | null;
+  email?: string | null;
   crianca: string | null;
   mae: string | null;
   idade_crianca: string | number | null;
+  tipo_contato?: string | null;
+  responsavel_nome?: string | null;
+  responsavel_telefone?: string | null;
+  tipo_nucleo?: string | null;
+  nucleo?: string | null;
+  relacao_nucleo?: string | null;
+  relacao_responsavel_nucleo?: string | null;
+  relacao_evento?: string | null;
+  recebe_comunicacao?: boolean;
+  principal_envio?: boolean;
   contato_principal: boolean;
   recebe_convite: boolean;
   status_rsvp: string | null;
@@ -44,6 +55,260 @@ function cleanPhone(value: string | null | undefined): string | null {
 function cleanText(value: unknown): string | null {
   const text = String(value || "").trim();
   return text ? text : null;
+}
+
+function normalizeTextKey(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function normalizeBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+
+  const raw = normalizeTextKey(value);
+  if (!raw) return fallback;
+
+  if (["sim", "s", "true", "1", "yes", "y"].includes(raw)) return true;
+  if (["nao", "não", "n", "false", "0", "no"].includes(raw)) return false;
+
+  return fallback;
+}
+
+function normalizeTipoContato(value: unknown, crianca: unknown, mae: unknown) {
+  const raw = normalizeTextKey(value);
+  const criancaNormalizada = normalizeCrianca(crianca, mae);
+
+  if (raw === "crianca" || raw === "criança" || raw === "infantil") return "crianca";
+  if (criancaNormalizada === "sim") return "crianca";
+
+  return "adulto";
+}
+
+function normalizeTipoNucleo(value: unknown) {
+  const raw = normalizeTextKey(value).replace(/\s+/g, "_");
+
+  if (!raw) return "familia";
+  if (raw === "família") return "familia";
+  if (["familia", "empresa", "escola", "igreja", "associacao", "associação", "fornecedor", "politico", "político", "corporativo", "outro"].includes(raw)) {
+    if (raw === "associação") return "associacao";
+    if (raw === "político") return "politico";
+    return raw;
+  }
+
+  return raw;
+}
+
+function normalizePapelNucleo(value: unknown, fallback: string) {
+  const text = cleanText(value);
+  return text ? text : fallback;
+}
+
+function getRawValue(raw: any, keys: string[]): string | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  for (const key of keys) {
+    const direct = raw[key];
+    if (cleanText(direct)) return cleanText(direct);
+  }
+
+  return null;
+}
+
+async function ensureTenantContato(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  params: {
+    tenantId: string;
+    nome: string;
+    telefone?: string | null;
+    email?: string | null;
+    tipoContato?: string | null;
+    responsavelNome?: string | null;
+    responsavelTelefone?: string | null;
+    origem?: string;
+  }
+) {
+  const nome = cleanText(params.nome);
+  if (!nome) return null;
+
+  const telefoneNormalizado = cleanPhone(params.telefone || undefined);
+  const tipoContato = params.tipoContato || "adulto";
+
+  let query = supabase
+    .from("tenant_contatos")
+    .select("id, nome, telefone, telefone_normalizado, email, tipo_contato, responsavel_nome, responsavel_telefone")
+    .eq("tenant_id", params.tenantId)
+    .limit(1);
+
+  if (telefoneNormalizado) {
+    query = query.eq("telefone_normalizado", telefoneNormalizado);
+  } else {
+    query = query.eq("nome", nome);
+
+    if (tipoContato === "crianca" && cleanText(params.responsavelNome)) {
+      query = query.eq("responsavel_nome", cleanText(params.responsavelNome));
+    }
+  }
+
+  const { data: existing, error: findError } = await query.maybeSingle();
+  if (findError) throw new Error(findError.message);
+
+  const payload: any = {
+    nome,
+    telefone: telefoneNormalizado || cleanText(params.telefone) || null,
+    telefone_normalizado: telefoneNormalizado || null,
+    email: cleanText(params.email) || null,
+    tipo_contato: tipoContato,
+    responsavel_nome: tipoContato === "crianca" ? cleanText(params.responsavelNome) : null,
+    responsavel_telefone: tipoContato === "crianca" ? cleanPhone(params.responsavelTelefone || undefined) || cleanText(params.responsavelTelefone) : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing?.id) {
+    const updatePayload: any = { updated_at: payload.updated_at };
+
+    if (payload.nome && valuesAreDifferent(payload.nome, existing.nome)) updatePayload.nome = payload.nome;
+    if (payload.telefone && !existing.telefone) updatePayload.telefone = payload.telefone;
+    if (payload.telefone_normalizado && !existing.telefone_normalizado) updatePayload.telefone_normalizado = payload.telefone_normalizado;
+    if (payload.email && !existing.email) updatePayload.email = payload.email;
+    if (payload.tipo_contato && valuesAreDifferent(payload.tipo_contato, existing.tipo_contato)) updatePayload.tipo_contato = payload.tipo_contato;
+    if (payload.responsavel_nome && !existing.responsavel_nome) updatePayload.responsavel_nome = payload.responsavel_nome;
+    if (payload.responsavel_telefone && !existing.responsavel_telefone) updatePayload.responsavel_telefone = payload.responsavel_telefone;
+
+    if (Object.keys(updatePayload).length > 1) {
+      const { error: updateError } = await supabase
+        .from("tenant_contatos")
+        .update(updatePayload)
+        .eq("id", existing.id)
+        .eq("tenant_id", params.tenantId);
+
+      if (updateError) throw new Error(updateError.message);
+    }
+
+    return existing.id as string;
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from("tenant_contatos")
+    .insert({
+      tenant_id: params.tenantId,
+      ...payload,
+      origem: params.origem || "importacao_admin_evento",
+    })
+    .select("id")
+    .single();
+
+  if (insertError) throw new Error(insertError.message);
+  return created?.id as string;
+}
+
+async function ensureContatoGrupo(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  params: { tenantId: string; nome: string; tipoNucleo?: string | null; origem?: string }
+) {
+  const nome = cleanText(params.nome);
+  if (!nome) return null;
+
+  const tipoNucleo = normalizeTipoNucleo(params.tipoNucleo);
+
+  const { data: existing, error: findError } = await supabase
+    .from("contato_grupos")
+    .select("id, tipo, tipo_nucleo")
+    .eq("tenant_id", params.tenantId)
+    .eq("nome", nome)
+    .limit(1)
+    .maybeSingle();
+
+  if (findError) throw new Error(findError.message);
+
+  if (existing?.id) {
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    if (tipoNucleo && !existing.tipo_nucleo) updatePayload.tipo_nucleo = tipoNucleo;
+    if (tipoNucleo && !existing.tipo) updatePayload.tipo = tipoNucleo;
+
+    if (Object.keys(updatePayload).length > 1) {
+      const { error: updateError } = await supabase
+        .from("contato_grupos")
+        .update(updatePayload)
+        .eq("id", existing.id)
+        .eq("tenant_id", params.tenantId);
+
+      if (updateError) throw new Error(updateError.message);
+    }
+
+    return existing.id as string;
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from("contato_grupos")
+    .insert({
+      tenant_id: params.tenantId,
+      nome,
+      tipo: tipoNucleo,
+      tipo_nucleo: tipoNucleo,
+      origem: params.origem || "importacao_admin_evento",
+    })
+    .select("id")
+    .single();
+
+  if (insertError) throw new Error(insertError.message);
+  return created?.id as string;
+}
+
+async function ensureContatoGrupoMembro(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  params: {
+    tenantId: string;
+    grupoContatoId: string | null;
+    tenantContatoId: string | null;
+    papel: string;
+    recebeComunicacao?: boolean;
+    principalEnvio?: boolean;
+  }
+) {
+  if (!params.grupoContatoId || !params.tenantContatoId) return;
+
+  const { data: existing, error: findError } = await supabase
+    .from("contato_grupo_membros")
+    .select("id")
+    .eq("tenant_id", params.tenantId)
+    .eq("grupo_contato_id", params.grupoContatoId)
+    .eq("tenant_contato_id", params.tenantContatoId)
+    .limit(1)
+    .maybeSingle();
+
+  if (findError) throw new Error(findError.message);
+
+  const payload = {
+    papel: params.papel,
+    papel_nucleo: params.papel,
+    recebe_comunicacao: Boolean(params.recebeComunicacao),
+    principal_envio: Boolean(params.principalEnvio),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing?.id) {
+    const { error: updateError } = await supabase
+      .from("contato_grupo_membros")
+      .update(payload)
+      .eq("id", existing.id)
+      .eq("tenant_id", params.tenantId);
+
+    if (updateError) throw new Error(updateError.message);
+    return;
+  }
+
+  const { error: insertError } = await supabase.from("contato_grupo_membros").insert({
+    tenant_id: params.tenantId,
+    grupo_contato_id: params.grupoContatoId,
+    tenant_contato_id: params.tenantContatoId,
+    ...payload,
+  });
+
+  if (insertError) throw new Error(insertError.message);
 }
 
 function normalizeCrianca(value: unknown, mae: unknown): string | null {
@@ -142,9 +407,20 @@ function normalizeMappedRows(mappedRows: any[]): ImportGuest[] {
       grupo: row.grupo ? String(row.grupo).trim() : null,
       name: row.nome ? String(row.nome).trim() : "",
       phone: cleanPhone(row.telefone),
-      crianca: normalizeCrianca(row.crianca, row.mae),
+      email: cleanText(row.email),
+      crianca: normalizeCrianca(row.crianca, row.mae || row.responsavel_nome),
       mae: cleanText(row.mae),
       idade_crianca: normalizeIdadeCrianca(row.idade_crianca),
+      tipo_contato: normalizeTipoContato(row.tipo_contato, row.crianca, row.mae || row.responsavel_nome),
+      responsavel_nome: cleanText(row.responsavel_nome) || cleanText(row.mae),
+      responsavel_telefone: cleanPhone(row.responsavel_telefone) || cleanText(row.responsavel_telefone),
+      tipo_nucleo: cleanText(row.tipo_nucleo),
+      nucleo: cleanText(row.nucleo),
+      relacao_nucleo: cleanText(row.relacao_nucleo),
+      relacao_responsavel_nucleo: cleanText(row.relacao_responsavel_nucleo),
+      relacao_evento: cleanText(row.relacao_evento),
+      recebe_comunicacao: normalizeBoolean(row.recebe_comunicacao, false),
+      principal_envio: normalizeBoolean(row.principal_envio, false),
       status_rsvp: normalizeStatusRsvp(row.status_rsvp),
       status_envio: normalizeStatusEnvio(row.status_envio),
       data_hora_rsvp: row.data_hora_rsvp
@@ -212,9 +488,20 @@ export async function POST(req: Request) {
           grupo: guest.grupo,
           name: guest.name,
           phone: guest.phone,
+          email: null,
           crianca: normalizeCrianca((guest as any).crianca, (guest as any).mae),
           mae: cleanText((guest as any).mae),
           idade_crianca: normalizeIdadeCrianca((guest as any).idade_crianca),
+          tipo_contato: normalizeTipoContato(null, (guest as any).crianca, (guest as any).mae),
+          responsavel_nome: cleanText((guest as any).mae),
+          responsavel_telefone: null,
+          tipo_nucleo: null,
+          nucleo: null,
+          relacao_nucleo: null,
+          relacao_responsavel_nucleo: null,
+          relacao_evento: null,
+          recebe_comunicacao: false,
+          principal_envio: false,
           contato_principal: false,
           recebe_convite: false,
           status_rsvp: guest.status_rsvp,
@@ -398,28 +685,103 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: previewError.message }, { status: 500 });
       }
 
-      const rowsToInsert = (previewRows || []).map((item) => ({
-        tenant_id: tenantId,
-        evento_id: eventoId,
-        import_batch_id: batchId,
-        legacy_id: item.legacy_id,
-        origem_importacao: item.origem_importacao || "planilha_legada",
-        nome: item.nome,
-        telefone: item.telefone,
-        grupo: item.grupo,
-        crianca: normalizeCrianca(item.crianca, item.mae),
-        mae: cleanText(item.mae),
-        idade_crianca: normalizeIdadeCrianca(item.idade_crianca),
-        contato_principal: Boolean(item.contato_principal),
-        recebe_convite: Boolean(item.recebe_convite),
-        tipo_convite: item.grupo ? "grupo" : "individual",
-        status_rsvp: item.status_rsvp || "pendente",
-        status_envio: item.status_envio || "pendente",
-        data_hora_rsvp: item.data_hora_rsvp || null,
-        data_hora_envio: item.data_hora_envio || null,
-        status_checkin: "nao_entrou",
-        token: gerarToken(),
-      }));
+      const rowsToInsert: any[] = [];
+
+      for (const item of previewRows || []) {
+        const raw = item.raw_data || {};
+        const responsavelNome =
+          cleanText(raw.responsavel_nome) || cleanText(item.mae) || cleanText(raw.mae);
+        const responsavelTelefone =
+          cleanPhone(raw.responsavel_telefone) || cleanText(raw.responsavel_telefone);
+        const tipoContato = normalizeTipoContato(raw.tipo_contato, item.crianca, responsavelNome || item.mae);
+        const isCrianca = tipoContato === "crianca" || normalizeCrianca(item.crianca, responsavelNome || item.mae) === "sim";
+        const nucleoNome = cleanText(raw.nucleo) || cleanText(item.grupo);
+        const tipoNucleo = cleanText(raw.tipo_nucleo) || (nucleoNome ? "familia" : null);
+        const relacaoNucleo = normalizePapelNucleo(raw.relacao_nucleo, isCrianca ? "filho" : "membro");
+        const relacaoResponsavelNucleo = normalizePapelNucleo(raw.relacao_responsavel_nucleo, "responsavel");
+        const recebeComunicacao = normalizeBoolean(raw.recebe_comunicacao, Boolean(item.recebe_convite));
+        const principalEnvio = normalizeBoolean(raw.principal_envio, Boolean(item.contato_principal));
+
+        const tenantContatoId = await ensureTenantContato(supabase, {
+          tenantId,
+          nome: item.nome,
+          telefone: item.telefone,
+          email: cleanText(raw.email),
+          tipoContato: isCrianca ? "crianca" : "adulto",
+          responsavelNome,
+          responsavelTelefone,
+          origem: "importacao_admin_evento",
+        });
+
+        let responsavelContatoId: string | null = null;
+        if (isCrianca && responsavelNome) {
+          responsavelContatoId = await ensureTenantContato(supabase, {
+            tenantId,
+            nome: responsavelNome,
+            telefone: responsavelTelefone,
+            tipoContato: "adulto",
+            origem: "importacao_admin_evento_responsavel",
+          });
+        }
+
+        let grupoContatoId: string | null = null;
+        if (nucleoNome) {
+          grupoContatoId = await ensureContatoGrupo(supabase, {
+            tenantId,
+            nome: nucleoNome,
+            tipoNucleo,
+            origem: "importacao_admin_evento",
+          });
+
+          await ensureContatoGrupoMembro(supabase, {
+            tenantId,
+            grupoContatoId,
+            tenantContatoId,
+            papel: relacaoNucleo,
+            recebeComunicacao,
+            principalEnvio,
+          });
+
+          if (responsavelContatoId) {
+            await ensureContatoGrupoMembro(supabase, {
+              tenantId,
+              grupoContatoId,
+              tenantContatoId: responsavelContatoId,
+              papel: relacaoResponsavelNucleo,
+              recebeComunicacao: true,
+              principalEnvio: true,
+            });
+          }
+        }
+
+        rowsToInsert.push({
+          tenant_id: tenantId,
+          evento_id: eventoId,
+          import_batch_id: batchId,
+          legacy_id: item.legacy_id,
+          origem_importacao: item.origem_importacao || "planilha_legada",
+          nome: item.nome,
+          telefone: item.telefone,
+          email: cleanText(raw.email) || null,
+          grupo: nucleoNome || item.grupo,
+          crianca: isCrianca ? "sim" : normalizeCrianca(item.crianca, responsavelNome || item.mae),
+          mae: cleanText(item.mae),
+          idade_crianca: normalizeIdadeCrianca(item.idade_crianca),
+          contato_principal: principalEnvio || Boolean(item.contato_principal),
+          recebe_convite: recebeComunicacao || Boolean(item.recebe_convite),
+          tipo_convite: nucleoNome || item.grupo ? "grupo" : "individual",
+          status_rsvp: item.status_rsvp || "pendente",
+          status_envio: item.status_envio || "pendente",
+          data_hora_rsvp: item.data_hora_rsvp || null,
+          data_hora_envio: item.data_hora_envio || null,
+          status_checkin: "nao_entrou",
+          responsavel: isCrianca ? responsavelNome : null,
+          responsavel_telefone: isCrianca ? responsavelTelefone : null,
+          tenant_contato_id: tenantContatoId,
+          relacao_evento: cleanText(raw.relacao_evento) || null,
+          token: gerarToken(),
+        });
+      }
 
       if (rowsToInsert.length === 0) {
         return NextResponse.json(
