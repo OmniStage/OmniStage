@@ -2002,6 +2002,7 @@ function NucleoFormModal({
           <option value="corporativo">Corporativo</option>
           <option value="igreja">Igreja</option>
           <option value="associacao">Associação</option>
+          <option value="escola">Escola</option>
           <option value="fornecedor">Fornecedor</option>
           <option value="outro">Outro</option>
         </select>
