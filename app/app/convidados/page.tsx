@@ -30,6 +30,13 @@ type VinculoContatoNucleo = {
   principal_envio: boolean | null;
 };
 
+type ContatoBaseConvidado = {
+  id: string;
+  tipo_contato: string | null;
+  responsavel_nome: string | null;
+  responsavel_telefone: string | null;
+};
+
 type Convidado = {
   id: string;
   nome: string;
@@ -238,6 +245,7 @@ export default function ConvidadosPage() {
   const [eventoId, setEventoId] = useState("");
   const [nucleosContatos, setNucleosContatos] = useState<NucleoContato[]>([]);
   const [vinculosContatos, setVinculosContatos] = useState<VinculoContatoNucleo[]>([]);
+  const [contatosBasePorId, setContatosBasePorId] = useState<Map<string, ContatoBaseConvidado>>(new Map());
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [presentesPreEvento, setPresentesPreEvento] = useState<PresentePreEvento[]>([]);
   const [form, setForm] = useState<ConvidadoForm>(initialForm);
@@ -504,6 +512,10 @@ function labelTipoNucleoConvite(tipo: string | null | undefined) {
 function normalizarTelefone(telefone: string | null) {
     if (!telefone) return "";
     return telefone.replace(/\D/g, "");
+  }
+
+  function tipoContatoEhCrianca(tipoContato: string | null | undefined) {
+    return String(tipoContato || "").trim().toLowerCase() === "crianca";
   }
 
   function gerarLinkCartao(convidado: Convidado) {
@@ -960,8 +972,67 @@ ${eventoAtual?.nome || "OmniStage"}`);
       return;
     }
 
-    setConvidados((data || []) as Convidado[]);
+    const convidadosData = (data || []) as Convidado[];
+    const contatosBase = await carregarContatosBaseDosConvidados(tenant, convidadosData);
+
+    setConvidados(normalizarConvidadosImportadosDeContatos(convidadosData, contatosBase));
     await carregarPresentesPreEvento(evento);
+  }
+
+  async function carregarContatosBaseDosConvidados(tenant: string, convidadosData: Convidado[]) {
+    const contatosIds = Array.from(
+      new Set(
+        convidadosData
+          .map((convidado) => convidado.tenant_contato_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+
+    if (contatosIds.length === 0) {
+      const mapaVazio = new Map<string, ContatoBaseConvidado>();
+      setContatosBasePorId(mapaVazio);
+      return mapaVazio;
+    }
+
+    const { data, error } = await supabase
+      .from("tenant_contatos")
+      .select("id, tipo_contato, responsavel_nome, responsavel_telefone")
+      .eq("tenant_id", tenant)
+      .in("id", contatosIds);
+
+    if (error) {
+      console.error("Erro ao carregar dados-base dos contatos:", error.message);
+      const mapaVazio = new Map<string, ContatoBaseConvidado>();
+      setContatosBasePorId(mapaVazio);
+      return mapaVazio;
+    }
+
+    const mapa = new Map(
+      ((data || []) as ContatoBaseConvidado[]).map((contato) => [contato.id, contato]),
+    );
+
+    setContatosBasePorId(mapa);
+    return mapa;
+  }
+
+  function normalizarConvidadosImportadosDeContatos(
+    convidadosData: Convidado[],
+    contatosBase: Map<string, ContatoBaseConvidado>,
+  ) {
+    return convidadosData.map((convidado) => {
+      if (!convidado.tenant_contato_id) return convidado;
+
+      const contatoBase = contatosBase.get(convidado.tenant_contato_id);
+      if (!contatoBase || !tipoContatoEhCrianca(contatoBase.tipo_contato)) return convidado;
+
+      return {
+        ...convidado,
+        crianca: convidado.crianca || "sim",
+        responsavel: convidado.responsavel || contatoBase.responsavel_nome || null,
+        responsavel_telefone:
+          convidado.responsavel_telefone || contatoBase.responsavel_telefone || null,
+      };
+    });
   }
 
   async function iniciarTela() {
@@ -1027,16 +1098,28 @@ ${eventoAtual?.nome || "OmniStage"}`);
       }
 
       const telefonePrincipal = form.telefone.trim();
+      const convidadoEditando = editandoId
+        ? convidados.find((convidado) => convidado.id === editandoId) || null
+        : null;
+      const contatoBaseEditando = convidadoEditando?.tenant_contato_id
+        ? contatosBasePorId.get(convidadoEditando.tenant_contato_id) || null
+        : null;
+      const contatoBaseEditandoEhCrianca = tipoContatoEhCrianca(contatoBaseEditando?.tipo_contato);
+      const criancaFinal = criancaSelecionada || contatoBaseEditandoEhCrianca;
+      const responsavelFinal = responsavelNormalizado || maeNormalizada ||
+        (criancaFinal ? contatoBaseEditando?.responsavel_nome || "" : "");
+      const responsavelTelefoneFinal = responsavelTelefoneNormalizado ||
+        (criancaFinal ? contatoBaseEditando?.responsavel_telefone || "" : "");
 
       const payload = {
         nome: form.nome.trim(),
         telefone: telefonePrincipal || null,
         email: form.email.trim() || null,
         grupo: grupoFinal || null,
-        crianca: criancaSelecionada || responsavelNormalizado ? "sim" : form.crianca,
-        mae: maeNormalizada || null,
-        responsavel: responsavelNormalizado || maeNormalizada || null,
-        responsavel_telefone: responsavelTelefoneNormalizado || null,
+        crianca: criancaFinal || responsavelFinal ? "sim" : form.crianca,
+        mae: maeNormalizada || responsavelFinal || null,
+        responsavel: responsavelFinal || null,
+        responsavel_telefone: responsavelTelefoneFinal || null,
         idade_crianca: idadeCriancaNormalizada
           ? Number(idadeCriancaNormalizada)
           : null,
@@ -1158,11 +1241,17 @@ ${eventoAtual?.nome || "OmniStage"}`);
     formReturnScrollYRef.current = window.scrollY;
 
     const nucleoImportado = getNucleoPrincipalDoContato(convidado.tenant_contato_id);
+    const contatoBase = convidado.tenant_contato_id
+      ? contatosBasePorId.get(convidado.tenant_contato_id) || null
+      : null;
+    const contatoBaseEhCrianca = tipoContatoEhCrianca(contatoBase?.tipo_contato);
     const grupoFinal = convidado.grupo || nucleoImportado?.nucleo.nome || "";
     const contatoPrincipalFinal =
       convidado.contato_principal ?? Boolean(nucleoImportado?.vinculo.principal_envio);
     const recebeConviteFinal =
       convidado.recebe_convite ?? Boolean(nucleoImportado?.vinculo.recebe_comunicacao || nucleoImportado?.vinculo.principal_envio);
+    const responsavelFinal =
+      convidado.responsavel || convidado.mae || contatoBase?.responsavel_nome || "";
 
     setEditandoId(convidado.id);
     setForm({
@@ -1170,9 +1259,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
       telefone: convidado.telefone || "",
       email: convidado.email || "",
       grupo: grupoFinal,
-      crianca: convidado.responsavel || convidado.mae ? "sim" : convidado.crianca || "",
-      responsavel: convidado.responsavel || convidado.mae || "",
-      responsavel_telefone: convidado.responsavel_telefone || "",
+      crianca: contatoBaseEhCrianca || convidado.responsavel || convidado.mae
+        ? "sim"
+        : convidado.crianca || "",
+      responsavel: responsavelFinal,
+      responsavel_telefone: convidado.responsavel_telefone || contatoBase?.responsavel_telefone || "",
       mae: convidado.mae || "",
       idade_crianca: convidado.idade_crianca
         ? String(convidado.idade_crianca)
