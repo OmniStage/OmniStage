@@ -539,50 +539,55 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: batchError.message }, { status: 500 });
       }
 
-      const phones = parsedGuests
-        .map((guest) => guest.phone)
-        .filter((phone): phone is string => Boolean(phone));
-
-      const legacyIds = parsedGuests
-        .map((guest) => guest.legacy_id)
-        .filter((id): id is string => Boolean(id));
-
-      const { data: existingByPhone, error: existingPhoneError } = await supabase
+      const { data: existingGuests, error: existingGuestsError } = await supabase
         .from("convidados")
-        .select("telefone")
+        .select("id, nome, telefone, legacy_id")
         .eq("tenant_id", tenantId)
-        .eq("evento_id", eventoId)
-        .in("telefone", phones.length ? phones : ["__empty__"]);
+        .eq("evento_id", eventoId);
 
-      if (existingPhoneError) {
+      if (existingGuestsError) {
         return NextResponse.json(
-          { error: existingPhoneError.message },
+          { error: existingGuestsError.message },
           { status: 500 }
         );
       }
 
-      const { data: existingByLegacy, error: existingLegacyError } =
-        await supabase
-          .from("convidados")
-          .select("legacy_id")
-          .eq("tenant_id", tenantId)
-          .eq("evento_id", eventoId)
-          .in("legacy_id", legacyIds.length ? legacyIds : ["__empty__"]);
+      const { data: existingContacts, error: existingContactsError } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome, telefone, telefone_normalizado")
+        .eq("tenant_id", tenantId);
 
-      if (existingLegacyError) {
+      if (existingContactsError) {
         return NextResponse.json(
-          { error: existingLegacyError.message },
+          { error: existingContactsError.message },
           { status: 500 }
         );
       }
 
-      const existingPhones = new Set(
-        (existingByPhone || []).map((item) => item.telefone)
-      );
+      const guestsByPhone = new Map<string, any>();
+      const guestsByLegacyId = new Map<string, any>();
+      const guestsByName = new Map<string, any>();
 
-      const existingLegacyIds = new Set(
-        (existingByLegacy || []).map((item) => item.legacy_id)
-      );
+      for (const existingGuest of existingGuests || []) {
+        const phoneKey = cleanPhone(existingGuest.telefone);
+        const legacyKey = cleanText(existingGuest.legacy_id);
+        const nameKey = normalizeTextKey(existingGuest.nome);
+
+        if (phoneKey && !guestsByPhone.has(phoneKey)) guestsByPhone.set(phoneKey, existingGuest);
+        if (legacyKey && !guestsByLegacyId.has(legacyKey)) guestsByLegacyId.set(legacyKey, existingGuest);
+        if (nameKey && !guestsByName.has(nameKey)) guestsByName.set(nameKey, existingGuest);
+      }
+
+      const contactsByPhone = new Map<string, any>();
+      const contactsByName = new Map<string, any>();
+
+      for (const existingContact of existingContacts || []) {
+        const phoneKey = cleanPhone(existingContact.telefone_normalizado || existingContact.telefone);
+        const nameKey = normalizeTextKey(existingContact.nome);
+
+        if (phoneKey && !contactsByPhone.has(phoneKey)) contactsByPhone.set(phoneKey, existingContact);
+        if (nameKey && !contactsByName.has(nameKey)) contactsByName.set(nameKey, existingContact);
+      }
 
       const previewRows = parsedGuests.map((guest) => {
         const isCrianca = normalizeTipoContato(
@@ -590,6 +595,25 @@ export async function POST(req: Request) {
           guest.crianca,
           guest.mae || guest.responsavel_nome
         ) === "crianca";
+
+        const guestPhoneKey = cleanPhone(guest.phone);
+        const guestLegacyKey = cleanText(guest.legacy_id);
+        const guestNameKey = normalizeTextKey(guest.name);
+
+        const existingGuest =
+          (guestPhoneKey ? guestsByPhone.get(guestPhoneKey) : null) ||
+          (guestLegacyKey ? guestsByLegacyId.get(guestLegacyKey) : null) ||
+          (guestNameKey ? guestsByName.get(guestNameKey) : null) ||
+          null;
+
+        const existingContact =
+          (guestPhoneKey ? contactsByPhone.get(guestPhoneKey) : null) ||
+          (guestNameKey ? contactsByName.get(guestNameKey) : null) ||
+          null;
+
+        const eventExists = Boolean(existingGuest);
+        const crmExists = Boolean(existingContact);
+        const sourceRaw = guest.raw || guest;
 
         return {
           batch_id: batch.id,
@@ -622,10 +646,27 @@ export async function POST(req: Request) {
           status_envio: guest.status_envio || "pendente",
           data_hora_rsvp: guest.data_hora_rsvp || null,
           data_hora_envio: guest.data_hora_envio || null,
-          is_duplicate:
-            Boolean(guest.phone && existingPhones.has(guest.phone)) ||
-            Boolean(guest.legacy_id && existingLegacyIds.has(guest.legacy_id)),
-          raw_data: guest.raw || guest,
+          is_duplicate: eventExists,
+          raw_data: {
+            ...sourceRaw,
+            crm_exists: crmExists,
+            crm_status: crmExists ? "contato_existente" : "novo_contato",
+            crm_contact_id: existingContact?.id || null,
+            event_exists: eventExists,
+            evento_status: eventExists ? "convidado_existente" : "novo_convidado",
+            event_guest_id: existingGuest?.id || null,
+            matched_by: existingGuest
+              ? guestPhoneKey && existingGuest.telefone && cleanPhone(existingGuest.telefone) === guestPhoneKey
+                ? "telefone_evento"
+                : guestLegacyKey && existingGuest.legacy_id === guestLegacyKey
+                ? "legacy_id_evento"
+                : "nome_evento"
+              : existingContact
+              ? guestPhoneKey && cleanPhone(existingContact.telefone_normalizado || existingContact.telefone) === guestPhoneKey
+                ? "telefone_crm"
+                : "nome_crm"
+              : "novo",
+          },
         };
       });
 
