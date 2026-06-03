@@ -2818,6 +2818,7 @@ function labelTipoContato(tipo: string | null) {
 function labelTipoNucleo(tipo: string | null) {
   if (tipo === "familia") return "Família";
   if (tipo === "empresa") return "Empresa";
+  if (tipo === "escola") return "Escola";
   if (tipo === "politico") return "Político";
   if (tipo === "corporativo") return "Corporativo";
   if (tipo === "igreja") return "Igreja";
