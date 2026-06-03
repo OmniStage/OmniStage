@@ -44,6 +44,7 @@ type PreviewRow = {
   data_hora_rsvp: string | null;
   data_hora_envio: string | null;
   observacoes?: string | null;
+  raw_data?: any;
   is_duplicate: boolean;
 };
 
@@ -1523,6 +1524,12 @@ export default function AdminImportacaoPage() {
           <div style={{ display: "grid", gap: 12 }}>
             {preview.map((item) => {
               const checked = selectedIds.includes(item.id);
+              const rawData = item.raw_data || {};
+              const crmExists = Boolean(rawData.crm_exists);
+              const eventExists = Boolean(rawData.event_exists || item.is_duplicate);
+              const crmStatusLabel = crmExists ? "CRM: já existe" : "CRM: novo contato";
+              const eventStatusLabel = eventExists ? "Evento: já existe" : "Evento: novo convidado";
+              const matchLabel = rawData.matched_by ? `Busca: ${rawData.matched_by}` : null;
 
               return (
                 <article
@@ -1552,6 +1559,40 @@ export default function AdminImportacaoPage() {
 
                     <div>
                       <strong style={{ fontSize: 20, color: "#0f172a" }}>{item.nome}</strong>
+
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        <span
+                          style={{
+                            ...badgeStyle,
+                            background: crmExists ? "#eef2ff" : "#dcfce7",
+                            color: crmExists ? "#3730a3" : "#166534",
+                          }}
+                        >
+                          {crmStatusLabel}
+                        </span>
+
+                        <span
+                          style={{
+                            ...badgeStyle,
+                            background: eventExists ? "#fee2e2" : "#dcfce7",
+                            color: eventExists ? "#991b1b" : "#166534",
+                          }}
+                        >
+                          {eventStatusLabel}
+                        </span>
+
+                        {matchLabel && (
+                          <span
+                            style={{
+                              ...badgeStyle,
+                              background: "#f8fafc",
+                              color: "#475569",
+                            }}
+                          >
+                            {matchLabel}
+                          </span>
+                        )}
+                      </div>
 
                       <p style={{ color: "#64748b", margin: "6px 0 0" }}>
                         Legacy ID: {item.legacy_id || "sem ID"} · Telefone:{" "}
@@ -1610,7 +1651,7 @@ export default function AdminImportacaoPage() {
                         : "#166534",
                     }}
                   >
-                    {item.is_duplicate ? "Duplicado" : checked ? "Selecionado" : "OK"}
+                    {eventExists ? "Já existe no evento" : checked ? "Selecionado" : "OK"}
                   </span>
                 </article>
               );
