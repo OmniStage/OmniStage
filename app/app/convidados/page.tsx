@@ -2803,7 +2803,6 @@ function NucleoConviteSelector({
         <div style={nucleoSelecionadoConviteStyle}>
           <div>
             <strong>{nucleoSelecionado.nome}</strong>
-            <span>{labelTipoNucleoSelector(getTipoNucleoSelector(nucleoSelecionado))}</span>
           </div>
 
           <button
@@ -2822,7 +2821,6 @@ function NucleoConviteSelector({
         <div style={nucleoSelecionadoConviteStyle}>
           <div>
             <strong>{valorAtual}</strong>
-            <span>Núcleo manual</span>
           </div>
 
           <button
