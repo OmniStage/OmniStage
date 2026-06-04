@@ -1105,6 +1105,26 @@ export default function ConvitePublicoPage() {
             0%, 100% { transform: scale(.7); opacity: .48; }
             50% { transform: scale(1.18); opacity: 1; }
           }
+
+          @keyframes omniCopaGlowPulse {
+            0%, 100% { opacity: .72; transform: scale(.96); }
+            50% { opacity: 1; transform: scale(1.08); }
+          }
+
+          @keyframes omniCopaFlagWave {
+            0%, 100% { transform: rotate(-8deg) translateY(0); }
+            50% { transform: rotate(7deg) translateY(-4px); }
+          }
+
+          @keyframes omniCopaCrowdJump {
+            0%, 100% { transform: translateY(0); opacity: .82; }
+            50% { transform: translateY(-5px); opacity: 1; }
+          }
+
+          @keyframes omniCopaTitleShine {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 220% 50%; }
+          }
         `}</style>
 
         <button
@@ -1161,6 +1181,8 @@ export default function ConvitePublicoPage() {
                 ...getConfirmationCardTheme(efeitoConfirmacaoAtivo),
               }}
             >
+              {renderCopaBrazilCardBackdrop(efeitoConfirmacaoAtivo)}
+
               <div
                 style={{
                   ...confirmationIconStyle,
@@ -1169,16 +1191,29 @@ export default function ConvitePublicoPage() {
               >
                 {getConfirmationIcon(efeitoConfirmacaoAtivo)}
               </div>
-              <strong style={confirmationTitleStyle}>
+              <strong
+                style={{
+                  ...confirmationTitleStyle,
+                  ...getConfirmationTitleTheme(efeitoConfirmacaoAtivo),
+                }}
+              >
                 {confirmandoPresenca
                   ? "Confirmando presença..."
                   : getConfirmationTitle(efeitoConfirmacaoAtivo)}
               </strong>
-              <span style={confirmationTextStyle}>
+              <span
+                style={{
+                  ...confirmationTextStyle,
+                  ...getConfirmationTextTheme(efeitoConfirmacaoAtivo),
+                }}
+              >
                 {confirmandoPresenca
                   ? "Estamos registrando sua confirmação."
                   : getConfirmationText(efeitoConfirmacaoAtivo)}
               </span>
+              {efeitoConfirmacaoAtivo === "copa" && !confirmandoPresenca ? (
+                <strong style={copaCalloutStyle}>NOS VEMOS LÁ!</strong>
+              ) : null}
             </div>
           </div>
         )}
@@ -1210,7 +1245,7 @@ function getConfirmationIcon(effect: ConfirmationEffect) {
 }
 
 function getConfirmationTitle(effect: ConfirmationEffect) {
-  if (effect === "copa") return "GOOOOOL!";
+  if (effect === "copa") return "GOOOOOOL!";
   if (effect === "princesa") return "Presença confirmada!";
   if (effect === "luxo") return "Confirmação registrada";
   if (effect === "infantil") return "Oba, presença confirmada!";
@@ -1220,7 +1255,7 @@ function getConfirmationTitle(effect: ConfirmationEffect) {
 
 function getConfirmationText(effect: ConfirmationEffect) {
   if (effect === "copa") {
-    return "Sua presença está confirmada. Você foi convocado para essa festa!";
+    return "PRESENÇA CONFIRMADA! Você foi convocado para essa festa.";
   }
 
   if (effect === "princesa") {
@@ -1242,7 +1277,9 @@ function getConfirmationOverlayTheme(effect: ConfirmationEffect): CSSProperties 
   if (effect === "copa") {
     return {
       background:
-        "radial-gradient(circle at center, rgba(254,221,0,.24), transparent 34%), linear-gradient(135deg, rgba(0,156,59,.28), rgba(0,39,118,.24))",
+        "radial-gradient(circle at 50% 38%, rgba(254,221,0,.34), transparent 28%), radial-gradient(circle at 24% 22%, rgba(0,156,59,.34), transparent 30%), radial-gradient(circle at 78% 72%, rgba(0,39,118,.34), transparent 32%), linear-gradient(135deg, rgba(0,36,24,.56), rgba(0,18,45,.66))",
+      backdropFilter: "blur(1.5px)",
+      WebkitBackdropFilter: "blur(1.5px)",
     };
   }
 
@@ -1273,10 +1310,16 @@ function getConfirmationOverlayTheme(effect: ConfirmationEffect): CSSProperties 
 function getConfirmationCardTheme(effect: ConfirmationEffect): CSSProperties {
   if (effect === "copa") {
     return {
+      width: "min(560px, calc(100vw - 32px))",
+      minHeight: 360,
+      padding: "34px 24px 30px",
+      overflow: "hidden",
+      position: "relative",
       background:
-        "linear-gradient(135deg, rgba(0,156,59,.96), rgba(254,221,0,.92) 54%, rgba(0,39,118,.94))",
+        "linear-gradient(145deg, rgba(0,91,46,.96), rgba(0,141,61,.9) 34%, rgba(254,221,0,.86) 56%, rgba(0,39,118,.94))",
+      border: "2px solid rgba(254,221,0,.72)",
       boxShadow:
-        "0 24px 90px rgba(0,156,59,.38), 0 0 0 8px rgba(254,221,0,.12)",
+        "0 28px 110px rgba(0,156,59,.44), 0 0 0 8px rgba(254,221,0,.14), inset 0 0 42px rgba(255,255,255,.16)",
     };
   }
 
@@ -1313,7 +1356,16 @@ function getConfirmationCardTheme(effect: ConfirmationEffect): CSSProperties {
 function getConfirmationIconTheme(effect: ConfirmationEffect): CSSProperties {
   if (effect === "copa") {
     return {
-      color: "#009c3b",
+      width: 86,
+      height: 86,
+      fontSize: 54,
+      color: "#0f172a",
+      background:
+        "radial-gradient(circle at 34% 28%, #ffffff, #f8fafc 42%, #d1d5db 100%)",
+      position: "relative",
+      zIndex: 2,
+      boxShadow:
+        "0 0 0 10px rgba(255,255,255,.18), 0 0 36px rgba(254,221,0,.78), 0 18px 42px rgba(0,0,0,.3)",
       animation: "omniCopaBall .72s cubic-bezier(.2,.9,.2,1)",
     };
   }
@@ -1333,6 +1385,93 @@ function getConfirmationIconTheme(effect: ConfirmationEffect): CSSProperties {
   return {};
 }
 
+function getConfirmationTitleTheme(effect: ConfirmationEffect): CSSProperties {
+  if (effect === "copa") {
+    return {
+      position: "relative",
+      zIndex: 2,
+      fontSize: "clamp(38px, 8vw, 66px)",
+      letterSpacing: "-.05em",
+      color: "#ffdf00",
+      textTransform: "uppercase",
+      textShadow:
+        "0 4px 0 rgba(0,92,46,.88), 0 8px 18px rgba(0,0,0,.34), 0 0 18px rgba(254,221,0,.72)",
+      WebkitTextStroke: "1px rgba(255,255,255,.26)",
+      background:
+        "linear-gradient(90deg, #ffdf00 0%, #ffffff 28%, #ffdf00 52%, #ffdf00 100%)",
+      backgroundSize: "220% 100%",
+      WebkitBackgroundClip: "text",
+      backgroundClip: "text",
+      animation: "omniCopaTitleShine 1.45s linear infinite",
+    };
+  }
+
+  return {};
+}
+
+function getConfirmationTextTheme(effect: ConfirmationEffect): CSSProperties {
+  if (effect === "copa") {
+    return {
+      position: "relative",
+      zIndex: 2,
+      maxWidth: 420,
+      padding: "9px 16px",
+      borderRadius: 999,
+      background: "rgba(0,82,45,.74)",
+      border: "1px solid rgba(255,255,255,.22)",
+      color: "#ffffff",
+      fontSize: 16,
+      lineHeight: 1.25,
+      textTransform: "uppercase",
+      letterSpacing: ".02em",
+      boxShadow: "0 12px 26px rgba(0,0,0,.22)",
+    };
+  }
+
+  return {};
+}
+
+function renderCopaBrazilCardBackdrop(effect: ConfirmationEffect) {
+  if (effect !== "copa") return null;
+
+  return (
+    <>
+      <div style={copaBrazilBrushStyle} />
+      <div style={copaBrazilGlowStyle} />
+      <div style={copaBrazilDiamondStyle} />
+      <div style={copaCrowdStyle}>
+        {Array.from({ length: 22 }).map((_, index) => (
+          <span
+            key={index}
+            style={{
+              width: 9,
+              height: 12 + (index % 5) * 6,
+              borderRadius: "999px 999px 0 0",
+              background:
+                index % 4 === 0
+                  ? "rgba(254,221,0,.92)"
+                  : index % 4 === 1
+                    ? "rgba(255,255,255,.82)"
+                    : index % 4 === 2
+                      ? "rgba(0,156,59,.92)"
+                      : "rgba(0,39,118,.92)",
+              boxShadow: "0 -10px 18px rgba(254,221,0,.2)",
+              animation: "omniCopaCrowdJump .58s ease-in-out infinite",
+              animationDelay: `${index * 0.05}s`,
+            }}
+          />
+        ))}
+      </div>
+      <div style={{ ...copaFlagStyle, left: 18, transform: "rotate(-10deg)" }}>
+        🇧🇷
+      </div>
+      <div style={{ ...copaFlagStyle, right: 18, transform: "rotate(10deg)" }}>
+        🇧🇷
+      </div>
+    </>
+  );
+}
+
 function renderConfirmationParticles(effect: ConfirmationEffect) {
   if (effect === "nenhum") return null;
 
@@ -1349,11 +1488,11 @@ function renderConfirmationParticles(effect: ConfirmationEffect) {
 
   return (
     <div style={particlesLayerStyle} aria-hidden="true">
-      {Array.from({ length: effect === "padrao" ? 18 : 30 }).map((_, index) => {
+      {Array.from({ length: effect === "copa" ? 56 : effect === "padrao" ? 18 : 30 }).map((_, index) => {
         const left = (index * 37) % 100;
-        const delay = (index % 8) * 0.08;
-        const x = ((index % 7) - 3) * 28;
-        const size = 7 + (index % 4) * 3;
+        const delay = (index % 10) * 0.055;
+        const x = ((index % 9) - 4) * (effect === "copa" ? 34 : 28);
+        const size = effect === "copa" ? 8 + (index % 5) * 4 : 7 + (index % 4) * 3;
         const color = colors[index % colors.length];
 
         return (
@@ -1471,6 +1610,7 @@ const confirmationCardStyle: CSSProperties = {
   boxShadow:
     "0 24px 90px rgba(124,58,237,.38), 0 0 0 8px rgba(255,255,255,.08)",
   animation: "omniConfirmPop .34s ease-out",
+  position: "relative",
 };
 
 const confirmationIconStyle: CSSProperties = {
@@ -1497,6 +1637,87 @@ const confirmationTextStyle: CSSProperties = {
   lineHeight: 1.35,
   fontWeight: 800,
   opacity: 0.92,
+};
+
+const copaBrazilBrushStyle: CSSProperties = {
+  position: "absolute",
+  left: "-7%",
+  right: "-7%",
+  top: "26%",
+  height: "44%",
+  background:
+    "linear-gradient(110deg, transparent 0%, rgba(0,156,59,.24) 8%, rgba(254,221,0,.86) 24%, rgba(254,221,0,.92) 42%, rgba(0,156,59,.72) 59%, rgba(0,39,118,.66) 78%, transparent 100%)",
+  transform: "rotate(-4deg)",
+  filter: "blur(.2px)",
+  opacity: .96,
+  pointerEvents: "none",
+};
+
+const copaBrazilGlowStyle: CSSProperties = {
+  position: "absolute",
+  top: 46,
+  left: "50%",
+  width: 210,
+  height: 210,
+  borderRadius: 999,
+  background:
+    "radial-gradient(circle, rgba(255,255,255,.9) 0%, rgba(254,221,0,.74) 28%, rgba(0,156,59,.36) 58%, transparent 72%)",
+  transform: "translateX(-50%)",
+  filter: "blur(3px)",
+  animation: "omniCopaGlowPulse 1.2s ease-in-out infinite",
+  pointerEvents: "none",
+};
+
+const copaBrazilDiamondStyle: CSSProperties = {
+  position: "absolute",
+  top: 72,
+  left: "50%",
+  width: 230,
+  height: 138,
+  transform: "translateX(-50%) rotate(-4deg)",
+  background:
+    "linear-gradient(135deg, transparent 18%, rgba(254,221,0,.8) 18% 82%, transparent 82%), radial-gradient(circle at center, rgba(0,39,118,.9) 0 28%, transparent 29%)",
+  opacity: .5,
+  mixBlendMode: "screen",
+  pointerEvents: "none",
+};
+
+const copaCrowdStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: 74,
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "space-around",
+  padding: "0 16px",
+  background:
+    "linear-gradient(180deg, transparent, rgba(0,38,25,.7) 54%, rgba(0,16,10,.94))",
+  pointerEvents: "none",
+};
+
+const copaFlagStyle: CSSProperties = {
+  position: "absolute",
+  bottom: 32,
+  zIndex: 1,
+  fontSize: 30,
+  filter: "drop-shadow(0 8px 16px rgba(0,0,0,.34))",
+  animation: "omniCopaFlagWave .9s ease-in-out infinite",
+  pointerEvents: "none",
+};
+
+const copaCalloutStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 2,
+  marginTop: 4,
+  color: "#ffdf00",
+  fontSize: 26,
+  lineHeight: 1,
+  fontWeight: 950,
+  fontStyle: "italic",
+  letterSpacing: ".02em",
+  textShadow: "0 3px 0 rgba(0,80,46,.72), 0 0 18px rgba(254,221,0,.62)",
 };
 
 function htmlErro(message: string) {
