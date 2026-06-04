@@ -91,7 +91,18 @@ function getTheme(effect: ConfirmationEffectType): Theme {
 export default function DefaultEffect({ open, effect, loading }: ConfirmationEffectProps) {
   if (!open || effect === "nenhum") return null;
 
-  const theme = getTheme(effect);
+  const safeEffect: ConfirmationEffectType =
+    effect === "padrao" ||
+    effect === "futebol" ||
+    effect === "copa2026" ||
+    effect === "princesa" ||
+    effect === "luxo" ||
+    effect === "infantil" ||
+    effect === "nenhum"
+      ? effect
+      : "padrao";
+
+  const theme = getTheme(safeEffect);
 
   return (
     <div style={{ ...overlayStyle, ...theme.overlay }}>
@@ -113,7 +124,7 @@ export default function DefaultEffect({ open, effect, loading }: ConfirmationEff
       `}</style>
 
       <div style={particlesLayerStyle} aria-hidden="true">
-        {Array.from({ length: effect === "padrao" ? 18 : 30 }).map((_, index) => {
+        {Array.from({ length: safeEffect === "padrao" ? 18 : 30 }).map((_, index) => {
           const color = theme.colors[index % theme.colors.length];
           const size = 7 + (index % 4) * 3;
 
@@ -136,7 +147,7 @@ export default function DefaultEffect({ open, effect, loading }: ConfirmationEff
           );
         })}
 
-        {effect !== "padrao" &&
+        {safeEffect !== "padrao" &&
           Array.from({ length: 10 }).map((_, index) => (
             <span
               key={`sparkle-${index}`}
