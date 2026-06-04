@@ -9,6 +9,14 @@ type EffectType = "none" | "glow" | "float" | "pulse" | "shine";
 
 type BackgroundEffectType = "none" | "cinema_zoom" | "parallax";
 
+type ConfirmationEffectType =
+  | "padrao"
+  | "copa"
+  | "princesa"
+  | "luxo"
+  | "infantil"
+  | "nenhum";
+
 type BlockType =
   | "text"
   | "event_name"
@@ -241,6 +249,20 @@ function parseBackgroundColor(background?: string | null) {
   };
 }
 
+function normalizeConfirmationEffect(value: unknown): ConfirmationEffectType {
+  if (
+    value === "copa" ||
+    value === "princesa" ||
+    value === "luxo" ||
+    value === "infantil" ||
+    value === "nenhum"
+  ) {
+    return value;
+  }
+
+  return "padrao";
+}
+
 async function cropTransparentImageFile(file: File): Promise<{
   file: File;
   width: number;
@@ -389,6 +411,43 @@ const BACKGROUND_EFFECT_OPTIONS: {
   { value: "none", label: "Nenhum" },
   { value: "cinema_zoom", label: "Zoom cinema" },
   { value: "parallax", label: "Parallax leve" },
+];
+
+const CONFIRMATION_EFFECT_OPTIONS: {
+  value: ConfirmationEffectType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "padrao",
+    label: "Padrão OmniStage",
+    description: "Confirmação limpa e neutra para qualquer evento.",
+  },
+  {
+    value: "copa",
+    label: "Copa / Futebol",
+    description: "Gol, comemoração, confete verde e amarelo.",
+  },
+  {
+    value: "princesa",
+    label: "Princesa / XV anos",
+    description: "Brilhos, dourado e clima elegante.",
+  },
+  {
+    value: "luxo",
+    label: "Luxo / Premium",
+    description: "Animação discreta, sofisticada e minimalista.",
+  },
+  {
+    value: "infantil",
+    label: "Infantil",
+    description: "Efeito alegre e lúdico para festas infantis.",
+  },
+  {
+    value: "nenhum",
+    label: "Nenhum",
+    description: "Não dispara efeito especial após confirmar.",
+  },
 ];
 
 function getEditorEffectStyle(effect: EffectType): CSSProperties {
@@ -1132,6 +1191,8 @@ export default function EditorModeloConvitePage({
   const [glassTone, setGlassTone] = useState<"light" | "dark">("dark");
   const [backgroundEffect, setBackgroundEffect] =
     useState<BackgroundEffectType>("none");
+  const [confirmationEffect, setConfirmationEffect] =
+    useState<ConfirmationEffectType>("padrao");
   const [blockEffects, setBlockEffects] = useState<Record<string, EffectType>>(
     {},
   );
@@ -1186,6 +1247,9 @@ export default function EditorModeloConvitePage({
           ? config.backgroundEffect
           : "none",
       );
+      setConfirmationEffect(
+        normalizeConfirmationEffect(config.confirmationEffect),
+      );
       setBlockEffects(config.blockEffects || {});
     }
 
@@ -1210,6 +1274,11 @@ export default function EditorModeloConvitePage({
             savedAssets.backgroundEffect === "parallax"
             ? savedAssets.backgroundEffect
             : "none",
+        );
+      }
+      if (savedAssets.confirmationEffect) {
+        setConfirmationEffect(
+          normalizeConfirmationEffect(savedAssets.confirmationEffect),
         );
       }
       if (savedAssets.blockEffects) {
@@ -1408,6 +1477,7 @@ export default function EditorModeloConvitePage({
       logoPreviewUrl: nextLogo || "",
       musicaPreviewUrl: nextMusica || "",
       backgroundEffect,
+      confirmationEffect,
       blockEffects,
     };
 
@@ -1574,6 +1644,7 @@ export default function EditorModeloConvitePage({
           logoPreviewUrl,
           musicaPreviewUrl,
           backgroundEffect,
+          confirmationEffect,
           blockEffects,
         }),
       );
@@ -1887,6 +1958,39 @@ export default function EditorModeloConvitePage({
               </label>
             </div>
 
+            <div style={assetControlBox}>
+              <strong style={{ fontSize: 12 }}>
+                Efeito ao confirmar presença
+              </strong>
+              <label style={field}>
+                <span style={label}>
+                  Vinculado ao modelo de convite e usado no RSVP público
+                </span>
+                <select
+                  value={confirmationEffect}
+                  onChange={(e) =>
+                    setConfirmationEffect(
+                      e.target.value as ConfirmationEffectType,
+                    )
+                  }
+                  style={input}
+                >
+                  {CONFIRMATION_EFFECT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div style={confirmationEffectHint}>
+                {
+                  CONFIRMATION_EFFECT_OPTIONS.find(
+                    (option) => option.value === confirmationEffect,
+                  )?.description
+                }
+              </div>
+            </div>
+
             <label style={field}>
               <span style={label}>Logomarca do evento</span>
               <input
@@ -1978,6 +2082,7 @@ export default function EditorModeloConvitePage({
                 setMusicaPreviewUrl("");
                 setMusicaTocando(false);
                 setBackgroundEffect("none");
+                setConfirmationEffect("padrao");
                 setBlockEffects({});
               }}
             >
@@ -2829,6 +2934,18 @@ const musicBadge: CSSProperties = {
   boxShadow: "0 10px 24px rgba(0,0,0,.22)",
 };
 
+
+const confirmationEffectHint: CSSProperties = {
+  border: "1px solid #e2e8f0",
+  borderRadius: 12,
+  padding: "9px 10px",
+  background: "#ffffff",
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 800,
+  lineHeight: 1.35,
+};
+
 const canvasTip: CSSProperties = {
   marginBottom: 12,
   padding: "10px 14px",
@@ -2867,3 +2984,4 @@ const canvas: CSSProperties = {
   background:
     "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
 };
+
