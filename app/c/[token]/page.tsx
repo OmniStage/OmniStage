@@ -46,6 +46,14 @@ type Template = {
   visual_config: any;
 };
 
+type ConfirmationEffect =
+  | "padrao"
+  | "copa"
+  | "princesa"
+  | "luxo"
+  | "infantil"
+  | "nenhum";
+
 type RenderState =
   | {
       kind: "html";
@@ -127,6 +135,32 @@ function normalizarBlock(raw: any): VisualBlock {
 
 function getVisualConfig(template: Template | null) {
   return (template?.visual_config || {}) as Record<string, any>;
+}
+
+function normalizarEfeitoConfirmacao(value: unknown): ConfirmationEffect {
+  const efeito = String(value || "padrao").trim().toLowerCase();
+
+  if (
+    efeito === "copa" ||
+    efeito === "princesa" ||
+    efeito === "luxo" ||
+    efeito === "infantil" ||
+    efeito === "nenhum"
+  ) {
+    return efeito;
+  }
+
+  return "padrao";
+}
+
+function getConfirmationEffect(template: Template | null): ConfirmationEffect {
+  const visualConfig = getVisualConfig(template);
+
+  return normalizarEfeitoConfirmacao(
+    visualConfig.confirmationEffect ||
+      visualConfig.efeitoConfirmacao ||
+      visualConfig.confirmation_effect,
+  );
 }
 
 function getBackgroundUrl(template: Template | null, evento: Evento | null) {
@@ -235,8 +269,8 @@ function detectarAcaoBotao(content: string | null) {
   return "none";
 }
 
-function tocarSomConfirmacao() {
-  if (typeof window === "undefined") return;
+function tocarSomConfirmacao(effect: ConfirmationEffect = "padrao") {
+  if (typeof window === "undefined" || effect === "nenhum") return;
 
   const AudioContextClass =
     window.AudioContext || (window as any).webkitAudioContext;
@@ -244,25 +278,67 @@ function tocarSomConfirmacao() {
   if (!AudioContextClass) return;
 
   const audioContext = new AudioContextClass();
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
 
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
-  oscillator.frequency.exponentialRampToValueAtTime(
-    990,
-    audioContext.currentTime + 0.12,
-  );
+  function tocarNota(
+    frequency: number,
+    start: number,
+    duration: number,
+    volume = 0.16,
+    type: OscillatorType = "sine",
+  ) {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
 
-  gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.18, audioContext.currentTime + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime + start);
+    gain.gain.setValueAtTime(0.001, audioContext.currentTime + start);
+    gain.gain.exponentialRampToValueAtTime(
+      volume,
+      audioContext.currentTime + start + 0.02,
+    );
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + start + duration,
+    );
 
-  oscillator.connect(gain);
-  gain.connect(audioContext.destination);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(audioContext.currentTime + start);
+    oscillator.stop(audioContext.currentTime + start + duration + 0.03);
+  }
 
-  oscillator.start();
-  oscillator.stop(audioContext.currentTime + 0.32);
+  if (effect === "copa") {
+    tocarNota(523, 0, 0.12, 0.15, "square");
+    tocarNota(659, 0.1, 0.12, 0.14, "square");
+    tocarNota(784, 0.2, 0.26, 0.18, "triangle");
+    tocarNota(1046, 0.42, 0.22, 0.12, "sine");
+    return;
+  }
+
+  if (effect === "princesa") {
+    tocarNota(880, 0, 0.16, 0.11, "sine");
+    tocarNota(1175, 0.13, 0.18, 0.1, "sine");
+    tocarNota(1568, 0.28, 0.28, 0.09, "triangle");
+    return;
+  }
+
+  if (effect === "luxo") {
+    tocarNota(392, 0, 0.2, 0.12, "triangle");
+    tocarNota(523, 0.18, 0.22, 0.11, "triangle");
+    tocarNota(784, 0.4, 0.28, 0.1, "sine");
+    return;
+  }
+
+  if (effect === "infantil") {
+    tocarNota(660, 0, 0.11, 0.14, "sine");
+    tocarNota(880, 0.11, 0.11, 0.14, "sine");
+    tocarNota(990, 0.22, 0.12, 0.14, "sine");
+    tocarNota(1320, 0.35, 0.2, 0.12, "triangle");
+    return;
+  }
+
+  tocarNota(660, 0, 0.32, 0.18, "sine");
+  tocarNota(990, 0.12, 0.2, 0.12, "sine");
 }
 
 function tentarLiberarSomSilencioso() {
@@ -596,6 +672,8 @@ export default function ConvitePublicoPage() {
   const [somAtivo, setSomAtivo] = useState(true);
   const [somLiberado, setSomLiberado] = useState(false);
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
+  const [efeitoConfirmacaoAtivo, setEfeitoConfirmacaoAtivo] =
+    useState<ConfirmationEffect>("padrao");
   const [confirmandoPresenca, setConfirmandoPresenca] = useState(false);
 
   useEffect(() => {
@@ -632,11 +710,11 @@ export default function ConvitePublicoPage() {
     };
   }, [somAtivo, somLiberado]);
 
-  function executarSomAcao() {
-    if (!somAtivo) return;
+  function executarSomAcao(effect: ConfirmationEffect = "padrao") {
+    if (!somAtivo || effect === "nenhum") return;
 
     try {
-      tocarSomConfirmacao();
+      tocarSomConfirmacao(effect);
       setSomLiberado(true);
     } catch {
       // Sem bloqueio visual caso o navegador não libere o áudio.
@@ -646,9 +724,20 @@ export default function ConvitePublicoPage() {
   async function confirmarPresenca() {
     if (renderState?.kind !== "visual" || confirmandoPresenca) return;
 
-    executarSomAcao();
-    setConfirmacaoAberta(true);
+    const efeitoConfirmacao = getConfirmationEffect(renderState.template);
+
+    executarSomAcao(efeitoConfirmacao);
+    setEfeitoConfirmacaoAtivo(efeitoConfirmacao);
+    setConfirmacaoAberta(efeitoConfirmacao !== "nenhum");
     setConfirmandoPresenca(true);
+
+    if (typeof navigator !== "undefined" && efeitoConfirmacao !== "nenhum") {
+      navigator.vibrate?.(
+        efeitoConfirmacao === "copa"
+          ? [90, 35, 90, 35, 180]
+          : [80, 40, 120],
+      );
+    }
 
     const ids = renderState.convidadoIds.filter(Boolean);
 
@@ -930,6 +1019,10 @@ export default function ConvitePublicoPage() {
   }
 
   const visualConfig = renderState?.kind === "visual" ? getVisualConfig(renderState.template) : {};
+  const confirmationEffect =
+    renderState?.kind === "visual"
+      ? getConfirmationEffect(renderState.template)
+      : "padrao";
 
   const visualContent = useMemo(() => {
     if (renderState?.kind !== "visual") return null;
@@ -995,6 +1088,23 @@ export default function ConvitePublicoPage() {
               transform: translateY(0) scale(1);
             }
           }
+
+          @keyframes omniCopaBall {
+            0% { transform: translateY(10px) rotate(-14deg) scale(.84); opacity: 0; }
+            35% { transform: translateY(-8px) rotate(10deg) scale(1.12); opacity: 1; }
+            100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+          }
+
+          @keyframes omniConfettiFall {
+            0% { transform: translate3d(0, -90px, 0) rotate(0deg); opacity: 0; }
+            14% { opacity: 1; }
+            100% { transform: translate3d(var(--x), 78vh, 0) rotate(680deg); opacity: 0; }
+          }
+
+          @keyframes omniSparklePulse {
+            0%, 100% { transform: scale(.7); opacity: .48; }
+            50% { transform: scale(1.18); opacity: 1; }
+          }
         `}</style>
 
         <button
@@ -1006,7 +1116,11 @@ export default function ConvitePublicoPage() {
               if (next) {
                 window.setTimeout(() => {
                   try {
-                    tocarSomConfirmacao();
+                    tocarSomConfirmacao(
+                      renderState?.kind === "visual"
+                        ? getConfirmationEffect(renderState.template)
+                        : "padrao",
+                    );
                     setSomLiberado(true);
                   } catch {
                     // Pode depender da próxima interação do usuário.
@@ -1033,16 +1147,37 @@ export default function ConvitePublicoPage() {
         </div>
 
         {confirmacaoAberta && (
-          <div style={confirmationOverlayStyle}>
-            <div style={confirmationCardStyle}>
-              <div style={confirmationIconStyle}>✓</div>
+          <div
+            style={{
+              ...confirmationOverlayStyle,
+              ...getConfirmationOverlayTheme(efeitoConfirmacaoAtivo),
+            }}
+          >
+            {renderConfirmationParticles(efeitoConfirmacaoAtivo)}
+
+            <div
+              style={{
+                ...confirmationCardStyle,
+                ...getConfirmationCardTheme(efeitoConfirmacaoAtivo),
+              }}
+            >
+              <div
+                style={{
+                  ...confirmationIconStyle,
+                  ...getConfirmationIconTheme(efeitoConfirmacaoAtivo),
+                }}
+              >
+                {getConfirmationIcon(efeitoConfirmacaoAtivo)}
+              </div>
               <strong style={confirmationTitleStyle}>
-                {confirmandoPresenca ? "Confirmando presença..." : "Presença confirmada"}
+                {confirmandoPresenca
+                  ? "Confirmando presença..."
+                  : getConfirmationTitle(efeitoConfirmacaoAtivo)}
               </strong>
               <span style={confirmationTextStyle}>
                 {confirmandoPresenca
                   ? "Estamos registrando sua confirmação."
-                  : "Sua confirmação foi registrada no convite."}
+                  : getConfirmationText(efeitoConfirmacaoAtivo)}
               </span>
             </div>
           </div>
@@ -1062,6 +1197,205 @@ export default function ConvitePublicoPage() {
         background: "#020617",
       }}
     />
+  );
+}
+
+function getConfirmationIcon(effect: ConfirmationEffect) {
+  if (effect === "copa") return "⚽";
+  if (effect === "princesa") return "👑";
+  if (effect === "luxo") return "✨";
+  if (effect === "infantil") return "🎉";
+
+  return "✓";
+}
+
+function getConfirmationTitle(effect: ConfirmationEffect) {
+  if (effect === "copa") return "GOOOOOL!";
+  if (effect === "princesa") return "Presença confirmada!";
+  if (effect === "luxo") return "Confirmação registrada";
+  if (effect === "infantil") return "Oba, presença confirmada!";
+
+  return "Presença confirmada";
+}
+
+function getConfirmationText(effect: ConfirmationEffect) {
+  if (effect === "copa") {
+    return "Sua presença está confirmada. Você foi convocado para essa festa!";
+  }
+
+  if (effect === "princesa") {
+    return "Sua presença foi confirmada com brilho especial.";
+  }
+
+  if (effect === "luxo") {
+    return "Sua confirmação foi registrada com sucesso.";
+  }
+
+  if (effect === "infantil") {
+    return "Agora é só esperar a diversão começar.";
+  }
+
+  return "Sua confirmação foi registrada no convite.";
+}
+
+function getConfirmationOverlayTheme(effect: ConfirmationEffect): CSSProperties {
+  if (effect === "copa") {
+    return {
+      background:
+        "radial-gradient(circle at center, rgba(254,221,0,.24), transparent 34%), linear-gradient(135deg, rgba(0,156,59,.28), rgba(0,39,118,.24))",
+    };
+  }
+
+  if (effect === "princesa") {
+    return {
+      background:
+        "radial-gradient(circle at center, rgba(251,191,36,.28), transparent 42%), linear-gradient(135deg, rgba(190,24,93,.22), rgba(88,28,135,.22))",
+    };
+  }
+
+  if (effect === "luxo") {
+    return {
+      background:
+        "radial-gradient(circle at center, rgba(212,175,55,.24), transparent 42%), linear-gradient(135deg, rgba(2,6,23,.42), rgba(120,113,108,.18))",
+    };
+  }
+
+  if (effect === "infantil") {
+    return {
+      background:
+        "radial-gradient(circle at center, rgba(251,146,60,.28), transparent 42%), linear-gradient(135deg, rgba(14,165,233,.22), rgba(236,72,153,.22))",
+    };
+  }
+
+  return {};
+}
+
+function getConfirmationCardTheme(effect: ConfirmationEffect): CSSProperties {
+  if (effect === "copa") {
+    return {
+      background:
+        "linear-gradient(135deg, rgba(0,156,59,.96), rgba(254,221,0,.92) 54%, rgba(0,39,118,.94))",
+      boxShadow:
+        "0 24px 90px rgba(0,156,59,.38), 0 0 0 8px rgba(254,221,0,.12)",
+    };
+  }
+
+  if (effect === "princesa") {
+    return {
+      background:
+        "linear-gradient(135deg, rgba(190,24,93,.94), rgba(251,191,36,.9))",
+      boxShadow:
+        "0 24px 90px rgba(190,24,93,.34), 0 0 0 8px rgba(251,191,36,.12)",
+    };
+  }
+
+  if (effect === "luxo") {
+    return {
+      background:
+        "linear-gradient(135deg, rgba(15,23,42,.96), rgba(180,142,58,.92))",
+      boxShadow:
+        "0 24px 90px rgba(2,6,23,.46), 0 0 0 8px rgba(212,175,55,.12)",
+    };
+  }
+
+  if (effect === "infantil") {
+    return {
+      background:
+        "linear-gradient(135deg, rgba(14,165,233,.94), rgba(236,72,153,.9), rgba(251,146,60,.92))",
+      boxShadow:
+        "0 24px 90px rgba(14,165,233,.3), 0 0 0 8px rgba(255,255,255,.1)",
+    };
+  }
+
+  return {};
+}
+
+function getConfirmationIconTheme(effect: ConfirmationEffect): CSSProperties {
+  if (effect === "copa") {
+    return {
+      color: "#009c3b",
+      animation: "omniCopaBall .72s cubic-bezier(.2,.9,.2,1)",
+    };
+  }
+
+  if (effect === "princesa") {
+    return { color: "#be185d" };
+  }
+
+  if (effect === "luxo") {
+    return { color: "#92400e" };
+  }
+
+  if (effect === "infantil") {
+    return { color: "#ec4899" };
+  }
+
+  return {};
+}
+
+function renderConfirmationParticles(effect: ConfirmationEffect) {
+  if (effect === "nenhum") return null;
+
+  const colors =
+    effect === "copa"
+      ? ["#009c3b", "#ffdf00", "#002776", "#ffffff"]
+      : effect === "princesa"
+        ? ["#f9a8d4", "#fbbf24", "#ffffff", "#c084fc"]
+        : effect === "luxo"
+          ? ["#d4af37", "#ffffff", "#0f172a", "#a16207"]
+          : effect === "infantil"
+            ? ["#38bdf8", "#fb7185", "#facc15", "#ffffff"]
+            : ["#7c3aed", "#14b8a6", "#ffffff", "#f8fafc"];
+
+  return (
+    <div style={particlesLayerStyle} aria-hidden="true">
+      {Array.from({ length: effect === "padrao" ? 18 : 30 }).map((_, index) => {
+        const left = (index * 37) % 100;
+        const delay = (index % 8) * 0.08;
+        const x = ((index % 7) - 3) * 28;
+        const size = 7 + (index % 4) * 3;
+        const color = colors[index % colors.length];
+
+        return (
+          <span
+            key={index}
+            style={{
+              position: "absolute",
+              left: `${left}%`,
+              top: -24,
+              width: size,
+              height: effect === "copa" && index % 5 === 0 ? size : Math.max(5, size - 2),
+              borderRadius: effect === "copa" && index % 5 === 0 ? 999 : 3,
+              background: effect === "copa" && index % 5 === 0 ? "#ffffff" : color,
+              color,
+              boxShadow:
+                effect === "copa" && index % 5 === 0
+                  ? "inset 0 0 0 2px #111827"
+                  : "0 6px 18px rgba(0,0,0,.16)",
+              animation: `omniConfettiFall ${1.35 + (index % 5) * 0.12}s ease-in ${delay}s both`,
+              ["--x" as any]: `${x}px`,
+            }}
+          />
+        );
+      })}
+
+      {effect !== "padrao" &&
+        Array.from({ length: 10 }).map((_, index) => (
+          <span
+            key={`sparkle-${index}`}
+            style={{
+              position: "absolute",
+              left: `${8 + ((index * 19) % 84)}%`,
+              top: `${12 + ((index * 23) % 70)}%`,
+              color: colors[(index + 1) % colors.length],
+              fontSize: 16 + (index % 3) * 6,
+              animation: `omniSparklePulse ${0.9 + (index % 4) * 0.12}s ease-in-out ${index * 0.08}s infinite`,
+            }}
+          >
+            {effect === "copa" ? "★" : "✦"}
+          </span>
+        ))}
+    </div>
   );
 }
 
@@ -1101,6 +1435,14 @@ const soundToggleStyle: CSSProperties = {
   backdropFilter: "blur(12px)",
   WebkitBackdropFilter: "blur(12px)",
   cursor: "pointer",
+};
+
+
+const particlesLayerStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  overflow: "hidden",
+  pointerEvents: "none",
 };
 
 const confirmationOverlayStyle: CSSProperties = {
