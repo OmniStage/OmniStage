@@ -25,7 +25,7 @@ export default function EffectRenderer({
 
   if (activeEffect === "copa2026") {
     return (
-      <Copa2026Effect.tsx
+      <Copa2026Effect
         open={open}
         effect={activeEffect}
         confirming={confirming}
