@@ -4,18 +4,12 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import { supabase } from "@/lib/supabase";
 import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
+import { CONFIRMATION_EFFECTS, normalizeConfirmationEffect } from "@/components/confirmation-effects/registry";
+import type { ConfirmationEffectType } from "@/components/confirmation-effects/types";
 
 type EffectType = "none" | "glow" | "float" | "pulse" | "shine";
 
 type BackgroundEffectType = "none" | "cinema_zoom" | "parallax";
-
-type ConfirmationEffectType =
-  | "padrao"
-  | "copa"
-  | "princesa"
-  | "luxo"
-  | "infantil"
-  | "nenhum";
 
 type BlockType =
   | "text"
@@ -249,20 +243,6 @@ function parseBackgroundColor(background?: string | null) {
   };
 }
 
-function normalizeConfirmationEffect(value: unknown): ConfirmationEffectType {
-  if (
-    value === "copa" ||
-    value === "princesa" ||
-    value === "luxo" ||
-    value === "infantil" ||
-    value === "nenhum"
-  ) {
-    return value;
-  }
-
-  return "padrao";
-}
-
 async function cropTransparentImageFile(file: File): Promise<{
   file: File;
   width: number;
@@ -413,42 +393,7 @@ const BACKGROUND_EFFECT_OPTIONS: {
   { value: "parallax", label: "Parallax leve" },
 ];
 
-const CONFIRMATION_EFFECT_OPTIONS: {
-  value: ConfirmationEffectType;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "padrao",
-    label: "Padrão OmniStage",
-    description: "Confirmação limpa e neutra para qualquer evento.",
-  },
-  {
-    value: "copa",
-    label: "Copa / Futebol",
-    description: "Gol, comemoração, confete verde e amarelo.",
-  },
-  {
-    value: "princesa",
-    label: "Princesa / XV anos",
-    description: "Brilhos, dourado e clima elegante.",
-  },
-  {
-    value: "luxo",
-    label: "Luxo / Premium",
-    description: "Animação discreta, sofisticada e minimalista.",
-  },
-  {
-    value: "infantil",
-    label: "Infantil",
-    description: "Efeito alegre e lúdico para festas infantis.",
-  },
-  {
-    value: "nenhum",
-    label: "Nenhum",
-    description: "Não dispara efeito especial após confirmar.",
-  },
-];
+const CONFIRMATION_EFFECT_OPTIONS = CONFIRMATION_EFFECTS;
 
 function getEditorEffectStyle(effect: EffectType): CSSProperties {
   if (effect === "glow") {
