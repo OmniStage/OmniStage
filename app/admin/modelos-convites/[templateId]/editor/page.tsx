@@ -4,12 +4,19 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import { supabase } from "@/lib/supabase";
 import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
-import { CONFIRMATION_EFFECTS, normalizeConfirmationEffect } from "@/components/confirmation-effects/registry";
-import type { ConfirmationEffectType } from "@/components/confirmation-effects/types";
 
 type EffectType = "none" | "glow" | "float" | "pulse" | "shine";
 
 type BackgroundEffectType = "none" | "cinema_zoom" | "parallax";
+
+type ConfirmationEffectType =
+  | "padrao"
+  | "futebol"
+  | "copa2026"
+  | "princesa"
+  | "luxo"
+  | "infantil"
+  | "nenhum";
 
 type BlockType =
   | "text"
@@ -243,6 +250,25 @@ function parseBackgroundColor(background?: string | null) {
   };
 }
 
+function normalizeConfirmationEffect(value: unknown): ConfirmationEffectType {
+  if (value === "copa") {
+    return "futebol";
+  }
+
+  if (
+    value === "futebol" ||
+    value === "copa2026" ||
+    value === "princesa" ||
+    value === "luxo" ||
+    value === "infantil" ||
+    value === "nenhum"
+  ) {
+    return value;
+  }
+
+  return "padrao";
+}
+
 async function cropTransparentImageFile(file: File): Promise<{
   file: File;
   width: number;
@@ -393,7 +419,47 @@ const BACKGROUND_EFFECT_OPTIONS: {
   { value: "parallax", label: "Parallax leve" },
 ];
 
-const CONFIRMATION_EFFECT_OPTIONS = CONFIRMATION_EFFECTS;
+const CONFIRMATION_EFFECT_OPTIONS: {
+  value: ConfirmationEffectType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "padrao",
+    label: "Padrão OmniStage",
+    description: "Confirmação limpa e neutra para qualquer evento.",
+  },
+  {
+    value: "futebol",
+    label: "Futebol",
+    description: "Gol, bola animada, brilho e confetes em clima de futebol.",
+  },
+  {
+    value: "copa2026",
+    label: "Copa 2026",
+    description: "Arte especial Copa 2026 com brilho, troféu, bola e energia de estádio.",
+  },
+  {
+    value: "princesa",
+    label: "Princesa / XV anos",
+    description: "Brilhos, dourado e clima elegante.",
+  },
+  {
+    value: "luxo",
+    label: "Luxo / Premium",
+    description: "Animação discreta, sofisticada e minimalista.",
+  },
+  {
+    value: "infantil",
+    label: "Infantil",
+    description: "Efeito alegre e lúdico para festas infantis.",
+  },
+  {
+    value: "nenhum",
+    label: "Nenhum",
+    description: "Não dispara efeito especial após confirmar.",
+  },
+];
 
 function getEditorEffectStyle(effect: EffectType): CSSProperties {
   if (effect === "glow") {
@@ -2929,4 +2995,5 @@ const canvas: CSSProperties = {
   background:
     "radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 30%), linear-gradient(180deg,#0b1530,#211f63)",
 };
+
 
