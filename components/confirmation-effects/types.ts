@@ -7,6 +7,8 @@ export type ConfirmationEffect =
   | "infantil"
   | "nenhum";
 
+export type ConfirmationEffectType = ConfirmationEffect;
+
 export type ConfirmationEffectConfig = {
   id: ConfirmationEffect;
   label: string;
