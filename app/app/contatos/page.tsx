@@ -86,6 +86,15 @@ type Toast = {
   mensagem?: string;
 };
 
+type ConfirmacaoAcao = {
+  tipo: "excluirNucleo";
+  titulo: string;
+  mensagem: string;
+  destaque?: string;
+  confirmLabel: string;
+  nucleo: Nucleo;
+};
+
 type PessoaForm = {
   nome: string;
   telefone: string;
@@ -159,6 +168,7 @@ export default function ContatosPage() {
   const [pessoaForm, setPessoaForm] = useState<PessoaForm>(pessoaFormVazio);
   const [nucleoForm, setNucleoForm] = useState<NucleoForm>(nucleoFormVazio);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [confirmacaoAcao, setConfirmacaoAcao] = useState<ConfirmacaoAcao | null>(null);
 
   useEffect(() => {
     iniciarTela();
@@ -565,6 +575,11 @@ export default function ContatosPage() {
     setAcaoLoading(false);
   }
 
+  function fecharConfirmacaoAcao() {
+    if (acaoLoading) return;
+    setConfirmacaoAcao(null);
+  }
+
   function mostrarFeedback(tipo: Toast["tipo"], titulo: string, mensagem?: string) {
     setToast({ tipo, titulo, mensagem });
 
@@ -834,7 +849,7 @@ export default function ContatosPage() {
     if (!tenantId) return;
 
     if (!nucleoForm.nome.trim()) {
-      alert("Informe o nome do núcleo.");
+      mostrarFeedback("erro", "Informe o nome do núcleo.");
       return;
     }
 
@@ -849,58 +864,119 @@ export default function ContatosPage() {
         updated_at: new Date().toISOString(),
       };
 
-      const query = nucleoSelecionado
+      const resultado = nucleoSelecionado
         ? await supabase
             .from("contato_grupos")
             .update(payload)
             .eq("id", nucleoSelecionado.id)
             .eq("tenant_id", tenantId)
-        : await supabase.from("contato_grupos").insert({
-            ...payload,
-            tenant_id: tenantId,
-            origem: "cadastro_manual",
-          });
+            .select("id, nome, tipo, tipo_nucleo, descricao")
+            .maybeSingle()
+        : await supabase
+            .from("contato_grupos")
+            .insert({
+              ...payload,
+              tenant_id: tenantId,
+              origem: "cadastro_manual",
+            })
+            .select("id, nome, tipo, tipo_nucleo, descricao")
+            .maybeSingle();
 
-      if (query.error) throw new Error(query.error.message);
+      if (resultado.error) throw new Error(resultado.error.message);
+
+      if (!resultado.data?.id) {
+        throw new Error(
+          nucleoSelecionado
+            ? "A alteração não foi gravada. Verifique a permissão de UPDATE em contato_grupos e tente novamente."
+            : "O núcleo não foi criado. Verifique a permissão de INSERT em contato_grupos e tente novamente.",
+        );
+      }
 
       await carregarNucleos(tenantId);
       fecharModal();
-      mostrarFeedback("sucesso", nucleoSelecionado ? "Núcleo atualizado." : "Núcleo criado.");
+      mostrarFeedback(
+        "sucesso",
+        nucleoSelecionado ? "Núcleo atualizado." : "Núcleo criado.",
+        "As informações foram confirmadas no banco de dados.",
+      );
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao salvar núcleo.");
+      mostrarFeedback(
+        "erro",
+        nucleoSelecionado ? "Erro ao atualizar núcleo." : "Erro ao criar núcleo.",
+        error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+      );
     } finally {
       setAcaoLoading(false);
     }
   }
 
-  async function excluirNucleo(nucleo: Nucleo) {
+  function excluirNucleo(nucleo: Nucleo) {
     if (!tenantId) return;
 
     const vinculos = membrosPorNucleo.get(nucleo.id) || [];
 
     if (vinculos.length > 0) {
-      alert("Este núcleo possui membros vinculados. Remova os membros antes de excluir o núcleo.");
+      mostrarFeedback(
+        "erro",
+        "Não é possível excluir este núcleo.",
+        "Ele ainda possui membros vinculados. Remova ou mova os membros antes de excluir.",
+      );
       return;
     }
 
-    const confirmar = window.confirm(`Excluir o núcleo "${nucleo.nome}"?`);
-    if (!confirmar) return;
+    setConfirmacaoAcao({
+      tipo: "excluirNucleo",
+      titulo: "Excluir núcleo",
+      mensagem:
+        "Esta ação remove o núcleo permanentemente da base de contatos. A exclusão só será aplicada se o banco confirmar que não existem membros vinculados.",
+      destaque: nucleo.nome,
+      confirmLabel: "Excluir núcleo",
+      nucleo,
+    });
+  }
+
+  async function confirmarExclusaoNucleo() {
+    if (!tenantId || !confirmacaoAcao || confirmacaoAcao.tipo !== "excluirNucleo") return;
+
+    const nucleo = confirmacaoAcao.nucleo;
 
     setAcaoLoading(true);
 
     try {
-      const { error } = await supabase
+      const { count, error: countError } = await supabase
+        .from("contato_grupo_membros")
+        .select("id", { count: "exact", head: true })
+        .eq("grupo_contato_id", nucleo.id)
+        .eq("tenant_id", tenantId);
+
+      if (countError) throw new Error(countError.message);
+
+      if ((count || 0) > 0) {
+        throw new Error("Este núcleo ainda possui membros vinculados. Remova ou mova os membros antes de excluir.");
+      }
+
+      const { data, error } = await supabase
         .from("contato_grupos")
         .delete()
         .eq("id", nucleo.id)
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .select("id");
 
       if (error) throw new Error(error.message);
 
-      await carregarNucleos(tenantId);
-      mostrarFeedback("sucesso", "Núcleo excluído.");
+      if (!data || data.length === 0) {
+        throw new Error("A exclusão não foi gravada. Verifique a permissão de DELETE em contato_grupos e tente novamente.");
+      }
+
+      await Promise.all([carregarNucleos(tenantId), carregarMembros(tenantId)]);
+      setConfirmacaoAcao(null);
+      mostrarFeedback("sucesso", "Núcleo excluído.", "A exclusão foi confirmada no banco de dados.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao excluir núcleo.");
+      mostrarFeedback(
+        "erro",
+        "Erro ao excluir núcleo.",
+        error instanceof Error ? error.message : "Tente novamente em alguns instantes.",
+      );
     } finally {
       setAcaoLoading(false);
     }
@@ -1721,6 +1797,15 @@ export default function ContatosPage() {
         </div>
       )}
 
+      {confirmacaoAcao && (
+        <ConfirmacaoAcaoModal
+          confirmacao={confirmacaoAcao}
+          acaoLoading={acaoLoading}
+          onConfirmar={confirmarExclusaoNucleo}
+          onCancelar={fecharConfirmacaoAcao}
+        />
+      )}
+
       {toast && (
         <div style={toastWrapperStyle}>
           <div style={toastCardStyle}>
@@ -1733,6 +1818,63 @@ export default function ContatosPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function ConfirmacaoAcaoModal({
+  confirmacao,
+  acaoLoading,
+  onConfirmar,
+  onCancelar,
+}: {
+  confirmacao: ConfirmacaoAcao;
+  acaoLoading: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  return (
+    <div
+      style={modalOverlayStyle}
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !acaoLoading) onCancelar();
+      }}
+    >
+      <section
+        style={{
+          ...modalCardStyle,
+          width: "min(560px, 100%)",
+          overflowY: "visible",
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div style={modalHeaderStyle}>
+          <div>
+            <div style={modalKickerStyle}>Confirmação</div>
+            <h2 style={modalTitleStyle}>{confirmacao.titulo}</h2>
+          </div>
+
+          <button type="button" onClick={onCancelar} disabled={acaoLoading} style={secondaryButtonStyle}>
+            Fechar
+          </button>
+        </div>
+
+        <div style={confirmBoxStyle}>
+          <strong style={confirmHighlightStyle}>{confirmacao.destaque}</strong>
+          <p style={confirmMessageStyle}>{confirmacao.mensagem}</p>
+        </div>
+
+        <div style={modalActionsStyle}>
+          <button type="button" onClick={onCancelar} disabled={acaoLoading} style={secondaryButtonStyle}>
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirmar} disabled={acaoLoading} style={dangerButtonStyle}>
+            {acaoLoading ? "Excluindo..." : confirmacao.confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -3678,6 +3820,32 @@ const responsavelTitleStyle: CSSProperties = {
   color: "#0f172a",
   fontSize: 16,
   fontWeight: 950,
+};
+
+
+const confirmBoxStyle: CSSProperties = {
+  display: "grid",
+  gap: 10,
+  padding: 18,
+  borderRadius: 20,
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
+  color: "#7f1d1d",
+  marginBottom: 16,
+};
+
+const confirmHighlightStyle: CSSProperties = {
+  color: "#991b1b",
+  fontSize: 18,
+  fontWeight: 950,
+};
+
+const confirmMessageStyle: CSSProperties = {
+  margin: 0,
+  color: "#7f1d1d",
+  fontSize: 14,
+  lineHeight: 1.5,
+  fontWeight: 750,
 };
 
 
