@@ -6,7 +6,7 @@ export type ConfirmationEffect =
   | "luxo"
   | "infantil"
   | "nenhum";
-teste
+
 export type ConfirmationEffectType = ConfirmationEffect;
 
 export type ConfirmationEffectConfig = {
