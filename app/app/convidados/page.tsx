@@ -540,6 +540,13 @@ function normalizarTelefone(telefone: string | null) {
     return telefone.replace(/\D/g, "");
   }
 
+  function temTelefoneEnvioFormulario(formulario: ConvidadoForm) {
+    return Boolean(
+      normalizarTelefone(formulario.telefone) ||
+        normalizarTelefone(formulario.responsavel_telefone),
+    );
+  }
+
   function tipoContatoEhCrianca(tipoContato: string | null | undefined) {
     return String(tipoContato || "").trim().toLowerCase() === "crianca";
   }
@@ -1104,7 +1111,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
     try {
       const grupoNormalizado = form.grupo.trim();
       const conviteEhGrupo = form.tipo_convite === "grupo";
-      const grupoFinal = conviteEhGrupo ? grupoNormalizado : "";
+      const grupoFinal = grupoNormalizado;
       const responsavelNormalizado = form.responsavel.trim();
       const responsavelTelefoneNormalizado = form.responsavel_telefone.trim();
       const maeNormalizada = responsavelNormalizado || form.mae.trim();
@@ -1294,7 +1301,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       tamanho_chinelo: convidado.tamanho_chinelo || "",
       contato_principal: Boolean(contatoPrincipalFinal),
       recebe_convite: Boolean(recebeConviteFinal),
-      tipo_convite: convidado.tipo_convite || (convidado.grupo ? "grupo" : "individual"),
+      tipo_convite: convidado.tipo_convite || "individual",
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
       status_envio: convidado.status_envio || "pendente",
@@ -1890,9 +1897,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       setForm((current) => ({
                         ...current,
                         tipo_convite: tipo,
-                        grupo: tipo === "grupo" ? current.grupo : "",
+                        grupo: current.grupo,
                         contato_principal: tipo === "grupo" ? current.contato_principal : false,
-                        recebe_convite: tipo === "individual" ? true : current.recebe_convite,
+                        recebe_convite: tipo === "grupo"
+                          ? temTelefoneEnvioFormulario(current) && current.recebe_convite
+                          : true,
                       }));
                     }}
                     style={inputStyle}
@@ -1906,7 +1915,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
               <div style={nucleosVinculadosConviteWrapperStyle}>
                 <div style={nucleosVinculadosConviteHeaderStyle}>
                   <strong>Núcleos vinculados ao contato</strong>
-                  <span>Marque um núcleo somente quando este convite/cartão deve ser agrupado.</span>
+                  <span>No convite individual, o núcleo serve apenas para visualização/filtro. No convite por núcleo, ele agrupa convite e cartão.</span>
                 </div>
 
                 {!editandoId && (
@@ -1923,8 +1932,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       const nucleo = nucleosContatosPorId.get(vinculo.grupo_contato_id);
                       const nomeNucleo = nucleo?.nome || "Núcleo não encontrado";
                       const nucleoMarcado =
-                        form.tipo_convite === "grupo" &&
                         form.grupo.trim().toLowerCase() === nomeNucleo.trim().toLowerCase();
+                      const convitePorNucleo = form.tipo_convite === "grupo";
+                      const temTelefoneSalvo = temTelefoneEnvioFormulario(form);
 
                       return (
                         <div
@@ -1949,25 +1959,32 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                 onChange={(event) => {
                                   const checked = event.target.checked;
 
-                                  setForm((current) => ({
-                                    ...current,
-                                    tipo_convite: checked ? "grupo" : "individual",
-                                    grupo: checked ? nomeNucleo : "",
-                                    contato_principal: checked ? Boolean(vinculo.principal_envio) : false,
-                                    recebe_convite: checked
-                                      ? Boolean(vinculo.recebe_comunicacao || vinculo.principal_envio)
-                                      : true,
-                                  }));
+                                  setForm((current) => {
+                                    const convitePorNucleoAtual = current.tipo_convite === "grupo";
+                                    const temTelefoneSalvoAtual = temTelefoneEnvioFormulario(current);
+
+                                    return {
+                                      ...current,
+                                      tipo_convite: current.tipo_convite,
+                                      grupo: checked ? nomeNucleo : "",
+                                      contato_principal: checked && convitePorNucleoAtual
+                                        ? current.contato_principal
+                                        : false,
+                                      recebe_convite: checked && convitePorNucleoAtual
+                                        ? temTelefoneSalvoAtual
+                                        : true,
+                                    };
+                                  });
                                 }}
                               />
-                              <span>Agrupar convite neste núcleo</span>
+                              <span>{convitePorNucleo ? "Agrupar convite neste núcleo" : "Visualizar convite neste núcleo"}</span>
                             </label>
 
                             <label style={compactNucleoToggleStyle}>
                               <input
                                 type="checkbox"
-                                checked={nucleoMarcado && form.recebe_convite}
-                                disabled={!nucleoMarcado}
+                                checked={convitePorNucleo && nucleoMarcado && form.recebe_convite && temTelefoneSalvo}
+                                disabled={!convitePorNucleo || !nucleoMarcado || !temTelefoneSalvo}
                                 onChange={(event) =>
                                   updateFormBoolean("recebe_convite", event.target.checked)
                                 }
@@ -1978,14 +1995,13 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             <label style={compactNucleoToggleStyle}>
                               <input
                                 type="checkbox"
-                                checked={nucleoMarcado && form.contato_principal}
-                                disabled={!nucleoMarcado}
+                                checked={convitePorNucleo && nucleoMarcado && form.contato_principal}
+                                disabled={!convitePorNucleo || !nucleoMarcado}
                                 onChange={(event) => {
                                   const checked = event.target.checked;
                                   setForm((current) => ({
                                     ...current,
                                     contato_principal: checked,
-                                    recebe_convite: checked ? true : current.recebe_convite,
                                   }));
                                 }}
                               />
