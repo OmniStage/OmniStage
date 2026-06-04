@@ -48,7 +48,7 @@ type Template = {
 
 type ConfirmationEffect =
   | "padrao"
-  | "copa"
+  | "futebol"
   | "princesa"
   | "luxo"
   | "infantil"
@@ -140,8 +140,12 @@ function getVisualConfig(template: Template | null) {
 function normalizarEfeitoConfirmacao(value: unknown): ConfirmationEffect {
   const efeito = String(value || "padrao").trim().toLowerCase();
 
+  if (efeito === "copa") {
+    return "futebol";
+  }
+
   if (
-    efeito === "copa" ||
+    efeito === "futebol" ||
     efeito === "princesa" ||
     efeito === "luxo" ||
     efeito === "infantil" ||
@@ -307,7 +311,7 @@ function tocarSomConfirmacao(effect: ConfirmationEffect = "padrao") {
     oscillator.stop(audioContext.currentTime + start + duration + 0.03);
   }
 
-  if (effect === "copa") {
+  if (effect === "futebol") {
     tocarNota(1320, 0, 0.1, 0.09, "sine");
     tocarNota(1760, 0.08, 0.16, 0.08, "sine");
     tocarNota(523, 0.26, 0.13, 0.15, "square");
@@ -735,7 +739,7 @@ export default function ConvitePublicoPage() {
 
     if (typeof navigator !== "undefined" && efeitoConfirmacao !== "nenhum") {
       navigator.vibrate?.(
-        efeitoConfirmacao === "copa"
+        efeitoConfirmacao === "futebol"
           ? [90, 35, 90, 35, 180]
           : [80, 40, 120],
       );
@@ -1098,7 +1102,7 @@ export default function ConvitePublicoPage() {
             }
           }
 
-          @keyframes omniCopaCardShine {
+          @keyframes omniFutebolCardShine {
             0%, 100% {
               box-shadow:
                 0 26px 92px rgba(0,0,0,.34),
@@ -1116,19 +1120,19 @@ export default function ConvitePublicoPage() {
             }
           }
 
-          @keyframes omniCopaBall {
+          @keyframes omniFutebolBall {
             0% { transform: rotate(-28deg) scale(.76); opacity: 0; }
             36% { transform: rotate(18deg) scale(1.15); opacity: 1; }
             68% { transform: rotate(370deg) scale(1.03); opacity: 1; }
             100% { transform: rotate(360deg) scale(1); opacity: 1; }
           }
 
-          @keyframes omniCopaBallGlow {
+          @keyframes omniFutebolBallGlow {
             0%, 100% { transform: scale(.92); opacity: .62; }
             50% { transform: scale(1.18); opacity: 1; }
           }
 
-          @keyframes omniCopaTitlePop {
+          @keyframes omniFutebolTitlePop {
             0% { transform: scale(.72); opacity: 0; letter-spacing: -.08em; }
             58% { transform: scale(1.12); opacity: 1; letter-spacing: -.035em; }
             100% { transform: scale(1); opacity: 1; letter-spacing: -.04em; }
@@ -1145,22 +1149,22 @@ export default function ConvitePublicoPage() {
             50% { transform: scale(1.18); opacity: 1; }
           }
 
-          @keyframes omniCopaGlowPulse {
+          @keyframes omniFutebolGlowPulse {
             0%, 100% { opacity: .72; transform: scale(.96); }
             50% { opacity: 1; transform: scale(1.08); }
           }
 
-          @keyframes omniCopaFlagWave {
+          @keyframes omniFutebolFlagWave {
             0%, 100% { transform: rotate(-8deg) translateY(0); }
             50% { transform: rotate(7deg) translateY(-4px); }
           }
 
-          @keyframes omniCopaCrowdJump {
+          @keyframes omniFutebolCrowdJump {
             0%, 100% { transform: translateY(0); opacity: .82; }
             50% { transform: translateY(-5px); opacity: 1; }
           }
 
-          @keyframes omniCopaTitleShine {
+          @keyframes omniFutebolTitleShine {
             0% { background-position: 0% 50%; }
             100% { background-position: 220% 50%; }
           }
@@ -1203,65 +1207,65 @@ export default function ConvitePublicoPage() {
           }}
         >
           {visualContent}
-        </div>
 
-        {confirmacaoAberta && (
-          <div
-            style={{
-              ...confirmationOverlayStyle,
-              ...getConfirmationOverlayTheme(efeitoConfirmacaoAtivo),
-            }}
-          >
-            {renderConfirmationParticles(efeitoConfirmacaoAtivo)}
-
+          {confirmacaoAberta && (
             <div
               style={{
-                ...confirmationCardStyle,
-                ...getConfirmationCardTheme(efeitoConfirmacaoAtivo),
+                ...confirmationOverlayStyle,
+                ...getConfirmationOverlayTheme(efeitoConfirmacaoAtivo),
               }}
             >
-              {renderCopaBrazilCardBackdrop(efeitoConfirmacaoAtivo)}
+              {renderConfirmationParticles(efeitoConfirmacaoAtivo)}
 
               <div
                 style={{
-                  ...confirmationIconStyle,
-                  ...getConfirmationIconTheme(efeitoConfirmacaoAtivo),
+                  ...confirmationCardStyle,
+                  ...getConfirmationCardTheme(efeitoConfirmacaoAtivo),
                 }}
               >
-                {getConfirmationIcon(efeitoConfirmacaoAtivo)}
-              </div>
-              <strong
-                style={{
-                  ...confirmationTitleStyle,
-                  ...getConfirmationTitleTheme(efeitoConfirmacaoAtivo),
-                }}
-              >
-                {confirmandoPresenca
-                  ? "Confirmando presença..."
-                  : getConfirmationTitle(efeitoConfirmacaoAtivo)}
-              </strong>
-              <span
-                style={{
-                  ...confirmationTextStyle,
-                  ...getConfirmationTextTheme(efeitoConfirmacaoAtivo),
-                }}
-              >
-                {confirmandoPresenca
-                  ? "Estamos registrando sua confirmação."
-                  : getConfirmationText(efeitoConfirmacaoAtivo)}
-              </span>
-              {efeitoConfirmacaoAtivo === "copa" && !confirmandoPresenca ? (
-                <div style={copaStarsStyle} aria-hidden="true">
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
+                {renderFutebolBrazilCardBackdrop(efeitoConfirmacaoAtivo)}
+
+                <div
+                  style={{
+                    ...confirmationIconStyle,
+                    ...getConfirmationIconTheme(efeitoConfirmacaoAtivo),
+                  }}
+                >
+                  {getConfirmationIcon(efeitoConfirmacaoAtivo)}
                 </div>
-              ) : null}
+                <strong
+                  style={{
+                    ...confirmationTitleStyle,
+                    ...getConfirmationTitleTheme(efeitoConfirmacaoAtivo),
+                  }}
+                >
+                  {confirmandoPresenca
+                    ? "Confirmando presença..."
+                    : getConfirmationTitle(efeitoConfirmacaoAtivo)}
+                </strong>
+                <span
+                  style={{
+                    ...confirmationTextStyle,
+                    ...getConfirmationTextTheme(efeitoConfirmacaoAtivo),
+                  }}
+                >
+                  {confirmandoPresenca
+                    ? "Estamos registrando sua confirmação."
+                    : getConfirmationText(efeitoConfirmacaoAtivo)}
+                </span>
+                {efeitoConfirmacaoAtivo === "futebol" && !confirmandoPresenca ? (
+                  <div style={futebolStarsStyle} aria-hidden="true">
+                    <span>★</span>
+                    <span>★</span>
+                    <span>★</span>
+                    <span>★</span>
+                    <span>★</span>
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </main>
     );
   }
@@ -1281,7 +1285,7 @@ export default function ConvitePublicoPage() {
 }
 
 function getConfirmationIcon(effect: ConfirmationEffect) {
-  if (effect === "copa") return "⚽";
+  if (effect === "futebol") return "⚽";
   if (effect === "princesa") return "👑";
   if (effect === "luxo") return "✨";
   if (effect === "infantil") return "🎉";
@@ -1290,7 +1294,7 @@ function getConfirmationIcon(effect: ConfirmationEffect) {
 }
 
 function getConfirmationTitle(effect: ConfirmationEffect) {
-  if (effect === "copa") return "GOOOOOOL!";
+  if (effect === "futebol") return "GOOOOOOL!";
   if (effect === "princesa") return "Presença confirmada!";
   if (effect === "luxo") return "Confirmação registrada";
   if (effect === "infantil") return "Oba, presença confirmada!";
@@ -1299,7 +1303,7 @@ function getConfirmationTitle(effect: ConfirmationEffect) {
 }
 
 function getConfirmationText(effect: ConfirmationEffect) {
-  if (effect === "copa") {
+  if (effect === "futebol") {
     return "Sua presença está confirmada. Você foi convocado para essa festa!";
   }
 
@@ -1319,7 +1323,7 @@ function getConfirmationText(effect: ConfirmationEffect) {
 }
 
 function getConfirmationOverlayTheme(effect: ConfirmationEffect): CSSProperties {
-  if (effect === "copa") {
+  if (effect === "futebol") {
     return {
       background:
         "radial-gradient(circle at 50% 38%, rgba(254,221,0,.18), transparent 30%), radial-gradient(circle at 24% 22%, rgba(0,156,59,.2), transparent 32%), radial-gradient(circle at 78% 72%, rgba(0,39,118,.2), transparent 34%), rgba(2,6,23,.24)",
@@ -1353,11 +1357,11 @@ function getConfirmationOverlayTheme(effect: ConfirmationEffect): CSSProperties 
 }
 
 function getConfirmationCardTheme(effect: ConfirmationEffect): CSSProperties {
-  if (effect === "copa") {
+  if (effect === "futebol") {
     return {
-      width: "min(560px, calc(100vw - 32px))",
-      minHeight: 254,
-      padding: "88px 24px 28px",
+      width: "min(360px, calc(100% - 34px))",
+      minHeight: 224,
+      padding: "68px 18px 22px",
       overflow: "visible",
       position: "relative",
       background: "rgba(255,255,255,.14)",
@@ -1367,7 +1371,7 @@ function getConfirmationCardTheme(effect: ConfirmationEffect): CSSProperties {
       boxShadow:
         "0 26px 92px rgba(0,0,0,.34), 0 0 0 1px rgba(255,255,255,.56), 0 0 28px rgba(255,255,255,.18), inset 0 1px 0 rgba(255,255,255,.56)",
       animation:
-        "omniConfirmPop .36s cubic-bezier(.2,.9,.2,1), omniCopaCardShine 1.05s ease-in-out .12s 3",
+        "omniConfirmPop .36s cubic-bezier(.2,.9,.2,1), omniFutebolCardShine 1.05s ease-in-out .12s 3",
     };
   }
 
@@ -1402,24 +1406,24 @@ function getConfirmationCardTheme(effect: ConfirmationEffect): CSSProperties {
 }
 
 function getConfirmationIconTheme(effect: ConfirmationEffect): CSSProperties {
-  if (effect === "copa") {
+  if (effect === "futebol") {
     return {
-      width: 110,
-      height: 110,
-      fontSize: 64,
+      width: 82,
+      height: 82,
+      fontSize: 48,
       color: "#0f172a",
       background:
         "radial-gradient(circle at 34% 28%, #ffffff, #f8fafc 42%, #d1d5db 100%)",
       position: "absolute",
-      top: -58,
-      right: 30,
+      top: -44,
+      right: 24,
       zIndex: 4,
-      border: "7px solid rgba(255,255,255,.96)",
-      outline: "7px solid rgba(0,39,118,.8)",
+      border: "5px solid rgba(255,255,255,.96)",
+      outline: "5px solid rgba(0,39,118,.8)",
       boxShadow:
         "0 0 0 10px rgba(254,221,0,.24), 0 0 38px rgba(254,221,0,.92), 0 18px 42px rgba(0,0,0,.32)",
       animation:
-        "omniCopaBall .86s cubic-bezier(.2,.9,.2,1), omniCopaBallGlow 1s ease-in-out .2s 3",
+        "omniFutebolBall .86s cubic-bezier(.2,.9,.2,1), omniFutebolBallGlow 1s ease-in-out .2s 3",
     };
   }
 
@@ -1439,18 +1443,18 @@ function getConfirmationIconTheme(effect: ConfirmationEffect): CSSProperties {
 }
 
 function getConfirmationTitleTheme(effect: ConfirmationEffect): CSSProperties {
-  if (effect === "copa") {
+  if (effect === "futebol") {
     return {
       position: "relative",
       zIndex: 3,
-      fontSize: "clamp(40px, 8vw, 66px)",
+      fontSize: "clamp(38px, 13vw, 52px)",
       letterSpacing: "-.04em",
       color: "#ffffff",
       textTransform: "uppercase",
       textShadow:
         "0 3px 0 rgba(0,39,118,.72), 0 8px 20px rgba(0,0,0,.44), 0 0 22px rgba(255,255,255,.55)",
       WebkitTextStroke: "1px rgba(2,6,23,.38)",
-      animation: "omniCopaTitlePop .52s cubic-bezier(.2,.9,.2,1) both",
+      animation: "omniFutebolTitlePop .52s cubic-bezier(.2,.9,.2,1) both",
     };
   }
 
@@ -1458,14 +1462,14 @@ function getConfirmationTitleTheme(effect: ConfirmationEffect): CSSProperties {
 }
 
 function getConfirmationTextTheme(effect: ConfirmationEffect): CSSProperties {
-  if (effect === "copa") {
+  if (effect === "futebol") {
     return {
       position: "relative",
       zIndex: 3,
-      maxWidth: 430,
-      padding: "0 10px",
+      maxWidth: 310,
+      padding: "0 8px",
       color: "#ffffff",
-      fontSize: 22,
+      fontSize: "clamp(17px, 5vw, 20px)",
       lineHeight: 1.2,
       fontWeight: 950,
       textShadow: "0 3px 12px rgba(0,0,0,.56), 0 0 16px rgba(255,255,255,.28)",
@@ -1475,27 +1479,17 @@ function getConfirmationTextTheme(effect: ConfirmationEffect): CSSProperties {
   return {};
 }
 
-function renderCopaBrazilCardBackdrop(effect: ConfirmationEffect) {
-  if (effect !== "copa") return null;
+function renderFutebolBrazilCardBackdrop(effect: ConfirmationEffect) {
+  if (effect !== "futebol") return null;
 
-  return (
-    <>
-      <div style={copaBrazilGlowStyle} />
-      <div style={{ ...copaFlagStyle, left: 16, transform: "rotate(-10deg)" }}>
-        🇧🇷
-      </div>
-      <div style={{ ...copaFlagStyle, right: 16, transform: "rotate(10deg)" }}>
-        🇧🇷
-      </div>
-    </>
-  );
+  return <div style={futebolBrazilGlowStyle} />;
 }
 
 function renderConfirmationParticles(effect: ConfirmationEffect) {
   if (effect === "nenhum") return null;
 
   const colors =
-    effect === "copa"
+    effect === "futebol"
       ? ["#009c3b", "#ffdf00", "#002776", "#ffffff"]
       : effect === "princesa"
         ? ["#f9a8d4", "#fbbf24", "#ffffff", "#c084fc"]
@@ -1507,11 +1501,11 @@ function renderConfirmationParticles(effect: ConfirmationEffect) {
 
   return (
     <div style={particlesLayerStyle} aria-hidden="true">
-      {Array.from({ length: effect === "copa" ? 56 : effect === "padrao" ? 18 : 30 }).map((_, index) => {
+      {Array.from({ length: effect === "futebol" ? 56 : effect === "padrao" ? 18 : 30 }).map((_, index) => {
         const left = (index * 37) % 100;
         const delay = (index % 10) * 0.055;
-        const x = ((index % 9) - 4) * (effect === "copa" ? 34 : 28);
-        const size = effect === "copa" ? 8 + (index % 5) * 4 : 7 + (index % 4) * 3;
+        const x = ((index % 9) - 4) * (effect === "futebol" ? 34 : 28);
+        const size = effect === "futebol" ? 8 + (index % 5) * 4 : 7 + (index % 4) * 3;
         const color = colors[index % colors.length];
 
         return (
@@ -1522,12 +1516,12 @@ function renderConfirmationParticles(effect: ConfirmationEffect) {
               left: `${left}%`,
               top: -24,
               width: size,
-              height: effect === "copa" && index % 5 === 0 ? size : Math.max(5, size - 2),
-              borderRadius: effect === "copa" && index % 5 === 0 ? 999 : 3,
-              background: effect === "copa" && index % 5 === 0 ? "#ffffff" : color,
+              height: effect === "futebol" && index % 5 === 0 ? size : Math.max(5, size - 2),
+              borderRadius: effect === "futebol" && index % 5 === 0 ? 999 : 3,
+              background: effect === "futebol" && index % 5 === 0 ? "#ffffff" : color,
               color,
               boxShadow:
-                effect === "copa" && index % 5 === 0
+                effect === "futebol" && index % 5 === 0
                   ? "inset 0 0 0 2px #111827"
                   : "0 6px 18px rgba(0,0,0,.16)",
               animation: `omniConfettiFall ${1.35 + (index % 5) * 0.12}s ease-in ${delay}s both`,
@@ -1550,7 +1544,7 @@ function renderConfirmationParticles(effect: ConfirmationEffect) {
               animation: `omniSparklePulse ${0.9 + (index % 4) * 0.12}s ease-in-out ${index * 0.08}s infinite`,
             }}
           >
-            {effect === "copa" ? "★" : "✦"}
+            {effect === "futebol" ? "★" : "✦"}
           </span>
         ))}
     </div>
@@ -1575,6 +1569,7 @@ const visualShellStyle: CSSProperties = {
   maxWidth: "100%",
   overflow: "hidden",
   background: "#020617",
+  position: "relative",
 };
 
 const soundToggleStyle: CSSProperties = {
@@ -1604,12 +1599,13 @@ const particlesLayerStyle: CSSProperties = {
 };
 
 const confirmationOverlayStyle: CSSProperties = {
-  position: "fixed",
+  position: "absolute",
   inset: 0,
-  zIndex: 9998,
+  zIndex: 80,
   display: "grid",
   placeItems: "center",
   pointerEvents: "none",
+  overflow: "hidden",
   background:
     "radial-gradient(circle at center, rgba(124,58,237,.28), transparent 44%)",
 };
@@ -1658,7 +1654,7 @@ const confirmationTextStyle: CSSProperties = {
   opacity: 0.92,
 };
 
-const copaBrazilBrushStyle: CSSProperties = {
+const futebolBrazilBrushStyle: CSSProperties = {
   position: "absolute",
   left: "-7%",
   right: "-7%",
@@ -1672,7 +1668,7 @@ const copaBrazilBrushStyle: CSSProperties = {
   pointerEvents: "none",
 };
 
-const copaBrazilGlowStyle: CSSProperties = {
+const futebolBrazilGlowStyle: CSSProperties = {
   position: "absolute",
   inset: -2,
   borderRadius: 28,
@@ -1680,11 +1676,11 @@ const copaBrazilGlowStyle: CSSProperties = {
     "radial-gradient(circle at 78% 0%, rgba(254,221,0,.38), transparent 24%), radial-gradient(circle at 10% 90%, rgba(0,156,59,.26), transparent 30%), linear-gradient(120deg, transparent 0%, rgba(255,255,255,.20) 42%, rgba(255,255,255,.08) 52%, transparent 64%)",
   opacity: .94,
   filter: "blur(.2px)",
-  animation: "omniCopaGlowPulse 1.2s ease-in-out 3",
+  animation: "omniFutebolGlowPulse 1.2s ease-in-out 3",
   pointerEvents: "none",
 };
 
-const copaBrazilDiamondStyle: CSSProperties = {
+const futebolBrazilDiamondStyle: CSSProperties = {
   position: "absolute",
   top: 72,
   left: "50%",
@@ -1698,7 +1694,7 @@ const copaBrazilDiamondStyle: CSSProperties = {
   pointerEvents: "none",
 };
 
-const copaCrowdStyle: CSSProperties = {
+const futebolCrowdStyle: CSSProperties = {
   position: "absolute",
   left: 0,
   right: 0,
@@ -1713,17 +1709,17 @@ const copaCrowdStyle: CSSProperties = {
   pointerEvents: "none",
 };
 
-const copaFlagStyle: CSSProperties = {
+const futebolFlagStyle: CSSProperties = {
   position: "absolute",
   bottom: -18,
   zIndex: 2,
   fontSize: 42,
   filter: "drop-shadow(0 8px 16px rgba(0,0,0,.34))",
-  animation: "omniCopaFlagWave .9s ease-in-out infinite",
+  animation: "omniFutebolFlagWave .9s ease-in-out infinite",
   pointerEvents: "none",
 };
 
-const copaStarsStyle: CSSProperties = {
+const futebolStarsStyle: CSSProperties = {
   position: "relative",
   zIndex: 3,
   display: "flex",
