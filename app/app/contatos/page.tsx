@@ -87,12 +87,14 @@ type Toast = {
 };
 
 type ConfirmacaoAcao = {
-  tipo: "excluirNucleo";
+  tipo: "excluirNucleo" | "excluirPessoa" | "removerVinculo";
   titulo: string;
   mensagem: string;
   destaque?: string;
   confirmLabel: string;
-  nucleo: Nucleo;
+  nucleo?: Nucleo;
+  pessoa?: Pessoa;
+  membro?: MembroNucleo;
 };
 
 type PessoaForm = {
@@ -212,7 +214,7 @@ export default function ContatosPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Usuário não autenticado.");
+      mostrarErro("Usuário não autenticado.");
       return null;
     }
 
@@ -225,7 +227,7 @@ export default function ContatosPage() {
       .maybeSingle();
 
     if (error || !data?.tenant_id) {
-      alert("Este usuário ainda não está vinculado a uma empresa ativa.");
+      mostrarErro("Empresa ativa não encontrada.", "Este usuário ainda não está vinculado a uma empresa ativa.");
       return null;
     }
 
@@ -256,7 +258,7 @@ export default function ContatosPage() {
       .order("nome", { ascending: true });
 
     if (error) {
-      alert("Erro ao carregar pessoas: " + error.message);
+      mostrarErro("Erro ao carregar pessoas.", error.message);
       return;
     }
 
@@ -282,7 +284,7 @@ export default function ContatosPage() {
       .order("nome", { ascending: true });
 
     if (error) {
-      alert("Erro ao carregar núcleos: " + error.message);
+      mostrarErro("Erro ao carregar núcleos.", error.message);
       return;
     }
 
@@ -307,7 +309,7 @@ export default function ContatosPage() {
       .eq("tenant_id", tenant);
 
     if (error) {
-      alert("Erro ao carregar membros dos núcleos: " + error.message);
+      mostrarErro("Erro ao carregar membros dos núcleos.", error.message);
       return;
     }
 
@@ -588,6 +590,18 @@ export default function ContatosPage() {
     }, 3200);
   }
 
+  function mostrarErro(titulo: string, error?: unknown) {
+    mostrarFeedback(
+      "erro",
+      titulo,
+      error instanceof Error ? error.message : typeof error === "string" ? error : "Tente novamente em alguns instantes.",
+    );
+  }
+
+  function mostrarInfo(titulo: string, mensagem?: string) {
+    mostrarFeedback("info", titulo, mensagem);
+  }
+
   function getResponsavelPrincipalDoNucleo(nucleoId: string) {
     const vinculos = membrosPorNucleo.get(nucleoId) || [];
 
@@ -691,7 +705,7 @@ export default function ContatosPage() {
     if (!tenantId) return;
 
     if (!pessoaForm.nome.trim()) {
-      alert("Informe o nome da pessoa.");
+      mostrarErro("Informe o nome da pessoa.");
       return;
     }
 
@@ -708,7 +722,8 @@ export default function ContatosPage() {
       });
 
       if (contatoExistente) {
-        alert(
+        mostrarInfo(
+          "Contato já cadastrado.",
           `Já existe um contato cadastrado para "${contatoExistente.nome}". Use o contato existente ou edite o cadastro atual para evitar duplicidade.`,
         );
         return;
@@ -800,46 +815,70 @@ export default function ContatosPage() {
       fecharModal();
       mostrarFeedback("sucesso", mensagemSucesso, "As informações foram salvas com segurança.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao salvar pessoa.");
+      mostrarErro("Erro ao salvar pessoa.", error);
     } finally {
       setAcaoLoading(false);
     }
   }
 
-  async function excluirPessoa(pessoa: Pessoa) {
+  function excluirPessoa(pessoa: Pessoa) {
     if (!tenantId) return;
 
     const vinculos = membrosPorPessoa.get(pessoa.id) || [];
     const eventosPessoa = historicoPorPessoa.get(pessoa.id) || [];
 
     if (eventosPessoa.length > 0) {
-      alert("Esta pessoa possui histórico de eventos. Por segurança, não é possível excluir este contato; use edição/observação ou remova o vínculo apenas se for um contato criado por engano.");
+      mostrarInfo(
+        "Pessoa com histórico de eventos.",
+        "Por segurança, este contato não pode ser excluído. Use edição/observação ou remova apenas vínculos criados por engano.",
+      );
       return;
     }
 
     if (vinculos.length > 0) {
-      alert("Esta pessoa está vinculada a um núcleo. Remova o vínculo do núcleo antes de excluir.");
+      mostrarInfo(
+        "Pessoa vinculada a núcleo.",
+        "Remova o vínculo do núcleo antes de excluir este contato.",
+      );
       return;
     }
 
-    const confirmar = window.confirm(`Excluir o contato "${pessoa.nome}"?`);
-    if (!confirmar) return;
+    setConfirmacaoAcao({
+      tipo: "excluirPessoa",
+      titulo: "Excluir pessoa",
+      mensagem:
+        "Esta ação remove a pessoa permanentemente da base de contatos. A exclusão só será aplicada se o banco confirmar que ela não possui vínculos ou histórico.",
+      destaque: pessoa.nome,
+      confirmLabel: "Excluir pessoa",
+      pessoa,
+    });
+  }
 
+  async function confirmarExclusaoPessoa() {
+    if (!tenantId || !confirmacaoAcao || confirmacaoAcao.tipo !== "excluirPessoa" || !confirmacaoAcao.pessoa) return;
+
+    const pessoa = confirmacaoAcao.pessoa;
     setAcaoLoading(true);
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("tenant_contatos")
         .delete()
         .eq("id", pessoa.id)
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .select("id");
 
       if (error) throw new Error(error.message);
 
+      if (!data || data.length === 0) {
+        throw new Error("A exclusão não foi gravada. Verifique a permissão de DELETE em tenant_contatos e tente novamente.");
+      }
+
       await carregarPessoas(tenantId);
-      mostrarFeedback("sucesso", "Pessoa excluída.");
+      setConfirmacaoAcao(null);
+      mostrarFeedback("sucesso", "Pessoa excluída.", "A exclusão foi confirmada no banco de dados.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao excluir pessoa.");
+      mostrarErro("Erro ao excluir pessoa.", error);
     } finally {
       setAcaoLoading(false);
     }
@@ -939,6 +978,7 @@ export default function ContatosPage() {
     if (!tenantId || !confirmacaoAcao || confirmacaoAcao.tipo !== "excluirNucleo") return;
 
     const nucleo = confirmacaoAcao.nucleo;
+    if (!nucleo) return;
 
     setAcaoLoading(true);
 
@@ -986,12 +1026,12 @@ export default function ContatosPage() {
     if (!tenantId || !pessoaSelecionada) return;
 
     if (!vinculoNucleoId) {
-      alert("Selecione um núcleo.");
+      mostrarErro("Selecione um núcleo.");
       return;
     }
 
     if (!vinculoRelacao.trim()) {
-      alert("Informe a relação no núcleo.");
+      mostrarErro("Informe a relação no núcleo.");
       return;
     }
 
@@ -1041,7 +1081,7 @@ export default function ContatosPage() {
       limparFormularioVinculo();
       mostrarFeedback("sucesso", "Vínculo criado.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao salvar vínculo.");
+      mostrarErro("Erro ao salvar vínculo.", error);
     } finally {
       setAcaoLoading(false);
     }
@@ -1085,7 +1125,7 @@ export default function ContatosPage() {
 
       await carregarMembros(tenantId);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao atualizar vínculo.");
+      mostrarErro("Erro ao atualizar vínculo.", error);
     } finally {
       setAcaoLoading(false);
     }
@@ -1096,12 +1136,12 @@ export default function ContatosPage() {
     if (!tenantId || !nucleoSelecionado) return;
 
     if (!vinculoPessoaId) {
-      alert("Selecione uma pessoa.");
+      mostrarErro("Selecione uma pessoa.");
       return;
     }
 
     if (!vinculoRelacao.trim()) {
-      alert("Informe a relação no núcleo.");
+      mostrarErro("Informe a relação no núcleo.");
       return;
     }
 
@@ -1112,7 +1152,7 @@ export default function ContatosPage() {
     );
 
     if (jaExiste) {
-      alert("Esta pessoa já está vinculada a este núcleo.");
+      mostrarInfo("Pessoa já vinculada.", "Esta pessoa já está vinculada a este núcleo.");
       return;
     }
 
@@ -1135,7 +1175,7 @@ export default function ContatosPage() {
       limparFormularioVinculo();
       mostrarFeedback("sucesso", "Membro adicionado ao núcleo.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao adicionar membro.");
+      mostrarErro("Erro ao adicionar membro.", error);
     } finally {
       setAcaoLoading(false);
     }
@@ -1147,7 +1187,7 @@ export default function ContatosPage() {
     if (!tenantId || !nucleoSelecionado) return false;
 
     if (!dados.nome.trim()) {
-      alert("Informe o nome da pessoa.");
+      mostrarErro("Informe o nome da pessoa.");
       return false;
     }
 
@@ -1164,7 +1204,8 @@ export default function ContatosPage() {
       });
 
       if (contatoExistente) {
-        alert(
+        mostrarInfo(
+          "Contato já cadastrado.",
           `Já existe um contato cadastrado para "${contatoExistente.nome}". Use a opção "Adicionar pessoa" para vincular o contato existente ao núcleo.`,
         );
         return false;
@@ -1213,34 +1254,55 @@ export default function ContatosPage() {
       mostrarFeedback("sucesso", "Contato criado e vinculado ao núcleo.");
       return true;
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao criar contato no núcleo.");
+      mostrarErro("Erro ao criar contato no núcleo.", error);
       return false;
     } finally {
       setAcaoLoading(false);
     }
   }
 
-  async function removerVinculoNucleo(membro: MembroNucleo) {
+  function removerVinculoNucleo(membro: MembroNucleo) {
     if (!tenantId) return;
 
-    const confirmar = window.confirm("Remover este vínculo do núcleo?");
-    if (!confirmar) return;
+    const pessoa = pessoasPorId.get(membro.tenant_contato_id);
+    const nucleo = nucleosPorId.get(membro.grupo_contato_id);
 
+    setConfirmacaoAcao({
+      tipo: "removerVinculo",
+      titulo: "Remover vínculo",
+      mensagem:
+        "Esta ação remove apenas o vínculo desta pessoa com o núcleo. O contato continuará salvo na base de contatos.",
+      destaque: `${pessoa?.nome || "Pessoa"} · ${nucleo?.nome || "Núcleo"}`,
+      confirmLabel: "Remover vínculo",
+      membro,
+    });
+  }
+
+  async function confirmarRemocaoVinculo() {
+    if (!tenantId || !confirmacaoAcao || confirmacaoAcao.tipo !== "removerVinculo" || !confirmacaoAcao.membro) return;
+
+    const membro = confirmacaoAcao.membro;
     setAcaoLoading(true);
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("contato_grupo_membros")
         .delete()
         .eq("id", membro.id)
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .select("id");
 
       if (error) throw new Error(error.message);
 
+      if (!data || data.length === 0) {
+        throw new Error("A remoção não foi gravada. Verifique a permissão de DELETE em contato_grupo_membros e tente novamente.");
+      }
+
       await carregarMembros(tenantId);
-      mostrarFeedback("sucesso", "Vínculo removido.");
+      setConfirmacaoAcao(null);
+      mostrarFeedback("sucesso", "Vínculo removido.", "A alteração foi confirmada no banco de dados.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao remover vínculo.");
+      mostrarErro("Erro ao remover vínculo.", error);
     } finally {
       setAcaoLoading(false);
     }
@@ -1248,7 +1310,7 @@ export default function ContatosPage() {
 
   async function importarPessoaParaEvento() {
     if (!tenantId || !pessoaSelecionada || !eventoImportacaoId) {
-      alert("Selecione um evento.");
+      mostrarErro("Selecione um evento.");
       return;
     }
 
@@ -1261,7 +1323,7 @@ export default function ContatosPage() {
       });
 
       if (jaExiste) {
-        alert("Esta pessoa já está como convidada neste evento.");
+        mostrarInfo("Convidado já existe.", "Esta pessoa já está como convidada neste evento.");
         return;
       }
 
@@ -1289,7 +1351,7 @@ export default function ContatosPage() {
       fecharModal();
       mostrarFeedback("sucesso", "Pessoa importada para o evento.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao importar pessoa.");
+      mostrarErro("Erro ao importar pessoa.", error);
     } finally {
       setAcaoLoading(false);
     }
@@ -1297,14 +1359,14 @@ export default function ContatosPage() {
 
   async function importarNucleoParaEvento() {
     if (!tenantId || !nucleoSelecionado || !eventoImportacaoId) {
-      alert("Selecione um evento.");
+      mostrarErro("Selecione um evento.");
       return;
     }
 
     const vinculos = membrosPorNucleo.get(nucleoSelecionado.id) || [];
 
     if (vinculos.length === 0) {
-      alert("Este núcleo não possui membros.");
+      mostrarInfo("Núcleo sem membros.", "Este núcleo não possui membros para importar.");
       return;
     }
 
@@ -1361,9 +1423,27 @@ export default function ContatosPage() {
       fecharModal();
       mostrarFeedback("sucesso", `${criados} convidado(s) importado(s).`, `${ignorados} já existia(m) no evento.`);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Erro ao importar núcleo.");
+      mostrarErro("Erro ao importar núcleo.", error);
     } finally {
       setAcaoLoading(false);
+    }
+  }
+
+  function confirmarAcaoAtual() {
+    if (!confirmacaoAcao || acaoLoading) return;
+
+    if (confirmacaoAcao.tipo === "excluirNucleo") {
+      confirmarExclusaoNucleo();
+      return;
+    }
+
+    if (confirmacaoAcao.tipo === "excluirPessoa") {
+      confirmarExclusaoPessoa();
+      return;
+    }
+
+    if (confirmacaoAcao.tipo === "removerVinculo") {
+      confirmarRemocaoVinculo();
     }
   }
 
@@ -1801,7 +1881,7 @@ export default function ContatosPage() {
         <ConfirmacaoAcaoModal
           confirmacao={confirmacaoAcao}
           acaoLoading={acaoLoading}
-          onConfirmar={confirmarExclusaoNucleo}
+          onConfirmar={confirmarAcaoAtual}
           onCancelar={fecharConfirmacaoAcao}
         />
       )}
@@ -1870,7 +1950,7 @@ function ConfirmacaoAcaoModal({
             Cancelar
           </button>
           <button type="button" onClick={onConfirmar} disabled={acaoLoading} style={dangerButtonStyle}>
-            {acaoLoading ? "Excluindo..." : confirmacao.confirmLabel}
+            {acaoLoading ? "Processando..." : confirmacao.confirmLabel}
           </button>
         </div>
       </section>
