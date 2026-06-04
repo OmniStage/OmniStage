@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type CSSProperties } from "react";
-import Copa2026Effect.txt from "./effects/Copa2026Effect.txt";
+import Copa2026Effect.tsx from "./effects/Copa2026Effect.tsx";
 import { normalizeConfirmationEffect } from "./registry";
 import { playConfirmationSound } from "./sounds";
 import type { ConfirmationEffectProps } from "./types";
@@ -25,7 +25,7 @@ export default function EffectRenderer({
 
   if (activeEffect === "copa2026") {
     return (
-      <Copa2026Effect.txt
+      <Copa2026Effect.tsx
         open={open}
         effect={activeEffect}
         confirming={confirming}
