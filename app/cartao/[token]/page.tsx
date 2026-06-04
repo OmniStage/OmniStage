@@ -105,14 +105,19 @@ export default async function CartaoPage({
     ? `https://wa.me/${telefone}?text=${mensagemWhatsApp}`
     : `https://wa.me/?text=${mensagemWhatsApp}`;
 
+  const conviteEhNucleo = ["grupo", "nucleo"].includes(
+    String(convidado.tipo_convite || "").trim().toLowerCase(),
+  );
+
   const isGrupoPrincipal =
+    conviteEhNucleo &&
     Boolean(convidado.grupo) &&
     (convidado.contato_principal === true ||
       convidado.recebe_convite === true ||
       Boolean(convidado.responsavel_telefone));
 
   const deveBuscarGrupo =
-    Boolean(convidado.grupo) && !isSaveMode;
+    conviteEhNucleo && Boolean(convidado.grupo) && !isSaveMode;
 
   const { data: integrantesGrupo } = deveBuscarGrupo
     ? await supabase
