@@ -1,5 +1,5 @@
 "use client";
-
+const TESTE_DEPLOY_CONFIRMATION_EFFECT = "VERSAO_NOVA";
 import type { CSSProperties } from "react";
 import type { ConfirmationEffectProps, ConfirmationEffectType } from "../types";
 
