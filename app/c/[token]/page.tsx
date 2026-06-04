@@ -13,6 +13,8 @@ import {
   type VisualBlock,
 } from "@/lib/convite-render";
 import ConviteVisualRenderer from "@/components/ConviteVisualRenderer";
+import EffectRenderer from "@/components/confirmation-effects/EffectRenderer";
+import { playConfirmationSound, unlockSilentConfirmationAudio } from "@/components/confirmation-effects/sounds";
 
 const CANVAS_W = 430;
 const CANVAS_H = 920;
@@ -49,6 +51,7 @@ type Template = {
 type ConfirmationEffect =
   | "padrao"
   | "futebol"
+  | "copa2026"
   | "princesa"
   | "luxo"
   | "infantil"
@@ -146,6 +149,7 @@ function normalizarEfeitoConfirmacao(value: unknown): ConfirmationEffect {
 
   if (
     efeito === "futebol" ||
+    efeito === "copa2026" ||
     efeito === "princesa" ||
     efeito === "luxo" ||
     efeito === "infantil" ||
@@ -694,7 +698,7 @@ export default function ConvitePublicoPage() {
       if (!somAtivo || somLiberado) return;
 
       try {
-        tentarLiberarSomSilencioso();
+        unlockSilentConfirmationAudio();
         setSomLiberado(true);
       } catch {
         // O navegador pode manter o áudio bloqueado até uma interação mais explícita.
@@ -719,12 +723,11 @@ export default function ConvitePublicoPage() {
   function executarSomAcao(effect: ConfirmationEffect = "padrao") {
     if (!somAtivo || effect === "nenhum") return;
 
-    try {
-      tocarSomConfirmacao(effect);
-      setSomLiberado(true);
-    } catch {
-      // Sem bloqueio visual caso o navegador não libere o áudio.
-    }
+    playConfirmationSound(effect)
+      .then(() => setSomLiberado(true))
+      .catch(() => {
+        // Sem bloqueio visual caso o navegador não libere o áudio.
+      });
   }
 
   async function confirmarPresenca() {
@@ -739,7 +742,7 @@ export default function ConvitePublicoPage() {
 
     if (typeof navigator !== "undefined" && efeitoConfirmacao !== "nenhum") {
       navigator.vibrate?.(
-        efeitoConfirmacao === "futebol"
+        (efeitoConfirmacao === "futebol" || efeitoConfirmacao === "copa2026")
           ? [90, 35, 90, 35, 180]
           : [80, 40, 120],
       );
@@ -1208,63 +1211,13 @@ export default function ConvitePublicoPage() {
         >
           {visualContent}
 
-          {confirmacaoAberta && (
-            <div
-              style={{
-                ...confirmationOverlayStyle,
-                ...getConfirmationOverlayTheme(efeitoConfirmacaoAtivo),
-              }}
-            >
-              {renderConfirmationParticles(efeitoConfirmacaoAtivo)}
-
-              <div
-                style={{
-                  ...confirmationCardStyle,
-                  ...getConfirmationCardTheme(efeitoConfirmacaoAtivo),
-                }}
-              >
-                {renderFutebolBrazilCardBackdrop(efeitoConfirmacaoAtivo)}
-
-                <div
-                  style={{
-                    ...confirmationIconStyle,
-                    ...getConfirmationIconTheme(efeitoConfirmacaoAtivo),
-                  }}
-                >
-                  {getConfirmationIcon(efeitoConfirmacaoAtivo)}
-                </div>
-                <strong
-                  style={{
-                    ...confirmationTitleStyle,
-                    ...getConfirmationTitleTheme(efeitoConfirmacaoAtivo),
-                  }}
-                >
-                  {confirmandoPresenca
-                    ? "Confirmando presença..."
-                    : getConfirmationTitle(efeitoConfirmacaoAtivo)}
-                </strong>
-                <span
-                  style={{
-                    ...confirmationTextStyle,
-                    ...getConfirmationTextTheme(efeitoConfirmacaoAtivo),
-                  }}
-                >
-                  {confirmandoPresenca
-                    ? "Estamos registrando sua confirmação."
-                    : getConfirmationText(efeitoConfirmacaoAtivo)}
-                </span>
-                {efeitoConfirmacaoAtivo === "futebol" && !confirmandoPresenca ? (
-                  <div style={futebolStarsStyle} aria-hidden="true">
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          )}
+          <EffectRenderer
+            open={confirmacaoAberta}
+            effect={efeitoConfirmacaoAtivo}
+            confirming={confirmandoPresenca}
+            soundEnabled={false}
+            contained
+          />
         </div>
       </main>
     );
@@ -1285,7 +1238,7 @@ export default function ConvitePublicoPage() {
 }
 
 function getConfirmationIcon(effect: ConfirmationEffect) {
-  if (effect === "futebol") return "⚽";
+  if (effect === "futebol" || effect === "copa2026") return "⚽";
   if (effect === "princesa") return "👑";
   if (effect === "luxo") return "✨";
   if (effect === "infantil") return "🎉";
@@ -1294,7 +1247,7 @@ function getConfirmationIcon(effect: ConfirmationEffect) {
 }
 
 function getConfirmationTitle(effect: ConfirmationEffect) {
-  if (effect === "futebol") return "GOOOOOOL!";
+  if (effect === "futebol" || effect === "copa2026") return "GOOOOOOL!";
   if (effect === "princesa") return "Presença confirmada!";
   if (effect === "luxo") return "Confirmação registrada";
   if (effect === "infantil") return "Oba, presença confirmada!";
@@ -1305,6 +1258,10 @@ function getConfirmationTitle(effect: ConfirmationEffect) {
 function getConfirmationText(effect: ConfirmationEffect) {
   if (effect === "futebol") {
     return "Sua presença está confirmada. Você foi convocado para essa festa!";
+  }
+
+  if (effect === "copa2026") {
+    return "Sua presença está confirmada para essa festa campeã.";
   }
 
   if (effect === "princesa") {
