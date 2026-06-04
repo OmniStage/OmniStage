@@ -107,8 +107,8 @@ const confettiLayerStyle: CSSProperties = {
 const cardWrapStyle: CSSProperties = {
   position: "relative",
   zIndex: 4,
-  width: "min(82vw, 560px)",
-  aspectRatio: "3 / 4",
+  width: "min(82vw, 560px, calc(82vh * 1365 / 2048))",
+  aspectRatio: "1365 / 2048",
   transformStyle: "preserve-3d",
   perspective: 1400,
   animation:
@@ -132,7 +132,7 @@ const cardStyle: CSSProperties = {
   borderRadius: "clamp(24px, 4.6vw, 40px)",
   overflow: "hidden",
   transform: "rotateX(0deg) rotateY(0deg)",
-  background: "#060913",
+  background: "transparent",
   boxShadow:
     "0 32px 90px rgba(0,0,0,.54), 0 0 0 1px rgba(255,255,255,.18), 0 0 52px rgba(255,223,0,.35)",
 };
@@ -141,7 +141,7 @@ const cardImageStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
   backgroundImage: "url('/effects/copa2026-card-premium.png')",
-  backgroundSize: "cover",
+  backgroundSize: "contain",
   backgroundPosition: "center",
   backgroundRepeat: "no-repeat",
   transform: "scale(1.01)",
@@ -195,9 +195,9 @@ const titleSweepStyle: CSSProperties = {
 
 const ballWrapStyle: CSSProperties = {
   position: "absolute",
-  top: "5.6%",
-  right: "-8.2%",
-  width: "32%",
+  top: "5.2%",
+  right: "-8.5%",
+  width: "31%",
   aspectRatio: "1",
   zIndex: 7,
   transformStyle: "preserve-3d",
@@ -215,8 +215,8 @@ const ballTrailStyle: CSSProperties = {
   transformOrigin: "right center",
   borderRadius: 999,
   background:
-    "linear-gradient(90deg, transparent, rgba(255,122,0,.16), rgba(255,223,0,.65), rgba(255,255,255,.9))",
-  filter: "blur(4px)",
+    "linear-gradient(90deg, transparent, rgba(255,122,0,.10), rgba(255,223,0,.48), rgba(255,255,255,.72))",
+  filter: "blur(6px)",
   opacity: 0,
   animation: "omniCopaBallTrail 2.55s ease-in-out .16s both",
 };
@@ -240,8 +240,8 @@ const ballSpriteStyle: CSSProperties = {
   inset: "10%",
   borderRadius: 999,
   backgroundImage: "url('/effects/copa2026-card-premium.png')",
-  backgroundSize: "620%",
-  backgroundPosition: "89% 8%",
+  backgroundSize: "570%",
+  backgroundPosition: "88.8% 7.6%",
   backgroundRepeat: "no-repeat",
   border: "3px solid rgba(255,255,255,.92)",
   boxShadow:
@@ -318,10 +318,10 @@ const keyframesCss = `
   70%, 100% { transform: translateX(120%) skewX(-12deg); opacity: 0; }
 }
 @keyframes omniCopaBallOutAndBack {
-  0% { opacity: 0; transform: translate3d(-12%, 10%, 0) scale(.86) rotate(-80deg); filter: blur(4px); }
-  18% { opacity: 1; filter: blur(0); }
-  42% { transform: translate3d(22%, -18%, 90px) scale(1.18) rotate(160deg); }
-  68% { transform: translate3d(5%, -5%, 40px) scale(1.06) rotate(285deg); }
+  0% { opacity: 0; transform: translate3d(-8%, 8%, 0) scale(.92) rotate(-38deg); filter: blur(3px); }
+  16% { opacity: 1; filter: blur(0); }
+  42% { transform: translate3d(18%, -13%, 80px) scale(1.12) rotate(112deg); }
+  70% { transform: translate3d(5%, -4%, 32px) scale(1.04) rotate(246deg); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(360deg); filter: blur(0); }
 }
 @keyframes omniCopaBallIdle {
