@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type CSSProperties } from "react";
+import Copa2026Effect from "./Copa2026Effect";
 import { normalizeConfirmationEffect } from "./registry";
 import { playConfirmationSound } from "./sounds";
 import type { ConfirmationEffectProps } from "./types";
@@ -21,6 +22,18 @@ export default function EffectRenderer({
   }, [activeEffect, confirming, open, soundEnabled]);
 
   if (!open || activeEffect === "nenhum") return null;
+
+  if (activeEffect === "copa2026") {
+    return (
+      <Copa2026Effect
+        open={open}
+        effect={activeEffect}
+        confirming={confirming}
+        soundEnabled={soundEnabled}
+        contained={contained}
+      />
+    );
+  }
 
   return (
     <div
