@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type CSSProperties } from "react";
-import Copa2026Effect from "./Copa2026Effect";
+import Copa2026Effect from "./effects/Copa2026Effect";
 import { normalizeConfirmationEffect } from "./registry";
 import { playConfirmationSound } from "./sounds";
 import type { ConfirmationEffectProps } from "./types";
