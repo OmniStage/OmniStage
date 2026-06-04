@@ -63,7 +63,7 @@ export default function EffectRenderer({
             : getText(activeEffect)}
         </span>
 
-        {activeEffect === "futebol" && !confirming ? (
+        {String(activeEffect) === "futebol" && !confirming ? (
           <div style={starsStyle} aria-hidden="true">
             <span>★</span>
             <span>★</span>
