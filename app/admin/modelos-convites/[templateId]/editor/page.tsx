@@ -163,6 +163,84 @@ function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function numberToHex(value: number) {
+  return clampNumber(Math.round(value), 0, 255)
+    .toString(16)
+    .padStart(2, "0");
+}
+
+function normalizeHexColor(value?: string | null) {
+  const text = String(value || "").trim();
+
+  if (/^#[0-9a-fA-F]{6}$/.test(text)) return text.toLowerCase();
+
+  if (/^#[0-9a-fA-F]{3}$/.test(text)) {
+    const [, r, g, b] = text;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+
+  return "#0f172a";
+}
+
+function hexToRgba(hex: string, opacityPercent: number) {
+  const normalized = normalizeHexColor(hex);
+  const alpha = clampNumber(opacityPercent, 0, 100) / 100;
+  const r = parseInt(normalized.slice(1, 3), 16);
+  const g = parseInt(normalized.slice(3, 5), 16);
+  const b = parseInt(normalized.slice(5, 7), 16);
+
+  return `rgba(${r},${g},${b},${Number(alpha.toFixed(2))})`;
+}
+
+function parseBackgroundColor(background?: string | null) {
+  const fallback = {
+    hex: "#0f172a",
+    opacity: 0,
+    enabled: false,
+  };
+
+  const text = String(background || "").trim();
+
+  if (!text || text === "transparent") return fallback;
+
+  const hexMatch = text.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  if (hexMatch) {
+    return {
+      hex: normalizeHexColor(text),
+      opacity: 100,
+      enabled: true,
+    };
+  }
+
+  const rgbaMatch = text.match(
+    /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i,
+  );
+
+  if (rgbaMatch) {
+    const r = Number(rgbaMatch[1]);
+    const g = Number(rgbaMatch[2]);
+    const b = Number(rgbaMatch[3]);
+    const alpha = rgbaMatch[4] === undefined ? 1 : Number(rgbaMatch[4]);
+
+    return {
+      hex: `#${numberToHex(r)}${numberToHex(g)}${numberToHex(b)}`,
+      opacity: Math.round(clampNumber(alpha, 0, 1) * 100),
+      enabled: true,
+    };
+  }
+
+  return {
+    hex: "#0f172a",
+    opacity: 100,
+    enabled: true,
+  };
+}
+
 async function cropTransparentImageFile(file: File): Promise<{
   file: File;
   width: number;
@@ -1068,6 +1146,11 @@ export default function EditorModeloConvitePage({
     [blocks, selectedId],
   );
 
+  const selectedBackground = useMemo(
+    () => parseBackgroundColor(selectedBlock?.background),
+    [selectedBlock?.background],
+  );
+
   const nextZ = useMemo(() => {
     return Math.max(0, ...blocks.map((b) => b.z_index || 0)) + 1;
   }, [blocks]);
@@ -1212,6 +1295,22 @@ export default function EditorModeloConvitePage({
           : block,
       ),
     );
+  }
+
+  function updateSelectedBackground(hex: string, opacity: number) {
+    if (!selectedBlock) return;
+
+    updateBlock(selectedBlock.id, {
+      background: hexToRgba(hex, opacity),
+    });
+  }
+
+  function clearSelectedBackground() {
+    if (!selectedBlock) return;
+
+    updateBlock(selectedBlock.id, {
+      background: null,
+    });
   }
 
   function addBlock(type: BlockType) {
@@ -2044,7 +2143,7 @@ export default function EditorModeloConvitePage({
 
               <div style={twoCols}>
                 <label style={field}>
-                  <span style={label}>Cor</span>
+                  <span style={label}>Cor do texto</span>
                   <input
                     type="color"
                     value={selectedBlock.color || "#ffffff"}
@@ -2055,19 +2154,74 @@ export default function EditorModeloConvitePage({
                   />
                 </label>
 
-                <label style={field}>
-                  <span style={label}>Fundo</span>
-                  <input
-                    value={selectedBlock.background || ""}
-                    placeholder="transparent, #fff, rgba(...)"
-                    onChange={(e) =>
-                      updateBlock(selectedBlock.id, {
-                        background: e.target.value || null,
-                      })
-                    }
-                    style={input}
-                  />
-                </label>
+                <div style={field}>
+                  <span style={label}>Fundo do box</span>
+                  <div style={backgroundPickerBox}>
+                    <input
+                      type="color"
+                      value={selectedBackground.hex}
+                      onChange={(e) =>
+                        updateSelectedBackground(
+                          e.target.value,
+                          selectedBackground.enabled
+                            ? selectedBackground.opacity
+                            : 100,
+                        )
+                      }
+                      style={colorInput}
+                    />
+                    <div
+                      style={{
+                        ...backgroundPreviewSwatch,
+                        background: selectedBackground.enabled
+                          ? hexToRgba(
+                              selectedBackground.hex,
+                              selectedBackground.opacity,
+                            )
+                          : "transparent",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={assetControlBox}>
+                <div style={opacityHeader}>
+                  <strong style={{ fontSize: 12 }}>Transparência do fundo</strong>
+                  <span style={opacityBadge}>
+                    {selectedBackground.enabled
+                      ? `${100 - selectedBackground.opacity}% transparente`
+                      : "Sem fundo"}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={selectedBackground.enabled ? selectedBackground.opacity : 0}
+                  onChange={(e) =>
+                    updateSelectedBackground(
+                      selectedBackground.hex,
+                      Number(e.target.value),
+                    )
+                  }
+                />
+
+                <div style={backgroundActions}>
+                  <span style={backgroundValueText}>
+                    {selectedBackground.enabled
+                      ? `Opacidade ${selectedBackground.opacity}%`
+                      : "Fundo transparente"}
+                  </span>
+                  <button
+                    type="button"
+                    style={linkButton}
+                    onClick={clearSelectedBackground}
+                  >
+                    remover fundo
+                  </button>
+                </div>
               </div>
 
               <div style={twoCols}>
@@ -2580,6 +2734,53 @@ const linkButton: CSSProperties = {
   fontSize: 12,
   fontWeight: 900,
   cursor: "pointer",
+};
+
+const backgroundPickerBox: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 44px",
+  gap: 8,
+  alignItems: "center",
+};
+
+const backgroundPreviewSwatch: CSSProperties = {
+  width: 40,
+  height: 40,
+  border: "1px solid #dbe3ef",
+  borderRadius: 10,
+  backgroundImage:
+    "linear-gradient(45deg,#e2e8f0 25%,transparent 25%), linear-gradient(-45deg,#e2e8f0 25%,transparent 25%), linear-gradient(45deg,transparent 75%,#e2e8f0 75%), linear-gradient(-45deg,transparent 75%,#e2e8f0 75%)",
+  backgroundSize: "14px 14px",
+  backgroundPosition: "0 0, 0 7px, 7px -7px, -7px 0",
+};
+
+const opacityHeader: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const opacityBadge: CSSProperties = {
+  padding: "5px 8px",
+  borderRadius: 999,
+  background: "#eef2ff",
+  color: "#4c1d95",
+  fontSize: 11,
+  fontWeight: 900,
+};
+
+const backgroundActions: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+const backgroundValueText: CSSProperties = {
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 800,
 };
 
 const colorInput: CSSProperties = {
