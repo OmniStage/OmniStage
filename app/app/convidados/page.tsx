@@ -381,6 +381,20 @@ export default function ConvidadosPage() {
     return mapa;
   }, [vinculosContatos]);
 
+  const convidadoEmEdicao = useMemo(() => {
+    if (!editandoId) return null;
+    return convidados.find((convidado) => convidado.id === editandoId) || null;
+  }, [convidados, editandoId]);
+
+  const vinculosNucleoConvidadoAtual = useMemo(() => {
+    const contatoId = convidadoEmEdicao?.tenant_contato_id;
+
+    if (!contatoId) return [];
+
+    return vinculosContatosPorPessoa.get(contatoId) || [];
+  }, [convidadoEmEdicao?.tenant_contato_id, vinculosContatosPorPessoa]);
+
+  const convidadoTemNucleosVinculados = vinculosNucleoConvidadoAtual.length > 0;
 
   const gruposConvidados = useMemo(() => {
     const mapa = convidadosFiltrados.reduce<Record<string, Convidado[]>>(
@@ -507,6 +521,18 @@ function labelTipoNucleoConvite(tipo: string | null | undefined) {
   if (tipo === "associacao") return "Associação";
   if (tipo === "fornecedor") return "Fornecedor";
   return "Outro";
+}
+
+function labelPapelNucleoConvite(papel: string | null | undefined) {
+  if (papel === "pai") return "Pai";
+  if (papel === "mae") return "Mãe";
+  if (papel === "filho") return "Filho(a)";
+  if (papel === "filha") return "Filha";
+  if (papel === "aluno") return "Aluno(a)";
+  if (papel === "responsavel") return "Responsável";
+  if (papel === "conjuge") return "Cônjuge";
+  if (papel === "membro") return "Membro";
+  return papel || "Membro";
 }
 
 function normalizarTelefone(telefone: string | null) {
@@ -1240,16 +1266,13 @@ ${eventoAtual?.nome || "OmniStage"}`);
   function editarConvidado(convidado: Convidado) {
     formReturnScrollYRef.current = window.scrollY;
 
-    const nucleoImportado = getNucleoPrincipalDoContato(convidado.tenant_contato_id);
     const contatoBase = convidado.tenant_contato_id
       ? contatosBasePorId.get(convidado.tenant_contato_id) || null
       : null;
     const contatoBaseEhCrianca = tipoContatoEhCrianca(contatoBase?.tipo_contato);
-    const grupoFinal = convidado.grupo || nucleoImportado?.nucleo.nome || "";
-    const contatoPrincipalFinal =
-      convidado.contato_principal ?? Boolean(nucleoImportado?.vinculo.principal_envio);
-    const recebeConviteFinal =
-      convidado.recebe_convite ?? Boolean(nucleoImportado?.vinculo.recebe_comunicacao || nucleoImportado?.vinculo.principal_envio);
+    const grupoFinal = convidado.grupo || "";
+    const contatoPrincipalFinal = convidado.contato_principal ?? false;
+    const recebeConviteFinal = convidado.recebe_convite ?? true;
     const responsavelFinal =
       convidado.responsavel || convidado.mae || contatoBase?.responsavel_nome || "";
 
@@ -1271,7 +1294,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       tamanho_chinelo: convidado.tamanho_chinelo || "",
       contato_principal: Boolean(contatoPrincipalFinal),
       recebe_convite: Boolean(recebeConviteFinal),
-      tipo_convite: convidado.tipo_convite || (grupoFinal ? "grupo" : "individual"),
+      tipo_convite: convidado.tipo_convite || (convidado.grupo ? "grupo" : "individual"),
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
       status_envio: convidado.status_envio || "pendente",
@@ -1852,7 +1875,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 <span>03</span>
                 <div>
                   <strong>Perfil do convite</strong>
-                  <p>Defina se este convite será individual ou vinculado a um núcleo. Os campos de núcleo aparecem somente quando necessário.</p>
+                  <p>Defina se este convite será individual ou se ficará agrupado em um dos núcleos vinculados ao contato.</p>
                 </div>
               </div>
 
@@ -1869,10 +1892,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                         tipo_convite: tipo,
                         grupo: tipo === "grupo" ? current.grupo : "",
                         contato_principal: tipo === "grupo" ? current.contato_principal : false,
-                        recebe_convite:
-                          tipo === "individual"
-                            ? true
-                            : current.recebe_convite,
+                        recebe_convite: tipo === "individual" ? true : current.recebe_convite,
                       }));
                     }}
                     style={inputStyle}
@@ -1883,74 +1903,101 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 </label>
               </div>
 
-              {form.tipo_convite === "grupo" && (
-                <>
-                  <div style={formBlockGridStyle}>
-                    <NucleoConviteSelector
-                      nucleos={nucleosContatos}
-                      value={form.grupo}
-                      onChange={(grupo) => {
-                        setForm((current) => ({
-                          ...current,
-                          grupo,
-                          tipo_convite: "grupo",
-                        }));
-                      }}
-                    />
+              <div style={nucleosVinculadosConviteWrapperStyle}>
+                <div style={nucleosVinculadosConviteHeaderStyle}>
+                  <strong>Núcleos vinculados ao contato</strong>
+                  <span>Marque um núcleo somente quando este convite/cartão deve ser agrupado.</span>
+                </div>
 
-                    <label style={fieldStyle}>
-                      <span>Tipo do núcleo</span>
-                      <input
-                        value={tipoNucleoConvite}
-                        readOnly
-                        placeholder="Selecione um núcleo de Contatos"
-                        style={{
-                          ...inputStyle,
-                          background: "#f9fafb",
-                          color: tipoNucleoConvite ? "#0f172a" : "#9ca3af",
-                        }}
-                      />
-                    </label>
+                {!editandoId && (
+                  <div style={emptyStyle}>Salve ou edite um convidado vinculado a um contato para visualizar os núcleos.</div>
+                )}
+
+                {editandoId && !convidadoTemNucleosVinculados && (
+                  <div style={emptyStyle}>Este contato não possui núcleos vinculados.</div>
+                )}
+
+                {convidadoTemNucleosVinculados && (
+                  <div style={nucleosVinculadosConviteListStyle}>
+                    {vinculosNucleoConvidadoAtual.map((vinculo) => {
+                      const nucleo = nucleosContatosPorId.get(vinculo.grupo_contato_id);
+                      const nomeNucleo = nucleo?.nome || "Núcleo não encontrado";
+                      const nucleoMarcado =
+                        form.tipo_convite === "grupo" &&
+                        form.grupo.trim().toLowerCase() === nomeNucleo.trim().toLowerCase();
+
+                      return (
+                        <div
+                          key={vinculo.id}
+                          style={{
+                            ...nucleoVinculadoConviteCardStyle,
+                            ...(nucleoMarcado ? nucleoVinculadoConviteCardActiveStyle : {}),
+                          }}
+                        >
+                          <div>
+                            <strong>{nomeNucleo}</strong>
+                            <span style={nucleoVinculadoConviteSubTextStyle}>
+                              Relação no núcleo: {labelPapelNucleoConvite(getPapelVinculoContato(vinculo))}
+                            </span>
+                          </div>
+
+                          <div style={nucleoVinculadoConviteFlagsStyle}>
+                            <label style={compactNucleoToggleStyle}>
+                              <input
+                                type="checkbox"
+                                checked={nucleoMarcado}
+                                onChange={(event) => {
+                                  const checked = event.target.checked;
+
+                                  setForm((current) => ({
+                                    ...current,
+                                    tipo_convite: checked ? "grupo" : "individual",
+                                    grupo: checked ? nomeNucleo : "",
+                                    contato_principal: checked ? Boolean(vinculo.principal_envio) : false,
+                                    recebe_convite: checked
+                                      ? Boolean(vinculo.recebe_comunicacao || vinculo.principal_envio)
+                                      : true,
+                                  }));
+                                }}
+                              />
+                              <span>Agrupar convite neste núcleo</span>
+                            </label>
+
+                            <label style={compactNucleoToggleStyle}>
+                              <input
+                                type="checkbox"
+                                checked={nucleoMarcado && form.recebe_convite}
+                                disabled={!nucleoMarcado}
+                                onChange={(event) =>
+                                  updateFormBoolean("recebe_convite", event.target.checked)
+                                }
+                              />
+                              <span>Recebe comunicação</span>
+                            </label>
+
+                            <label style={compactNucleoToggleStyle}>
+                              <input
+                                type="checkbox"
+                                checked={nucleoMarcado && form.contato_principal}
+                                disabled={!nucleoMarcado}
+                                onChange={(event) => {
+                                  const checked = event.target.checked;
+                                  setForm((current) => ({
+                                    ...current,
+                                    contato_principal: checked,
+                                    recebe_convite: checked ? true : current.recebe_convite,
+                                  }));
+                                }}
+                              />
+                              <span>Principal núcleo</span>
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  <div style={formBlockGridStyle}>
-                    <label style={toggleFieldStyle}>
-                      <input
-                        type="checkbox"
-                        checked={form.contato_principal}
-                        onChange={(event) => {
-                          const checked = event.target.checked;
-                          setForm((current) => ({
-                            ...current,
-                            contato_principal: checked,
-                            recebe_convite: checked ? true : current.recebe_convite,
-                          }));
-                        }}
-                        style={checkboxInputStyle}
-                      />
-                      <div style={toggleTextStyle}>
-                        <strong>Contato principal</strong>
-                        <span>Identifica quem representa o núcleo no envio.</span>
-                      </div>
-                    </label>
-
-                    <label style={toggleFieldStyle}>
-                      <input
-                        type="checkbox"
-                        checked={form.recebe_convite}
-                        onChange={(event) =>
-                          updateFormBoolean("recebe_convite", event.target.checked)
-                        }
-                        style={checkboxInputStyle}
-                      />
-                      <div style={toggleTextStyle}>
-                        <strong>Recebe comunicação</strong>
-                        <span>Usado no envio: esta pessoa recebe o convite/comunicação do núcleo.</span>
-                      </div>
-                    </label>
-                  </div>
-                </>
-              )}
+                )}
+              </div>
             </section>
 
             <section style={formBlockCardStyle}>
@@ -3020,6 +3067,68 @@ function getPageStyle(
     transition: "background 180ms ease, color 180ms ease",
   };
 }
+
+const nucleosVinculadosConviteWrapperStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 16,
+  marginTop: 22,
+};
+
+const nucleosVinculadosConviteHeaderStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  color: "#334155",
+};
+
+const nucleosVinculadosConviteListStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+};
+
+const nucleoVinculadoConviteCardStyle: CSSProperties = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 22,
+  padding: 22,
+  background: "#f9fafb",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 18,
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+};
+
+const nucleoVinculadoConviteCardActiveStyle: CSSProperties = {
+  borderColor: "#c4b5fd",
+  background: "#faf5ff",
+};
+
+const nucleoVinculadoConviteSubTextStyle: CSSProperties = {
+  display: "block",
+  marginTop: 6,
+  color: "#6b7280",
+  fontWeight: 700,
+};
+
+const nucleoVinculadoConviteFlagsStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+};
+
+const compactNucleoToggleStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+  border: "1px solid #e5e7eb",
+  borderRadius: 999,
+  padding: "10px 14px",
+  background: "#ffffff",
+  fontWeight: 800,
+  color: "#374151",
+};
 
 const nucleoSelecionadoConviteStyle: CSSProperties = {
   display: "flex",
