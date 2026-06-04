@@ -1733,7 +1733,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 <span>02</span>
                 <div>
                   <strong>Perfil do convidado</strong>
-                  <p>Defina se é adulto ou criança. Quando for criança sem grupo, informe quem receberá o convite.</p>
+                  <p>Defina se é adulto ou criança. Quando for criança, informe quem receberá a comunicação.</p>
                 </div>
               </div>
 
@@ -1783,12 +1783,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 )}
               </div>
 
-              {form.crianca === "sim" && !form.grupo.trim() && (
+              {form.crianca === "sim" && (
                 <div style={responsavelSubBlockStyle}>
                   <div style={subBlockHeaderStyle}>
                     <strong>Responsável pelo envio</strong>
                     <span>
-                      Criança sem grupo/família: o convite será enviado para este responsável.
+                      Informe o responsável que receberá a comunicação da criança.
                     </span>
                   </div>
 
