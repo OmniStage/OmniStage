@@ -2182,20 +2182,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
               .map((convidado) => convidado.nome)
               .filter(Boolean)
               .join(" • ");
-            const isIndividual =
-              grupo.startsWith("__individual__") ||
-              integrantes.length === 1 ||
-              integrantes.every(
-                (item) =>
-                  !item.grupo ||
-                  item.grupo.trim() === "" ||
-                  item.tipo_convite === "individual",
-              );
-
-            const mostrarGrupo =
-              !isIndividual &&
-              Boolean(grupo) &&
-              !grupo.startsWith("__individual__");
+            const grupoComNome =
+              Boolean(grupo) && !grupo.startsWith("__individual__");
+            const todosConvitesIndividuais = integrantes.every(
+              (item) => (item.tipo_convite || "individual") === "individual",
+            );
+            const visualizacaoEmGrupo = grupoComNome && todosConvitesIndividuais;
+            const conviteAgrupadoPorNucleo = grupoComNome && !todosConvitesIndividuais;
+            const mostrarGrupo = grupoComNome;
 
             return (
               <article key={grupo} style={groupCardLargeStyle}>
@@ -2203,7 +2197,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
                   <>
                     <div style={groupCardHeaderStyle}>
                       <div>
-                        <span style={groupEyebrowStyle}>Grupo encontrado</span>
+                        <span style={groupEyebrowStyle}>
+                          {visualizacaoEmGrupo ? "Visualização em grupo" : "Grupo encontrado"}
+                        </span>
                         <strong style={groupTitleStyle}>{grupo}</strong>
                       </div>
 
@@ -2260,7 +2256,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
                           <small style={{ color: "var(--muted)" }}>
                             E-mail: {convidado.email || "Sem e-mail"}
-                            {mostrarGrupo ? (
+                            {visualizacaoEmGrupo ? (
+                              <> · Individual · Visualização em grupo: {grupo}</>
+                            ) : conviteAgrupadoPorNucleo ? (
                               <> · Grupo: {grupo}</>
                             ) : (
                               <> · Individual</>
