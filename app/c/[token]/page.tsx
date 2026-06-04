@@ -728,7 +728,11 @@ export default function ConvitePublicoPage() {
       ? convidadosOrdenados
       : (convidadosPorToken as Convidado[]);
 
-    if (tokens.length === 1 && convidadoBase?.grupo) {
+    const conviteEhNucleo = ["grupo", "nucleo"].includes(
+      String(convidadoBase?.tipo_convite || "").trim().toLowerCase(),
+    );
+
+    if (tokens.length === 1 && convidadoBase?.grupo && conviteEhNucleo) {
       const grupoBase = String(convidadoBase.grupo || "").trim();
 
       const { data: convidadosGrupo, error: grupoError } = await supabase
