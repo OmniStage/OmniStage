@@ -451,6 +451,169 @@ function valuesAreDifferent(newValue: unknown, oldValue: unknown) {
   return normalizedNew !== normalizedOld;
 }
 
+
+function getNameTokens(value: unknown) {
+  return normalizeTextKey(value)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+}
+
+function namesLikelySame(importedName: unknown, existingName: unknown) {
+  const imported = normalizeTextKey(importedName);
+  const existing = normalizeTextKey(existingName);
+
+  if (!imported || !existing) return false;
+  if (imported === existing) return true;
+
+  if (imported.length >= 3 && existing.length >= 3) {
+    if (imported.includes(existing) || existing.includes(imported)) return true;
+  }
+
+  const importedTokens = getNameTokens(importedName);
+  const existingTokens = getNameTokens(existingName);
+
+  if (importedTokens.length === 0 || existingTokens.length === 0) return false;
+  if (importedTokens[0] !== existingTokens[0]) return false;
+
+  // Caso comum: planilha vem com nome completo e o evento antigo tem só o primeiro nome.
+  // Ex.: AYLA HADDAD x AYLA.
+  if (importedTokens.length === 1 || existingTokens.length === 1) return true;
+
+  const overlap = importedTokens.filter((token) => existingTokens.includes(token)).length;
+  return overlap >= 2;
+}
+
+function isChildLikeValue(value: unknown) {
+  const normalized = normalizeCrianca(value, null);
+  return normalized === "sim" || normalizeTextKey(value) === "crianca";
+}
+
+function getExistingGuestPhones(existingGuest: any) {
+  return [
+    cleanPhone(existingGuest?.telefone),
+    cleanPhone(existingGuest?.responsavel_telefone),
+  ].filter(Boolean) as string[];
+}
+
+function getNucleoKey(value: unknown) {
+  return normalizeTextKey(value)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function resolveExistingGuestMatch(params: {
+  guest: ImportGuest;
+  existingGuests: any[];
+  guestsByLegacyId: Map<string, any>;
+  guestsByName: Map<string, any>;
+}) {
+  const { guest, existingGuests, guestsByLegacyId, guestsByName } = params;
+
+  const guestLegacyKey = cleanText(guest.legacy_id);
+  const guestNameKey = normalizeTextKey(guest.name);
+  const guestPhoneKey = cleanPhone(guest.phone);
+  const responsavelPhoneKey = cleanPhone(guest.responsavel_telefone) || cleanPhone(guest.phone);
+  const nucleoKey = getNucleoKey(guest.nucleo || guest.grupo);
+  const isCrianca =
+    normalizeTipoContato(guest.tipo_contato, guest.crianca, guest.mae || guest.responsavel_nome) === "crianca";
+
+  if (guestLegacyKey) {
+    const byLegacy = guestsByLegacyId.get(guestLegacyKey);
+    if (byLegacy) return { guest: byLegacy, matchedBy: "legacy_id_evento" };
+  }
+
+  if (guestNameKey) {
+    const byExactName = guestsByName.get(guestNameKey);
+    if (byExactName) return { guest: byExactName, matchedBy: "nome_evento" };
+  }
+
+  if (guestPhoneKey) {
+    const phoneAndName = existingGuests.find((existingGuest) => {
+      const phones = getExistingGuestPhones(existingGuest);
+      return phones.includes(guestPhoneKey) && namesLikelySame(guest.name, existingGuest.nome);
+    });
+
+    if (phoneAndName) return { guest: phoneAndName, matchedBy: "telefone_nome_evento" };
+
+    // Telefone sozinho só é seguro quando não parece ser telefone de envio de uma criança diferente.
+    const safePhoneOnly = existingGuests.find((existingGuest) => {
+      const phones = getExistingGuestPhones(existingGuest);
+      const existingIsChild = isChildLikeValue(existingGuest?.crianca);
+      return phones.includes(guestPhoneKey) && !existingIsChild && !isCrianca;
+    });
+
+    if (safePhoneOnly) return { guest: safePhoneOnly, matchedBy: "telefone_evento" };
+  }
+
+  if (isCrianca && responsavelPhoneKey) {
+    const byResponsiblePhoneAndName = existingGuests.find((existingGuest) => {
+      const phones = getExistingGuestPhones(existingGuest);
+      return phones.includes(responsavelPhoneKey) && namesLikelySame(guest.name, existingGuest.nome);
+    });
+
+    if (byResponsiblePhoneAndName) {
+      return { guest: byResponsiblePhoneAndName, matchedBy: "crianca_responsavel_evento" };
+    }
+  }
+
+  if (nucleoKey) {
+    const byNucleoAndName = existingGuests.find((existingGuest) => {
+      const existingNucleoKey = getNucleoKey(existingGuest?.grupo);
+      return existingNucleoKey && existingNucleoKey === nucleoKey && namesLikelySame(guest.name, existingGuest.nome);
+    });
+
+    if (byNucleoAndName) return { guest: byNucleoAndName, matchedBy: "nome_nucleo_evento" };
+  }
+
+  const bySimilarName = existingGuests.find((existingGuest) =>
+    namesLikelySame(guest.name, existingGuest.nome)
+  );
+
+  if (bySimilarName) return { guest: bySimilarName, matchedBy: "nome_parcial_evento" };
+
+  return { guest: null, matchedBy: null };
+}
+
+function resolveExistingContactMatch(params: {
+  guest: ImportGuest;
+  existingContacts: any[];
+  contactsByPhone: Map<string, any>;
+  contactsByName: Map<string, any>;
+}) {
+  const { guest, existingContacts, contactsByPhone, contactsByName } = params;
+
+  const guestPhoneKey = cleanPhone(guest.phone);
+  const responsavelPhoneKey = cleanPhone(guest.responsavel_telefone);
+  const guestNameKey = normalizeTextKey(guest.name);
+
+  if (guestPhoneKey) {
+    const byPhone = contactsByPhone.get(guestPhoneKey);
+    if (byPhone) return { contact: byPhone, matchedBy: "telefone_crm" };
+  }
+
+  if (guestNameKey) {
+    const byName = contactsByName.get(guestNameKey);
+    if (byName) return { contact: byName, matchedBy: "nome_crm" };
+  }
+
+  if (responsavelPhoneKey) {
+    const byResponsiblePhoneAndName = existingContacts.find((contact) => {
+      const contactResponsiblePhone = cleanPhone(contact?.responsavel_telefone) || cleanPhone(contact?.telefone_responsavel);
+      return contactResponsiblePhone === responsavelPhoneKey && namesLikelySame(guest.name, contact?.nome);
+    });
+
+    if (byResponsiblePhoneAndName) {
+      return { contact: byResponsiblePhoneAndName, matchedBy: "responsavel_crm" };
+    }
+  }
+
+  const bySimilarName = existingContacts.find((contact) => namesLikelySame(guest.name, contact?.nome));
+  if (bySimilarName) return { contact: bySimilarName, matchedBy: "nome_parcial_crm" };
+
+  return { contact: null, matchedBy: null };
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
@@ -541,7 +704,7 @@ export async function POST(req: Request) {
 
       const { data: existingGuests, error: existingGuestsError } = await supabase
         .from("convidados")
-        .select("id, nome, telefone, legacy_id")
+        .select("id, nome, telefone, legacy_id, crianca, responsavel, responsavel_telefone, grupo, tenant_contato_id")
         .eq("tenant_id", tenantId)
         .eq("evento_id", eventoId);
 
@@ -554,7 +717,7 @@ export async function POST(req: Request) {
 
       const { data: existingContacts, error: existingContactsError } = await supabase
         .from("tenant_contatos")
-        .select("id, nome, telefone, telefone_normalizado")
+        .select("id, nome, telefone, telefone_normalizado, tipo_contato, responsavel_nome, responsavel_telefone, telefone_responsavel, nome_responsavel")
         .eq("tenant_id", tenantId);
 
       if (existingContactsError) {
@@ -600,17 +763,22 @@ export async function POST(req: Request) {
         const guestLegacyKey = cleanText(guest.legacy_id);
         const guestNameKey = normalizeTextKey(guest.name);
 
-        const existingGuest =
-          (guestPhoneKey ? guestsByPhone.get(guestPhoneKey) : null) ||
-          (guestLegacyKey ? guestsByLegacyId.get(guestLegacyKey) : null) ||
-          (guestNameKey ? guestsByName.get(guestNameKey) : null) ||
-          null;
+        const guestMatch = resolveExistingGuestMatch({
+          guest,
+          existingGuests: existingGuests || [],
+          guestsByLegacyId,
+          guestsByName,
+        });
 
-        const existingContact =
-          (guestPhoneKey ? contactsByPhone.get(guestPhoneKey) : null) ||
-          (guestNameKey ? contactsByName.get(guestNameKey) : null) ||
-          null;
+        const contactMatch = resolveExistingContactMatch({
+          guest,
+          existingContacts: existingContacts || [],
+          contactsByPhone,
+          contactsByName,
+        });
 
+        const existingGuest = guestMatch.guest;
+        const existingContact = contactMatch.contact;
         const eventExists = Boolean(existingGuest);
         const crmExists = Boolean(existingContact);
         const sourceRaw = guest.raw || guest;
@@ -656,16 +824,14 @@ export async function POST(req: Request) {
             evento_status: eventExists ? "convidado_existente" : "novo_convidado",
             event_guest_id: existingGuest?.id || null,
             matched_by: existingGuest
-              ? guestPhoneKey && existingGuest.telefone && cleanPhone(existingGuest.telefone) === guestPhoneKey
-                ? "telefone_evento"
-                : guestLegacyKey && existingGuest.legacy_id === guestLegacyKey
-                ? "legacy_id_evento"
-                : "nome_evento"
+              ? guestMatch.matchedBy || "evento"
               : existingContact
-              ? guestPhoneKey && cleanPhone(existingContact.telefone_normalizado || existingContact.telefone) === guestPhoneKey
-                ? "telefone_crm"
-                : "nome_crm"
+              ? contactMatch.matchedBy || "crm"
               : "novo",
+            matched_event_name: existingGuest?.nome || null,
+            matched_event_phone: existingGuest?.telefone || null,
+            matched_contact_name: existingContact?.nome || null,
+            matched_contact_phone: existingContact?.telefone_normalizado || existingContact?.telefone || null,
           },
         };
       });
@@ -762,16 +928,18 @@ export async function POST(req: Request) {
         const recebeComunicacao = normalizeBoolean(item.recebe_comunicacao ?? raw.recebe_comunicacao, Boolean(item.recebe_convite));
         const principalEnvio = normalizeBoolean(item.principal_envio ?? raw.principal_envio, Boolean(item.contato_principal));
 
-        const tenantContatoId = await ensureTenantContato(supabase, {
-          tenantId,
-          nome: item.nome,
-          telefone: item.telefone,
-          email: cleanText(raw.email),
-          tipoContato: isCrianca ? "crianca" : "adulto",
-          responsavelNome,
-          responsavelTelefone,
-          origem: "importacao_admin_evento",
-        });
+        const tenantContatoId =
+          cleanText(raw.crm_contact_id) ||
+          (await ensureTenantContato(supabase, {
+            tenantId,
+            nome: item.nome,
+            telefone: item.telefone,
+            email: cleanText(raw.email),
+            tipoContato: isCrianca ? "crianca" : "adulto",
+            responsavelNome,
+            responsavelTelefone,
+            origem: "importacao_admin_evento",
+          }));
 
         let responsavelContatoId: string | null = null;
         if (isCrianca && responsavelNome) {
@@ -1097,3 +1265,4 @@ export async function POST(req: Request) {
     );
   }
 }
+
