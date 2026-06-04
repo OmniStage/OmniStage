@@ -1609,10 +1609,25 @@ export default function AdminImportacaoPage() {
                         {item.responsavel_telefone || "-"}
                       </p>
 
-                      <p style={{ color: "#334155", margin: "6px 0 0" }}>
-                        Núcleo: {item.nucleo || item.grupo || "sem núcleo"} · Tipo núcleo:{" "}
-                        {item.tipo_nucleo || "-"} · Relação: {item.relacao_nucleo || "-"}
-                      </p>
+                      {Array.isArray(item.raw_data?.nucleos) && item.raw_data.nucleos.length > 0 ? (
+  <div style={{ color: "#334155", margin: "6px 0 0" }}>
+    <strong>Núcleos vinculados:</strong>
+
+    <div style={{ marginTop: 4 }}>
+      {item.raw_data.nucleos.map((nucleo: any, index: number) => (
+        <div key={index}>
+          • {nucleo.nome || nucleo.nucleo || "-"} · {nucleo.tipo || nucleo.tipo_nucleo || "-"} ·{" "}
+          {nucleo.relacao || nucleo.relacao_nucleo || "-"}
+        </div>
+      ))}
+    </div>
+  </div>
+) : (
+  <p style={{ color: "#334155", margin: "6px 0 0" }}>
+    Núcleo: {item.nucleo || item.grupo || "sem núcleo"} · Tipo núcleo:{" "}
+    {item.tipo_nucleo || "-"} · Relação: {item.relacao_nucleo || "-"}
+  </p>
+)}
 
                       <p style={{ color: "#334155", margin: "6px 0 0" }}>
                         Relação responsável: {item.relacao_responsavel_nucleo || "-"} · Relação evento:{" "}
