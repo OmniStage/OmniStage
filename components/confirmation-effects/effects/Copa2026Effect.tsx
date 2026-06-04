@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import type { ConfirmationEffectProps } from "./types";
+import type { ConfirmationEffectProps } from "../types";
 
 export default function Copa2026Effect({
   open,
