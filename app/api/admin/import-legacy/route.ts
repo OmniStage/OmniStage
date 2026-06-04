@@ -558,6 +558,187 @@ function namesAreSimilar(importedName: unknown, existingName: unknown) {
   return common.length > 0 && common.length >= Math.min(importedParts.length, existingParts.length, 2);
 }
 
+function getImportedNucleoKeys(guest: ImportGuest) {
+  const keys = new Set<string>();
+  const addKey = (nome: unknown, tipo?: unknown) => {
+    const nomeKey = normalizeTextKey(nome);
+    if (!nomeKey) return;
+    const tipoKey = normalizeTipoNucleo(tipo || "familia");
+    keys.add(`${nomeKey}|${tipoKey}`);
+    keys.add(nomeKey);
+  };
+
+  addKey(guest.nucleo || guest.grupo, guest.tipo_nucleo);
+
+  for (const nucleo of guest.nucleos || []) {
+    addKey(nucleo.nucleo, nucleo.tipo_nucleo);
+  }
+
+  const rawNucleos = Array.isArray(guest.raw?.__nucleos) ? guest.raw.__nucleos : [];
+  for (const nucleo of rawNucleos) {
+    addKey(nucleo?.nucleo, nucleo?.tipo_nucleo);
+  }
+
+  return keys;
+}
+
+function buildContactNucleoContext(contactLinks: any[] | null | undefined) {
+  const nucleoKeysByContactId = new Map<string, Set<string>>();
+  const principalPhonesByNucleoKey = new Map<string, Set<string>>();
+
+  const addNucleoKeyToContact = (contactId: string | null | undefined, key: string) => {
+    if (!contactId || !key) return;
+    const current = nucleoKeysByContactId.get(contactId) || new Set<string>();
+    current.add(key);
+    nucleoKeysByContactId.set(contactId, current);
+  };
+
+  const addPrincipalPhoneToNucleo = (key: string, phone: string | null) => {
+    if (!key || !phone) return;
+    const current = principalPhonesByNucleoKey.get(key) || new Set<string>();
+    current.add(phone);
+    principalPhonesByNucleoKey.set(key, current);
+  };
+
+  for (const link of contactLinks || []) {
+    const grupo = Array.isArray(link.contato_grupos)
+      ? link.contato_grupos[0]
+      : link.contato_grupos;
+    const contato = Array.isArray(link.tenant_contatos)
+      ? link.tenant_contatos[0]
+      : link.tenant_contatos;
+
+    const nomeNucleo = normalizeTextKey(grupo?.nome);
+    if (!nomeNucleo) continue;
+
+    const tipoNucleo = normalizeTipoNucleo(grupo?.tipo_nucleo || grupo?.tipo || "familia");
+    const compoundKey = `${nomeNucleo}|${tipoNucleo}`;
+
+    addNucleoKeyToContact(link.tenant_contato_id, compoundKey);
+    addNucleoKeyToContact(link.tenant_contato_id, nomeNucleo);
+
+    if (link.principal_envio) {
+      const principalPhone = cleanPhone(contato?.telefone_normalizado || contato?.telefone);
+      addPrincipalPhoneToNucleo(compoundKey, principalPhone);
+      addPrincipalPhoneToNucleo(nomeNucleo, principalPhone);
+    }
+  }
+
+  return {
+    nucleoKeysByContactId,
+    principalPhonesByNucleoKey,
+  };
+}
+
+function hasAnySetIntersection(left: Set<string>, right: Set<string>) {
+  for (const item of left) {
+    if (right.has(item)) return true;
+  }
+
+  return false;
+}
+
+function phoneMatchesAny(phone: string | null, phones: Set<string>) {
+  return Boolean(phone && phones.has(phone));
+}
+
+function getPrincipalPhonesForImportedNucleos(
+  importedNucleoKeys: Set<string>,
+  principalPhonesByNucleoKey: Map<string, Set<string>>
+) {
+  const phones = new Set<string>();
+
+  for (const nucleoKey of importedNucleoKeys) {
+    const current = principalPhonesByNucleoKey.get(nucleoKey);
+    if (!current) continue;
+    for (const phone of current) phones.add(phone);
+  }
+
+  return phones;
+}
+
+function findExistingContactSmart(
+  guest: ImportGuest,
+  existingContacts: any[] | null | undefined,
+  maps: {
+    contactsByPhone: Map<string, any>;
+    contactsByName: Map<string, any>;
+  },
+  contactContext: {
+    nucleoKeysByContactId: Map<string, Set<string>>;
+    principalPhonesByNucleoKey: Map<string, Set<string>>;
+  }
+) {
+  const guestPhoneKey = cleanPhone(guest.phone);
+  const guestNameKey = normalizeTextKey(guest.name);
+  const responsavelPhoneKey = cleanPhone(guest.responsavel_telefone || undefined);
+  const importedNucleoKeys = getImportedNucleoKeys(guest);
+  const importedPrincipalPhones = getPrincipalPhonesForImportedNucleos(
+    importedNucleoKeys,
+    contactContext.principalPhonesByNucleoKey
+  );
+
+  let matchedContact =
+    (guestPhoneKey ? maps.contactsByPhone.get(guestPhoneKey) : null) ||
+    (guestNameKey ? maps.contactsByName.get(guestNameKey) : null) ||
+    null;
+
+  let matchedBy = matchedContact
+    ? guestPhoneKey && cleanPhone(matchedContact.telefone_normalizado || matchedContact.telefone) === guestPhoneKey
+      ? "telefone_crm"
+      : "nome_crm"
+    : null;
+
+  if (!matchedContact) {
+    matchedContact =
+      (existingContacts || []).find((contact) => {
+        if (!namesAreSimilar(guest.name, contact.nome)) return false;
+
+        const contactResponsavelPhone = cleanPhone(
+          contact.responsavel_telefone ||
+            contact.telefone_responsavel ||
+            contact.responsavel?.telefone ||
+            undefined
+        );
+
+        return responsavelPhoneKey && contactResponsavelPhone === responsavelPhoneKey;
+      }) || null;
+
+    if (matchedContact) matchedBy = "responsavel_telefone_crm";
+  }
+
+  if (!matchedContact && importedNucleoKeys.size > 0) {
+    matchedContact =
+      (existingContacts || []).find((contact) => {
+        if (!namesAreSimilar(guest.name, contact.nome)) return false;
+        const contactNucleoKeys = contactContext.nucleoKeysByContactId.get(contact.id) || new Set<string>();
+        return hasAnySetIntersection(importedNucleoKeys, contactNucleoKeys);
+      }) || null;
+
+    if (matchedContact) matchedBy = "nucleo_crm_nome";
+  }
+
+  if (!matchedContact && importedPrincipalPhones.size > 0) {
+    matchedContact =
+      (existingContacts || []).find((contact) => {
+        if (!namesAreSimilar(guest.name, contact.nome)) return false;
+        const contactNucleoKeys = contactContext.nucleoKeysByContactId.get(contact.id) || new Set<string>();
+        if (!hasAnySetIntersection(importedNucleoKeys, contactNucleoKeys)) return false;
+
+        const contactPhone = cleanPhone(contact.telefone_normalizado || contact.telefone);
+        const contactResponsavelPhone = cleanPhone(
+          contact.responsavel_telefone || contact.telefone_responsavel || undefined
+        );
+
+        return phoneMatchesAny(contactPhone, importedPrincipalPhones) || phoneMatchesAny(contactResponsavelPhone, importedPrincipalPhones);
+      }) || null;
+
+    if (matchedContact) matchedBy = "principal_nucleo_crm";
+  }
+
+  return { matchedContact, matchedBy };
+}
+
 function findExistingGuestSmart(
   guest: ImportGuest,
   existingGuests: any[] | null | undefined,
@@ -565,6 +746,10 @@ function findExistingGuestSmart(
     guestsByPhone: Map<string, any>;
     guestsByLegacyId: Map<string, any>;
     guestsByName: Map<string, any>;
+  },
+  helpers?: {
+    existingContactId?: string | null;
+    principalPhonesByNucleoKey?: Map<string, Set<string>>;
   }
 ) {
   const isCrianca = normalizeTipoContato(
@@ -577,7 +762,12 @@ function findExistingGuestSmart(
   const guestLegacyKey = cleanText(guest.legacy_id);
   const guestNameKey = normalizeTextKey(guest.name);
   const responsavelPhoneKey = cleanPhone(guest.responsavel_telefone || undefined);
-  const nucleoKey = normalizeTextKey(guest.nucleo || guest.grupo);
+  const importedNucleoKeys = getImportedNucleoKeys(guest);
+  const principalPhonesByNucleoKey = helpers?.principalPhonesByNucleoKey || new Map<string, Set<string>>();
+  const importedPrincipalPhones = getPrincipalPhonesForImportedNucleos(
+    importedNucleoKeys,
+    principalPhonesByNucleoKey
+  );
 
   let matchedGuest =
     (guestPhoneKey ? maps.guestsByPhone.get(guestPhoneKey) : null) ||
@@ -593,7 +783,16 @@ function findExistingGuestSmart(
       : "nome_evento"
     : null;
 
-  if (!matchedGuest && isCrianca && responsavelPhoneKey) {
+  if (!matchedGuest && helpers?.existingContactId) {
+    matchedGuest =
+      (existingGuests || []).find(
+        (existingGuest) => existingGuest.tenant_contato_id === helpers.existingContactId
+      ) || null;
+
+    if (matchedGuest) matchedBy = "tenant_contato_id_evento";
+  }
+
+  if (!matchedGuest && responsavelPhoneKey) {
     matchedGuest =
       (existingGuests || []).find((existingGuest) => {
         const existingPhone = cleanPhone(existingGuest.telefone);
@@ -605,30 +804,37 @@ function findExistingGuestSmart(
         );
       }) || null;
 
-    if (matchedGuest) matchedBy = "crianca_responsavel_telefone";
+    if (matchedGuest) matchedBy = isCrianca ? "crianca_responsavel_telefone" : "adulto_responsavel_telefone";
   }
 
-  if (!matchedGuest && nucleoKey) {
+  if (!matchedGuest && importedPrincipalPhones.size > 0) {
+    matchedGuest =
+      (existingGuests || []).find((existingGuest) => {
+        const existingPhone = cleanPhone(existingGuest.telefone);
+        const existingResponsavelPhone = cleanPhone(existingGuest.responsavel_telefone);
+
+        return (
+          (phoneMatchesAny(existingPhone, importedPrincipalPhones) ||
+            phoneMatchesAny(existingResponsavelPhone, importedPrincipalPhones)) &&
+          namesAreSimilar(guest.name, existingGuest.nome)
+        );
+      }) || null;
+
+    if (matchedGuest) matchedBy = isCrianca ? "crianca_principal_nucleo" : "adulto_principal_nucleo";
+  }
+
+  if (!matchedGuest && importedNucleoKeys.size > 0) {
     matchedGuest =
       (existingGuests || []).find((existingGuest) => {
         const existingGroupKey = normalizeTextKey(existingGuest.grupo);
-        return existingGroupKey === nucleoKey && namesAreSimilar(guest.name, existingGuest.nome);
+        return existingGroupKey && importedNucleoKeys.has(existingGroupKey) && namesAreSimilar(guest.name, existingGuest.nome);
       }) || null;
 
     if (matchedGuest) matchedBy = isCrianca ? "crianca_nucleo" : "adulto_nucleo";
   }
 
-  if (!matchedGuest) {
-    matchedGuest =
-      (existingGuests || []).find((existingGuest) => namesAreSimilar(guest.name, existingGuest.nome)) ||
-      null;
-
-    if (matchedGuest) matchedBy = "nome_parcial_evento";
-  }
-
   return { matchedGuest, matchedBy };
 }
-
 function normalizeComparableValue(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -751,7 +957,7 @@ export async function POST(req: Request) {
 
       const { data: existingContacts, error: existingContactsError } = await supabase
         .from("tenant_contatos")
-        .select("id, nome, telefone, telefone_normalizado")
+        .select("id, nome, telefone, telefone_normalizado, responsavel_nome, responsavel_telefone, telefone_responsavel, nome_responsavel, tipo_contato")
         .eq("tenant_id", tenantId);
 
       if (existingContactsError) {
@@ -760,6 +966,20 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
+
+      const { data: contactLinks, error: contactLinksError } = await supabase
+        .from("contato_grupo_membros")
+        .select("tenant_contato_id, grupo_contato_id, principal_envio, contato_grupos(id, nome, tipo_nucleo, tipo), tenant_contatos(id, nome, telefone, telefone_normalizado)")
+        .eq("tenant_id", tenantId);
+
+      if (contactLinksError) {
+        return NextResponse.json(
+          { error: contactLinksError.message },
+          { status: 500 }
+        );
+      }
+
+      const contactNucleoContext = buildContactNucleoContext(contactLinks || []);
 
       const guestsByPhone = new Map<string, any>();
       const guestsByLegacyId = new Map<string, any>();
@@ -797,16 +1017,29 @@ export async function POST(req: Request) {
         const guestLegacyKey = cleanText(guest.legacy_id);
         const guestNameKey = normalizeTextKey(guest.name);
 
-        const { matchedGuest: existingGuest, matchedBy: eventMatchedBy } = findExistingGuestSmart(guest, existingGuests, {
-          guestsByPhone,
-          guestsByLegacyId,
-          guestsByName,
-        });
+        const { matchedContact: existingContact, matchedBy: crmMatchedBy } = findExistingContactSmart(
+          guest,
+          existingContacts,
+          {
+            contactsByPhone,
+            contactsByName,
+          },
+          contactNucleoContext
+        );
 
-        const existingContact =
-          (guestPhoneKey ? contactsByPhone.get(guestPhoneKey) : null) ||
-          (guestNameKey ? contactsByName.get(guestNameKey) : null) ||
-          null;
+        const { matchedGuest: existingGuest, matchedBy: eventMatchedBy } = findExistingGuestSmart(
+          guest,
+          existingGuests,
+          {
+            guestsByPhone,
+            guestsByLegacyId,
+            guestsByName,
+          },
+          {
+            existingContactId: existingContact?.id || null,
+            principalPhonesByNucleoKey: contactNucleoContext.principalPhonesByNucleoKey,
+          }
+        );
 
         const eventExists = Boolean(existingGuest);
         const crmExists = Boolean(existingContact);
@@ -859,9 +1092,7 @@ export async function POST(req: Request) {
             matched_by: existingGuest
               ? eventMatchedBy || "evento"
               : existingContact
-              ? guestPhoneKey && cleanPhone(existingContact.telefone_normalizado || existingContact.telefone) === guestPhoneKey
-                ? "telefone_crm"
-                : "nome_crm"
+              ? crmMatchedBy || "crm"
               : "novo",
           },
         };
