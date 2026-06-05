@@ -559,34 +559,37 @@ function normalizarTelefone(telefone: string | null) {
   }
 
   function gerarLinkConvite(convidado: Convidado) {
-    const tipoConvite = String(convidado.tipo_convite || "")
+    const tipoConvite = String(convidado.tipo_convite || "individual")
       .trim()
       .toLowerCase();
-
     const tokenDoCard = String(convidado.token || "").trim();
 
     // REGRA PRINCIPAL:
-    // Tipo do convite INDIVIDUAL sempre abre o convite do próprio card.
-    // Não pode usar grupo/núcleo, mesmo quando o convidado possui
-    // "Visualização em grupo" ou vínculo com núcleo.
+    // Tipo do convite INDIVIDUAL sempre abre o convite individual do card clicado.
+    // Não importa se existe grupo/núcleo no cadastro ou se a visualização em grupo está marcada.
     if (tipoConvite === "individual") {
       return `/c/${encodeURIComponent(tokenDoCard)}`;
     }
 
     const grupo = (convidado.grupo || "").trim();
 
-    // Se não houver grupo/núcleo, também abre somente o próprio token.
+    // Sem grupo/núcleo, não existe como agrupar: usa o token do próprio card.
     if (!grupo) {
       return `/c/${encodeURIComponent(tokenDoCard)}`;
     }
 
-    // Convite por grupo/núcleo: somente aqui junta os integrantes do mesmo grupo.
-    const integrantesGrupo = convidados.filter(
-      (item) =>
+    // Só agrupa quando o tipo do convite NÃO é individual.
+    const integrantesGrupo = convidados.filter((item) => {
+      const tipoItem = String(item.tipo_convite || "individual")
+        .trim()
+        .toLowerCase();
+
+      return (
         item.evento_id === convidado.evento_id &&
         (item.grupo || "").trim() === grupo &&
-        String(item.tipo_convite || "").trim().toLowerCase() !== "individual",
-    );
+        tipoItem !== "individual"
+      );
+    });
 
     const tokens = integrantesGrupo
       .map((item) => String(item.token || "").trim())
