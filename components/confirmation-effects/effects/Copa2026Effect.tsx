@@ -37,7 +37,7 @@ export default function Copa2026Effect({
         <div style={shineStyle} />
       </div>
 
-      {confirming ? (
+      {false && confirming ? (
         <div style={confirmingPillStyle}>Confirmando presença...</div>
       ) : null}
     </div>
@@ -54,7 +54,9 @@ const overlayStyle: CSSProperties = {
   justifyContent: "center",
   padding: 0,
   boxSizing: "border-box",
-  background: "transparent",
+  background: "rgba(2, 6, 23, .48)",
+  backdropFilter: "blur(8px) saturate(.86)",
+  WebkitBackdropFilter: "blur(8px) saturate(.86)",
 };
 
 const videoFrameStyle: CSSProperties = {
@@ -66,9 +68,10 @@ const videoFrameStyle: CSSProperties = {
   overflow: "hidden",
   transformOrigin: "center",
   transform: "translate3d(0, -2%, 0)",
-  background: "transparent",
+  background: "rgba(6, 10, 18, .72)",
+  border: "1px solid rgba(255, 223, 0, .22)",
   boxShadow:
-    "0 18px 44px rgba(2,6,23,.20), 0 0 18px rgba(255,223,0,.18)",
+    "0 28px 90px rgba(0,0,0,.58), 0 0 0 1px rgba(255,255,255,.10), 0 0 42px rgba(255,223,0,.18)",
   animation:
     "omniCopaVideoEnter .36s cubic-bezier(.16,1,.3,1) both, omniCopaVideoFloat 3.8s ease-in-out .8s infinite",
 };
@@ -169,3 +172,4 @@ const keyframesCss = `
   84%, 100% { transform: translateX(500%) skewX(-14deg); opacity: 0; }
 }
 `;
+
