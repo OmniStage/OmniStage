@@ -238,13 +238,16 @@ export default function EnviosPage() {
         visualizar_convite_neste_nucleo
       `;
 
-    let { data, error } = await supabase
+    const resultadoConvidados = await supabase
       .from("convidados")
       .select(colunasComRegrasConvite)
       .eq("evento_id", eventoId)
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
+
+    let data = resultadoConvidados.data as Convidado[] | null;
+    let error = resultadoConvidados.error;
 
     if (error) {
       console.warn(
@@ -260,7 +263,7 @@ export default function EnviosPage() {
         .order("telefone", { ascending: false, nullsFirst: false })
         .order("nome", { ascending: true });
 
-      data = fallback.data;
+      data = fallback.data as Convidado[] | null;
       error = fallback.error;
     }
 
