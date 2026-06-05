@@ -1625,47 +1625,33 @@ function dividirTokensConvite(token: string | null | undefined) {
     .filter(Boolean);
 }
 
-function isConviteIndividual(convidado: Convidado) {
-  const tipo = normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
+function getTipoConvite(convidado: Convidado) {
+  return normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
+}
 
-  return tipo === "individual";
+function isConviteIndividual(convidado: Convidado) {
+  return getTipoConvite(convidado) === "individual";
 }
 
 function isConviteAgrupado(convidado: Convidado) {
-  const tipo = normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
+  const tipo = getTipoConvite(convidado);
 
-  if (isConviteIndividual(convidado)) {
+  if (tipo === "individual") {
     return false;
   }
 
-  return (
-    tipo === "grupo" ||
-    tipo === "nucleo" ||
-    tipo === "núcleo" ||
-    convidado.agrupar_convite_neste_nucleo === true
-  );
+  return tipo === "grupo" || tipo === "nucleo" || tipo === "núcleo";
 }
 
 function resolverTokenIndividualConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const tokens = dividirTokensConvite(convidado.token);
+  const tokenDoConvidadoAtual = dividirTokensConvite(convidado.token)[0] || "";
 
-  if (tokens.length <= 1) {
-    return tokens[0] || "";
+  if (tokenDoConvidadoAtual) {
+    return tokenDoConvidadoAtual;
   }
 
-  const grupoAtual = normalizarTextoComparacao(convidado.grupo);
-
-  if (!grupoAtual) {
-    return tokens[0] || "";
-  }
-
-  const convidadosDoMesmoGrupo = todosConvidados.filter(
-    (item) => normalizarTextoComparacao(item.grupo) === grupoAtual
-  );
-
-  const indiceConvidado = convidadosDoMesmoGrupo.findIndex((item) => item.id === convidado.id);
-
-  return tokens[indiceConvidado] || tokens[0] || "";
+  const convidadoOriginal = todosConvidados.find((item) => item.id === convidado.id);
+  return dividirTokensConvite(convidadoOriginal?.token)[0] || "";
 }
 
 function gerarLinkConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
@@ -1908,3 +1894,4 @@ const sendConfirmButtonStyle: React.CSSProperties = {
 };
 
 const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed var(--line)", color: "var(--muted)" };
+
