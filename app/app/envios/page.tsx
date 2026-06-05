@@ -24,7 +24,6 @@ type Convidado = {
   status_rsvp: string | null;
   status_checkin?: string | null;
   token?: string | null;
-  tipo_convite?: string | null;
   origem_importacao?: string | null;
   import_batch_id?: string | null;
   legacy_id?: string | number | null;
@@ -32,6 +31,7 @@ type Convidado = {
   data_hora_envio?: string | null;
   contato_principal?: boolean | null;
   recebe_convite?: boolean | null;
+  tipo_convite?: string | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -214,7 +214,6 @@ export default function EnviosPage() {
         status_rsvp,
         status_checkin,
         token,
-        tipo_convite,
         origem_importacao,
         import_batch_id,
         legacy_id,
@@ -222,6 +221,7 @@ export default function EnviosPage() {
         data_hora_envio,
         contato_principal,
         recebe_convite,
+        tipo_convite,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
@@ -371,7 +371,7 @@ export default function EnviosPage() {
   }, [previewId, convidados, convidadosFiltrados, publicoCampanha]);
 
   const previewMensagem = convidadoPreview
-    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual)
+    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual, convidados)
     : mensagemAtual;
 
   const stats = useMemo(() => {
@@ -496,7 +496,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status: "pendente",
     }));
 
@@ -514,7 +514,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status: "pendente",
       detalhe: "Adicionado à fila por ação em massa.",
     }));
@@ -730,7 +730,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status,
       detalhe: detalhe || null,
     });
@@ -766,7 +766,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone,
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status: "pendente",
     });
 
@@ -788,7 +788,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual);
+    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
     registrarHistoricoEnvio(convidado, "pendente", "WhatsApp aberto para envio manual.");
@@ -830,7 +830,7 @@ export default function EnviosPage() {
   }
 
   async function copiarMensagem(convidado: Convidado) {
-    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual));
+    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados));
     alert("Mensagem copiada.");
   }
 
@@ -1194,7 +1194,7 @@ export default function EnviosPage() {
                     </span>
                   )}
 
-                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual)}</p>
+                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados)}</p>
 
                   {dataEnvio && (
                     <small style={sentDateStyle}>
@@ -1580,41 +1580,81 @@ function isEnvioViaResponsavel(convidado: Convidado) {
   return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
 }
 
-function normalizarTipoConvite(valor: string | null | undefined) {
-  return String(valor || "").trim().toLowerCase();
+function normalizarTextoComparacao(valor: string | null | undefined) {
+  return String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
-function separarTokensConvite(token: string | null | undefined) {
+function normalizarTipoConvite(valor: string | null | undefined) {
+  return normalizarTextoComparacao(valor).replace(/[\s_-]+/g, "_");
+}
+
+function dividirTokensConvite(token: string | null | undefined) {
   return String(token || "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-function montarTokenPathConvite(convidado: Convidado) {
-  const tokens = separarTokensConvite(convidado.token);
-  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
-
-  const tokensDoConvite =
-    tipoConvite === "individual" ? tokens.slice(0, 1) : tokens;
-
-  return tokensDoConvite.map((token) => encodeURIComponent(token)).join(",");
+function encodeTokenPath(tokens: string[]) {
+  return tokens.map((token) => encodeURIComponent(token)).join(",");
 }
 
-function gerarTokenMensagem(convidado: Convidado) {
-  const tokens = separarTokensConvite(convidado.token);
-  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+function isConviteIndividual(convidado: Convidado) {
+  return normalizarTipoConvite(convidado.tipo_convite) === "individual";
+}
 
-  if (tipoConvite === "individual") {
+function resolverTokenDoConvidadoDoCard(
+  convidado: Convidado,
+  todosConvidados: Convidado[] = []
+) {
+  const tokens = dividirTokensConvite(convidado.token);
+
+  if (tokens.length <= 1) {
     return tokens[0] || "";
   }
 
-  return tokens.join(",");
+  const grupoAtual = normalizarTextoComparacao(convidado.grupo);
+
+  if (grupoAtual) {
+    const convidadosDoMesmoGrupo = todosConvidados.filter(
+      (item) => normalizarTextoComparacao(item.grupo) === grupoAtual
+    );
+
+    const indiceDoCardNoGrupo = convidadosDoMesmoGrupo.findIndex(
+      (item) => item.id === convidado.id
+    );
+
+    if (indiceDoCardNoGrupo >= 0 && tokens[indiceDoCardNoGrupo]) {
+      return tokens[indiceDoCardNoGrupo];
+    }
+  }
+
+  const tokenUnicoDoMesmoConvidado = todosConvidados.find(
+    (item) => item.id === convidado.id && dividirTokensConvite(item.token).length === 1
+  );
+
+  if (tokenUnicoDoMesmoConvidado?.token) {
+    return dividirTokensConvite(tokenUnicoDoMesmoConvidado.token)[0] || "";
+  }
+
+  return tokens[0] || "";
 }
 
-function gerarLinkConvite(convidado: Convidado) {
-  const tokenPath = montarTokenPathConvite(convidado);
+function gerarTokensConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  if (isConviteIndividual(convidado)) {
+    const tokenDoCard = resolverTokenDoConvidadoDoCard(convidado, todosConvidados);
+    return tokenDoCard ? [tokenDoCard] : [];
+  }
 
+  return dividirTokensConvite(convidado.token);
+}
+
+function gerarLinkConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const tokenPath = encodeTokenPath(gerarTokensConvite(convidado, todosConvidados));
   if (typeof window === "undefined") return `/c/${tokenPath}`;
   return `${window.location.origin}/c/${tokenPath}`;
 }
@@ -1629,8 +1669,15 @@ function gerarLinkCartao(convidado: Convidado) {
   return `${window.location.origin}/cartao/${token}`;
 }
 
-function montarMensagem(template: string, convidado: Convidado, evento?: Evento | null) {
+function montarMensagem(
+  template: string,
+  convidado: Convidado,
+  evento?: Evento | null,
+  todosConvidados: Convidado[] = []
+) {
   const nomeEvento = evento?.nome || "";
+  const tokensConvite = gerarTokensConvite(convidado, todosConvidados);
+  const tokenConviteMensagem = tokensConvite.join(",");
 
   return template
     .replaceAll("{{nome}}", convidado.nome || "")
@@ -1639,8 +1686,8 @@ function montarMensagem(template: string, convidado: Convidado, evento?: Evento 
     .replaceAll("{{nome_evento}}", nomeEvento)
     .replaceAll("{{telefone}}", convidado.telefone || convidado.responsavel_telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
-    .replaceAll("{{token}}", gerarTokenMensagem(convidado))
-    .replaceAll("{{link_convite}}", gerarLinkConvite(convidado))
+    .replaceAll("{{token}}", tokenConviteMensagem)
+    .replaceAll("{{link_convite}}", gerarLinkConvite(convidado, todosConvidados))
     .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
 }
 
