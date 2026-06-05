@@ -458,20 +458,20 @@ function ajustarBlocosParaConvidados(
   blocks: VisualBlock[],
   nomes: string[],
 ): VisualBlock[] {
-  const total = Math.max(1, nomes.length || 1);
-
   return blocks.map((block) => {
     if (block.type !== "guest_picker") return block;
 
-    const itemHeight = Math.max(28, Math.round((block.font_size || 18) * 1.65));
-    const paddingVertical = 22;
-    const gapTotal = Math.max(0, total - 1) * 6;
-    const alturaNecessaria = paddingVertical + total * itemHeight + gapTotal;
-
-    return {
-      ...block,
-      height: Math.max(block.height || 0, alturaNecessaria),
-    };
+    /*
+     * Não aumente dinamicamente a altura do bloco de convidados.
+     *
+     * O convite visual usa posições fixas por bloco. Quando a altura do
+     * guest_picker era aumentada para caber 4+ convidados, o card azul
+     * passava a invadir/sobrepor o botão "Confirmar presença".
+     *
+     * A rolagem dos convidados agora fica dentro do próprio bloco
+     * em renderGuestPicker(), preservando o layout original do modelo.
+     */
+    return block;
   });
 }
 
@@ -515,8 +515,10 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
         gap: 6,
         padding: "8px 10px",
         boxSizing: "border-box",
-        overflowY: "visible",
-        overflowX: "visible",
+        overflowY: "auto",
+        overflowX: "hidden",
+        scrollbarWidth: "thin",
+        overscrollBehavior: "contain",
       }}
     >
       {nomesLimpos.map((nome) => (
@@ -545,7 +547,16 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
               flexShrink: 0,
             }}
           />
-          <span>{nome}</span>
+          <span
+            style={{
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {nome}
+          </span>
         </label>
       ))}
     </div>
