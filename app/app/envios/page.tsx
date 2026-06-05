@@ -238,16 +238,13 @@ export default function EnviosPage() {
         visualizar_convite_neste_nucleo
       `;
 
-    const resultadoConvidados = await supabase
+    let { data, error }: { data: any[] | null; error: any } = await supabase
       .from("convidados")
       .select(colunasComRegrasConvite)
       .eq("evento_id", eventoId)
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
-
-    let data = resultadoConvidados.data as unknown as Convidado[] | null;
-    let error = resultadoConvidados.error;
 
     if (error) {
       console.warn(
@@ -263,7 +260,7 @@ export default function EnviosPage() {
         .order("telefone", { ascending: false, nullsFirst: false })
         .order("nome", { ascending: true });
 
-      data = fallback.data as unknown as Convidado[] | null;
+      data = fallback.data;
       error = fallback.error;
     }
 
@@ -1628,16 +1625,16 @@ function dividirTokensConvite(token: string | null | undefined) {
     .filter(Boolean);
 }
 
-function isTipoConviteIndividual(convidado: Convidado) {
+function isConviteIndividual(convidado: Convidado) {
   const tipo = normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
 
-  return tipo === "individual" || tipo === "individuall" || tipo === "unico" || tipo === "único";
+  return tipo === "individual";
 }
 
 function isConviteAgrupado(convidado: Convidado) {
   const tipo = normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
 
-  if (isTipoConviteIndividual(convidado)) {
+  if (isConviteIndividual(convidado)) {
     return false;
   }
 
@@ -1652,18 +1649,23 @@ function isConviteAgrupado(convidado: Convidado) {
 function resolverTokenIndividualConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const tokens = dividirTokensConvite(convidado.token);
 
-  if (tokens.length <= 1 || isConviteAgrupado(convidado)) {
+  if (tokens.length <= 1) {
     return tokens[0] || "";
   }
 
-  const convidadoAtual = todosConvidados.find((item) => item.id === convidado.id);
-  const tokensDoConvidadoAtual = dividirTokensConvite(convidadoAtual?.token);
+  const grupoAtual = normalizarTextoComparacao(convidado.grupo);
 
-  if (tokensDoConvidadoAtual.length === 1) {
-    return tokensDoConvidadoAtual[0];
+  if (!grupoAtual) {
+    return tokens[0] || "";
   }
 
-  return tokens[0] || "";
+  const convidadosDoMesmoGrupo = todosConvidados.filter(
+    (item) => normalizarTextoComparacao(item.grupo) === grupoAtual
+  );
+
+  const indiceConvidado = convidadosDoMesmoGrupo.findIndex((item) => item.id === convidado.id);
+
+  return tokens[indiceConvidado] || tokens[0] || "";
 }
 
 function gerarLinkConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
