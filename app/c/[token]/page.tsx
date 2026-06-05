@@ -458,19 +458,39 @@ function ajustarBlocosParaConvidados(
   blocks: VisualBlock[],
   nomes: string[],
 ): VisualBlock[] {
-  return blocks.map((block) => {
-    if (block.type !== "guest_picker") return block;
+  const total = Math.max(1, nomes.length || 1);
 
-    /*
-     * Não aumente dinamicamente a altura do bloco de convidados.
-     *
-     * O convite visual usa posições fixas por bloco. Quando a altura do
-     * guest_picker era aumentada para caber 4+ convidados, o card azul
-     * passava a invadir/sobrepor o botão "Confirmar presença".
-     *
-     * A rolagem dos convidados agora fica dentro do próprio bloco
-     * em renderGuestPicker(), preservando o layout original do modelo.
-     */
+  const guestPicker = blocks.find((block) => block.type === "guest_picker");
+  if (!guestPicker) return blocks;
+
+  const itemHeight = Math.max(28, Math.round((guestPicker.font_size || 18) * 1.65));
+  const paddingVertical = 22;
+  const gapTotal = Math.max(0, total - 1) * 6;
+  const alturaNecessaria = paddingVertical + total * itemHeight + gapTotal;
+
+  const alturaOriginal = guestPicker.height || 0;
+  const deslocamento = Math.max(0, alturaNecessaria - alturaOriginal);
+
+  return blocks.map((block) => {
+    if (block.type === "guest_picker") {
+      return {
+        ...block,
+        height: Math.max(alturaOriginal, alturaNecessaria),
+      };
+    }
+
+    if (
+      deslocamento > 0 &&
+      typeof block.y === "number" &&
+      typeof guestPicker.y === "number" &&
+      block.y > guestPicker.y
+    ) {
+      return {
+        ...block,
+        y: block.y + deslocamento,
+      };
+    }
+
     return block;
   });
 }
@@ -515,8 +535,8 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
         gap: 6,
         padding: "8px 10px",
         boxSizing: "border-box",
-        overflowY: "auto",
-        overflowX: "hidden",
+        overflowY: "visible",
+        overflowX: "visible",
         scrollbarWidth: "thin",
         overscrollBehavior: "contain",
       }}
@@ -1527,8 +1547,8 @@ const visualPageStyle: CSSProperties = {
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
-  overflowX: "hidden",
-  overflowY: "auto",
+  overflowX: "visible",
+  overflowY: "visible",
 };
 
 const visualShellStyle: CSSProperties = {
