@@ -246,7 +246,7 @@ export default function EnviosPage() {
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
 
-    let data = resultadoConvidados.data as Convidado[] | null;
+    let data = resultadoConvidados.data as unknown as Convidado[] | null;
     let error = resultadoConvidados.error;
 
     if (error) {
@@ -263,7 +263,7 @@ export default function EnviosPage() {
         .order("telefone", { ascending: false, nullsFirst: false })
         .order("nome", { ascending: true });
 
-      data = fallback.data as Convidado[] | null;
+      data = fallback.data as unknown as Convidado[] | null;
       error = fallback.error;
     }
 
@@ -1628,8 +1628,18 @@ function dividirTokensConvite(token: string | null | undefined) {
     .filter(Boolean);
 }
 
+function isTipoConviteIndividual(convidado: Convidado) {
+  const tipo = normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
+
+  return tipo === "individual" || tipo === "individuall" || tipo === "unico" || tipo === "único";
+}
+
 function isConviteAgrupado(convidado: Convidado) {
   const tipo = normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
+
+  if (isTipoConviteIndividual(convidado)) {
+    return false;
+  }
 
   return (
     tipo === "grupo" ||
@@ -1646,19 +1656,14 @@ function resolverTokenIndividualConvite(convidado: Convidado, todosConvidados: C
     return tokens[0] || "";
   }
 
-  const grupoAtual = normalizarTextoComparacao(convidado.grupo);
+  const convidadoAtual = todosConvidados.find((item) => item.id === convidado.id);
+  const tokensDoConvidadoAtual = dividirTokensConvite(convidadoAtual?.token);
 
-  if (!grupoAtual) {
-    return tokens[0] || "";
+  if (tokensDoConvidadoAtual.length === 1) {
+    return tokensDoConvidadoAtual[0];
   }
 
-  const convidadosDoMesmoGrupo = todosConvidados.filter(
-    (item) => normalizarTextoComparacao(item.grupo) === grupoAtual
-  );
-
-  const indiceConvidado = convidadosDoMesmoGrupo.findIndex((item) => item.id === convidado.id);
-
-  return tokens[indiceConvidado] || tokens[0] || "";
+  return tokens[0] || "";
 }
 
 function gerarLinkConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
