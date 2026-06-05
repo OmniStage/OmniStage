@@ -914,15 +914,20 @@ export default function ConvitePublicoPage() {
     const convidadoBase =
       convidadosOrdenados[0] || (convidadosPorToken[0] as Convidado);
 
-    let convidadosDoConvite: Convidado[] = convidadosOrdenados.length
-      ? convidadosOrdenados
-      : (convidadosPorToken as Convidado[]);
+    const tipoConviteBase = String(convidadoBase?.tipo_convite || "")
+      .trim()
+      .toLowerCase();
 
-    const conviteEhNucleo = ["grupo", "nucleo"].includes(
-      String(convidadoBase?.tipo_convite || "").trim().toLowerCase(),
-    );
+    const conviteEhIndividual = tipoConviteBase === "individual";
+    const conviteEhNucleo = ["grupo", "nucleo"].includes(tipoConviteBase);
 
-    if (tokens.length === 1 && convidadoBase?.grupo && conviteEhNucleo) {
+    let convidadosDoConvite: Convidado[] = conviteEhIndividual
+      ? [convidadoBase]
+      : convidadosOrdenados.length
+        ? convidadosOrdenados
+        : (convidadosPorToken as Convidado[]);
+
+    if (!conviteEhIndividual && tokens.length === 1 && convidadoBase?.grupo && conviteEhNucleo) {
       const grupoBase = String(convidadoBase.grupo || "").trim();
 
       const { data: convidadosGrupo, error: grupoError } = await supabase
