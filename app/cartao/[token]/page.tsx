@@ -256,8 +256,8 @@ export default async function CartaoPage({
               alt={nomeEvento}
               style={{
                 width: "100%",
-                maxWidth: isPreviewMode ? 280 : 330,
-                maxHeight: isPreviewMode ? 100 : 130,
+                maxWidth: isPreviewMode ? 340 : 420,
+                maxHeight: isPreviewMode ? 140 : 180,
                 objectFit: "contain",
                 marginBottom: 10,
               }}
