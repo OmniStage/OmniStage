@@ -31,10 +31,6 @@ type Convidado = {
   data_hora_envio?: string | null;
   contato_principal?: boolean | null;
   recebe_convite?: boolean | null;
-  tipo_convite?: string | null;
-  convite_tipo?: string | null;
-  agrupar_convite_neste_nucleo?: boolean | null;
-  visualizar_convite_neste_nucleo?: boolean | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -203,7 +199,9 @@ export default function EnviosPage() {
   }
 
   async function carregarConvidados(eventoId: string) {
-    const colunasBase = `
+    const { data, error } = await supabase
+      .from("convidados")
+      .select(`
         id,
         nome,
         telefone,
@@ -228,41 +226,11 @@ export default function EnviosPage() {
         data_envio_lembrete_rsvp,
         status_envio_cartao,
         data_envio_cartao
-      `;
-
-    const colunasComRegrasConvite = `
-        ${colunasBase},
-        tipo_convite,
-        convite_tipo,
-        agrupar_convite_neste_nucleo,
-        visualizar_convite_neste_nucleo
-      `;
-
-    let { data, error }: { data: any[] | null; error: any } = await supabase
-      .from("convidados")
-      .select(colunasComRegrasConvite)
+      `)
       .eq("evento_id", eventoId)
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
-
-    if (error) {
-      console.warn(
-        "Carregando convidados sem campos opcionais de regra do convite:",
-        error.message
-      );
-
-      const fallback = await supabase
-        .from("convidados")
-        .select(colunasBase)
-        .eq("evento_id", eventoId)
-        .order("grupo", { ascending: true, nullsFirst: false })
-        .order("telefone", { ascending: false, nullsFirst: false })
-        .order("nome", { ascending: true });
-
-      data = fallback.data;
-      error = fallback.error;
-    }
 
     if (error) {
       alert("Erro ao carregar convidados: " + error.message);
@@ -401,7 +369,7 @@ export default function EnviosPage() {
   }, [previewId, convidados, convidadosFiltrados, publicoCampanha]);
 
   const previewMensagem = convidadoPreview
-    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual, convidados)
+    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual)
     : mensagemAtual;
 
   const stats = useMemo(() => {
@@ -526,7 +494,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status: "pendente",
     }));
 
@@ -544,7 +512,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status: "pendente",
       detalhe: "Adicionado à fila por ação em massa.",
     }));
@@ -760,7 +728,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status,
       detalhe: detalhe || null,
     });
@@ -796,7 +764,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone,
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual),
       status: "pendente",
     });
 
@@ -818,7 +786,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados);
+    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
     registrarHistoricoEnvio(convidado, "pendente", "WhatsApp aberto para envio manual.");
@@ -860,7 +828,7 @@ export default function EnviosPage() {
   }
 
   async function copiarMensagem(convidado: Convidado) {
-    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados));
+    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual));
     alert("Mensagem copiada.");
   }
 
@@ -1224,7 +1192,7 @@ export default function EnviosPage() {
                     </span>
                   )}
 
-                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados)}</p>
+                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual)}</p>
 
                   {dataEnvio && (
                     <small style={sentDateStyle}>
@@ -1610,59 +1578,9 @@ function isEnvioViaResponsavel(convidado: Convidado) {
   return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
 }
 
-function normalizarTextoComparacao(valor: string | null | undefined) {
-  return String(valor || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function dividirTokensConvite(token: string | null | undefined) {
-  return String(token || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function getTipoConvite(convidado: Convidado) {
-  return normalizarTextoComparacao(convidado.tipo_convite || convidado.convite_tipo);
-}
-
-function isConviteIndividual(convidado: Convidado) {
-  return getTipoConvite(convidado) === "individual";
-}
-
-function isConviteAgrupado(convidado: Convidado) {
-  const tipo = getTipoConvite(convidado);
-
-  if (tipo === "individual") {
-    return false;
-  }
-
-  return tipo === "grupo" || tipo === "nucleo" || tipo === "núcleo";
-}
-
-function resolverTokenIndividualConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const tokenDoConvidadoAtual = dividirTokensConvite(convidado.token)[0] || "";
-
-  if (tokenDoConvidadoAtual) {
-    return tokenDoConvidadoAtual;
-  }
-
-  const convidadoOriginal = todosConvidados.find((item) => item.id === convidado.id);
-  return dividirTokensConvite(convidadoOriginal?.token)[0] || "";
-}
-
-function gerarLinkConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const tokenParaLink = isConviteAgrupado(convidado)
-    ? dividirTokensConvite(convidado.token).join(",")
-    : resolverTokenIndividualConvite(convidado, todosConvidados);
-
-  const token = encodeURIComponent(tokenParaLink);
-
+function gerarLinkConvite(convidado: Convidado) {
+  const token = encodeURIComponent(convidado.token || "");
   if (typeof window === "undefined") return `/c/${token}`;
-
   return `${window.location.origin}/c/${token}`;
 }
 
@@ -1676,16 +1594,8 @@ function gerarLinkCartao(convidado: Convidado) {
   return `${window.location.origin}/cartao/${token}`;
 }
 
-function montarMensagem(
-  template: string,
-  convidado: Convidado,
-  evento?: Evento | null,
-  todosConvidados: Convidado[] = []
-) {
+function montarMensagem(template: string, convidado: Convidado, evento?: Evento | null) {
   const nomeEvento = evento?.nome || "";
-  const tokenConvite = isConviteAgrupado(convidado)
-    ? dividirTokensConvite(convidado.token).join(",")
-    : resolverTokenIndividualConvite(convidado, todosConvidados);
 
   return template
     .replaceAll("{{nome}}", convidado.nome || "")
@@ -1694,8 +1604,8 @@ function montarMensagem(
     .replaceAll("{{nome_evento}}", nomeEvento)
     .replaceAll("{{telefone}}", convidado.telefone || convidado.responsavel_telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
-    .replaceAll("{{token}}", tokenConvite)
-    .replaceAll("{{link_convite}}", gerarLinkConvite(convidado, todosConvidados))
+    .replaceAll("{{token}}", convidado.token || "")
+    .replaceAll("{{link_convite}}", gerarLinkConvite(convidado))
     .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
 }
 
@@ -1894,4 +1804,3 @@ const sendConfirmButtonStyle: React.CSSProperties = {
 };
 
 const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed var(--line)", color: "var(--muted)" };
-
