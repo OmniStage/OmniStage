@@ -301,6 +301,44 @@ function getEffectStyle(effect?: string): CSSProperties {
   return {};
 }
 
+function getPremiumBlockStyle(block: ConviteBlock): CSSProperties {
+  const acao = detectarAcaoBotao(block.content);
+  const isGuestPicker = block.type === "guest_picker";
+  const isConfirmButton = block.type === "button" && acao === "rsvp";
+
+  if (isGuestPicker) {
+    const baseBackground = block.background || "rgba(13, 71, 133, .92)";
+
+    return {
+      background:
+        `linear-gradient(115deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.03) 42%, rgba(247,212,119,.10) 58%, rgba(255,255,255,.04) 100%), ${baseBackground}`,
+      backgroundSize: "220% 100%, auto",
+      border: "1px solid rgba(255,255,255,.13)",
+      boxShadow:
+        "0 18px 42px rgba(2, 6, 23, .18), inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 -1px 0 rgba(2, 6, 23, .18)",
+      backdropFilter: "blur(8px) saturate(1.08)",
+      WebkitBackdropFilter: "blur(8px) saturate(1.08)",
+      animation: "omniGuestCardPremiumGlow 4.2s ease-in-out infinite",
+    };
+  }
+
+  if (isConfirmButton) {
+    return {
+      background:
+        "linear-gradient(135deg, #048c3a 0%, #04a64b 38%, #087f37 100%)",
+      backgroundSize: "180% 100%",
+      color: block.color || "#ffd866",
+      border: "1px solid rgba(255,223,0,.18)",
+      boxShadow:
+        "0 14px 32px rgba(4, 120, 53, .26), 0 0 0 1px rgba(255, 223, 0, .12), inset 0 1px 0 rgba(255, 255, 255, .2)",
+      textShadow: "0 2px 8px rgba(0,0,0,.26), 0 0 14px rgba(255,223,0,.20)",
+      animation: "omniRsvpButtonPremiumGlow 2.7s ease-in-out infinite",
+    };
+  }
+
+  return {};
+}
+
 function CountdownBlock({ block, evento }: { block: ConviteBlock; evento?: EventoPreview }) {
   const e = { ...DEFAULT_EVENTO, ...(evento || {}) };
   const horaResolvida =
@@ -546,6 +584,43 @@ export default function ConviteVisualRenderer({
               filter: drop-shadow(0 0 14px rgba(247,212,119,.72));
             }
           }
+
+          @keyframes omniGuestCardPremiumGlow {
+            0%, 100% {
+              box-shadow:
+                0 18px 42px rgba(2, 6, 23, .18),
+                inset 0 1px 0 rgba(255, 255, 255, .16),
+                inset 0 -1px 0 rgba(2, 6, 23, .18);
+              background-position: 0% 50%, center;
+            }
+            50% {
+              box-shadow:
+                0 22px 52px rgba(2, 6, 23, .24),
+                0 0 22px rgba(247, 212, 119, .13),
+                inset 0 1px 0 rgba(255, 255, 255, .22),
+                inset 0 -1px 0 rgba(2, 6, 23, .16);
+              background-position: 100% 50%, center;
+            }
+          }
+
+          @keyframes omniRsvpButtonPremiumGlow {
+            0%, 100% {
+              transform: translateY(0) scale(1);
+              box-shadow:
+                0 14px 32px rgba(4, 120, 53, .26),
+                0 0 0 1px rgba(255, 223, 0, .12),
+                inset 0 1px 0 rgba(255, 255, 255, .2);
+              background-position: 0% 50%;
+            }
+            50% {
+              transform: translateY(-1px) scale(1.012);
+              box-shadow:
+                0 18px 42px rgba(4, 120, 53, .36),
+                0 0 24px rgba(255, 223, 0, .24),
+                inset 0 1px 0 rgba(255, 255, 255, .28);
+              background-position: 100% 50%;
+            }
+          }
         `}</style>
       )}
 
@@ -648,6 +723,7 @@ export default function ConviteVisualRenderer({
             const isLogo = block.type === "logo";
             const isDivider = block.type === "divider";
             const effectStyle = getEffectStyle(blockEffects[block.id]);
+            const premiumStyle = getPremiumBlockStyle(block);
 
             const shared: CSSProperties = {
               position: "absolute",
@@ -679,6 +755,7 @@ export default function ConviteVisualRenderer({
               boxShadow: showSelectionOutline && isSelected ? "0 0 0 4px rgba(124,58,237,.18)" : undefined,
               userSelect: showSelectionOutline ? "none" : undefined,
               ...effectStyle,
+              ...premiumStyle,
             };
 
             const customChildren = childrenForBlock?.(block);
@@ -792,7 +869,7 @@ export default function ConviteVisualRenderer({
                     border: "none",
                     cursor: "pointer",
                     animation: isConfirmacao
-                      ? "omniButtonGlow 2.2s ease-in-out infinite"
+                      ? premiumStyle.animation || "omniButtonGlow 2.2s ease-in-out infinite"
                       : undefined,
                   }}
                 >
