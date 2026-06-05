@@ -19,7 +19,7 @@ export const CONFIRMATION_EFFECTS: ConfirmationEffectConfig[] = [
     id: "copa2026",
     label: "Copa 2026",
     description: "Arte especial Copa 2026 com brilho, troféu, bola e energia de estádio.",
-    soundSrc: "/sounds/confirmation/copa2026.mp3",
+    soundSrc: "/sounds/confirmation/BRASIL.MP3",
     fallbackSound: "stadium",
   },
   {
