@@ -471,6 +471,11 @@ function ajustarBlocosParaConvidados(
   const alturaOriginal = guestPicker.height || 0;
   const deslocamento = Math.max(0, alturaNecessaria - alturaOriginal);
 
+  const guestY = typeof guestPicker.y === "number" ? guestPicker.y : 0;
+  const guestBottomOriginal = guestY + alturaOriginal;
+  const guestWidth = guestPicker.width || 0;
+  const guestZIndex = guestPicker.z_index || 1;
+
   return blocks.map((block) => {
     if (block.type === "guest_picker") {
       return {
@@ -479,12 +484,43 @@ function ajustarBlocosParaConvidados(
       };
     }
 
-    if (
-      deslocamento > 0 &&
-      typeof block.y === "number" &&
-      typeof guestPicker.y === "number" &&
-      block.y > guestPicker.y
-    ) {
+    if (deslocamento <= 0 || typeof block.y !== "number") {
+      return block;
+    }
+
+    const blockHeight = block.height || 0;
+    const blockWidth = block.width || 0;
+    const blockBottom = block.y + blockHeight;
+    const blockZIndex = block.z_index || 1;
+
+    /*
+     * Quando existem muitos convidados, o guest_picker cresce e os botões
+     * abaixo descem. Se houver um backdrop/card de fundo atrás dessa área,
+     * ele também precisa crescer para continuar acompanhando o conjunto.
+     *
+     * Critérios para considerar backdrop:
+     * - começa antes do card de convidados;
+     * - cobre verticalmente a região do card de convidados;
+     * - é largo o suficiente para ser o fundo do conjunto;
+     * - está atrás do guest_picker no z-index.
+     */
+    const pareceBackdropDoGrupo =
+      block.type !== "button" &&
+      block.type !== "guest_name" &&
+      block.type !== "guest_picker" &&
+      block.y <= guestY &&
+      blockBottom >= guestBottomOriginal &&
+      blockWidth >= guestWidth * 0.9 &&
+      blockZIndex < guestZIndex;
+
+    if (pareceBackdropDoGrupo) {
+      return {
+        ...block,
+        height: blockHeight + deslocamento,
+      };
+    }
+
+    if (block.y > guestY) {
       return {
         ...block,
         y: block.y + deslocamento,
@@ -508,6 +544,7 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          gap: 10,
           padding: "8px 10px",
           boxSizing: "border-box",
           color: block.color || "#ffffff",
@@ -518,7 +555,31 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
           textAlign: "center",
         }}
       >
-        <span>{nomesLimpos[0]}</span>
+        <input
+          type="checkbox"
+          checked
+          readOnly
+          disabled
+          aria-label="Convidado confirmado"
+          style={{
+            width: 17,
+            height: 17,
+            accentColor: "#f7d477",
+            flexShrink: 0,
+            opacity: 1,
+            cursor: "default",
+          }}
+        />
+        <span
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {nomesLimpos[0]}
+        </span>
       </div>
     );
   }
