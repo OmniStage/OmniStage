@@ -559,29 +559,43 @@ function normalizarTelefone(telefone: string | null) {
   }
 
   function gerarLinkConvite(convidado: Convidado) {
-  const grupo = (convidado.grupo || "").trim();
+    const tipoConvite = String(convidado.tipo_convite || "")
+      .trim()
+      .toLowerCase();
 
-  // convite individual
-  if (!grupo) {
-    const token = encodeURIComponent(convidado.token || "");
-    return `/c/${token}`;
+    const tokenDoCard = String(convidado.token || "").trim();
+
+    // REGRA PRINCIPAL:
+    // Tipo do convite INDIVIDUAL sempre abre o convite do próprio card.
+    // Não pode usar grupo/núcleo, mesmo quando o convidado possui
+    // "Visualização em grupo" ou vínculo com núcleo.
+    if (tipoConvite === "individual") {
+      return `/c/${encodeURIComponent(tokenDoCard)}`;
+    }
+
+    const grupo = (convidado.grupo || "").trim();
+
+    // Se não houver grupo/núcleo, também abre somente o próprio token.
+    if (!grupo) {
+      return `/c/${encodeURIComponent(tokenDoCard)}`;
+    }
+
+    // Convite por grupo/núcleo: somente aqui junta os integrantes do mesmo grupo.
+    const integrantesGrupo = convidados.filter(
+      (item) =>
+        item.evento_id === convidado.evento_id &&
+        (item.grupo || "").trim() === grupo &&
+        String(item.tipo_convite || "").trim().toLowerCase() !== "individual",
+    );
+
+    const tokens = integrantesGrupo
+      .map((item) => String(item.token || "").trim())
+      .filter(Boolean)
+      .map((token) => encodeURIComponent(token))
+      .join(",");
+
+    return `/c/${tokens || encodeURIComponent(tokenDoCard)}`;
   }
-
-  // pega todos integrantes do mesmo grupo
-  const integrantesGrupo = convidados.filter(
-    (item) =>
-      item.evento_id === convidado.evento_id &&
-      (item.grupo || "").trim() === grupo
-  );
-
-  // junta todos os tokens
-  const tokens = integrantesGrupo
-    .map((item) => item.token)
-    .filter(Boolean)
-    .join(",");
-
-  return `/c/${tokens}`;
-}
 
   function getEventoDoConvidado(convidado: Convidado) {
     const idEvento = convidado.evento_id || eventoId;
@@ -4073,4 +4087,6 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
+
+
 
