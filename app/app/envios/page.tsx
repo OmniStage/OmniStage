@@ -24,6 +24,7 @@ type Convidado = {
   status_rsvp: string | null;
   status_checkin?: string | null;
   token?: string | null;
+  tipo_convite?: string | null;
   origem_importacao?: string | null;
   import_batch_id?: string | null;
   legacy_id?: string | number | null;
@@ -213,6 +214,7 @@ export default function EnviosPage() {
         status_rsvp,
         status_checkin,
         token,
+        tipo_convite,
         origem_importacao,
         import_batch_id,
         legacy_id,
@@ -1578,10 +1580,43 @@ function isEnvioViaResponsavel(convidado: Convidado) {
   return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
 }
 
+function normalizarTipoConvite(valor: string | null | undefined) {
+  return String(valor || "").trim().toLowerCase();
+}
+
+function separarTokensConvite(token: string | null | undefined) {
+  return String(token || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function montarTokenPathConvite(convidado: Convidado) {
+  const tokens = separarTokensConvite(convidado.token);
+  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+
+  const tokensDoConvite =
+    tipoConvite === "individual" ? tokens.slice(0, 1) : tokens;
+
+  return tokensDoConvite.map((token) => encodeURIComponent(token)).join(",");
+}
+
+function gerarTokenMensagem(convidado: Convidado) {
+  const tokens = separarTokensConvite(convidado.token);
+  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+
+  if (tipoConvite === "individual") {
+    return tokens[0] || "";
+  }
+
+  return tokens.join(",");
+}
+
 function gerarLinkConvite(convidado: Convidado) {
-  const token = encodeURIComponent(convidado.token || "");
-  if (typeof window === "undefined") return `/c/${token}`;
-  return `${window.location.origin}/c/${token}`;
+  const tokenPath = montarTokenPathConvite(convidado);
+
+  if (typeof window === "undefined") return `/c/${tokenPath}`;
+  return `${window.location.origin}/c/${tokenPath}`;
 }
 
 function gerarLinkCartao(convidado: Convidado) {
@@ -1604,7 +1639,7 @@ function montarMensagem(template: string, convidado: Convidado, evento?: Evento 
     .replaceAll("{{nome_evento}}", nomeEvento)
     .replaceAll("{{telefone}}", convidado.telefone || convidado.responsavel_telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
-    .replaceAll("{{token}}", convidado.token || "")
+    .replaceAll("{{token}}", gerarTokenMensagem(convidado))
     .replaceAll("{{link_convite}}", gerarLinkConvite(convidado))
     .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
 }
