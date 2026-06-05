@@ -20,7 +20,7 @@ export default function Copa2026Effect({
     >
       <style>{keyframesCss}</style>
 
-      <div style={stageStyle}>
+      <div style={videoFrameStyle}>
         <video
           src="/effects/copa2026-card-animation.mp4"
           autoPlay
@@ -31,8 +31,9 @@ export default function Copa2026Effect({
           style={videoStyle}
         />
 
-        <div style={sideFadeStyle} />
-        <div style={borderStyle} />
+        <div style={blendTopStyle} />
+        <div style={blendBottomStyle} />
+        <div style={frameLineStyle} />
         <div style={shineStyle} />
       </div>
 
@@ -56,74 +57,79 @@ const overlayStyle: CSSProperties = {
   background: "transparent",
 };
 
-const stageStyle: CSSProperties = {
+const videoFrameStyle: CSSProperties = {
   position: "relative",
   zIndex: 2,
-  width: "min(72%, 360px, calc(74vh * 832 / 1104))",
+  width: "min(76%, 380px, calc(76vh * 832 / 1104))",
   aspectRatio: "832 / 1104",
-  borderRadius: "24px",
+  borderRadius: "26px",
   overflow: "hidden",
   transformOrigin: "center",
   transform: "translate3d(0, -2%, 0)",
   background: "transparent",
-  boxShadow: "0 16px 40px rgba(2,6,23,.22)",
+  boxShadow:
+    "0 18px 44px rgba(2,6,23,.20), 0 0 18px rgba(255,223,0,.18)",
   animation:
-    "omniCopaVideoEnter .38s cubic-bezier(.16,1,.3,1) both, omniCopaVideoFloat 3.8s ease-in-out .8s infinite",
+    "omniCopaVideoEnter .36s cubic-bezier(.16,1,.3,1) both, omniCopaVideoFloat 3.8s ease-in-out .8s infinite",
 };
 
 const videoStyle: CSSProperties = {
   position: "absolute",
-  left: "50%",
-  top: "50%",
+  inset: 0,
+  zIndex: 1,
   width: "100%",
   height: "100%",
   objectFit: "cover",
   objectPosition: "center center",
   display: "block",
-  borderRadius: "24px",
-
-  /*
-   * O dourado/preto lateral está renderizado dentro do próprio MP4.
-   * Não dá para transformar esse pixel em transparência real via CSS,
-   * então o ajuste correto por programação é fazer crop + máscara:
-   * aumenta levemente o vídeo para jogar a área dura para fora.
-   */
-  transform: "translate(-50%, -50%) scale(1.16)",
-  transformOrigin: "center center",
+  borderRadius: "26px",
 };
 
-const sideFadeStyle: CSSProperties = {
+const blendTopStyle: CSSProperties = {
   position: "absolute",
-  inset: 0,
-  zIndex: 1,
-  borderRadius: "24px",
-  pointerEvents: "none",
-
-  /*
-   * Camada sutil para matar a faixa dura lateral sem criar outro card.
-   * Ela faz a borda do vídeo se misturar com o convite de fundo.
-   */
-  background:
-    "linear-gradient(90deg, rgba(2,6,23,.06) 0%, transparent 10%, transparent 90%, rgba(2,6,23,.06) 100%), linear-gradient(180deg, rgba(255,255,255,.04), transparent 22%, transparent 78%, rgba(2,6,23,.04))",
-};
-
-const borderStyle: CSSProperties = {
-  position: "absolute",
-  inset: 0,
   zIndex: 2,
-  borderRadius: "24px",
-  border: "1.25px solid rgba(255,223,0,.72)",
+  left: 0,
+  right: 0,
+  top: 0,
+  height: "14%",
+  borderRadius: "26px 26px 0 0",
+  background:
+    "linear-gradient(180deg, rgba(255,223,0,.18), rgba(255,223,0,.06) 42%, transparent)",
+  mixBlendMode: "screen",
+  opacity: 0.42,
+};
+
+const blendBottomStyle: CSSProperties = {
+  position: "absolute",
+  zIndex: 2,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: "12%",
+  borderRadius: "0 0 26px 26px",
+  background:
+    "linear-gradient(0deg, rgba(255,223,0,.12), rgba(255,223,0,.04) 46%, transparent)",
+  mixBlendMode: "screen",
+  opacity: 0.34,
+};
+
+const frameLineStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 3,
+  borderRadius: "26px",
+  border: "1.25px solid rgba(255,223,0,.74)",
   boxShadow:
-    "inset 0 0 10px rgba(255,223,0,.18), 0 0 14px rgba(255,223,0,.24)",
+    "inset 0 0 10px rgba(255,223,0,.18), 0 0 14px rgba(255,223,0,.22)",
 };
 
 const shineStyle: CSSProperties = {
   position: "absolute",
-  zIndex: 3,
+  zIndex: 4,
   top: 0,
   bottom: 0,
-  left: "-52%",
-  width: "30%",
+  left: "-54%",
+  width: "28%",
   transform: "skewX(-14deg)",
   background:
     "linear-gradient(90deg, transparent, rgba(255,255,255,.10), rgba(255,223,0,.10), transparent)",
@@ -159,7 +165,7 @@ const keyframesCss = `
 }
 @keyframes omniCopaVideoShine {
   0%, 44% { transform: translateX(0) skewX(-14deg); opacity: 0; }
-  56% { opacity: .44; }
-  84%, 100% { transform: translateX(480%) skewX(-14deg); opacity: 0; }
+  56% { opacity: .42; }
+  84%, 100% { transform: translateX(500%) skewX(-14deg); opacity: 0; }
 }
 `;
