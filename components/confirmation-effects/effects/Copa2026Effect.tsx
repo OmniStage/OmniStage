@@ -21,8 +21,6 @@ export default function Copa2026Effect({
       <style>{keyframesCss}</style>
 
       <div style={stageStyle}>
-        <div style={goldBackgroundStyle} />
-
         <video
           src="/effects/copa2026-card-animation.mp4"
           autoPlay
@@ -33,6 +31,7 @@ export default function Copa2026Effect({
           style={videoStyle}
         />
 
+        <div style={sideFadeStyle} />
         <div style={borderStyle} />
         <div style={shineStyle} />
       </div>
@@ -62,53 +61,60 @@ const stageStyle: CSSProperties = {
   zIndex: 2,
   width: "min(72%, 360px, calc(74vh * 832 / 1104))",
   aspectRatio: "832 / 1104",
-  borderRadius: "22px",
+  borderRadius: "24px",
   overflow: "hidden",
   transformOrigin: "center",
   transform: "translate3d(0, -2%, 0)",
   background: "transparent",
-  boxShadow: "0 18px 46px rgba(2,6,23,.26)",
+  boxShadow: "0 16px 40px rgba(2,6,23,.22)",
   animation:
-    "omniCopaVideoEnter .42s cubic-bezier(.16,1,.3,1) both, omniCopaVideoFloat 3.8s ease-in-out .8s infinite",
-};
-
-/**
- * O card dourado de fundo usa exatamente o mesmo tamanho do vídeo:
- * inset 0, mesma borda, mesmo borderRadius e mesmo overflow do stage.
- * Não existe mais camada dourada maior ou menor atrás do vídeo.
- */
-const goldBackgroundStyle: CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  zIndex: 0,
-  borderRadius: "22px",
-  background:
-    "linear-gradient(180deg, rgba(255,223,0,.06), rgba(255,183,0,.035))",
-  boxShadow:
-    "inset 0 0 10px rgba(255,223,0,.10), 0 0 12px rgba(255,223,0,.14)",
-  animation: "omniCopaGoldPulse 2.2s ease-in-out infinite",
+    "omniCopaVideoEnter .38s cubic-bezier(.16,1,.3,1) both, omniCopaVideoFloat 3.8s ease-in-out .8s infinite",
 };
 
 const videoStyle: CSSProperties = {
   position: "absolute",
-  inset: 0,
-  zIndex: 1,
+  left: "50%",
+  top: "50%",
   width: "100%",
   height: "100%",
   objectFit: "cover",
   objectPosition: "center center",
   display: "block",
-  borderRadius: "22px",
+  borderRadius: "24px",
+
+  /*
+   * O dourado/preto lateral está renderizado dentro do próprio MP4.
+   * Não dá para transformar esse pixel em transparência real via CSS,
+   * então o ajuste correto por programação é fazer crop + máscara:
+   * aumenta levemente o vídeo para jogar a área dura para fora.
+   */
+  transform: "translate(-50%, -50%) scale(1.16)",
+  transformOrigin: "center center",
+};
+
+const sideFadeStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 1,
+  borderRadius: "24px",
+  pointerEvents: "none",
+
+  /*
+   * Camada sutil para matar a faixa dura lateral sem criar outro card.
+   * Ela faz a borda do vídeo se misturar com o convite de fundo.
+   */
+  background:
+    "linear-gradient(90deg, rgba(2,6,23,.06) 0%, transparent 10%, transparent 90%, rgba(2,6,23,.06) 100%), linear-gradient(180deg, rgba(255,255,255,.04), transparent 22%, transparent 78%, rgba(2,6,23,.04))",
 };
 
 const borderStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
   zIndex: 2,
-  borderRadius: "22px",
+  borderRadius: "24px",
   border: "1.25px solid rgba(255,223,0,.72)",
   boxShadow:
-    "inset 0 0 10px rgba(255,223,0,.22), 0 0 16px rgba(255,223,0,.3)",
+    "inset 0 0 10px rgba(255,223,0,.18), 0 0 14px rgba(255,223,0,.24)",
 };
 
 const shineStyle: CSSProperties = {
@@ -120,7 +126,7 @@ const shineStyle: CSSProperties = {
   width: "30%",
   transform: "skewX(-14deg)",
   background:
-    "linear-gradient(90deg, transparent, rgba(255,255,255,.1), rgba(255,223,0,.1), transparent)",
+    "linear-gradient(90deg, transparent, rgba(255,255,255,.10), rgba(255,223,0,.10), transparent)",
   animation: "omniCopaVideoShine 3.4s ease-in-out 1.1s infinite",
 };
 
@@ -143,21 +149,17 @@ const confirmingPillStyle: CSSProperties = {
 
 const keyframesCss = `
 @keyframes omniCopaVideoEnter {
-  0% { opacity: 0; transform: translate3d(0, 12px, 0) scale(.97); filter: blur(4px); }
-  72% { opacity: 1; transform: translate3d(0, -2%, 0) scale(1.004); filter: blur(0); }
+  0% { opacity: 0; transform: translate3d(0, 10px, 0) scale(.97); filter: blur(4px); }
+  72% { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.004); filter: blur(0); }
   100% { opacity: 1; transform: translate3d(0, -2%, 0) scale(1); filter: blur(0); }
 }
 @keyframes omniCopaVideoFloat {
   0%, 100% { transform: translate3d(0, -2%, 0) scale(1); }
-  50% { transform: translate3d(0, calc(-2% - 4px), 0) scale(1.003); }
-}
-@keyframes omniCopaGoldPulse {
-  0%, 100% { opacity: .82; }
-  50% { opacity: 1; }
+  50% { transform: translate3d(0, calc(-2% - 3px), 0) scale(1.003); }
 }
 @keyframes omniCopaVideoShine {
   0%, 44% { transform: translateX(0) skewX(-14deg); opacity: 0; }
-  56% { opacity: .46; }
+  56% { opacity: .44; }
   84%, 100% { transform: translateX(480%) skewX(-14deg); opacity: 0; }
 }
 `;
