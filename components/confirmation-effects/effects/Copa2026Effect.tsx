@@ -60,9 +60,9 @@ const overlayStyle: CSSProperties = {
 const stageStyle: CSSProperties = {
   position: "relative",
   zIndex: 2,
-  width: "min(72%, 360px, calc(74vh * 9 / 16))",
-  aspectRatio: "9 / 16",
-  borderRadius: "24px",
+  width: "min(72%, 360px, calc(74vh * 832 / 1104))",
+  aspectRatio: "832 / 1104",
+  borderRadius: "22px",
   overflow: "hidden",
   transformOrigin: "center",
   transform: "translate3d(0, -2%, 0)",
@@ -81,11 +81,11 @@ const goldBackgroundStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
   zIndex: 0,
-  borderRadius: "24px",
+  borderRadius: "22px",
   background:
-    "linear-gradient(180deg, rgba(255,223,0,.16), rgba(255,183,0,.08)), radial-gradient(circle at 50% 8%, rgba(255,223,0,.26), transparent 34%), radial-gradient(circle at 50% 92%, rgba(255,183,0,.2), transparent 38%)",
+    "linear-gradient(180deg, rgba(255,223,0,.06), rgba(255,183,0,.035))",
   boxShadow:
-    "inset 0 0 18px rgba(255,223,0,.18), 0 0 18px rgba(255,223,0,.22)",
+    "inset 0 0 10px rgba(255,223,0,.10), 0 0 12px rgba(255,223,0,.14)",
   animation: "omniCopaGoldPulse 2.2s ease-in-out infinite",
 };
 
@@ -98,15 +98,15 @@ const videoStyle: CSSProperties = {
   objectFit: "cover",
   objectPosition: "center center",
   display: "block",
-  borderRadius: "24px",
+  borderRadius: "22px",
 };
 
 const borderStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
   zIndex: 2,
-  borderRadius: "24px",
-  border: "1.5px solid rgba(255,223,0,.78)",
+  borderRadius: "22px",
+  border: "1.25px solid rgba(255,223,0,.72)",
   boxShadow:
     "inset 0 0 10px rgba(255,223,0,.22), 0 0 16px rgba(255,223,0,.3)",
 };
