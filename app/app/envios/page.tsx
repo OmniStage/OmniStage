@@ -24,6 +24,7 @@ type Convidado = {
   status_rsvp: string | null;
   status_checkin?: string | null;
   token?: string | null;
+  tipo_convite?: string | null;
   origem_importacao?: string | null;
   import_batch_id?: string | null;
   legacy_id?: string | number | null;
@@ -31,7 +32,6 @@ type Convidado = {
   data_hora_envio?: string | null;
   contato_principal?: boolean | null;
   recebe_convite?: boolean | null;
-  tipo_convite?: string | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -214,6 +214,7 @@ export default function EnviosPage() {
         status_rsvp,
         status_checkin,
         token,
+        tipo_convite,
         origem_importacao,
         import_batch_id,
         legacy_id,
@@ -221,7 +222,6 @@ export default function EnviosPage() {
         data_hora_envio,
         contato_principal,
         recebe_convite,
-        tipo_convite,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
@@ -1580,83 +1580,70 @@ function isEnvioViaResponsavel(convidado: Convidado) {
   return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
 }
 
-function normalizarTextoComparacao(valor: string | null | undefined) {
-  return String(valor || "")
+function normalizarTipoConvite(tipo: string | null | undefined) {
+  return String(tipo || "")
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_");
 }
 
-function normalizarTipoConvite(valor: string | null | undefined) {
-  return normalizarTextoComparacao(valor).replace(/[\s_-]+/g, "_");
-}
-
-function dividirTokensConvite(token: string | null | undefined) {
+function extrairTokens(token: string | null | undefined) {
   return String(token || "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-function encodeTokenPath(tokens: string[]) {
-  return tokens.map((token) => encodeURIComponent(token)).join(",");
-}
-
-function isConviteIndividual(convidado: Convidado) {
-  return normalizarTipoConvite(convidado.tipo_convite) === "individual";
-}
-
-function resolverTokenDoConvidadoDoCard(
-  convidado: Convidado,
-  todosConvidados: Convidado[] = []
-) {
-  const tokens = dividirTokensConvite(convidado.token);
+function resolverTokenIndividualDoCard(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const tokens = extrairTokens(convidado.token);
 
   if (tokens.length <= 1) {
-    return tokens[0] || "";
+    return tokens[0] || String(convidado.token || "").trim();
   }
 
-  const grupoAtual = normalizarTextoComparacao(convidado.grupo);
+  const grupo = String(convidado.grupo || "").trim();
+  const membrosMesmoGrupo = todosConvidados.filter((item) => {
+    const mesmoGrupo = grupo
+      ? String(item.grupo || "").trim() === grupo
+      : !String(item.grupo || "").trim();
 
-  if (grupoAtual) {
-    const convidadosDoMesmoGrupo = todosConvidados.filter(
-      (item) => normalizarTextoComparacao(item.grupo) === grupoAtual
-    );
+    return mesmoGrupo && !!String(item.token || "").trim();
+  });
 
-    const indiceDoCardNoGrupo = convidadosDoMesmoGrupo.findIndex(
-      (item) => item.id === convidado.id
-    );
+  const indiceNoGrupo = membrosMesmoGrupo.findIndex((item) => item.id === convidado.id);
 
-    if (indiceDoCardNoGrupo >= 0 && tokens[indiceDoCardNoGrupo]) {
-      return tokens[indiceDoCardNoGrupo];
-    }
+  if (indiceNoGrupo >= 0 && tokens[indiceNoGrupo]) {
+    return tokens[indiceNoGrupo];
   }
 
-  const tokenUnicoDoMesmoConvidado = todosConvidados.find(
-    (item) => item.id === convidado.id && dividirTokensConvite(item.token).length === 1
-  );
+  const tokenUnicoEmOutroRegistro = todosConvidados.find((item) => {
+    if (item.id !== convidado.id) return false;
+    return extrairTokens(item.token).length === 1;
+  });
 
-  if (tokenUnicoDoMesmoConvidado?.token) {
-    return dividirTokensConvite(tokenUnicoDoMesmoConvidado.token)[0] || "";
+  if (tokenUnicoEmOutroRegistro?.token) {
+    return String(tokenUnicoEmOutroRegistro.token).trim();
   }
 
-  return tokens[0] || "";
+  return tokens[0] || String(convidado.token || "").trim();
 }
 
-function gerarTokensConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  if (isConviteIndividual(convidado)) {
-    const tokenDoCard = resolverTokenDoConvidadoDoCard(convidado, todosConvidados);
-    return tokenDoCard ? [tokenDoCard] : [];
+function resolverTokenConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+
+  if (tipoConvite === "individual") {
+    return resolverTokenIndividualDoCard(convidado, todosConvidados);
   }
 
-  return dividirTokensConvite(convidado.token);
+  return String(convidado.token || "").trim();
 }
 
 function gerarLinkConvite(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const tokenPath = encodeTokenPath(gerarTokensConvite(convidado, todosConvidados));
-  if (typeof window === "undefined") return `/c/${tokenPath}`;
-  return `${window.location.origin}/c/${tokenPath}`;
+  const token = encodeURIComponent(resolverTokenConvite(convidado, todosConvidados));
+  if (typeof window === "undefined") return `/c/${token}`;
+  return `${window.location.origin}/c/${token}`;
 }
 
 function gerarLinkCartao(convidado: Convidado) {
@@ -1676,8 +1663,7 @@ function montarMensagem(
   todosConvidados: Convidado[] = []
 ) {
   const nomeEvento = evento?.nome || "";
-  const tokensConvite = gerarTokensConvite(convidado, todosConvidados);
-  const tokenConviteMensagem = tokensConvite.join(",");
+  const tokenConvite = resolverTokenConvite(convidado, todosConvidados);
 
   return template
     .replaceAll("{{nome}}", convidado.nome || "")
@@ -1686,7 +1672,7 @@ function montarMensagem(
     .replaceAll("{{nome_evento}}", nomeEvento)
     .replaceAll("{{telefone}}", convidado.telefone || convidado.responsavel_telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
-    .replaceAll("{{token}}", tokenConviteMensagem)
+    .replaceAll("{{token}}", tokenConvite)
     .replaceAll("{{link_convite}}", gerarLinkConvite(convidado, todosConvidados))
     .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
 }
