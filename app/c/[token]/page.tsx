@@ -789,7 +789,7 @@ export default function ConvitePublicoPage() {
   const [loading, setLoading] = useState(true);
   const [somAtivo, setSomAtivo] = useState(true);
   const [somLiberado, setSomLiberado] = useState(false);
-  const [musicaConviteTocando, setMusicaConviteTocando] = useState(false);
+  const [, setMusicaConviteTocando] = useState(false);
   const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
   const [efeitoConfirmacaoAtivo, setEfeitoConfirmacaoAtivo] =
     useState<ConfirmationEffect>("padrao");
@@ -832,6 +832,64 @@ export default function ConvitePublicoPage() {
   useEffect(() => {
     setMusicaConviteTocando(false);
   }, [token]);
+
+  useEffect(() => {
+    if (renderState?.kind !== "visual") return;
+
+    const musicaConviteUrl = getMusicUrl(renderState.template, renderState.evento);
+
+    if (!musicaConviteUrl) {
+      setMusicaConviteTocando(false);
+      return;
+    }
+
+    function getAudioElement() {
+      return document.getElementById("musica-convite") as HTMLAudioElement | null;
+    }
+
+    function pausarMusicaConvite() {
+      const audio = getAudioElement();
+      if (!audio) return;
+
+      audio.pause();
+      setMusicaConviteTocando(false);
+    }
+
+    function iniciarMusicaConvite() {
+      if (!somAtivo) return;
+
+      const audio = getAudioElement();
+      if (!audio) return;
+
+      audio.volume = 1;
+      audio.muted = false;
+
+      audio
+        .play()
+        .then(() => {
+          setMusicaConviteTocando(true);
+        })
+        .catch(() => {
+          setMusicaConviteTocando(false);
+        });
+    }
+
+    if (somAtivo) {
+      window.setTimeout(iniciarMusicaConvite, 250);
+    } else {
+      pausarMusicaConvite();
+    }
+
+    window.addEventListener("pointerdown", iniciarMusicaConvite, { passive: true });
+    window.addEventListener("touchstart", iniciarMusicaConvite, { passive: true });
+    window.addEventListener("keydown", iniciarMusicaConvite);
+
+    return () => {
+      window.removeEventListener("pointerdown", iniciarMusicaConvite);
+      window.removeEventListener("touchstart", iniciarMusicaConvite);
+      window.removeEventListener("keydown", iniciarMusicaConvite);
+    };
+  }, [renderState, somAtivo]);
 
   function executarSomAcao(effect: ConfirmationEffect = "padrao") {
     if (!somAtivo || effect === "nenhum") return;
@@ -1294,43 +1352,29 @@ export default function ConvitePublicoPage() {
         `}</style>
 
         {musicaConviteUrl && (
-          <>
-            <audio
-              id="musica-convite"
-              src={musicaConviteUrl}
-              loop
-              preload="auto"
-              playsInline
-              onPlay={() => setMusicaConviteTocando(true)}
-              onPause={() => setMusicaConviteTocando(false)}
-              onEnded={() => setMusicaConviteTocando(false)}
-            />
+          <audio
+            id="musica-convite"
+            src={musicaConviteUrl}
+            loop
+            autoPlay
+            preload="auto"
+            playsInline
+            onCanPlay={() => {
+              if (!somAtivo) return;
 
-            <button
-              type="button"
-              onClick={() => {
-                const audio = document.getElementById(
-                  "musica-convite",
-                ) as HTMLAudioElement | null;
+              const audio = document.getElementById(
+                "musica-convite",
+              ) as HTMLAudioElement | null;
 
-                if (!audio) return;
-
-                if (audio.paused) {
-                  audio
-                    .play()
-                    .then(() => setMusicaConviteTocando(true))
-                    .catch(() => setMusicaConviteTocando(false));
-                  return;
-                }
-
-                audio.pause();
-                setMusicaConviteTocando(false);
-              }}
-              style={musicToggleStyle}
-            >
-              {musicaConviteTocando ? "⏸️ Pausar música" : "🎵 Tocar música"}
-            </button>
-          </>
+              audio
+                ?.play()
+                .then(() => setMusicaConviteTocando(true))
+                .catch(() => setMusicaConviteTocando(false));
+            }}
+            onPlay={() => setMusicaConviteTocando(true)}
+            onPause={() => setMusicaConviteTocando(false)}
+            onEnded={() => setMusicaConviteTocando(false)}
+          />
         )}
 
         <button
@@ -1338,28 +1382,34 @@ export default function ConvitePublicoPage() {
           onClick={() => {
             setSomAtivo((current) => {
               const next = !current;
+              const audio = document.getElementById(
+                "musica-convite",
+              ) as HTMLAudioElement | null;
 
-              if (next) {
-                window.setTimeout(() => {
-                  try {
-                    tocarSomConfirmacao(
-                      renderState?.kind === "visual"
-                        ? getConfirmationEffect(renderState.template)
-                        : "padrao",
-                    );
-                    setSomLiberado(true);
-                  } catch {
-                    // Pode depender da próxima interação do usuário.
-                  }
-                }, 0);
+              if (!next) {
+                audio?.pause();
+                setMusicaConviteTocando(false);
+                return next;
               }
+
+              try {
+                unlockSilentConfirmationAudio();
+                setSomLiberado(true);
+              } catch {
+                // Pode depender da próxima interação do usuário.
+              }
+
+              audio
+                ?.play()
+                .then(() => setMusicaConviteTocando(true))
+                .catch(() => setMusicaConviteTocando(false));
 
               return next;
             });
           }}
           style={soundToggleStyle}
         >
-          {somAtivo ? "🔊 Som ligado" : "🔇 Som desligado"}
+          {somAtivo ? "Desligar música" : "Ligar música"}
         </button>
 
         <div
@@ -1693,24 +1743,6 @@ const soundToggleStyle: CSSProperties = {
   position: "fixed",
   top: 14,
   right: 14,
-  zIndex: 9999,
-  border: "1px solid rgba(255,255,255,.22)",
-  borderRadius: 999,
-  padding: "10px 14px",
-  background: "rgba(2,6,23,.72)",
-  color: "#ffffff",
-  fontSize: 13,
-  fontWeight: 900,
-  boxShadow: "0 12px 34px rgba(0,0,0,.25)",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-  cursor: "pointer",
-};
-
-const musicToggleStyle: CSSProperties = {
-  position: "fixed",
-  top: 14,
-  left: 14,
   zIndex: 9999,
   border: "1px solid rgba(255,255,255,.22)",
   borderRadius: 999,
