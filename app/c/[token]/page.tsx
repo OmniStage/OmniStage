@@ -70,6 +70,7 @@ type RenderState =
       template: Template;
       blocks: VisualBlock[];
       nomes: string[];
+      convidados: Convidado[];
       convidadoIds: string[];
     };
 
@@ -547,9 +548,17 @@ function ajustarBlocosParaConvidados(
   });
 }
 
-function renderGuestPicker(block: VisualBlock, nomes: string[]) {
-  const nomesLimpos = nomes.length ? nomes : ["Convidado"];
-  const isGrupo = nomesLimpos.length > 1;
+function renderGuestPicker(
+  block: VisualBlock,
+  convidados: Convidado[],
+  selectedIds: string[],
+  onToggleConvidado?: (id: string) => void,
+) {
+  const convidadosLimpos = convidados.length
+    ? convidados
+    : [{ id: "__fallback__", nome: "Convidado", token: "", evento_id: "", grupo: null, tipo_convite: null }];
+
+  const isGrupo = convidadosLimpos.length > 1;
 
   if (!isGrupo) {
     return (
@@ -594,7 +603,7 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
             whiteSpace: "nowrap",
           }}
         >
-          {nomesLimpos[0]}
+          {convidadosLimpos[0]?.nome || "Convidado"}
         </span>
       </div>
     );
@@ -618,9 +627,9 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
         overscrollBehavior: "contain",
       }}
     >
-      {nomesLimpos.map((nome) => (
+      {convidadosLimpos.map((convidado) => (
         <label
-          key={nome}
+          key={convidado.id || convidado.nome}
           style={{
             display: "flex",
             alignItems: "center",
@@ -635,8 +644,9 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
         >
           <input
             type="checkbox"
-            defaultChecked
+            checked={selectedIds.includes(convidado.id)}
             name="guest-confirmation"
+            onChange={() => onToggleConvidado?.(convidado.id)}
             style={{
               width: 17,
               height: 17,
@@ -652,7 +662,7 @@ function renderGuestPicker(block: VisualBlock, nomes: string[]) {
               whiteSpace: "nowrap",
             }}
           >
-            {nome}
+            {convidado.nome}
           </span>
         </label>
       ))}
@@ -731,12 +741,15 @@ function renderBotaoVisual(
 function getChildrenForVisualBlock(
   evento: Evento,
   nomes: string[],
+  convidados: Convidado[],
+  selectedIds: string[],
+  onToggleConvidado?: (id: string) => void,
   onConfirmarPresenca?: () => void,
   onAcaoBotao?: () => void,
 ) {
   return (block: any): ReactNode | null => {
     if (block.type === "guest_picker") {
-      return renderGuestPicker(block, nomes);
+      return renderGuestPicker(block, convidados, selectedIds, onToggleConvidado);
     }
 
     if (block.type === "guest_name") {
@@ -794,6 +807,15 @@ export default function ConvitePublicoPage() {
   const [efeitoConfirmacaoAtivo, setEfeitoConfirmacaoAtivo] =
     useState<ConfirmationEffect>("padrao");
   const [confirmandoPresenca, setConfirmandoPresenca] = useState(false);
+  const [convidadosSelecionados, setConvidadosSelecionados] = useState<string[]>([]);
+
+  function alternarConvidadoSelecionado(id: string) {
+    setConvidadosSelecionados((atuais) =>
+      atuais.includes(id)
+        ? atuais.filter((item) => item !== id)
+        : [...atuais, id],
+    );
+  }
 
   useEffect(() => {
     if (token) carregarConvite(token);
@@ -904,6 +926,18 @@ export default function ConvitePublicoPage() {
   async function confirmarPresenca() {
     if (renderState?.kind !== "visual" || confirmandoPresenca) return;
 
+    const idsDisponiveis = renderState.convidadoIds.filter(Boolean);
+    const isConviteIndividual = idsDisponiveis.length <= 1;
+
+    const ids = isConviteIndividual
+      ? idsDisponiveis
+      : convidadosSelecionados.filter((id) => idsDisponiveis.includes(id));
+
+    if (!ids.length) {
+      window.alert("Selecione pelo menos um convidado para confirmar presença.");
+      return;
+    }
+
     const efeitoConfirmacao = getConfirmationEffect(renderState.template);
 
     executarSomAcao(efeitoConfirmacao);
@@ -919,20 +953,16 @@ export default function ConvitePublicoPage() {
       );
     }
 
-    const ids = renderState.convidadoIds.filter(Boolean);
+    const { error } = await supabase
+      .from("convidados")
+      .update({
+        status_rsvp: "confirmado",
+        data_resposta: new Date().toISOString(),
+      })
+      .in("id", ids);
 
-    if (ids.length) {
-      const { error } = await supabase
-        .from("convidados")
-        .update({
-          status_rsvp: "confirmado",
-          data_resposta: new Date().toISOString(),
-        })
-        .in("id", ids);
-
-      if (error) {
-        console.error("Erro ao confirmar presença:", error);
-      }
+    if (error) {
+      console.error("Erro ao confirmar presença:", error);
     }
 
     setConfirmandoPresenca(false);
@@ -1171,13 +1201,21 @@ export default function ConvitePublicoPage() {
         return;
       }
 
+      const convidadosConfirmacao = convidadosDoConvite.filter((item) => Boolean(item.id));
+      setConvidadosSelecionados(
+        convidadosConfirmacao.length <= 1
+          ? convidadosConfirmacao.map((item) => item.id).filter(Boolean)
+          : [],
+      );
+
       setRenderState({
         kind: "visual",
         evento: eventoNormalizado,
         template: template as Template,
         blocks: (blocksData || []).map(normalizarBlock),
         nomes: nomesFinais,
-        convidadoIds: convidadosDoConvite.map((item) => item.id).filter(Boolean),
+        convidados: convidadosConfirmacao,
+        convidadoIds: convidadosConfirmacao.map((item) => item.id).filter(Boolean),
       });
       setLoading(false);
       return;
@@ -1232,6 +1270,9 @@ export default function ConvitePublicoPage() {
         childrenForBlock={getChildrenForVisualBlock(
           renderState.evento,
           renderState.nomes,
+          renderState.convidados,
+          convidadosSelecionados,
+          alternarConvidadoSelecionado,
           confirmarPresenca,
           executarSomAcao,
         )}
@@ -1240,7 +1281,7 @@ export default function ConvitePublicoPage() {
         onConfirmPresence={confirmarPresenca}
       />
     );
-  }, [renderState, visualConfig, visualScale, confirmandoPresenca, somAtivo, somLiberado]);
+  }, [renderState, visualConfig, visualScale, confirmandoPresenca, somAtivo, somLiberado, convidadosSelecionados]);
 
   if (loading) {
     return (
