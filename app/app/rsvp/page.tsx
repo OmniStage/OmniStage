@@ -14,6 +14,13 @@ type FiltroRsvp =
   | "nao_entrou";
 type ModoVisualizacao = "grupo" | "individual";
 
+type Evento = {
+  id: string;
+  nome: string | null;
+  data_evento?: string | null;
+  status?: string | null;
+};
+
 type Convidado = {
   id: string;
   nome: string | null;
@@ -23,6 +30,7 @@ type Convidado = {
   status_rsvp: string | null;
   status_checkin?: string | null;
   token?: string | null;
+  evento_id?: string | null;
   observacoes?: string | null;
   data_hora_rsvp?: string | null;
   data_resposta?: string | null;
@@ -36,20 +44,45 @@ type Stats = {
 };
 
 export default function RsvpPage() {
+  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventoSelecionado, setEventoSelecionado] = useState<string>("todos");
+  const [loadingEventos, setLoadingEventos] = useState(true);
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroRsvp>("todos");
-  const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacao>("grupo");
-  const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
+  const [modoVisualizacao, setModoVisualizacao] =
+    useState<ModoVisualizacao>("grupo");
+  const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>(
+    {},
+  );
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
 
-  async function carregarRsvp() {
-    setLoading(true);
+  async function carregarEventos() {
+    setLoadingEventos(true);
 
     const { data, error } = await supabase
-      .from("convidados")
-      .select(`
+      .from("eventos")
+      .select("id, nome, data_evento, status")
+      .order("data_evento", { ascending: false, nullsFirst: false })
+      .order("nome", { ascending: true });
+
+    if (error) {
+      alert("Erro ao carregar eventos: " + error.message);
+      setEventos([]);
+      setLoadingEventos(false);
+      return;
+    }
+
+    const lista = (data || []) as Evento[];
+    setEventos(lista);
+    setLoadingEventos(false);
+  }
+
+  async function carregarRsvp(eventoId = eventoSelecionado) {
+    setLoading(true);
+
+    let query = supabase.from("convidados").select(`
         id,
         nome,
         telefone,
@@ -58,10 +91,17 @@ export default function RsvpPage() {
         status_rsvp,
         status_checkin,
         token,
+        evento_id,
         observacoes,
         data_hora_rsvp,
         data_resposta
-      `)
+      `);
+
+    if (eventoId && eventoId !== "todos") {
+      query = query.eq("evento_id", eventoId);
+    }
+
+    const { data, error } = await query
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
@@ -77,15 +117,21 @@ export default function RsvpPage() {
   }
 
   useEffect(() => {
-    carregarRsvp();
+    carregarEventos();
   }, []);
+
+  useEffect(() => {
+    carregarRsvp(eventoSelecionado);
+  }, [eventoSelecionado]);
 
   const stats = useMemo<Stats>(() => {
     const total = convidados.length;
-    const confirmados = convidados.filter((c) => c.status_rsvp === "confirmado").length;
+    const confirmados = convidados.filter(
+      (c) => c.status_rsvp === "confirmado",
+    ).length;
     const ausentes = convidados.filter((c) => c.status_rsvp === "nao").length;
     const pendentes = convidados.filter(
-      (c) => !c.status_rsvp || c.status_rsvp === "pendente"
+      (c) => !c.status_rsvp || c.status_rsvp === "pendente",
     ).length;
 
     return { total, confirmados, pendentes, ausentes };
@@ -112,9 +158,11 @@ export default function RsvpPage() {
       if (!buscaOk) return false;
 
       if (filtro === "todos") return true;
-      if (filtro === "pendente") return !convidado.status_rsvp || convidado.status_rsvp === "pendente";
+      if (filtro === "pendente")
+        return !convidado.status_rsvp || convidado.status_rsvp === "pendente";
       if (filtro === "entrou") return convidadoEntrou(convidado);
-      if (filtro === "entrou_sem_rsvp") return convidadoEntrouSemRsvp(convidado);
+      if (filtro === "entrou_sem_rsvp")
+        return convidadoEntrouSemRsvp(convidado);
       if (filtro === "nao_entrou") return !convidadoEntrou(convidado);
 
       return convidado.status_rsvp === filtro;
@@ -138,16 +186,16 @@ export default function RsvpPage() {
           !termo ||
           listaCompleta.some((convidado) =>
             [
-          convidado.nome,
-          convidado.grupo,
-          convidado.telefone,
-          convidado.email,
-          convidado.token,
-          convidado.status_checkin,
-          labelCheckin(convidado.status_checkin),
-        ]
+              convidado.nome,
+              convidado.grupo,
+              convidado.telefone,
+              convidado.email,
+              convidado.token,
+              convidado.status_checkin,
+              labelCheckin(convidado.status_checkin),
+            ]
               .filter(Boolean)
-              .some((valor) => String(valor).toLowerCase().includes(termo))
+              .some((valor) => String(valor).toLowerCase().includes(termo)),
           );
 
         if (!grupoCombinaBusca) return null;
@@ -156,10 +204,13 @@ export default function RsvpPage() {
           .filter((convidado) => {
             if (filtro === "todos") return true;
             if (filtro === "pendente") {
-              return !convidado.status_rsvp || convidado.status_rsvp === "pendente";
+              return (
+                !convidado.status_rsvp || convidado.status_rsvp === "pendente"
+              );
             }
             if (filtro === "entrou") return convidadoEntrou(convidado);
-            if (filtro === "entrou_sem_rsvp") return convidadoEntrouSemRsvp(convidado);
+            if (filtro === "entrou_sem_rsvp")
+              return convidadoEntrouSemRsvp(convidado);
             if (filtro === "nao_entrou") return !convidadoEntrou(convidado);
             return convidado.status_rsvp === filtro;
           })
@@ -177,7 +228,10 @@ export default function RsvpPage() {
       ? grupos.reduce((total, grupo) => total + grupo.lista.length, 0)
       : convidadosFiltrados.length;
 
-  async function atualizarStatusRsvp(convidado: Convidado, novoStatus: StatusRsvp) {
+  async function atualizarStatusRsvp(
+    convidado: Convidado,
+    novoStatus: StatusRsvp,
+  ) {
     const statusAtual = normalizarStatusRsvp(convidado.status_rsvp);
 
     if (statusAtual === "confirmado" && novoStatus === "confirmado") {
@@ -210,8 +264,8 @@ export default function RsvpPage() {
               status_rsvp: novoStatus,
               data_resposta: payload.data_resposta,
             }
-          : item
-      )
+          : item,
+      ),
     );
 
     setSalvandoId(null);
@@ -228,7 +282,8 @@ export default function RsvpPage() {
 
     const agora = new Date().toISOString();
     const observacaoAtual = convidado.observacoes?.trim();
-    const observacaoNova = "Entrou no evento sem RSVP prévio. Confirmação feita manualmente na entrada.";
+    const observacaoNova =
+      "Entrou no evento sem RSVP prévio. Confirmação feita manualmente na entrada.";
 
     const payload = {
       status_rsvp: "confirmado",
@@ -260,8 +315,8 @@ export default function RsvpPage() {
               data_resposta: agora,
               observacoes: payload.observacoes,
             }
-          : item
-      )
+          : item,
+      ),
     );
 
     setSalvandoId(null);
@@ -269,7 +324,7 @@ export default function RsvpPage() {
 
   async function cancelarRsvpConfirmado(convidado: Convidado) {
     const confirmacao = window.prompt(
-      `Para cancelar a confirmação de ${convidado.nome || "convidado"}, digite CANCELAR`
+      `Para cancelar a confirmação de ${convidado.nome || "convidado"}, digite CANCELAR`,
     );
 
     if (confirmacao !== "CANCELAR") {
@@ -280,7 +335,8 @@ export default function RsvpPage() {
     setSalvandoId(convidado.id);
 
     const observacaoAtual = convidado.observacoes?.trim();
-    const observacaoNova = "RSVP confirmado cancelado manualmente pelo operador.";
+    const observacaoNova =
+      "RSVP confirmado cancelado manualmente pelo operador.";
 
     const payload = {
       status_rsvp: "pendente",
@@ -310,8 +366,8 @@ export default function RsvpPage() {
               data_resposta: payload.data_resposta,
               observacoes: payload.observacoes,
             }
-          : item
-      )
+          : item,
+      ),
     );
 
     setSalvandoId(null);
@@ -367,20 +423,48 @@ export default function RsvpPage() {
           <span style={eyebrowStyle}>OmniStage RSVP</span>
           <h1 style={titleStyle}>Controle de confirmações</h1>
           <p style={subtitleStyle}>
-            Acompanhe confirmações, pendências e ausências confirmadas sem alterar tokens ou cartões existentes.
+            Acompanhe confirmações, pendências e ausências confirmadas sem
+            alterar tokens ou cartões existentes.
           </p>
         </div>
 
-        <button onClick={carregarRsvp} style={primaryButtonStyle}>
+        <button
+          onClick={() => carregarRsvp(eventoSelecionado)}
+          style={primaryButtonStyle}
+        >
           {loading ? "Atualizando..." : "Atualizar RSVP"}
         </button>
       </section>
 
       <section style={statsGridStyle}>
-        <MetricCard label="Total" value={stats.total} detail="Convidados cadastrados" color="#6d28d9" bg="#ede9fe" />
-        <MetricCard label="Confirmados" value={stats.confirmados} detail={`${percent(stats.confirmados, stats.total)}% da lista`} color="#16a34a" bg="#dcfce7" />
-        <MetricCard label="Pendentes" value={stats.pendentes} detail="Aguardando resposta" color="#f59e0b" bg="#fef3c7" />
-        <MetricCard label="Ausência confirmada" value={stats.ausentes} detail={`${percent(stats.ausentes, stats.total)}% da lista`} color="#dc2626" bg="#fee2e2" />
+        <MetricCard
+          label="Total"
+          value={stats.total}
+          detail="Convidados cadastrados"
+          color="#6d28d9"
+          bg="#ede9fe"
+        />
+        <MetricCard
+          label="Confirmados"
+          value={stats.confirmados}
+          detail={`${percent(stats.confirmados, stats.total)}% da lista`}
+          color="#16a34a"
+          bg="#dcfce7"
+        />
+        <MetricCard
+          label="Pendentes"
+          value={stats.pendentes}
+          detail="Aguardando resposta"
+          color="#f59e0b"
+          bg="#fef3c7"
+        />
+        <MetricCard
+          label="Ausência confirmada"
+          value={stats.ausentes}
+          detail={`${percent(stats.ausentes, stats.total)}% da lista`}
+          color="#dc2626"
+          bg="#fee2e2"
+        />
       </section>
 
       <section style={panelStyle}>
@@ -388,24 +472,63 @@ export default function RsvpPage() {
           <div>
             <h2 style={panelTitleStyle}>Lista RSVP</h2>
             <p style={panelTextStyle}>
-              Filtre por status, busque convidados e atualize a resposta manualmente quando necessário.
+              Filtre por status, busque convidados e atualize a resposta
+              manualmente quando necessário.
             </p>
           </div>
 
           <div style={viewToggleStyle}>
             <button
               onClick={() => setModoVisualizacao("grupo")}
-              style={modoVisualizacao === "grupo" ? viewToggleActiveButtonStyle : viewToggleButtonStyle}
+              style={
+                modoVisualizacao === "grupo"
+                  ? viewToggleActiveButtonStyle
+                  : viewToggleButtonStyle
+              }
             >
               Por grupo
             </button>
             <button
               onClick={() => setModoVisualizacao("individual")}
-              style={modoVisualizacao === "individual" ? viewToggleActiveButtonStyle : viewToggleButtonStyle}
+              style={
+                modoVisualizacao === "individual"
+                  ? viewToggleActiveButtonStyle
+                  : viewToggleButtonStyle
+              }
             >
               Individual
             </button>
           </div>
+        </div>
+
+        <div style={eventFilterCardStyle}>
+          <div>
+            <label htmlFor="evento-rsvp" style={eventFilterLabelStyle}>
+              Evento
+            </label>
+            <p style={eventFilterTextStyle}>
+              Selecione o evento para visualizar somente os convidados daquele
+              RSVP.
+            </p>
+          </div>
+
+          <select
+            id="evento-rsvp"
+            value={eventoSelecionado}
+            onChange={(event) => {
+              setEventoSelecionado(event.target.value);
+              setGruposAbertos({});
+            }}
+            disabled={loadingEventos}
+            style={eventSelectStyle}
+          >
+            <option value="todos">Todos os eventos</option>
+            {eventos.map((evento) => (
+              <option key={evento.id} value={evento.id}>
+                {formatarNomeEvento(evento)}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={tabsStyle}>
@@ -451,8 +574,12 @@ export default function RsvpPage() {
 
         {modoVisualizacao === "grupo" && (
           <div style={groupActionsStyle}>
-            <button onClick={abrirTodosGrupos} style={ghostButtonStyle}>Expandir todos</button>
-            <button onClick={fecharTodosGrupos} style={ghostButtonStyle}>Recolher todos</button>
+            <button onClick={abrirTodosGrupos} style={ghostButtonStyle}>
+              Expandir todos
+            </button>
+            <button onClick={fecharTodosGrupos} style={ghostButtonStyle}>
+              Recolher todos
+            </button>
           </div>
         )}
 
@@ -460,25 +587,39 @@ export default function RsvpPage() {
           <div style={listStyle}>
             {grupos.map(({ grupo, lista }) => {
               const aberto = !!gruposAbertos[grupo];
-              const principal = lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
+              const principal =
+                lista.find((c) => !!normalizarTelefone(c.telefone)) || lista[0];
 
               return (
-                <article key={grupo} className="rsvp-card" style={groupCardStyle}>
-                  <button onClick={() => toggleGrupo(grupo)} style={groupHeaderStyle}>
+                <article
+                  key={grupo}
+                  className="rsvp-card"
+                  style={groupCardStyle}
+                >
+                  <button
+                    onClick={() => toggleGrupo(grupo)}
+                    style={groupHeaderStyle}
+                  >
                     <div style={{ minWidth: 0 }}>
                       <p style={groupTitleStyle}>
                         <span style={groupLabelStyle}>Integrantes:</span>{" "}
-                        <span style={groupNamesStyle}>{nomesIntegrantes(lista)}</span>
+                        <span style={groupNamesStyle}>
+                          {nomesIntegrantes(lista)}
+                        </span>
                       </p>
 
                       <p style={groupContactStyle}>
                         {lista.length} integrante{lista.length === 1 ? "" : "s"}
-                        {principal?.telefone ? ` · contato: ${principal.telefone}` : " · sem telefone principal"}
+                        {principal?.telefone
+                          ? ` · contato: ${principal.telefone}`
+                          : " · sem telefone principal"}
                       </p>
                     </div>
 
                     <div style={groupRightStyle}>
-                      <span style={smallCountStyle}>{contarConfirmados(lista)} confirmados</span>
+                      <span style={smallCountStyle}>
+                        {contarConfirmados(lista)} confirmados
+                      </span>
                       <span style={chevronStyle}>{aberto ? "⌃" : "⌄"}</span>
                     </div>
                   </button>
@@ -517,7 +658,9 @@ export default function RsvpPage() {
         )}
 
         {!loading && totalExibido === 0 && (
-          <div style={emptyStyle}>Nenhum convidado encontrado com estes filtros.</div>
+          <div style={emptyStyle}>
+            Nenhum convidado encontrado com estes filtros.
+          </div>
         )}
       </section>
     </div>
@@ -547,7 +690,8 @@ function RsvpGuestCard({
       <div style={guestInfoStyle}>
         <strong style={guestNameStyle}>{convidado.nome || "Sem nome"}</strong>
         <span style={guestMetaStyle}>
-          {normalizarGrupo(convidado.grupo)} · {convidado.telefone || "Sem telefone"}
+          {normalizarGrupo(convidado.grupo)} ·{" "}
+          {convidado.telefone || "Sem telefone"}
         </span>
 
         <div style={guestDetailsStyle}>
@@ -555,10 +699,14 @@ function RsvpGuestCard({
           <span style={getCheckinBadgeStyle(convidado.status_checkin)}>
             Check-in: {labelCheckin(convidado.status_checkin)}
           </span>
-          <span style={miniInfoStyle}>Token: {convidado.token || "Sem token"}</span>
+          <span style={miniInfoStyle}>
+            Token: {convidado.token || "Sem token"}
+          </span>
         </div>
 
-        {(convidado.data_resposta || convidado.data_hora_rsvp || convidado.observacoes) && (
+        {(convidado.data_resposta ||
+          convidado.data_hora_rsvp ||
+          convidado.observacoes) && (
           <p style={detailsTextStyle}>
             {convidado.data_resposta || convidado.data_hora_rsvp
               ? `Resposta: ${formatarData(convidado.data_resposta || convidado.data_hora_rsvp || "")}`
@@ -571,9 +719,7 @@ function RsvpGuestCard({
       <div style={actionsStyle}>
         {jaConfirmado ? (
           <>
-            <span style={lockedConfirmedStyle}>
-              RSVP já confirmado
-            </span>
+            <span style={lockedConfirmedStyle}>RSVP já confirmado</span>
 
             <button
               className="rsvp-action"
@@ -608,7 +754,11 @@ function RsvpGuestCard({
               className="rsvp-action"
               onClick={() => onChangeStatus(convidado, "pendente")}
               disabled={salvando || status === "pendente"}
-              style={status === "pendente" ? activePendingButtonStyle : pendingButtonStyle}
+              style={
+                status === "pendente"
+                  ? activePendingButtonStyle
+                  : pendingButtonStyle
+              }
             >
               Pendente
             </button>
@@ -617,18 +767,30 @@ function RsvpGuestCard({
               className="rsvp-action"
               onClick={() => onChangeStatus(convidado, "nao")}
               disabled={salvando || status === "nao"}
-              style={status === "nao" ? activeAbsentButtonStyle : absentButtonStyle}
+              style={
+                status === "nao" ? activeAbsentButtonStyle : absentButtonStyle
+              }
             >
               Ausência
             </button>
           </>
         )}
 
-        <a href={linkConvite} target="_blank" rel="noreferrer" style={linkButtonStyle}>
+        <a
+          href={linkConvite}
+          target="_blank"
+          rel="noreferrer"
+          style={linkButtonStyle}
+        >
           Convite
         </a>
 
-        <a href={linkCartao} target="_blank" rel="noreferrer" style={linkButtonStyle}>
+        <a
+          href={linkCartao}
+          target="_blank"
+          rel="noreferrer"
+          style={linkButtonStyle}
+        >
           Cartão
         </a>
       </div>
@@ -685,7 +847,9 @@ function labelCheckin(status: string | null | undefined) {
   return "Não entrou";
 }
 
-function getCheckinBadgeStyle(status: string | null | undefined): React.CSSProperties {
+function getCheckinBadgeStyle(
+  status: string | null | undefined,
+): React.CSSProperties {
   const statusNormalizado = normalizarStatusCheckin(status);
 
   if (statusNormalizado === "entrou_excecao") return checkinExceptionBadgeStyle;
@@ -763,6 +927,18 @@ function formatarData(data: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatarNomeEvento(evento: Evento) {
+  const nome = evento.nome?.trim() || "Evento sem nome";
+
+  if (!evento.data_evento) return nome;
+
+  const data = new Date(`${evento.data_evento}T00:00:00`);
+
+  if (Number.isNaN(data.getTime())) return nome;
+
+  return `${nome} · ${data.toLocaleDateString("pt-BR")}`;
 }
 
 function getStatusBadgeStyle(status: StatusRsvp): React.CSSProperties {
@@ -896,6 +1072,46 @@ const panelTextStyle: React.CSSProperties = {
   color: "var(--muted)",
 };
 
+const eventFilterCardStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 16,
+  borderRadius: 18,
+  border: "1px solid var(--line)",
+  background: "rgba(109,40,217,0.045)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 14,
+  flexWrap: "wrap",
+};
+
+const eventFilterLabelStyle: React.CSSProperties = {
+  display: "block",
+  marginBottom: 4,
+  color: "var(--text)",
+  fontSize: 14,
+  fontWeight: 900,
+};
+
+const eventFilterTextStyle: React.CSSProperties = {
+  margin: 0,
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const eventSelectStyle: React.CSSProperties = {
+  minWidth: 280,
+  flex: "0 1 360px",
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
+  fontWeight: 850,
+  outline: "none",
+};
+
 const viewToggleStyle: React.CSSProperties = {
   display: "flex",
   gap: 6,
@@ -1014,7 +1230,8 @@ const groupCardStyle: React.CSSProperties = {
 const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
@@ -1272,3 +1489,4 @@ const emptyStyle: React.CSSProperties = {
   border: "1px dashed var(--line)",
   color: "var(--muted)",
 };
+
