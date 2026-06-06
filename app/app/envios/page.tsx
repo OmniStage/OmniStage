@@ -305,11 +305,14 @@ export default function EnviosPage() {
   }, [tipoEnvio]);
 
   const publicoCampanha = useMemo(() => {
-    return convidados.filter(
-      (convidado) =>
+    return convidados.filter((convidado) => {
+      const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
+
+      return (
         deveAparecerNoModuloEnvios(convidado, campanha) &&
-        campanha.filtrarPublico(convidado)
-    );
+        (confirmadoSemEnvioConvite || campanha.filtrarPublico(convidado))
+      );
+    });
   }, [convidados, campanha]);
 
   const convidadosFiltrados = useMemo(() => {
