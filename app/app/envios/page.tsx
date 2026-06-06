@@ -307,18 +307,10 @@ export default function EnviosPage() {
   const publicoCampanha = useMemo(() => {
     return convidados.filter((convidado) => {
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
-      const telefoneEvento = !!getTelefoneEnvioEvento(convidado, convidados);
-
-      const passaFiltroCampanha =
-        campanha.key === "convite"
-          ? telefoneEvento
-          : campanha.key === "lembrete_rsvp"
-            ? convidado.status_rsvp === "pendente" && telefoneEvento
-            : campanha.filtrarPublico(convidado);
 
       return (
         deveAparecerNoModuloEnvios(convidado, campanha) &&
-        (confirmadoSemEnvioConvite || passaFiltroCampanha)
+        (confirmadoSemEnvioConvite || campanha.filtrarPublico(convidado))
       );
     });
   }, [convidados, campanha]);
@@ -327,7 +319,7 @@ export default function EnviosPage() {
     const termo = busca.trim().toLowerCase();
 
     return publicoCampanha.filter((convidado) => {
-      const telefoneLimpo = getTelefoneEnvioEvento(convidado, convidados);
+      const telefoneLimpo = getTelefoneEnvio(convidado);
       const statusAtual = getStatusEnvio(convidado, campanha);
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
@@ -371,7 +363,7 @@ export default function EnviosPage() {
 
   const pendentesComTelefoneFiltrados = useMemo(() => {
     return convidadosFiltrados.filter((convidado) => {
-      const telefoneOk = !!getTelefoneEnvioEvento(convidado, convidados);
+      const telefoneOk = !!getTelefoneEnvio(convidado);
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
@@ -398,11 +390,11 @@ export default function EnviosPage() {
       const statusAtual = getStatusEnvio(c, campanha);
       return statusAtual === "enviado_manual" || isConfirmadoSemEnvioConvite(c, campanha);
     }).length;
-    const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvioEvento(c, convidados)).length;
+    const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvio(c)).length;
     const naFila = publicoCampanha.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio)).length;
     const aEnviar = publicoCampanha.filter((c) => {
       const enviado = isEnvioConsideradoEnviado(c, campanha);
-      const telefoneOk = !!getTelefoneEnvioEvento(c, convidados);
+      const telefoneOk = !!getTelefoneEnvio(c);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio);
 
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(c, campanha);
@@ -491,7 +483,7 @@ export default function EnviosPage() {
     }
 
     const elegiveis = lista.filter((convidado) => {
-      const telefoneOk = !!getTelefoneEnvioEvento(convidado, convidados);
+      const telefoneOk = !!getTelefoneEnvio(convidado);
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
@@ -517,7 +509,7 @@ export default function EnviosPage() {
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
-      telefone: getTelefoneEnvioEvento(convidado, convidados),
+      telefone: getTelefoneEnvio(convidado),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status: "pendente",
     }));
@@ -535,7 +527,7 @@ export default function EnviosPage() {
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
-      telefone: getTelefoneEnvioEvento(convidado, convidados),
+      telefone: getTelefoneEnvio(convidado),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status: "pendente",
       detalhe: "Adicionado à fila por ação em massa.",
@@ -751,7 +743,7 @@ export default function EnviosPage() {
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
-      telefone: getTelefoneEnvioEvento(convidado, convidados),
+      telefone: getTelefoneEnvio(convidado),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status,
       detalhe: detalhe || null,
@@ -769,7 +761,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const telefone = getTelefoneEnvioEvento(convidado, convidados);
+    const telefone = getTelefoneEnvio(convidado);
 
     if (!telefone) {
       alert("Este convidado não tem telefone cadastrado.");
@@ -803,7 +795,7 @@ export default function EnviosPage() {
   }
 
   function abrirWhatsApp(convidado: Convidado) {
-    const telefone = getTelefoneEnvioEvento(convidado, convidados);
+    const telefone = getTelefoneEnvio(convidado);
 
     if (!telefone) {
       alert("Este convidado não tem telefone cadastrado.");
@@ -818,7 +810,7 @@ export default function EnviosPage() {
   }
 
   function iniciarEnvioWhatsApp(convidado: Convidado) {
-    const telefone = getTelefoneEnvioEvento(convidado, convidados);
+    const telefone = getTelefoneEnvio(convidado);
 
     if (!telefone) {
       alert("Este convidado não tem telefone cadastrado.");
@@ -1184,9 +1176,9 @@ export default function EnviosPage() {
 
         <div style={listStyle}>
           {convidadosFiltrados.map((convidado) => {
-            const telefoneOk = !!getTelefoneEnvioEvento(convidado, convidados);
-            const envioViaResponsavel = isEnvioViaResponsavelEvento(convidado, convidados);
-            const telefoneExibicao = getTelefoneEnvioEvento(convidado, convidados);
+            const telefoneOk = !!getTelefoneEnvio(convidado);
+            const envioViaResponsavel = isEnvioViaResponsavel(convidado);
+            const telefoneExibicao = getTelefoneEnvio(convidado);
             const statusAtual = getStatusEnvio(convidado, campanha);
             const envioImportado = isEnvioImportado(convidado, campanha);
             const enviado = isEnvioConsideradoEnviado(convidado, campanha);
@@ -1213,7 +1205,7 @@ export default function EnviosPage() {
 
                   {envioViaResponsavel && (
                     <span style={responsavelBadgeStyle}>
-                      Envio via responsável: {getNomeResponsavelEnvioEvento(convidado, convidados)}
+                      Envio via responsável: {convidado.responsavel || "Responsável"}
                     </span>
                   )}
 
@@ -1606,65 +1598,8 @@ function getTelefoneEnvio(convidado: Convidado) {
   return normalizarTelefone(convidado.telefone) || normalizarTelefone(convidado.responsavel_telefone);
 }
 
-function getPrincipalDoGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const grupo = String(convidado.grupo || "").trim();
-
-  if (!grupo) return null;
-
-  const membrosMesmoGrupo = todosConvidados.filter(
-    (item) =>
-      item.id !== convidado.id &&
-      String(item.grupo || "").trim() === grupo
-  );
-
-  return (
-    membrosMesmoGrupo.find(
-      (item) =>
-        item.contato_principal === true &&
-        (!!normalizarTelefone(item.telefone) || !!normalizarTelefone(item.responsavel_telefone))
-    ) ||
-    membrosMesmoGrupo.find(
-      (item) =>
-        item.recebe_convite === true &&
-        (!!normalizarTelefone(item.telefone) || !!normalizarTelefone(item.responsavel_telefone))
-    ) ||
-    membrosMesmoGrupo.find(
-      (item) => !!normalizarTelefone(item.telefone) || !!normalizarTelefone(item.responsavel_telefone)
-    ) ||
-    null
-  );
-}
-
-function getTelefoneEnvioEvento(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const telefoneDireto = getTelefoneEnvio(convidado);
-
-  if (telefoneDireto) return telefoneDireto;
-
-  const principalGrupo = getPrincipalDoGrupo(convidado, todosConvidados);
-
-  return principalGrupo ? getTelefoneEnvio(principalGrupo) : "";
-}
-
-function getNomeResponsavelEnvioEvento(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  if (normalizarTelefone(convidado.responsavel_telefone)) {
-    return convidado.responsavel || "Responsável";
-  }
-
-  const principalGrupo = getPrincipalDoGrupo(convidado, todosConvidados);
-
-  return principalGrupo?.nome || convidado.responsavel || "Principal do núcleo";
-}
-
 function isEnvioViaResponsavel(convidado: Convidado) {
   return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
-}
-
-function isEnvioViaResponsavelEvento(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const telefoneDireto = normalizarTelefone(convidado.telefone);
-  const telefoneResponsavel = normalizarTelefone(convidado.responsavel_telefone);
-  const principalGrupo = getPrincipalDoGrupo(convidado, todosConvidados);
-
-  return !telefoneDireto && (!!telefoneResponsavel || !!principalGrupo);
 }
 
 function normalizarTipoConvite(tipo: string | null | undefined) {
@@ -1793,7 +1728,7 @@ function montarMensagem(
     .replaceAll("{{grupo}}", convidado.grupo || "")
     .replaceAll("{{evento}}", nomeEvento)
     .replaceAll("{{nome_evento}}", nomeEvento)
-    .replaceAll("{{telefone}}", getTelefoneEnvioEvento(convidado, todosConvidados) || "")
+    .replaceAll("{{telefone}}", convidado.telefone || convidado.responsavel_telefone || "")
     .replaceAll("{{email}}", convidado.email || "")
     .replaceAll("{{token}}", tokenConvite)
     .replaceAll("{{link_convite}}", gerarLinkConvite(convidado, todosConvidados))
