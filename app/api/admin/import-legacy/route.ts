@@ -558,6 +558,38 @@ function namesAreSimilar(importedName: unknown, existingName: unknown) {
   return common.length > 0 && common.length >= Math.min(importedParts.length, existingParts.length, 2);
 }
 
+
+function namesMatchForIdentity(importedName: unknown, existingName: unknown) {
+  const imported = normalizeTextKey(importedName);
+  const existing = normalizeTextKey(existingName);
+
+  if (!imported || !existing) return false;
+  if (imported === existing) return true;
+
+  const importedParts = imported.split(" ").filter(Boolean);
+  const existingParts = existing.split(" ").filter(Boolean);
+
+  // Para nomes curtos/de uma palavra, não usar aproximação.
+  // Ex.: DAVI e DAVID são pessoas diferentes.
+  if (importedParts.length === 1 || existingParts.length === 1) {
+    return importedParts.some((part) => existingParts.includes(part));
+  }
+
+  const importedFirst = importedParts[0];
+  const existingFirst = existingParts[0];
+  const importedLast = importedParts[importedParts.length - 1];
+  const existingLast = existingParts[existingParts.length - 1];
+
+  if (importedFirst === existingFirst && importedLast === existingLast) return true;
+
+  const importedSet = new Set(importedParts);
+  const existingSet = new Set(existingParts);
+  const importedInsideExisting = importedParts.every((part) => existingSet.has(part));
+  const existingInsideImported = existingParts.every((part) => importedSet.has(part));
+
+  return importedInsideExisting || existingInsideImported;
+}
+
 function getImportedNucleoKeys(guest: ImportGuest) {
   const keys = new Set<string>();
   const addKey = (nome: unknown, tipo?: unknown) => {
@@ -689,10 +721,35 @@ function findExistingContactSmart(
       : "nome_crm"
     : null;
 
+  const guestTipoContato = normalizeTipoContato(guest.tipo_contato, guest.crianca, guest.mae || guest.responsavel_nome);
+
+  if (matchedContact && !guestPhoneKey && guestTipoContato === "crianca") {
+    const contactResponsavelPhone = cleanPhone(
+      matchedContact.responsavel_telefone ||
+        matchedContact.telefone_responsavel ||
+        matchedContact.responsavel?.telefone ||
+        undefined
+    );
+    const contactResponsavelName = normalizeTextKey(
+      matchedContact.responsavel_nome ||
+        matchedContact.nome_responsavel ||
+        matchedContact.responsavel?.nome
+    );
+    const guestResponsavelName = normalizeTextKey(guest.responsavel_nome || guest.mae);
+
+    const sameResponsavelPhone = Boolean(responsavelPhoneKey && contactResponsavelPhone === responsavelPhoneKey);
+    const sameResponsavelName = Boolean(guestResponsavelName && contactResponsavelName === guestResponsavelName);
+
+    if (!sameResponsavelPhone && !sameResponsavelName) {
+      matchedContact = null;
+      matchedBy = null;
+    }
+  }
+
   if (!matchedContact) {
     matchedContact =
       (existingContacts || []).find((contact) => {
-        if (!namesAreSimilar(guest.name, contact.nome)) return false;
+        if (!namesMatchForIdentity(guest.name, contact.nome)) return false;
 
         const contactResponsavelPhone = cleanPhone(
           contact.responsavel_telefone ||
@@ -710,7 +767,7 @@ function findExistingContactSmart(
   if (!matchedContact && importedNucleoKeys.size > 0) {
     matchedContact =
       (existingContacts || []).find((contact) => {
-        if (!namesAreSimilar(guest.name, contact.nome)) return false;
+        if (!namesMatchForIdentity(guest.name, contact.nome)) return false;
         const contactNucleoKeys = contactContext.nucleoKeysByContactId.get(contact.id) || new Set<string>();
         return hasAnySetIntersection(importedNucleoKeys, contactNucleoKeys);
       }) || null;
@@ -721,7 +778,7 @@ function findExistingContactSmart(
   if (!matchedContact && importedPrincipalPhones.size > 0) {
     matchedContact =
       (existingContacts || []).find((contact) => {
-        if (!namesAreSimilar(guest.name, contact.nome)) return false;
+        if (!namesMatchForIdentity(guest.name, contact.nome)) return false;
         const contactNucleoKeys = contactContext.nucleoKeysByContactId.get(contact.id) || new Set<string>();
         if (!hasAnySetIntersection(importedNucleoKeys, contactNucleoKeys)) return false;
 
@@ -783,11 +840,48 @@ function findExistingGuestSmart(
       : "nome_evento"
     : null;
 
+  if (matchedGuest && !guestPhoneKey && !guestLegacyKey && isCrianca) {
+    const existingResponsavelPhone = cleanPhone(matchedGuest.responsavel_telefone);
+    const existingResponsavelName = normalizeTextKey(matchedGuest.responsavel || matchedGuest.responsavel_nome);
+    const guestResponsavelName = normalizeTextKey(guest.responsavel_nome || guest.mae);
+
+    const sameResponsavelPhone = Boolean(responsavelPhoneKey && existingResponsavelPhone === responsavelPhoneKey);
+    const sameResponsavelName = Boolean(guestResponsavelName && existingResponsavelName === guestResponsavelName);
+
+    if (!sameResponsavelPhone && !sameResponsavelName) {
+      matchedGuest = null;
+      matchedBy = null;
+    }
+  }
+
   if (!matchedGuest && helpers?.existingContactId) {
     matchedGuest =
-      (existingGuests || []).find(
-        (existingGuest) => existingGuest.tenant_contato_id === helpers.existingContactId
-      ) || null;
+      (existingGuests || []).find((existingGuest) => {
+        if (existingGuest.tenant_contato_id !== helpers.existingContactId) return false;
+
+        const existingName = existingGuest.nome;
+        const existingPhone = cleanPhone(existingGuest.telefone);
+        const existingResponsavelPhone = cleanPhone(existingGuest.responsavel_telefone);
+        const existingGroupKey = normalizeTextKey(existingGuest.grupo);
+
+        const sameName = namesMatchForIdentity(guest.name, existingName);
+        const samePhone = Boolean(guestPhoneKey && existingPhone && existingPhone === guestPhoneKey);
+        const sameResponsavelPhone = Boolean(
+          responsavelPhoneKey &&
+            existingResponsavelPhone &&
+            existingResponsavelPhone === responsavelPhoneKey
+        );
+        const sameNucleo = Boolean(
+          existingGroupKey &&
+            importedNucleoKeys.size > 0 &&
+            importedNucleoKeys.has(existingGroupKey)
+        );
+
+        // Não considerar duplicado apenas por tenant_contato_id.
+        // Esse ID pode ter vindo de uma correspondência do CRM ou de núcleo/responsável
+        // e, quando é reaproveitado sem confirmar nome/telefone, bloqueia convidados novos.
+        return samePhone || sameName || (sameResponsavelPhone && sameNucleo);
+      }) || null;
 
     if (matchedGuest) matchedBy = "tenant_contato_id_evento";
   }
@@ -800,7 +894,7 @@ function findExistingGuestSmart(
 
         return (
           (existingPhone === responsavelPhoneKey || existingResponsavelPhone === responsavelPhoneKey) &&
-          namesAreSimilar(guest.name, existingGuest.nome)
+          namesMatchForIdentity(guest.name, existingGuest.nome)
         );
       }) || null;
 
@@ -816,7 +910,7 @@ function findExistingGuestSmart(
         return (
           (phoneMatchesAny(existingPhone, importedPrincipalPhones) ||
             phoneMatchesAny(existingResponsavelPhone, importedPrincipalPhones)) &&
-          namesAreSimilar(guest.name, existingGuest.nome)
+          namesMatchForIdentity(guest.name, existingGuest.nome)
         );
       }) || null;
 
@@ -827,7 +921,7 @@ function findExistingGuestSmart(
     matchedGuest =
       (existingGuests || []).find((existingGuest) => {
         const existingGroupKey = normalizeTextKey(existingGuest.grupo);
-        return existingGroupKey && importedNucleoKeys.has(existingGroupKey) && namesAreSimilar(guest.name, existingGuest.nome);
+        return existingGroupKey && importedNucleoKeys.has(existingGroupKey) && namesMatchForIdentity(guest.name, existingGuest.nome);
       }) || null;
 
     if (matchedGuest) matchedBy = isCrianca ? "crianca_nucleo" : "adulto_nucleo";
