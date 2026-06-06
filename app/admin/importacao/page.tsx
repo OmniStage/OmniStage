@@ -118,6 +118,16 @@ type MappedRow = {
   data_hora_envio: string;
 };
 
+type ImportRowDecision = "manter" | "atualizar" | "rejeitar" | "criar_novo";
+
+type FieldComparison = {
+  field: string;
+  label: string;
+  crmValue: string;
+  importValue: string;
+  severity: "complemento" | "divergencia" | "conflito";
+};
+
 const initialMapping: SheetMapping = {
   legacy_id: "",
   grupo: "",
@@ -164,6 +174,7 @@ export default function AdminImportacaoPage() {
   const [vcfFileName, setVcfFileName] = useState<string | null>(null);
   const [vcfContacts, setVcfContacts] = useState<VcfContact[]>([]);
   const [activeMode, setActiveMode] = useState<"texto" | "sheets" | "excel" | "vcf">("texto");
+  const [rowDecisions, setRowDecisions] = useState<Record<string, ImportRowDecision>>({});
 
   const hasSheetLoaded = sheetHeaders.length > 0 && sheetRows.length > 0;
 
@@ -246,6 +257,7 @@ export default function AdminImportacaoPage() {
     setPreview([]);
     setSelectedIds([]);
     setBatchId(null);
+    setRowDecisions({});
   }
 
   function cancelarPrevia() {
@@ -407,6 +419,214 @@ export default function AdminImportacaoPage() {
       .replace(/[\u0300-\u036f]/g, "")
       .toLocaleLowerCase("pt-BR")
       .trim();
+  }
+
+
+  function normalizarValorComparacao(value: any) {
+    if (value === null || value === undefined) return "";
+
+    if (typeof value === "boolean") {
+      return value ? "Sim" : "Não";
+    }
+
+    const text = String(value).trim();
+    return text.length > 0 ? text : "";
+  }
+
+  function getRawValue(rawData: any, keys: string[]) {
+    for (const key of keys) {
+      const value = rawData?.[key];
+      if (value !== null && value !== undefined && String(value).trim() !== "") {
+        return value;
+      }
+    }
+
+    return "";
+  }
+
+  function getNestedRawValue(rawData: any, paths: string[][]) {
+    for (const path of paths) {
+      let current = rawData;
+
+      for (const key of path) {
+        current = current?.[key];
+      }
+
+      if (current !== null && current !== undefined && String(current).trim() !== "") {
+        return current;
+      }
+    }
+
+    return "";
+  }
+
+  function montarComparacoesCampos(item: PreviewRow): FieldComparison[] {
+    const rawData = item.raw_data || {};
+    const explicitComparisons =
+      rawData.field_comparisons ||
+      rawData.comparacoes_campos ||
+      rawData.diferencas_campos ||
+      rawData.diff_fields ||
+      rawData.crm_differences ||
+      rawData.divergent_fields ||
+      [];
+
+    if (Array.isArray(explicitComparisons) && explicitComparisons.length > 0) {
+      return explicitComparisons
+        .map((field: any) => {
+          const fieldKey = String(field.field || field.campo || field.key || field.name || "");
+          const label = String(field.label || field.campo_label || fieldKey || "Campo");
+          const crmValue = normalizarValorComparacao(
+            field.crmValue ?? field.crm_value ?? field.valor_crm ?? field.current ?? field.atual ?? field.old
+          );
+          const importValue = normalizarValorComparacao(
+            field.importValue ?? field.import_value ?? field.valor_importacao ?? field.incoming ?? field.novo ?? field.new
+          );
+          const severity = String(field.severity || field.tipo || field.status || "divergencia");
+
+          return {
+            field: fieldKey || label,
+            label,
+            crmValue: crmValue || "vazio",
+            importValue: importValue || "vazio",
+            severity: severity === "conflito" || severity === "conflict"
+              ? "conflito"
+              : severity === "complemento" || severity === "complement" || severity === "update"
+              ? "complemento"
+              : "divergencia",
+          } as FieldComparison;
+        })
+        .filter((field: FieldComparison) => field.crmValue !== field.importValue);
+    }
+
+    const crmSnapshot = rawData.crm_contact || rawData.crm_snapshot || rawData.contato_crm || rawData.existing_contact || {};
+    const importSnapshot = rawData.import_snapshot || rawData.importacao || rawData.incoming_contact || rawData;
+
+    const definitions: Array<{
+      field: string;
+      label: string;
+      crmKeys: string[][];
+      importKeys: string[][];
+      critical?: boolean;
+    }> = [
+      {
+        field: "nome",
+        label: "Nome",
+        crmKeys: [["nome"], ["name"]],
+        importKeys: [["nome"], ["name"]],
+      },
+      {
+        field: "telefone",
+        label: "Telefone",
+        crmKeys: [["telefone"], ["telefone_normalizado"], ["phone"]],
+        importKeys: [["telefone"], ["phone"]],
+      },
+      {
+        field: "email",
+        label: "E-mail",
+        crmKeys: [["email"]],
+        importKeys: [["email"]],
+      },
+      {
+        field: "tipo_contato",
+        label: "Tipo contato",
+        crmKeys: [["tipo_contato"]],
+        importKeys: [["tipo_contato"]],
+      },
+      {
+        field: "responsavel_nome",
+        label: "Responsável",
+        crmKeys: [["responsavel_nome"], ["nome_responsavel"]],
+        importKeys: [["responsavel_nome"]],
+        critical: true,
+      },
+      {
+        field: "responsavel_telefone",
+        label: "Telefone responsável",
+        crmKeys: [["responsavel_telefone"], ["telefone_responsavel"]],
+        importKeys: [["responsavel_telefone"]],
+        critical: true,
+      },
+      {
+        field: "nucleo",
+        label: "Núcleo",
+        crmKeys: [["nucleo"], ["grupo"]],
+        importKeys: [["nucleo"], ["grupo"]],
+      },
+      {
+        field: "relacao_nucleo",
+        label: "Relação núcleo",
+        crmKeys: [["relacao_nucleo"]],
+        importKeys: [["relacao_nucleo"]],
+      },
+      {
+        field: "relacao_evento",
+        label: "Relação evento",
+        crmKeys: [["relacao_evento"]],
+        importKeys: [["relacao_evento"]],
+      },
+    ];
+
+    return definitions
+      .map((definition) => {
+        const crmValue = normalizarValorComparacao(getNestedRawValue(crmSnapshot, definition.crmKeys));
+        const importValue = normalizarValorComparacao(getNestedRawValue(importSnapshot, definition.importKeys));
+
+        if (!crmValue && !importValue) return null;
+
+        const normalizedCrm = normalizarTextoBusca(crmValue);
+        const normalizedImport = normalizarTextoBusca(importValue);
+
+        if (normalizedCrm === normalizedImport) return null;
+
+        let severity: FieldComparison["severity"] = "divergencia";
+
+        if (!crmValue && importValue) {
+          severity = "complemento";
+        } else if (definition.critical && crmValue && importValue) {
+          severity = "conflito";
+        }
+
+        return {
+          field: definition.field,
+          label: definition.label,
+          crmValue: crmValue || "vazio",
+          importValue: importValue || "vazio",
+          severity,
+        } as FieldComparison;
+      })
+      .filter(Boolean) as FieldComparison[];
+  }
+
+  function getPreviewStatus(item: PreviewRow) {
+    const rawData = item.raw_data || {};
+    const comparisons = montarComparacoesCampos(item);
+    const hasConflict =
+      comparisons.some((field) => field.severity === "conflito") ||
+      Boolean(rawData.has_conflict || rawData.tem_conflito || rawData.conflict);
+    const hasDivergence =
+      comparisons.some((field) => field.severity === "divergencia") ||
+      Boolean(rawData.has_divergence || rawData.tem_divergencia || rawData.divergence);
+    const hasComplement =
+      comparisons.some((field) => field.severity === "complemento") ||
+      Boolean(rawData.has_update || rawData.tem_atualizacao || rawData.has_complement);
+
+    if (hasConflict) return "conflito";
+    if (hasDivergence) return "divergencia";
+    if (hasComplement) return "complemento";
+    if (Boolean(rawData.crm_exists || rawData.event_exists || item.is_duplicate)) return "existente";
+    return "novo";
+  }
+
+  function aplicarDecisaoLinha(item: PreviewRow, decision: ImportRowDecision) {
+    setRowDecisions((prev) => ({ ...prev, [item.id]: decision }));
+
+    if (decision === "rejeitar" || decision === "manter") {
+      setSelectedIds((prev) => prev.filter((id) => id !== item.id));
+      return;
+    }
+
+    setSelectedIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
   }
 
   function linhaPareceCabecalho(row: string[]) {
@@ -983,6 +1203,7 @@ export default function AdminImportacaoPage() {
 
       setBatchId(result.batchId);
       setPreview(previewData);
+      setRowDecisions({});
       setSelectedIds(previewData.filter((item) => !item.is_duplicate).map((item) => item.id));
 
       await carregarHistorico(tenantId, eventoId);
@@ -1007,7 +1228,7 @@ export default function AdminImportacaoPage() {
     }
 
     const confirmacao = confirm(
-      `Confirmar importação de ${selectedIds.length} convidado(s)? Registros duplicados serão ignorados automaticamente.`
+      `Confirmar importação de ${selectedIds.length} convidado(s)? As decisões manuais da prévia serão enviadas junto com o lote.`
     );
 
     if (!confirmacao) return;
@@ -1024,6 +1245,7 @@ export default function AdminImportacaoPage() {
           eventoId,
           batchId,
           selectedIds,
+          rowDecisions,
         }),
       });
 
@@ -1084,6 +1306,7 @@ export default function AdminImportacaoPage() {
           tenantId,
           eventoId,
           batchId,
+          rowDecisions,
         }),
       });
 
@@ -1145,6 +1368,9 @@ export default function AdminImportacaoPage() {
   }, []);
 
   const totalDuplicados = preview.filter((item) => item.is_duplicate).length;
+  const totalConflitos = preview.filter((item) => getPreviewStatus(item) === "conflito").length;
+  const totalDivergencias = preview.filter((item) => getPreviewStatus(item) === "divergencia").length;
+  const totalComplementos = preview.filter((item) => getPreviewStatus(item) === "complemento").length;
   const totalValidos = preview.length - totalDuplicados;
   const totalSelecionados = selectedIds.length;
   const contatosComTelefone = vcfContacts.filter((item) => item.telefone).length;
@@ -1499,7 +1725,8 @@ export default function AdminImportacaoPage() {
 
             <span style={{ color: "#64748b", fontWeight: 800 }}>
               {totalSelecionados} selecionados · {totalValidos} válidos ·{" "}
-              {totalDuplicados} duplicados
+              {totalDuplicados} duplicados · {totalComplementos} atualizações ·{" "}
+              {totalDivergencias} divergências · {totalConflitos} conflitos
             </span>
           </div>
 
@@ -1530,6 +1757,10 @@ export default function AdminImportacaoPage() {
               const crmStatusLabel = crmExists ? "CRM: já existe" : "CRM: novo contato";
               const eventStatusLabel = eventExists ? "Evento: já existe" : "Evento: novo convidado";
               const matchLabel = rawData.matched_by ? `Busca: ${rawData.matched_by}` : null;
+              const fieldComparisons = montarComparacoesCampos(item);
+              const previewStatus = getPreviewStatus(item);
+              const rowDecision = rowDecisions[item.id];
+              const hasManualDecision = Boolean(rowDecision);
 
               return (
                 <article
@@ -1552,7 +1783,7 @@ export default function AdminImportacaoPage() {
                     <input
                       type="checkbox"
                       checked={checked}
-                      disabled={item.is_duplicate}
+                      disabled={rowDecision === "rejeitar" || rowDecision === "manter"}
                       onChange={() => toggleSelect(item.id)}
                       style={checkboxStyle}
                     />
@@ -1593,6 +1824,58 @@ export default function AdminImportacaoPage() {
                           </span>
                         )}
                       </div>
+
+                      {previewStatus !== "novo" && (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                          <span
+                            style={{
+                              ...badgeStyle,
+                              background:
+                                previewStatus === "conflito"
+                                  ? "#fee2e2"
+                                  : previewStatus === "divergencia"
+                                  ? "#fef3c7"
+                                  : previewStatus === "complemento"
+                                  ? "#dcfce7"
+                                  : "#e0f2fe",
+                              color:
+                                previewStatus === "conflito"
+                                  ? "#991b1b"
+                                  : previewStatus === "divergencia"
+                                  ? "#854d0e"
+                                  : previewStatus === "complemento"
+                                  ? "#166534"
+                                  : "#075985",
+                            }}
+                          >
+                            {previewStatus === "conflito"
+                              ? "Conflito: revisar antes de importar"
+                              : previewStatus === "divergencia"
+                              ? "Divergência: escolha manter ou atualizar"
+                              : previewStatus === "complemento"
+                              ? "Atualização possível: completar dados vazios"
+                              : "Registro existente"}
+                          </span>
+
+                          {hasManualDecision && (
+                            <span
+                              style={{
+                                ...badgeStyle,
+                                background: "#ede9fe",
+                                color: "#5b21b6",
+                              }}
+                            >
+                              Decisão: {rowDecision === "manter"
+                                ? "manter atual"
+                                : rowDecision === "atualizar"
+                                ? "atualizar"
+                                : rowDecision === "criar_novo"
+                                ? "criar novo"
+                                : "rejeitar"}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       <p style={{ color: "#64748b", margin: "6px 0 0" }}>
                         Legacy ID: {item.legacy_id || "sem ID"} · Telefone:{" "}
@@ -1648,6 +1931,115 @@ export default function AdminImportacaoPage() {
                         Data/Hora RSVP: {item.data_hora_rsvp || "-"} · Data/Hora Envio:{" "}
                         {item.data_hora_envio || "-"}
                       </p>
+
+                      {fieldComparisons.length > 0 && (
+                        <div
+                          style={{
+                            marginTop: 12,
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 14,
+                            overflow: "hidden",
+                            background: "#ffffff",
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: "10px 12px",
+                              background: "#f8fafc",
+                              color: "#0f172a",
+                              fontWeight: 900,
+                              fontSize: 13,
+                            }}
+                          >
+                            Campos divergentes / atualização
+                          </div>
+
+                          <div style={{ display: "grid" }}>
+                            {fieldComparisons.map((field) => (
+                              <div
+                                key={`${item.id}-${field.field}`}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "160px 1fr 1fr 120px",
+                                  gap: 10,
+                                  alignItems: "center",
+                                  padding: "10px 12px",
+                                  borderTop: "1px solid #e2e8f0",
+                                  fontSize: 13,
+                                }}
+                              >
+                                <strong style={{ color: "#334155" }}>{field.label}</strong>
+                                <span style={{ color: "#64748b" }}>CRM: {field.crmValue}</span>
+                                <span style={{ color: "#64748b" }}>Importação: {field.importValue}</span>
+                                <span
+                                  style={{
+                                    ...badgeStyle,
+                                    justifySelf: "start",
+                                    background:
+                                      field.severity === "conflito"
+                                        ? "#fee2e2"
+                                        : field.severity === "complemento"
+                                        ? "#dcfce7"
+                                        : "#fef3c7",
+                                    color:
+                                      field.severity === "conflito"
+                                        ? "#991b1b"
+                                        : field.severity === "complemento"
+                                        ? "#166534"
+                                        : "#854d0e",
+                                  }}
+                                >
+                                  {field.severity === "conflito"
+                                    ? "Conflito"
+                                    : field.severity === "complemento"
+                                    ? "Completar"
+                                    : "Divergência"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(crmExists || eventExists || fieldComparisons.length > 0) && (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                          <button
+                            type="button"
+                            onClick={() => aplicarDecisaoLinha(item, "manter")}
+                            disabled={loading}
+                            style={smallButtonStyle}
+                          >
+                            Manter atual
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => aplicarDecisaoLinha(item, "atualizar")}
+                            disabled={loading}
+                            style={smallButtonStyle}
+                          >
+                            Atualizar com importação
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => aplicarDecisaoLinha(item, "rejeitar")}
+                            disabled={loading}
+                            style={smallButtonStyle}
+                          >
+                            Rejeitar linha
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => aplicarDecisaoLinha(item, "criar_novo")}
+                            disabled={loading}
+                            style={smallButtonStyle}
+                          >
+                            Criar novo contato/convidado
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1666,7 +2058,19 @@ export default function AdminImportacaoPage() {
                         : "#166534",
                     }}
                   >
-                    {eventExists ? "Já existe no evento" : checked ? "Selecionado" : "OK"}
+                    {rowDecision === "manter"
+                      ? "Manter atual"
+                      : rowDecision === "atualizar"
+                      ? "Atualizar"
+                      : rowDecision === "rejeitar"
+                      ? "Rejeitado"
+                      : rowDecision === "criar_novo"
+                      ? "Criar novo"
+                      : eventExists
+                      ? "Já existe no evento"
+                      : checked
+                      ? "Selecionado"
+                      : "OK"}
                   </span>
                 </article>
               );
