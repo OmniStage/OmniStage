@@ -307,7 +307,7 @@ export default function EnviosPage() {
   const publicoCampanha = useMemo(() => {
     return convidados.filter(
       (convidado) =>
-        deveAparecerNoModuloEnvios(convidado) &&
+        deveAparecerNoModuloEnvios(convidado, campanha) &&
         campanha.filtrarPublico(convidado)
     );
   }, [convidados, campanha]);
@@ -362,8 +362,9 @@ export default function EnviosPage() {
     return convidadosFiltrados.filter((convidado) => {
       const telefoneOk = !!getTelefoneEnvio(convidado);
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
+      const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
-      return telefoneOk && !enviado && !estaNaFila;
+      return telefoneOk && !enviado && !confirmadoSemEnvioConvite && !estaNaFila;
     });
   }, [convidadosFiltrados, campanha, filaEnvios, tipoEnvio]);
 
@@ -1622,7 +1623,7 @@ function isConvidadoCrianca(convidado: Convidado) {
   return normalizado === "sim" || normalizado === "true" || normalizado === "1" || normalizado === "crianca";
 }
 
-function deveAparecerNoModuloEnvios(convidado: Convidado) {
+function isDependenteGrupoComEnvioViaResponsavel(convidado: Convidado) {
   const ehCrianca = isConvidadoCrianca(convidado);
   const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
   const ehConviteIndividual = tipoConvite === "individual";
@@ -1630,7 +1631,13 @@ function deveAparecerNoModuloEnvios(convidado: Convidado) {
     !!String(convidado.responsavel || "").trim() ||
     !!normalizarTelefone(convidado.responsavel_telefone);
 
-  if (ehCrianca && !ehConviteIndividual && temResponsavelEnvio) {
+  return ehCrianca && !ehConviteIndividual && temResponsavelEnvio;
+}
+
+function deveAparecerNoModuloEnvios(convidado: Convidado, campanha: Campanha) {
+  const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
+
+  if (isDependenteGrupoComEnvioViaResponsavel(convidado) && !confirmadoSemEnvioConvite) {
     return false;
   }
 
