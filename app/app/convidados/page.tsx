@@ -1917,7 +1917,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                         grupo: current.grupo,
                         contato_principal: tipo === "grupo" ? current.contato_principal : false,
                         recebe_convite: tipo === "grupo"
-                          ? temTelefoneEnvioFormulario(current) && current.recebe_convite
+                          ? current.recebe_convite
                           : true,
                       }));
                     }}
@@ -1951,7 +1951,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       const nucleoMarcado =
                         form.grupo.trim().toLowerCase() === nomeNucleo.trim().toLowerCase();
                       const convitePorNucleo = form.tipo_convite === "grupo";
-                      const temTelefoneSalvo = temTelefoneEnvioFormulario(form);
 
                       return (
                         <div
@@ -1978,8 +1977,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
                                   setForm((current) => {
                                     const convitePorNucleoAtual = current.tipo_convite === "grupo";
-                                    const temTelefoneSalvoAtual = temTelefoneEnvioFormulario(current);
-
                                     return {
                                       ...current,
                                       tipo_convite: current.tipo_convite,
@@ -1988,7 +1985,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                         ? current.contato_principal
                                         : false,
                                       recebe_convite: checked && convitePorNucleoAtual
-                                        ? temTelefoneSalvoAtual
+                                        ? current.recebe_convite
                                         : true,
                                     };
                                   });
@@ -2000,8 +1997,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             <label style={compactNucleoToggleStyle}>
                               <input
                                 type="checkbox"
-                                checked={convitePorNucleo && nucleoMarcado && form.recebe_convite && temTelefoneSalvo}
-                                disabled={!convitePorNucleo || !nucleoMarcado || !temTelefoneSalvo}
+                                checked={convitePorNucleo && nucleoMarcado && form.recebe_convite}
+                                disabled={!convitePorNucleo || !nucleoMarcado}
                                 onChange={(event) =>
                                   updateFormBoolean("recebe_convite", event.target.checked)
                                 }
@@ -4090,6 +4087,7 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
+
 
 
 
