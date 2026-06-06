@@ -176,15 +176,7 @@ async function ensureTenantContato(
   };
 
   if (existing?.id) {
-    const updatePayload: any = { updated_at: payload.updated_at };
-
-    if (payload.nome && valuesAreDifferent(payload.nome, existing.nome)) updatePayload.nome = payload.nome;
-    if (payload.telefone && !existing.telefone) updatePayload.telefone = payload.telefone;
-    if (payload.telefone_normalizado && !existing.telefone_normalizado) updatePayload.telefone_normalizado = payload.telefone_normalizado;
-    if (payload.email && !existing.email) updatePayload.email = payload.email;
-    if (payload.tipo_contato && valuesAreDifferent(payload.tipo_contato, existing.tipo_contato)) updatePayload.tipo_contato = payload.tipo_contato;
-    if (payload.responsavel_nome && !existing.responsavel_nome) updatePayload.responsavel_nome = payload.responsavel_nome;
-    if (payload.responsavel_telefone && !existing.responsavel_telefone) updatePayload.responsavel_telefone = payload.responsavel_telefone;
+    const updatePayload = buildSafeContactUpdatePayload(existing, payload);
 
     if (Object.keys(updatePayload).length > 1) {
       const { error: updateError } = await supabase
@@ -946,6 +938,297 @@ function valuesAreDifferent(newValue: unknown, oldValue: unknown) {
   return normalizedNew !== normalizedOld;
 }
 
+type FieldDifferenceType = "complemento" | "divergencia" | "conflito";
+
+type FieldDifference = {
+  scope: "crm" | "evento";
+  field: string;
+  label: string;
+  current_value: unknown;
+  incoming_value: unknown;
+  type: FieldDifferenceType;
+  suggested_action: "manter_atual" | "atualizar" | "revisar";
+};
+
+function getContactResponsavelPhone(contact: any) {
+  return cleanPhone(
+    contact?.responsavel_telefone ||
+      contact?.telefone_responsavel ||
+      contact?.responsavel?.telefone ||
+      undefined
+  );
+}
+
+function getContactResponsavelName(contact: any) {
+  return cleanText(
+    contact?.responsavel_nome ||
+      contact?.nome_responsavel ||
+      contact?.responsavel?.nome
+  );
+}
+
+function getGuestResponsavelName(guest: ImportGuest) {
+  return cleanText(guest.responsavel_nome || guest.mae);
+}
+
+function getGuestResponsavelPhone(guest: ImportGuest) {
+  return cleanPhone(guest.responsavel_telefone || undefined) || cleanText(guest.responsavel_telefone);
+}
+
+function getDiffType(field: string, incoming: unknown, current: unknown): FieldDifferenceType {
+  if (!cleanText(current)) return "complemento";
+
+  const normalizedIncoming = normalizeComparableValue(incoming);
+  const normalizedCurrent = normalizeComparableValue(current);
+  if (!normalizedIncoming || normalizedIncoming === normalizedCurrent) return "divergencia";
+
+  if (field.includes("telefone")) return "conflito";
+  if (field === "tipo_contato" || field === "crianca") return "conflito";
+
+  if (field === "nome" || field === "responsavel_nome" || field === "responsavel") {
+    return namesMatchForIdentity(incoming, current) ? "divergencia" : "conflito";
+  }
+
+  return "divergencia";
+}
+
+function addFieldDifference(
+  differences: FieldDifference[],
+  params: {
+    scope: "crm" | "evento";
+    field: string;
+    label: string;
+    currentValue: unknown;
+    incomingValue: unknown;
+  }
+) {
+  const incomingText = cleanText(params.incomingValue);
+  if (!incomingText) return;
+
+  const currentText = cleanText(params.currentValue);
+  const incomingPhone = params.field.includes("telefone") ? cleanPhone(String(params.incomingValue)) : null;
+  const currentPhone = params.field.includes("telefone") ? cleanPhone(String(params.currentValue || "")) : null;
+
+  const isSame = params.field.includes("telefone")
+    ? Boolean(incomingPhone && currentPhone && incomingPhone === currentPhone)
+    : normalizeComparableValue(params.incomingValue) === normalizeComparableValue(params.currentValue);
+
+  if (isSame) return;
+
+  const type = getDiffType(params.field, params.incomingValue, params.currentValue);
+
+  differences.push({
+    scope: params.scope,
+    field: params.field,
+    label: params.label,
+    current_value: currentText || null,
+    incoming_value: incomingText,
+    type,
+    suggested_action:
+      type === "complemento" ? "atualizar" : type === "divergencia" ? "manter_atual" : "revisar",
+  });
+}
+
+function buildImportReviewInfo(guest: ImportGuest, existingContact: any | null, existingGuest: any | null) {
+  const crmDifferences: FieldDifference[] = [];
+  const eventDifferences: FieldDifference[] = [];
+
+  const tipoContato = normalizeTipoContato(
+    guest.tipo_contato,
+    guest.crianca,
+    guest.mae || guest.responsavel_nome
+  );
+  const responsavelNome = getGuestResponsavelName(guest);
+  const responsavelTelefone = getGuestResponsavelPhone(guest);
+  const guestPhone = cleanPhone(guest.phone || undefined) || cleanText(guest.phone);
+  const guestNucleo = cleanText(guest.nucleo) || cleanText(guest.grupo);
+  const criancaValue = normalizeCrianca(guest.crianca, guest.mae || guest.responsavel_nome);
+
+  if (existingContact) {
+    addFieldDifference(crmDifferences, {
+      scope: "crm",
+      field: "nome",
+      label: "Nome",
+      currentValue: existingContact.nome,
+      incomingValue: guest.name,
+    });
+
+    addFieldDifference(crmDifferences, {
+      scope: "crm",
+      field: "telefone",
+      label: "Telefone",
+      currentValue: existingContact.telefone_normalizado || existingContact.telefone,
+      incomingValue: guestPhone,
+    });
+
+    addFieldDifference(crmDifferences, {
+      scope: "crm",
+      field: "email",
+      label: "E-mail",
+      currentValue: existingContact.email,
+      incomingValue: guest.email,
+    });
+
+    addFieldDifference(crmDifferences, {
+      scope: "crm",
+      field: "tipo_contato",
+      label: "Tipo de contato",
+      currentValue: existingContact.tipo_contato,
+      incomingValue: tipoContato,
+    });
+
+    if (tipoContato === "crianca") {
+      addFieldDifference(crmDifferences, {
+        scope: "crm",
+        field: "responsavel_nome",
+        label: "Responsável",
+        currentValue: getContactResponsavelName(existingContact),
+        incomingValue: responsavelNome,
+      });
+
+      addFieldDifference(crmDifferences, {
+        scope: "crm",
+        field: "responsavel_telefone",
+        label: "Telefone do responsável",
+        currentValue: getContactResponsavelPhone(existingContact),
+        incomingValue: responsavelTelefone,
+      });
+    }
+  }
+
+  if (existingGuest) {
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "nome",
+      label: "Nome no evento",
+      currentValue: existingGuest.nome,
+      incomingValue: guest.name,
+    });
+
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "telefone",
+      label: "Telefone no evento",
+      currentValue: existingGuest.telefone,
+      incomingValue: guestPhone,
+    });
+
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "grupo",
+      label: "Núcleo/Grupo no evento",
+      currentValue: existingGuest.grupo,
+      incomingValue: guestNucleo,
+    });
+
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "crianca",
+      label: "Criança",
+      currentValue: existingGuest.crianca,
+      incomingValue: criancaValue,
+    });
+
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "responsavel",
+      label: "Responsável no evento",
+      currentValue: existingGuest.responsavel,
+      incomingValue: responsavelNome,
+    });
+
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "responsavel_telefone",
+      label: "Telefone do responsável no evento",
+      currentValue: existingGuest.responsavel_telefone,
+      incomingValue: responsavelTelefone,
+    });
+
+    addFieldDifference(eventDifferences, {
+      scope: "evento",
+      field: "relacao_evento",
+      label: "Relação no evento",
+      currentValue: existingGuest.relacao_evento,
+      incomingValue: guest.relacao_evento,
+    });
+  }
+
+  const fieldDifferences = [...crmDifferences, ...eventDifferences];
+  const hasConflicts = fieldDifferences.some((item) => item.type === "conflito");
+  const hasDivergences = fieldDifferences.some((item) => item.type === "divergencia");
+  const hasComplements = fieldDifferences.some((item) => item.type === "complemento");
+
+  return {
+    crm_field_differences: crmDifferences,
+    event_field_differences: eventDifferences,
+    field_differences: fieldDifferences,
+    has_conflicts: hasConflicts,
+    has_divergences: hasDivergences,
+    has_complements: hasComplements,
+    review_required: hasConflicts || hasDivergences,
+    review_status: hasConflicts
+      ? "conflito"
+      : hasDivergences
+      ? "divergencia"
+      : hasComplements
+      ? "complementar"
+      : "sem_alteracao",
+    suggested_action: hasConflicts
+      ? "revisar"
+      : hasDivergences
+      ? "manter_atual"
+      : hasComplements
+      ? "atualizar_campos_vazios"
+      : "nenhuma",
+    crm_snapshot: existingContact
+      ? {
+          id: existingContact.id,
+          nome: existingContact.nome,
+          telefone: existingContact.telefone_normalizado || existingContact.telefone || null,
+          email: existingContact.email || null,
+          tipo_contato: existingContact.tipo_contato || null,
+          responsavel_nome: getContactResponsavelName(existingContact),
+          responsavel_telefone: getContactResponsavelPhone(existingContact),
+        }
+      : null,
+    event_snapshot: existingGuest
+      ? {
+          id: existingGuest.id,
+          nome: existingGuest.nome,
+          telefone: existingGuest.telefone || null,
+          grupo: existingGuest.grupo || null,
+          crianca: existingGuest.crianca || null,
+          responsavel: existingGuest.responsavel || null,
+          responsavel_telefone: existingGuest.responsavel_telefone || null,
+          tenant_contato_id: existingGuest.tenant_contato_id || null,
+          relacao_evento: existingGuest.relacao_evento || null,
+        }
+      : null,
+  };
+}
+
+function buildSafeContactUpdatePayload(existing: any, incoming: any) {
+  const updatePayload: any = { updated_at: new Date().toISOString() };
+
+  // Não degrada dados melhores do CRM com abreviações da planilha.
+  // Ex.: "ANTÔNIO TARDIN" não vira "ANTONIO".
+  if (incoming.telefone && !existing.telefone) updatePayload.telefone = incoming.telefone;
+  if (incoming.telefone_normalizado && !existing.telefone_normalizado) {
+    updatePayload.telefone_normalizado = incoming.telefone_normalizado;
+  }
+  if (incoming.email && !existing.email) updatePayload.email = incoming.email;
+  if (incoming.tipo_contato && !existing.tipo_contato) updatePayload.tipo_contato = incoming.tipo_contato;
+  if (incoming.responsavel_nome && !existing.responsavel_nome) {
+    updatePayload.responsavel_nome = incoming.responsavel_nome;
+  }
+  if (incoming.responsavel_telefone && !existing.responsavel_telefone) {
+    updatePayload.responsavel_telefone = incoming.responsavel_telefone;
+  }
+
+  return updatePayload;
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
@@ -1038,7 +1321,7 @@ export async function POST(req: Request) {
 
       const { data: existingGuests, error: existingGuestsError } = await supabase
         .from("convidados")
-        .select("id, nome, telefone, legacy_id, grupo, crianca, responsavel, responsavel_telefone, tenant_contato_id")
+        .select("id, nome, telefone, legacy_id, grupo, crianca, mae, idade_crianca, status_rsvp, status_envio, data_hora_rsvp, data_hora_envio, responsavel, responsavel_telefone, tenant_contato_id, relacao_evento")
         .eq("tenant_id", tenantId)
         .eq("evento_id", eventoId);
 
@@ -1051,7 +1334,7 @@ export async function POST(req: Request) {
 
       const { data: existingContacts, error: existingContactsError } = await supabase
         .from("tenant_contatos")
-        .select("id, nome, telefone, telefone_normalizado, responsavel_nome, responsavel_telefone, telefone_responsavel, nome_responsavel, tipo_contato")
+        .select("id, nome, telefone, telefone_normalizado, email, responsavel_nome, responsavel_telefone, telefone_responsavel, nome_responsavel, tipo_contato")
         .eq("tenant_id", tenantId);
 
       if (existingContactsError) {
@@ -1138,6 +1421,7 @@ export async function POST(req: Request) {
         const eventExists = Boolean(existingGuest);
         const crmExists = Boolean(existingContact);
         const sourceRaw = guest.raw || guest;
+        const reviewInfo = buildImportReviewInfo(guest, existingContact, existingGuest);
 
         return {
           batch_id: batch.id,
@@ -1188,6 +1472,7 @@ export async function POST(req: Request) {
               : existingContact
               ? crmMatchedBy || "crm"
               : "novo",
+            ...reviewInfo,
           },
         };
       });
@@ -1225,7 +1510,6 @@ export async function POST(req: Request) {
         evento_id: eventoId,
         batch_id: batch.id,
         tipo: "legacy_guests",
-        acao: "preview_import",
         origem: mappedRows.length > 0 ? "planilha_mapeada" : "texto_importado",
         total: previewRows.length,
       });
@@ -1432,7 +1716,6 @@ export async function POST(req: Request) {
         evento_id: eventoId,
         batch_id: batchId,
         tipo: "legacy_guests",
-        acao: "confirm_import",
         origem: rowsToInsert[0]?.origem_importacao || "planilha_legada",
         total: rowsToInsert.length,
       });
@@ -1488,12 +1771,34 @@ export async function POST(req: Request) {
 
       for (const item of duplicatedRows) {
         let existingGuest: any = null;
+        const raw = item.raw_data || {};
+        const eventGuestId = cleanText(raw.event_guest_id);
 
-        if (item.legacy_id) {
+        if (eventGuestId) {
           const { data, error } = await supabase
             .from("convidados")
             .select(
-              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca"
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca, responsavel, responsavel_telefone, relacao_evento"
+            )
+            .eq("tenant_id", tenantId)
+            .eq("evento_id", eventoId)
+            .eq("id", eventGuestId)
+            .maybeSingle();
+
+          if (error) {
+            errors.push(`Erro ao buscar convidado ${eventGuestId}: ${error.message}`);
+            ignored++;
+            continue;
+          }
+
+          existingGuest = data;
+        }
+
+        if (!existingGuest && item.legacy_id) {
+          const { data, error } = await supabase
+            .from("convidados")
+            .select(
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca, responsavel, responsavel_telefone, relacao_evento"
             )
             .eq("tenant_id", tenantId)
             .eq("evento_id", eventoId)
@@ -1513,7 +1818,7 @@ export async function POST(req: Request) {
           const { data, error } = await supabase
             .from("convidados")
             .select(
-              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca"
+              "id, telefone, legacy_id, tenant_id, evento_id, nome, grupo, status_rsvp, data_hora_rsvp, crianca, mae, idade_crianca, responsavel, responsavel_telefone, relacao_evento"
             )
             .eq("tenant_id", tenantId)
             .eq("evento_id", eventoId)
@@ -1563,6 +1868,18 @@ export async function POST(req: Request) {
           normalizeIdadeCrianca(item.idade_crianca),
           existingGuest.idade_crianca
         );
+
+        if (item.responsavel_nome && !existingGuest.responsavel) {
+          updatePayload.responsavel = item.responsavel_nome;
+        }
+
+        if (item.responsavel_telefone && !existingGuest.responsavel_telefone) {
+          updatePayload.responsavel_telefone = item.responsavel_telefone;
+        }
+
+        if (item.relacao_evento && !existingGuest.relacao_evento) {
+          updatePayload.relacao_evento = item.relacao_evento;
+        }
 
         if (Object.keys(updatePayload).length === 0) {
           unchanged++;
@@ -1624,7 +1941,6 @@ export async function POST(req: Request) {
         evento_id: eventoId,
         batch_id: batchId,
         tipo: "legacy_guests",
-        acao: "update_existing",
         origem: "planilha_atualizada",
         total: updated,
       });
