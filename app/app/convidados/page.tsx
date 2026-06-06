@@ -1951,6 +1951,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       const nucleoMarcado =
                         form.grupo.trim().toLowerCase() === nomeNucleo.trim().toLowerCase();
                       const convitePorNucleo = form.tipo_convite === "grupo";
+                      const telefoneConvidadoPreenchido =
+                        String(form.telefone || "").replace(/\D/g, "").length > 0;
 
                       return (
                         <div
@@ -1994,33 +1996,43 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               <span>{convitePorNucleo ? "Agrupar convite neste núcleo" : "Visualizar convite neste núcleo"}</span>
                             </label>
 
-                            <label style={compactNucleoToggleStyle}>
-                              <input
-                                type="checkbox"
-                                checked={convitePorNucleo && nucleoMarcado && form.recebe_convite}
-                                disabled={!convitePorNucleo || !nucleoMarcado}
-                                onChange={(event) =>
-                                  updateFormBoolean("recebe_convite", event.target.checked)
-                                }
-                              />
-                              <span>Recebe comunicação</span>
-                            </label>
+                            {convitePorNucleo && telefoneConvidadoPreenchido && (
+                              <label style={compactNucleoToggleStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={nucleoMarcado && form.recebe_convite}
+                                  disabled={!nucleoMarcado}
+                                  onChange={(event) =>
+                                    updateFormBoolean("recebe_convite", event.target.checked)
+                                  }
+                                />
+                                <span>Receber comunicação deste evento</span>
+                              </label>
+                            )}
 
-                            <label style={compactNucleoToggleStyle}>
-                              <input
-                                type="checkbox"
-                                checked={convitePorNucleo && nucleoMarcado && form.contato_principal}
-                                disabled={!convitePorNucleo || !nucleoMarcado}
-                                onChange={(event) => {
-                                  const checked = event.target.checked;
-                                  setForm((current) => ({
-                                    ...current,
-                                    contato_principal: checked,
-                                  }));
-                                }}
-                              />
-                              <span>Principal núcleo</span>
-                            </label>
+                            {convitePorNucleo && !telefoneConvidadoPreenchido && nucleoMarcado && (
+                              <span style={nucleoVinculadoConviteSubTextStyle}>
+                                Comunicação pelo principal do núcleo.
+                              </span>
+                            )}
+
+                            {convitePorNucleo && (
+                              <label style={compactNucleoToggleStyle}>
+                                <input
+                                  type="checkbox"
+                                  checked={nucleoMarcado && form.contato_principal}
+                                  disabled={!nucleoMarcado}
+                                  onChange={(event) => {
+                                    const checked = event.target.checked;
+                                    setForm((current) => ({
+                                      ...current,
+                                      contato_principal: checked,
+                                    }));
+                                  }}
+                                />
+                                <span>Principal núcleo</span>
+                              </label>
+                            )}
                           </div>
                         </div>
                       );
@@ -4087,7 +4099,6 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
-
 
 
 
