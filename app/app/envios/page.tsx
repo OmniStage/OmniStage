@@ -305,7 +305,11 @@ export default function EnviosPage() {
   }, [tipoEnvio]);
 
   const publicoCampanha = useMemo(() => {
-    return convidados.filter((convidado) => campanha.filtrarPublico(convidado));
+    return convidados.filter(
+      (convidado) =>
+        deveAparecerNoModuloEnvios(convidado) &&
+        campanha.filtrarPublico(convidado)
+    );
   }, [convidados, campanha]);
 
   const convidadosFiltrados = useMemo(() => {
@@ -1587,6 +1591,36 @@ function normalizarTipoConvite(tipo: string | null | undefined) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\s-]+/g, "_");
+}
+
+function isConvidadoCrianca(convidado: Convidado) {
+  const valor = convidado.crianca as boolean | string | number | null | undefined;
+
+  if (typeof valor === "boolean") return valor;
+  if (typeof valor === "number") return valor === 1;
+
+  const normalizado = String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  return normalizado === "sim" || normalizado === "true" || normalizado === "1" || normalizado === "crianca";
+}
+
+function deveAparecerNoModuloEnvios(convidado: Convidado) {
+  const ehCrianca = isConvidadoCrianca(convidado);
+  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+  const ehConviteIndividual = tipoConvite === "individual";
+  const temResponsavelEnvio =
+    !!String(convidado.responsavel || "").trim() ||
+    !!normalizarTelefone(convidado.responsavel_telefone);
+
+  if (ehCrianca && !ehConviteIndividual && temResponsavelEnvio) {
+    return false;
+  }
+
+  return true;
 }
 
 function extrairTokens(token: string | null | undefined) {
