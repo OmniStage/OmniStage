@@ -319,7 +319,8 @@ export default function EnviosPage() {
       const telefoneLimpo = getTelefoneEnvio(convidado);
       const statusAtual = getStatusEnvio(convidado, campanha);
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
-      const enviadoCardConvidado = statusAtual === "enviado_manual";
+      const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
+      const enviadoCardConvidado = statusAtual === "enviado_manual" || confirmadoSemEnvioConvite;
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
 
       const buscaOk =
@@ -339,7 +340,7 @@ export default function EnviosPage() {
       if (!buscaOk) return false;
 
       if (filtroStatus === "todos") return true;
-      if (filtroStatus === "a_enviar") return !enviado && !!telefoneLimpo && !estaNaFila;
+      if (filtroStatus === "a_enviar") return !enviado && !confirmadoSemEnvioConvite && !!telefoneLimpo && !estaNaFila;
       if (filtroStatus === "na_fila") return estaNaFila && !enviado;
       if (filtroStatus === "enviados") return enviado;
       if (filtroStatus === "card_convidado") return enviadoCardConvidado;
@@ -381,7 +382,10 @@ export default function EnviosPage() {
   const stats = useMemo(() => {
     const total = publicoCampanha.length;
     const enviados = publicoCampanha.filter((c) => isEnvioConsideradoEnviado(c, campanha)).length;
-    const enviadosCardConvidado = publicoCampanha.filter((c) => getStatusEnvio(c, campanha) === "enviado_manual").length;
+    const enviadosCardConvidado = publicoCampanha.filter((c) => {
+      const statusAtual = getStatusEnvio(c, campanha);
+      return statusAtual === "enviado_manual" || isConfirmadoSemEnvioConvite(c, campanha);
+    }).length;
     const semTelefone = publicoCampanha.filter((c) => !getTelefoneEnvio(c)).length;
     const naFila = publicoCampanha.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio)).length;
     const aEnviar = publicoCampanha.filter((c) => {
@@ -389,7 +393,9 @@ export default function EnviosPage() {
       const telefoneOk = !!getTelefoneEnvio(c);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio);
 
-      return !enviado && telefoneOk && !estaNaFila;
+      const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(c, campanha);
+
+      return !enviado && !confirmadoSemEnvioConvite && telefoneOk && !estaNaFila;
     }).length;
 
     return { total, enviados, enviadosCardConvidado, aEnviar, semTelefone, naFila };
@@ -1172,7 +1178,8 @@ export default function EnviosPage() {
             const statusAtual = getStatusEnvio(convidado, campanha);
             const envioImportado = isEnvioImportado(convidado, campanha);
             const enviado = isEnvioConsideradoEnviado(convidado, campanha);
-            const enviadoCardConvidado = statusAtual === "enviado_manual";
+            const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
+            const enviadoCardConvidado = statusAtual === "enviado_manual" || confirmadoSemEnvioConvite;
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
             const dataEnvio = getDataEnvio(convidado, campanha);
 
@@ -1558,6 +1565,13 @@ function isEnvioConsideradoEnviado(convidado: Convidado, campanha: Campanha) {
   }
 
   return isStatusEnviado(statusAtual) || !!dataEnvio;
+}
+
+
+function isConfirmadoSemEnvioConvite(convidado: Convidado, campanha: Campanha) {
+  if (campanha.key !== "convite") return false;
+
+  return isRsvpConfirmado(convidado.status_rsvp) && !isEnvioConsideradoEnviado(convidado, campanha);
 }
 
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
