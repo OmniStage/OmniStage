@@ -43,7 +43,7 @@ type LogItem = {
   mensagem: string;
 };
 
-type StatusFiltro = "todos" | "pendentes" | "entrou" | "entrou_sem_rsvp" | "sync";
+type StatusFiltro = "todos" | "rsvp_confirmado" | "pendentes" | "entrou" | "entrou_sem_rsvp" | "sync";
 type TipoFiltro = "todos" | "individual" | "grupo";
 
 type GrupoRender = {
@@ -1696,6 +1696,9 @@ export default function CheckinEventoPage({
           const grupoTemPendente = grupo.membros.some(
             (m) => !convidadoEntrou(m),
           );
+          const grupoTemRsvpConfirmado = grupo.membros.some(
+            (m) => normalizar(m.status_rsvp) === "confirmado",
+          );
           const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
           const grupoTemSync = grupo.membros.some(convidadoSync);
           const grupoTemEfeitoAtivo = grupo.membros.some(
@@ -1705,6 +1708,12 @@ export default function CheckinEventoPage({
           // Mantém o card visível enquanto a animação está rodando.
           // Isso resolve principalmente os individuais no filtro "pendentes",
           // que antes sumiam da lista no mesmo render em que recebiam o check-in.
+          if (
+            statusFiltro === "rsvp_confirmado" &&
+            !grupoTemRsvpConfirmado &&
+            !grupoTemEfeitoAtivo
+          )
+            return false;
           if (
             statusFiltro === "pendentes" &&
             !grupoTemPendente &&
@@ -2128,6 +2137,7 @@ export default function CheckinEventoPage({
             <div className="status-filter-buttons" aria-label="Filtro de status do check-in">
               {[
                 { value: "todos", label: "Todos" },
+                { value: "rsvp_confirmado", label: "RSVP confirmado" },
                 { value: "pendentes", label: "Pendentes" },
                 { value: "entrou", label: "Entrou" },
                 { value: "entrou_sem_rsvp", label: "Entrou sem RSVP", exception: true },
@@ -2741,5 +2751,6 @@ function Metric({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
 
    
