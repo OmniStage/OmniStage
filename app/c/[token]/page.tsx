@@ -928,14 +928,27 @@ export default function ConvitePublicoPage() {
 
     const idsDisponiveis = renderState.convidadoIds.filter(Boolean);
     const isConviteIndividual = idsDisponiveis.length <= 1;
+    const agora = new Date().toISOString();
 
-    const ids = isConviteIndividual
+    const idsConfirmados = isConviteIndividual
       ? idsDisponiveis
       : convidadosSelecionados.filter((id) => idsDisponiveis.includes(id));
 
-    if (!ids.length) {
-      window.alert("Selecione pelo menos um convidado para confirmar presença.");
+    const idsAusentes = isConviteIndividual
+      ? []
+      : idsDisponiveis.filter((id) => !idsConfirmados.includes(id));
+
+    if (!idsDisponiveis.length) {
+      window.alert("Não encontramos convidados disponíveis neste convite.");
       return;
+    }
+
+    if (!isConviteIndividual && !idsConfirmados.length) {
+      const confirmarTodosAusentes = window.confirm(
+        "Nenhum convidado ficou marcado. Deseja registrar ausência para todos?",
+      );
+
+      if (!confirmarTodosAusentes) return;
     }
 
     const efeitoConfirmacao = getConfirmationEffect(renderState.template);
@@ -953,16 +966,41 @@ export default function ConvitePublicoPage() {
       );
     }
 
-    const { error } = await supabase
-      .from("convidados")
-      .update({
-        status_rsvp: "confirmado",
-        data_resposta: new Date().toISOString(),
-      })
-      .in("id", ids);
+    const updates = [];
 
-    if (error) {
-      console.error("Erro ao confirmar presença:", error);
+    if (idsConfirmados.length) {
+      updates.push(
+        supabase
+          .from("convidados")
+          .update({
+            status_rsvp: "confirmado",
+            data_resposta: agora,
+          })
+          .in("id", idsConfirmados),
+      );
+    }
+
+    if (idsAusentes.length) {
+      updates.push(
+        supabase
+          .from("convidados")
+          .update({
+            status_rsvp: "ausente",
+            data_resposta: agora,
+          })
+          .in("id", idsAusentes),
+      );
+    }
+
+    const resultados = await Promise.all(updates);
+    const erro = resultados.find((resultado) => resultado.error)?.error;
+
+    if (erro) {
+      console.error("Erro ao confirmar presença:", erro);
+      window.alert("Não foi possível registrar a confirmação. Tente novamente.");
+      setConfirmandoPresenca(false);
+      setConfirmacaoAberta(false);
+      return;
     }
 
     setConfirmandoPresenca(false);
@@ -1202,10 +1240,10 @@ export default function ConvitePublicoPage() {
       }
 
       const convidadosConfirmacao = convidadosDoConvite.filter((item) => Boolean(item.id));
+      // RSVP em grupo: todos começam marcados por padrão.
+      // O convidado desmarca apenas quem não vai ao evento.
       setConvidadosSelecionados(
-        convidadosConfirmacao.length <= 1
-          ? convidadosConfirmacao.map((item) => item.id).filter(Boolean)
-          : [],
+        convidadosConfirmacao.map((item) => item.id).filter(Boolean),
       );
 
       setRenderState({
