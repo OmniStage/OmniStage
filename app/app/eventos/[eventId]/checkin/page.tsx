@@ -1696,9 +1696,7 @@ export default function CheckinEventoPage({
           const grupoTemPendente = grupo.membros.some(
             (m) => !convidadoEntrou(m),
           );
-          const grupoTemRsvpConfirmado = grupo.membros.some(
-            (m) => normalizar(m.status_rsvp) === "confirmado",
-          );
+          const grupoTemRsvpConfirmado = grupo.membros.some(convidadoConfirmado);
           const grupoTemEntrou = grupo.membros.some(convidadoEntrou);
           const grupoTemSync = grupo.membros.some(convidadoSync);
           const grupoTemEfeitoAtivo = grupo.membros.some(
@@ -2751,6 +2749,5 @@ function Metric({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-
 
    
