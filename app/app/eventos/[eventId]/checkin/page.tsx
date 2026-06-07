@@ -1654,10 +1654,27 @@ export default function CheckinEventoPage({
   const resumo = useMemo(() => {
     const total = convidados.length;
     const confirmados = convidados.filter(convidadoConfirmado).length;
+    const rsvpPendentes = convidados.filter(
+      (convidado) => !convidadoConfirmado(convidado) && !convidadoRecusou(convidado),
+    ).length;
+    const recusados = convidados.filter(convidadoRecusou).length;
     const sync = convidados.filter(convidadoSync).length;
     const entrou = convidados.filter(convidadoEntrou).length;
-    const pendentes = Math.max(total - entrou, 0);
-    return { total, confirmados, entrou, pendentes, sync };
+    const entrouSemRsvp = convidados.filter(convidadoEntrouExcecao).length;
+    const confirmadosSemEntrada = convidados.filter(
+      (convidado) => convidadoConfirmado(convidado) && !convidadoEntrou(convidado),
+    ).length;
+
+    return {
+      total,
+      confirmados,
+      rsvpPendentes,
+      recusados,
+      entrou,
+      entrouSemRsvp,
+      confirmadosSemEntrada,
+      sync,
+    };
   }, [convidados]);
 
   const gruposRender = useMemo<GrupoRender[]>(
@@ -1793,10 +1810,11 @@ export default function CheckinEventoPage({
         .btn.exception { background:linear-gradient(135deg,#9f1239,#d97706); color:white; border-color:transparent; box-shadow:0 14px 34px rgba(159,18,57,.2); }
         .btn.group { background:linear-gradient(135deg,#f4d38b,#d89d36); color:#17110a; border-color:transparent; }
         .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
-        .stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+        .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
         .stat { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:18px; box-shadow:0 12px 34px rgba(15,23,42,.05); }
         .stat-label { color:var(--muted); font-size:12px; font-weight:850; text-transform:uppercase; letter-spacing:.06em; }
         .stat-value { font-size:34px; line-height:1; font-weight:950; margin-top:8px; }
+        .stat-hint { margin-top:8px; color:var(--muted); font-size:12px; font-weight:750; line-height:1.3; }
         .main-grid { display:grid; grid-template-columns:430px minmax(0,1fr); gap:18px; align-items:start; }
         .panel { background:var(--card); border:1px solid var(--line); border-radius:26px; padding:18px; box-shadow:0 14px 42px rgba(15,23,42,.06); }
         .reader-box { position:relative; overflow:hidden; border-radius:22px; background:#020617; border:1px solid rgba(255,255,255,.12); aspect-ratio:1/1; display:block; }
@@ -2044,11 +2062,46 @@ export default function CheckinEventoPage({
       </header>
 
       <section className="stats">
-        <Metric label="Convidados" value={resumo.total} />
-        <Metric label="Confirmados" value={resumo.confirmados} />
-        <Metric label="Check-in" value={resumo.entrou} />
-        <Metric label="Pendentes" value={resumo.pendentes} />
-        <Metric label="Sync pendente" value={resumo.sync} />
+        <Metric
+          label="Convidados"
+          value={resumo.total}
+          hint="Total cadastrado no evento"
+        />
+        <Metric
+          label="RSVP confirmados"
+          value={resumo.confirmados}
+          hint="Confirmaram presença"
+        />
+        <Metric
+          label="Aguardando RSVP"
+          value={resumo.rsvpPendentes}
+          hint="Ainda não responderam"
+        />
+        <Metric
+          label="Check-in feito"
+          value={resumo.entrou}
+          hint="Já liberados na entrada"
+        />
+        <Metric
+          label="Falta entrar"
+          value={resumo.confirmadosSemEntrada}
+          hint="Confirmados que ainda não entraram"
+        />
+        <Metric
+          label="Entrou sem RSVP"
+          value={resumo.entrouSemRsvp}
+          hint="Entradas por exceção"
+        />
+        <Metric
+          label="Ausência RSVP"
+          value={resumo.recusados}
+          hint="Recusaram presença"
+        />
+        <Metric
+          label="Sync pendente"
+          value={resumo.sync}
+          hint="Aguardando sincronização"
+        />
       </section>
 
       <section className="main-grid">
@@ -2138,7 +2191,7 @@ export default function CheckinEventoPage({
               {[
                 { value: "todos", label: "Todos" },
                 { value: "rsvp_confirmado", label: "RSVP confirmado" },
-                { value: "pendentes", label: "Pendentes" },
+                { value: "pendentes", label: "Falta entrar" },
                 { value: "entrou", label: "Entrou" },
                 { value: "entrou_sem_rsvp", label: "Entrou sem RSVP", exception: true },
                 { value: "sync", label: "Sync pendente" },
@@ -2743,13 +2796,21 @@ export default function CheckinEventoPage({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+}) {
   return (
     <div className="stat">
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
+      {hint ? <div className="stat-hint">{hint}</div> : null}
     </div>
   );
 }
-
    
