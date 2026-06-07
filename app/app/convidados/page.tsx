@@ -32,6 +32,8 @@ type VinculoContatoNucleo = {
 
 type ContatoBaseConvidado = {
   id: string;
+  nome?: string | null;
+  telefone?: string | null;
   tipo_contato: string | null;
   responsavel_nome: string | null;
   responsavel_telefone: string | null;
@@ -1046,7 +1048,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
     const { data, error } = await supabase
       .from("tenant_contatos")
-      .select("id, tipo_contato, responsavel_nome, responsavel_telefone")
+      .select("id, nome, telefone, tipo_contato, responsavel_nome, responsavel_telefone")
       .eq("tenant_id", tenant)
       .in("id", contatosIds);
 
@@ -1156,10 +1158,20 @@ ${eventoAtual?.nome || "OmniStage"}`);
         : null;
       const contatoBaseEditandoEhCrianca = tipoContatoEhCrianca(contatoBaseEditando?.tipo_contato);
       const criancaFinal = criancaSelecionada || contatoBaseEditandoEhCrianca;
-      const responsavelFinal = responsavelNormalizado || maeNormalizada ||
-        (criancaFinal ? contatoBaseEditando?.responsavel_nome || "" : "");
-      const responsavelTelefoneFinal = responsavelTelefoneNormalizado ||
-        (criancaFinal ? contatoBaseEditando?.responsavel_telefone || "" : "");
+      const responsavelDoNucleo = criancaFinal
+        ? await buscarResponsavelPrincipalDoNucleo(convidadoEditando?.tenant_contato_id)
+        : null;
+      const responsavelFinal =
+        responsavelNormalizado ||
+        maeNormalizada ||
+        (criancaFinal ? contatoBaseEditando?.responsavel_nome || "" : "") ||
+        responsavelDoNucleo?.nome ||
+        "";
+      const responsavelTelefoneFinal =
+        responsavelTelefoneNormalizado ||
+        (criancaFinal ? contatoBaseEditando?.responsavel_telefone || "" : "") ||
+        responsavelDoNucleo?.telefone ||
+        "";
 
       const payload = {
         nome: form.nome.trim(),
@@ -1287,7 +1299,94 @@ ${eventoAtual?.nome || "OmniStage"}`);
     return { nucleo, vinculo: vinculoPrincipal };
   }
 
-  function editarConvidado(convidado: Convidado) {
+  async function buscarResponsavelPrincipalDoNucleo(
+    tenantContatoId: string | null | undefined,
+  ): Promise<{ nome: string; telefone: string } | null> {
+    if (!tenantId || !tenantContatoId) return null;
+
+    const vinculosDaCrianca = vinculosContatosPorPessoa.get(tenantContatoId) || [];
+    const gruposIds = Array.from(
+      new Set(vinculosDaCrianca.map((vinculo) => vinculo.grupo_contato_id).filter(Boolean)),
+    );
+
+    if (gruposIds.length === 0) return null;
+
+    const { data: membrosData, error: membrosError } = await supabase
+      .from("contato_grupo_membros")
+      .select(
+        `
+        id,
+        tenant_id,
+        grupo_contato_id,
+        tenant_contato_id,
+        papel,
+        papel_nucleo,
+        recebe_comunicacao,
+        principal_envio
+      `,
+      )
+      .eq("tenant_id", tenantId)
+      .in("grupo_contato_id", gruposIds);
+
+    if (membrosError) {
+      console.error("Erro ao buscar responsável do núcleo:", membrosError.message);
+      return null;
+    }
+
+    const membros = ((membrosData || []) as VinculoContatoNucleo[]).filter(
+      (membro) => membro.tenant_contato_id !== tenantContatoId,
+    );
+    const contatosIds = Array.from(
+      new Set(membros.map((membro) => membro.tenant_contato_id).filter(Boolean)),
+    );
+
+    if (contatosIds.length === 0) return null;
+
+    const { data: contatosData, error: contatosError } = await supabase
+      .from("tenant_contatos")
+      .select("id, nome, telefone, tipo_contato, responsavel_nome, responsavel_telefone")
+      .eq("tenant_id", tenantId)
+      .in("id", contatosIds);
+
+    if (contatosError) {
+      console.error("Erro ao carregar contatos do núcleo:", contatosError.message);
+      return null;
+    }
+
+    const contatosPorId = new Map(
+      ((contatosData || []) as ContatoBaseConvidado[]).map((contato) => [contato.id, contato]),
+    );
+
+    const candidatos = membros
+      .map((membro) => ({ membro, contato: contatosPorId.get(membro.tenant_contato_id) || null }))
+      .filter(({ contato }) => {
+        if (!contato) return false;
+        if (tipoContatoEhCrianca(contato.tipo_contato)) return false;
+        return Boolean(String(contato.telefone || "").replace(/\D/g, ""));
+      })
+      .sort((a, b) => {
+        const score = (item: { membro: VinculoContatoNucleo }) => {
+          const papel = getPapelVinculoContato(item.membro);
+          if (item.membro.principal_envio) return 0;
+          if (item.membro.recebe_comunicacao) return 1;
+          if (papel === "responsavel") return 2;
+          if (papel === "mae" || papel === "pai") return 3;
+          return 4;
+        };
+
+        return score(a) - score(b);
+      });
+
+    const selecionado = candidatos[0]?.contato;
+    if (!selecionado?.nome) return null;
+
+    return {
+      nome: selecionado.nome,
+      telefone: selecionado.telefone || "",
+    };
+  }
+
+  async function editarConvidado(convidado: Convidado) {
     formReturnScrollYRef.current = window.scrollY;
 
     const contatoBase = convidado.tenant_contato_id
@@ -1297,8 +1396,20 @@ ${eventoAtual?.nome || "OmniStage"}`);
     const grupoFinal = convidado.grupo || "";
     const contatoPrincipalFinal = convidado.contato_principal ?? false;
     const recebeConviteFinal = convidado.recebe_convite ?? true;
+    const responsavelDoNucleo = contatoBaseEhCrianca
+      ? await buscarResponsavelPrincipalDoNucleo(convidado.tenant_contato_id)
+      : null;
     const responsavelFinal =
-      convidado.responsavel || convidado.mae || contatoBase?.responsavel_nome || "";
+      convidado.responsavel ||
+      convidado.mae ||
+      contatoBase?.responsavel_nome ||
+      responsavelDoNucleo?.nome ||
+      "";
+    const responsavelTelefoneFinal =
+      convidado.responsavel_telefone ||
+      contatoBase?.responsavel_telefone ||
+      responsavelDoNucleo?.telefone ||
+      "";
 
     setEditandoId(convidado.id);
     setForm({
@@ -1310,7 +1421,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         ? "sim"
         : convidado.crianca || "",
       responsavel: responsavelFinal,
-      responsavel_telefone: convidado.responsavel_telefone || contatoBase?.responsavel_telefone || "",
+      responsavel_telefone: responsavelTelefoneFinal,
       mae: convidado.mae || "",
       idade_crianca: convidado.idade_crianca
         ? String(convidado.idade_crianca)
