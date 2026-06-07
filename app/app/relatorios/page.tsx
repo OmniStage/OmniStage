@@ -187,37 +187,38 @@ function normalizeText(value: any) {
     .toLowerCase();
 }
 
+function normalizePhone(value: any) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function isContatoCrianca(contato: any) {
+  const tipoContato = normalizeText(contato?.tipo_contato);
+  return tipoContato === "crianca" || tipoContato === "criancas" || tipoContato === "infantil";
+}
+
 function isCrianca(c: any) {
   const crianca = normalizeText(c.crianca);
   const tipoContato = normalizeText(c.tipo_contato);
+  const tipoConvidado = normalizeText(c.tipo_convidado);
+  const perfilConvidado = normalizeText(c.perfil_convidado);
   const perfil = normalizeText(c.perfil);
   const tipoPessoa = normalizeText(c.tipo_pessoa);
   const categoria = normalizeText(c.categoria);
 
+  const valoresCrianca = new Set(["sim", "s", "true", "1", "crianca", "criancas", "infantil", "menor"]);
+
   return (
-    crianca === "sim" ||
-    crianca === "s" ||
-    crianca === "true" ||
-    crianca === "1" ||
-    crianca === "crianca" ||
-    crianca === "criancas" ||
-    crianca === "infantil" ||
-    tipoContato === "crianca" ||
-    tipoContato === "criancas" ||
-    tipoContato === "infantil" ||
-    perfil === "crianca" ||
-    perfil === "criancas" ||
-    perfil === "infantil" ||
-    tipoPessoa === "crianca" ||
-    tipoPessoa === "criancas" ||
-    tipoPessoa === "infantil" ||
-    categoria === "crianca" ||
-    categoria === "criancas" ||
-    categoria === "infantil" ||
+    valoresCrianca.has(crianca) ||
+    valoresCrianca.has(tipoContato) ||
+    valoresCrianca.has(tipoConvidado) ||
+    valoresCrianca.has(perfilConvidado) ||
+    valoresCrianca.has(perfil) ||
+    valoresCrianca.has(tipoPessoa) ||
+    valoresCrianca.has(categoria) ||
     c.crianca === true ||
     c.is_crianca === true ||
     Number(c.idade_crianca || 0) > 0 ||
-    Number(c.idade || 0) > 0 && Number(c.idade || 0) < 18
+    (Number(c.idade || 0) > 0 && Number(c.idade || 0) < 18)
   );
 }
 
@@ -543,7 +544,55 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         .eq("evento_id", eventoSelecionado)
     : { data: [] };
 
-  const convidados = convidadosRes.data ?? [];
+  const convidadosBase = convidadosRes.data ?? [];
+
+  const contatosRes = tenantIds.length > 0
+    ? await supabase
+        .from("tenant_contatos")
+        .select("nome, telefone, tipo_contato, responsavel_nome, responsavel_telefone")
+        .in("tenant_id", tenantIds)
+    : { data: [] };
+
+  const contatos = contatosRes.data ?? [];
+  const contatosPorNome = new Map<string, any[]>();
+  const contatosPorTelefone = new Map<string, any[]>();
+
+  contatos.forEach((contato: any) => {
+    const nomeKey = normalizeText(contato.nome);
+    const telefoneKey = normalizePhone(contato.telefone);
+
+    if (nomeKey) {
+      const lista = contatosPorNome.get(nomeKey) ?? [];
+      lista.push(contato);
+      contatosPorNome.set(nomeKey, lista);
+    }
+
+    if (telefoneKey) {
+      const lista = contatosPorTelefone.get(telefoneKey) ?? [];
+      lista.push(contato);
+      contatosPorTelefone.set(telefoneKey, lista);
+    }
+  });
+
+  const convidados = convidadosBase.map((convidado: any) => {
+    const nomeKey = normalizeText(convidado.nome);
+    const telefoneKey = normalizePhone(convidado.telefone);
+    const contatosMesmoTelefone = telefoneKey ? contatosPorTelefone.get(telefoneKey) ?? [] : [];
+    const contatosMesmoNome = nomeKey ? contatosPorNome.get(nomeKey) ?? [] : [];
+    const contatoCrianca = [...contatosMesmoTelefone, ...contatosMesmoNome].find((contato: any) => isContatoCrianca(contato));
+    const contatoRelacionado = contatoCrianca || contatosMesmoTelefone[0] || contatosMesmoNome[0] || null;
+
+    if (!contatoRelacionado) return convidado;
+
+    return {
+      ...convidado,
+      tipo_contato: convidado.tipo_contato || contatoRelacionado.tipo_contato,
+      responsavel_nome: convidado.responsavel_nome || contatoRelacionado.responsavel_nome,
+      responsavel_telefone: convidado.responsavel_telefone || contatoRelacionado.responsavel_telefone,
+      contato_tipo_contato: contatoRelacionado.tipo_contato,
+    };
+  });
+
   const envios = enviosRes.data ?? [];
 
   const giftReservations = giftReservationsRes.data ?? [];
