@@ -16,9 +16,14 @@ type ModoVisualizacao = "grupo" | "individual";
 
 type Evento = {
   id: string;
+  tenant_id?: string | null;
   nome: string | null;
   data_evento?: string | null;
   status?: string | null;
+};
+
+type TenantMember = {
+  tenant_id: string | null;
 };
 
 type Convidado = {
@@ -45,6 +50,7 @@ type Stats = {
 
 export default function RsvpPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [eventoSelecionado, setEventoSelecionado] = useState<string>("todos");
   const [loadingEventos, setLoadingEventos] = useState(true);
   const [convidados, setConvidados] = useState<Convidado[]>([]);
@@ -60,27 +66,89 @@ export default function RsvpPage() {
 
   async function carregarEventos() {
     setLoadingEventos(true);
+    setLoading(true);
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !authData.user?.id) {
+      alert("Erro ao identificar usuário logado.");
+      setEventos([]);
+      setConvidados([]);
+      setTenantId(null);
+      setLoadingEventos(false);
+      setLoading(false);
+      return;
+    }
+
+    const { data: membroData, error: membroError } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", authData.user.id)
+      .limit(1);
+
+    if (membroError) {
+      alert("Erro ao carregar empresa do usuário: " + membroError.message);
+      setEventos([]);
+      setConvidados([]);
+      setTenantId(null);
+      setLoadingEventos(false);
+      setLoading(false);
+      return;
+    }
+
+    const membro = ((membroData || []) as TenantMember[])[0];
+    const tenantAtual = membro?.tenant_id || null;
+
+    if (!tenantAtual) {
+      setEventos([]);
+      setConvidados([]);
+      setTenantId(null);
+      setLoadingEventos(false);
+      setLoading(false);
+      return;
+    }
+
+    setTenantId(tenantAtual);
 
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome, data_evento, status")
+      .select("id, tenant_id, nome, data_evento, status")
+      .eq("tenant_id", tenantAtual)
       .order("data_evento", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
 
     if (error) {
       alert("Erro ao carregar eventos: " + error.message);
       setEventos([]);
+      setConvidados([]);
       setLoadingEventos(false);
+      setLoading(false);
       return;
     }
 
     const lista = (data || []) as Evento[];
     setEventos(lista);
+    setEventoSelecionado((atual) => {
+      if (atual === "todos") return atual;
+      return lista.some((evento) => evento.id === atual) ? atual : "todos";
+    });
     setLoadingEventos(false);
+    await carregarRsvp("todos", lista);
   }
 
-  async function carregarRsvp(eventoId = eventoSelecionado) {
+  async function carregarRsvp(
+    eventoId = eventoSelecionado,
+    eventosPermitidos = eventos,
+  ) {
     setLoading(true);
+
+    const eventosDoTenant = eventosPermitidos.map((evento) => evento.id);
+
+    if (eventosDoTenant.length === 0) {
+      setConvidados([]);
+      setLoading(false);
+      return;
+    }
 
     let query = supabase.from("convidados").select(`
         id,
@@ -98,7 +166,15 @@ export default function RsvpPage() {
       `);
 
     if (eventoId && eventoId !== "todos") {
+      if (!eventosDoTenant.includes(eventoId)) {
+        setConvidados([]);
+        setLoading(false);
+        return;
+      }
+
       query = query.eq("evento_id", eventoId);
+    } else {
+      query = query.in("evento_id", eventosDoTenant);
     }
 
     const { data, error } = await query
@@ -121,7 +197,8 @@ export default function RsvpPage() {
   }, []);
 
   useEffect(() => {
-    carregarRsvp(eventoSelecionado);
+    if (loadingEventos) return;
+    carregarRsvp(eventoSelecionado, eventos);
   }, [eventoSelecionado]);
 
   const stats = useMemo<Stats>(() => {
@@ -1489,4 +1566,3 @@ const emptyStyle: React.CSSProperties = {
   border: "1px dashed var(--line)",
   color: "var(--muted)",
 };
-
