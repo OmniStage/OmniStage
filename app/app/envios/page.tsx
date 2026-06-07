@@ -1430,7 +1430,7 @@ OmniStage`,
     filtrarPublico: (convidado) =>
       isRsvpConfirmado(convidado.status_rsvp) &&
       deveReceberCartaoEvento(convidado) &&
-      convidado.recebe_convite === true &&
+      recebeComunicacaoNesteEvento(convidado) &&
       !!getTelefoneEnvio(convidado) &&
       !!convidado.token,
     templatePadrao: `Olá {{nome}} ✨
@@ -1598,6 +1598,26 @@ function getTelefoneEnvio(convidado: Convidado) {
   return normalizarTelefone(convidado.telefone) || normalizarTelefone(convidado.responsavel_telefone);
 }
 
+function recebeComunicacaoNesteEvento(convidado: Convidado) {
+  const valor = convidado.recebe_convite as boolean | string | number | null | undefined;
+
+  if (typeof valor === "boolean") return valor;
+  if (typeof valor === "number") return valor !== 0;
+
+  const normalizado = String(valor ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (["false", "nao", "no", "0", "desmarcado"].includes(normalizado)) {
+    return false;
+  }
+
+  // Registros antigos podem estar com NULL. Só bloqueia quando estiver explicitamente desmarcado.
+  return true;
+}
+
 function isEnvioViaResponsavel(convidado: Convidado) {
   return !normalizarTelefone(convidado.telefone) && !!normalizarTelefone(convidado.responsavel_telefone);
 }
@@ -1639,6 +1659,13 @@ function isDependenteGrupoComEnvioViaResponsavel(convidado: Convidado) {
 
 function deveAparecerNoModuloEnvios(convidado: Convidado, campanha: Campanha) {
   const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
+
+  // Regra de comunicação do evento:
+  // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
+  // A comunicação do grupo deve ser enviada pelo Principal Núcleo que estiver marcado para receber.
+  if (!recebeComunicacaoNesteEvento(convidado)) {
+    return false;
+  }
 
   if (isDependenteGrupoComEnvioViaResponsavel(convidado) && !confirmadoSemEnvioConvite) {
     return false;
