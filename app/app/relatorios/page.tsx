@@ -189,6 +189,10 @@ function normalizeText(value: any) {
 
 function isCrianca(c: any) {
   const crianca = normalizeText(c.crianca);
+  const tipoContato = normalizeText(c.tipo_contato);
+  const perfil = normalizeText(c.perfil);
+  const tipoPessoa = normalizeText(c.tipo_pessoa);
+  const categoria = normalizeText(c.categoria);
 
   return (
     crianca === "sim" ||
@@ -198,9 +202,22 @@ function isCrianca(c: any) {
     crianca === "crianca" ||
     crianca === "criancas" ||
     crianca === "infantil" ||
+    tipoContato === "crianca" ||
+    tipoContato === "criancas" ||
+    tipoContato === "infantil" ||
+    perfil === "crianca" ||
+    perfil === "criancas" ||
+    perfil === "infantil" ||
+    tipoPessoa === "crianca" ||
+    tipoPessoa === "criancas" ||
+    tipoPessoa === "infantil" ||
+    categoria === "crianca" ||
+    categoria === "criancas" ||
+    categoria === "infantil" ||
     c.crianca === true ||
     c.is_crianca === true ||
-    Number(c.idade_crianca || 0) > 0
+    Number(c.idade_crianca || 0) > 0 ||
+    Number(c.idade || 0) > 0 && Number(c.idade || 0) < 18
   );
 }
 
@@ -456,13 +473,35 @@ function DetailCard({
 export default async function RelatoriosPage({ searchParams }: PageProps) {
   const supabase = await createClient();
 
-  const eventosRes = await supabase
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData?.user?.id || "";
+
+  const tenantMembersRes = userId
+    ? await supabase
+        .from("tenant_members")
+        .select("tenant_id")
+        .eq("user_id", userId)
+    : { data: [] };
+
+  const tenantIds = Array.from(
+    new Set((tenantMembersRes.data ?? []).map((member: any) => member.tenant_id).filter(Boolean)),
+  );
+
+  const eventosQuery = supabase
     .from("eventos")
-    .select("id, nome, data_evento, data_inicio, data_termino, hora_inicio, hora_termino")
+    .select("id, tenant_id, nome, data_evento, data_inicio, data_termino, hora_inicio, hora_termino")
     .order("data_evento", { ascending: false });
 
+  const eventosRes = tenantIds.length > 0
+    ? await eventosQuery.in("tenant_id", tenantIds)
+    : { data: [] };
+
   const eventos = eventosRes.data ?? [];
-  const eventoSelecionado = searchParams?.eventoId || eventos?.[0]?.id || "";
+  const eventosPermitidosIds = new Set(eventos.map((evento: any) => evento.id));
+  const eventoSolicitado = searchParams?.eventoId || "";
+  const eventoSelecionado = eventosPermitidosIds.has(eventoSolicitado)
+    ? eventoSolicitado
+    : eventos?.[0]?.id || "";
   const eventoAtual = eventos.find((evento: any) => evento.id === eventoSelecionado);
   const nomeEvento = eventoAtual?.nome || "Evento";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.omnistageproducoes.com.br";
@@ -1164,6 +1203,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 minWidth: 240,
               }}
             >
+              {eventos.length === 0 ? (
+                <option value="">Nenhum evento disponível</option>
+              ) : null}
+
               {eventos.map((evento: any) => (
                 <option key={evento.id} value={evento.id}>
                   {evento.nome}
