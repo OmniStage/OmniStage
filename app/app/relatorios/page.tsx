@@ -835,7 +835,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
     if (isCrianca(c)) atual.criancas += 1;
     else atual.adultos += 1;
     if (c.contato_principal === true) atual.principais += 1;
-    atual.convidados.push(c.nome || "Convidado");
+    atual.convidados.push({
+      nome: c.nome || "Convidado",
+      tipo: isCrianca(c) ? "criança" : "adulto",
+      token: c.token || "",
+      status: c.status_rsvp || "",
+    });
 
     gruposNoShowMap.set(grupoKey, atual);
   });
@@ -3088,6 +3093,31 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
                               {item.adultos} adulto(s) · {item.criancas} criança(s) · {item.principais} principal(is)
                             </small>
+                            <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                              {(item.convidados || []).map((convidado: any, convidadoIndex: number) => (
+                                <div
+                                  key={`${item.id || item.nome}-convidado-${convidadoIndex}`}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 10,
+                                    padding: "8px 10px",
+                                    borderRadius: 12,
+                                    background: "#fff",
+                                    border: "1px solid #e2e8f0",
+                                    color: "#334155",
+                                    fontSize: 12,
+                                    fontWeight: 850,
+                                  }}
+                                >
+                                  <span>{convidado?.nome || convidado || "Convidado"}</span>
+                                  <span style={{ color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" }}>
+                                    {convidado?.tipo || ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
 
                           <strong style={{ color: "#ea580c", fontSize: 14, fontWeight: 950, whiteSpace: "nowrap" }}>
@@ -3156,6 +3186,31 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
                               {item.adultos} adulto(s) · {item.criancas} criança(s) · {item.principais} principal(is)
                             </small>
+                            <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                              {(item.convidados || []).map((convidado: any, convidadoIndex: number) => (
+                                <div
+                                  key={`${item.id || item.nome}-convidado-${convidadoIndex}`}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 10,
+                                    padding: "8px 10px",
+                                    borderRadius: 12,
+                                    background: "#fff",
+                                    border: "1px solid #e2e8f0",
+                                    color: "#334155",
+                                    fontSize: 12,
+                                    fontWeight: 850,
+                                  }}
+                                >
+                                  <span>{convidado?.nome || convidado || "Convidado"}</span>
+                                  <span style={{ color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" }}>
+                                    {convidado?.tipo || ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
 
                           <strong style={{ color: "#ea580c", fontSize: 14, fontWeight: 950, whiteSpace: "nowrap" }}>
