@@ -34,6 +34,9 @@ type Evento = EventoConvite & {
   hora_inicio?: string | null;
   data_termino?: string | null;
   hora_termino?: string | null;
+  horario_termino?: string | null;
+  hora_fim?: string | null;
+  horario_fim?: string | null;
   music_file?: string | null;
   musica_url?: string | null;
 };
@@ -84,7 +87,13 @@ function getHoraEvento(evento: Evento | null) {
 }
 
 function getHoraTerminoEvento(evento: Evento | null) {
-  return evento?.hora_termino || null;
+  return (
+    evento?.hora_termino ||
+    evento?.horario_termino ||
+    evento?.hora_fim ||
+    evento?.horario_fim ||
+    null
+  );
 }
 
 function criarDataTerminoEvento(evento: Evento | null) {
@@ -433,6 +442,17 @@ function aplicarVariaveisPublicas(content: string | null, evento: Evento, nomes:
     .replaceAll("{{calendario_url}}", "Adicionar ao calendário")
     .replaceAll("{{qr_code}}", "QR")
     .replaceAll("{{logo_evento}}", "");
+}
+
+function aplicarVariaveisNosBlocos(
+  blocks: VisualBlock[],
+  evento: Evento,
+  nomes: string[],
+): VisualBlock[] {
+  return blocks.map((block) => ({
+    ...block,
+    content: aplicarVariaveisPublicas(block.content || "", evento, nomes),
+  }));
 }
 
 function getEventoPreview(evento: Evento, nomes: string[]) {
@@ -1290,7 +1310,14 @@ export default function ConvitePublicoPage() {
 
     return (
       <ConviteVisualRenderer
-        blocks={ajustarBlocosParaConvidados(renderState.blocks, renderState.nomes)}
+        blocks={ajustarBlocosParaConvidados(
+          aplicarVariaveisNosBlocos(
+            renderState.blocks,
+            renderState.evento,
+            renderState.nomes,
+          ),
+          renderState.nomes,
+        )}
         backgroundUrl={getBackgroundUrl(renderState.template, renderState.evento)}
         logoUrl={getLogoUrl(renderState.template, renderState.evento)}
         width={CANVAS_W}
