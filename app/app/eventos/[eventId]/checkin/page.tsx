@@ -1653,10 +1653,11 @@ export default function CheckinEventoPage({
 
   const resumo = useMemo(() => {
     const total = convidados.length;
+    const confirmados = convidados.filter(convidadoConfirmado).length;
     const sync = convidados.filter(convidadoSync).length;
     const entrou = convidados.filter(convidadoEntrou).length;
     const pendentes = Math.max(total - entrou, 0);
-    return { total, entrou, pendentes, sync };
+    return { total, confirmados, entrou, pendentes, sync };
   }, [convidados]);
 
   const gruposRender = useMemo<GrupoRender[]>(
@@ -1792,7 +1793,7 @@ export default function CheckinEventoPage({
         .btn.exception { background:linear-gradient(135deg,#9f1239,#d97706); color:white; border-color:transparent; box-shadow:0 14px 34px rgba(159,18,57,.2); }
         .btn.group { background:linear-gradient(135deg,#f4d38b,#d89d36); color:#17110a; border-color:transparent; }
         .btn:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
-        .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+        .stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
         .stat { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:18px; box-shadow:0 12px 34px rgba(15,23,42,.05); }
         .stat-label { color:var(--muted); font-size:12px; font-weight:850; text-transform:uppercase; letter-spacing:.06em; }
         .stat-value { font-size:34px; line-height:1; font-weight:950; margin-top:8px; }
@@ -2044,6 +2045,7 @@ export default function CheckinEventoPage({
 
       <section className="stats">
         <Metric label="Convidados" value={resumo.total} />
+        <Metric label="Confirmados" value={resumo.confirmados} />
         <Metric label="Check-in" value={resumo.entrou} />
         <Metric label="Pendentes" value={resumo.pendentes} />
         <Metric label="Sync pendente" value={resumo.sync} />
