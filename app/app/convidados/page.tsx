@@ -1135,7 +1135,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       const responsavelTelefoneNormalizado = form.responsavel_telefone.trim();
       const maeNormalizada = responsavelNormalizado || form.mae.trim();
       const idadeCriancaNormalizada = form.idade_crianca.trim();
-      const criancaSelecionada = form.crianca === "sim" || Boolean(idadeCriancaNormalizada);
+      const criancaSelecionada = form.crianca === "sim";
       const criancaSemGrupoViaResponsavel =
         criancaSelecionada && !grupoFinal && Boolean(responsavelNormalizado);
 
@@ -1157,7 +1157,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         ? contatosBasePorId.get(convidadoEditando.tenant_contato_id) || null
         : null;
       const contatoBaseEditandoEhCrianca = tipoContatoEhCrianca(contatoBaseEditando?.tipo_contato);
-      const criancaFinal = criancaSelecionada || contatoBaseEditandoEhCrianca;
+      const criancaFinal = criancaSelecionada;
       const responsavelDoNucleo = criancaFinal
         ? await buscarResponsavelPrincipalDoNucleo(convidadoEditando?.tenant_contato_id)
         : null;
@@ -1178,20 +1178,22 @@ ${eventoAtual?.nome || "OmniStage"}`);
         telefone: telefonePrincipal || null,
         email: form.email.trim() || null,
         grupo: grupoFinal || null,
-        crianca: criancaFinal || responsavelFinal ? "sim" : form.crianca,
-        mae: maeNormalizada || responsavelFinal || null,
-        responsavel: responsavelFinal || null,
-        responsavel_telefone: responsavelTelefoneFinal || null,
-        idade_crianca: idadeCriancaNormalizada
+        crianca: criancaFinal ? "sim" : null,
+        mae: criancaFinal ? maeNormalizada || responsavelFinal || null : null,
+        responsavel: criancaFinal ? responsavelFinal || null : null,
+        responsavel_telefone: criancaFinal ? responsavelTelefoneFinal || null : null,
+        idade_crianca: criancaFinal && idadeCriancaNormalizada
           ? Number(idadeCriancaNormalizada)
           : null,
         tamanho_chinelo: form.tamanho_chinelo.trim() || null,
         contato_principal: conviteEhGrupo && !criancaSemGrupoViaResponsavel ? form.contato_principal : false,
-        recebe_convite: criancaSemGrupoViaResponsavel
+        recebe_convite: criancaFinal && responsavelFinal
           ? true
-          : conviteEhGrupo
-            ? form.recebe_convite || form.contato_principal
-            : true,
+          : criancaSemGrupoViaResponsavel
+            ? true
+            : conviteEhGrupo
+              ? form.recebe_convite || form.contato_principal
+              : true,
         tipo_convite: conviteEhGrupo ? "grupo" : "individual",
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
@@ -1428,7 +1430,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         : "",
       tamanho_chinelo: convidado.tamanho_chinelo || "",
       contato_principal: Boolean(contatoPrincipalFinal),
-      recebe_convite: Boolean(recebeConviteFinal),
+      recebe_convite: Boolean((contatoBaseEhCrianca || convidado.crianca === "sim") && responsavelFinal ? true : recebeConviteFinal),
       tipo_convite: convidado.tipo_convite || "individual",
       observacoes: convidado.observacoes || "",
       status_rsvp: convidado.status_rsvp || "pendente",
@@ -1902,20 +1904,19 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     value={form.crianca === "sim" ? "crianca" : "adulto"}
                     onChange={(event) => {
                       const isCrianca = event.target.value === "crianca";
-                      setForm((current) => ({
-                        ...current,
-                        crianca: isCrianca ? "sim" : "",
-                        idade_crianca: isCrianca ? current.idade_crianca : "",
-                        responsavel: isCrianca ? current.responsavel : "",
-                        responsavel_telefone: isCrianca ? current.responsavel_telefone : "",
-                        mae: isCrianca ? current.mae : "",
-                        contato_principal:
-                          isCrianca && !current.grupo.trim() ? false : current.contato_principal,
-                        recebe_convite:
-                          isCrianca && !current.grupo.trim() && current.responsavel.trim()
-                            ? true
-                            : current.recebe_convite,
-                      }));
+                      setForm((current) => {
+                        const temResponsavel = Boolean(
+                          current.responsavel.trim() || current.responsavel_telefone.trim(),
+                        );
+
+                        return {
+                          ...current,
+                          crianca: isCrianca ? "sim" : "",
+                          contato_principal:
+                            isCrianca && !current.grupo.trim() ? false : current.contato_principal,
+                          recebe_convite: isCrianca && temResponsavel ? true : current.recebe_convite,
+                        };
+                      });
                     }}
                     style={inputStyle}
                   >
@@ -1962,7 +1963,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             responsavel,
                             mae: responsavel,
                             crianca: "sim",
-                            recebe_convite: Boolean(responsavel.trim()),
+                            recebe_convite: Boolean(responsavel.trim() || current.responsavel_telefone.trim()),
                             contato_principal: false,
                             tipo_convite: "individual",
                           }));
@@ -1976,9 +1977,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       <span>Telefone do responsável</span>
                       <input
                         value={form.responsavel_telefone}
-                        onChange={(event) =>
-                          updateForm("responsavel_telefone", event.target.value)
-                        }
+                        onChange={(event) => {
+                          const responsavelTelefone = event.target.value;
+                          setForm((current) => ({
+                            ...current,
+                            responsavel_telefone: responsavelTelefone,
+                            recebe_convite: Boolean(current.responsavel.trim() || responsavelTelefone.trim()),
+                          }));
+                        }}
                         placeholder="Ex: (22) 99999-9999"
                         style={inputStyle}
                       />
@@ -4210,6 +4216,7 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
+
 
 
 
