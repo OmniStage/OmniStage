@@ -16,6 +16,16 @@ type Stats = {
   enviosGrupo: number;
 };
 
+type Evento = {
+  id: string;
+  nome?: string | null;
+  titulo?: string | null;
+  nome_evento?: string | null;
+  data?: string | null;
+  data_evento?: string | null;
+  tenant_id?: string | null;
+};
+
 type Convidado = {
   id: string;
   nome: string | null;
@@ -36,6 +46,9 @@ type Convidado = {
   status_checkin: string | null;
   token?: string | null;
   created_at?: string | null;
+  evento_id?: string | null;
+  tipo_convidado?: string | null;
+  tipo_contato?: string | null;
   data_hora_rsvp?: string | null;
   data_resposta?: string | null;
   data_hora_checkin?: string | null;
@@ -71,6 +84,8 @@ export default function DashboardPage() {
   });
 
   const [convidados, setConvidados] = useState<Convidado[]>([]);
+  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventoSelecionadoId, setEventoSelecionadoId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<FiltroStatus>("todos");
   const [busca, setBusca] = useState("");
@@ -82,12 +97,88 @@ export default function DashboardPage() {
   const [pulseLive, setPulseLive] = useState(false);
   const statsAnteriorRef = useRef<Stats | null>(null);
 
-  async function carregarDashboard() {
+  async function carregarEventosPermitidos() {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !authData.user) {
+      throw new Error(authError?.message || "Usuário não autenticado.");
+    }
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", authData.user.id);
+
+    if (membershipError) {
+      throw new Error(membershipError.message);
+    }
+
+    const tenantIds = Array.from(
+      new Set((memberships || []).map((item) => item.tenant_id).filter(Boolean)),
+    );
+
+    if (tenantIds.length === 0) {
+      return [] as Evento[];
+    }
+
+    const { data: eventosPermitidos, error: eventosError } = await supabase
+      .from("eventos")
+      .select("*")
+      .in("tenant_id", tenantIds);
+
+    if (eventosError) {
+      throw new Error(eventosError.message);
+    }
+
+    return ((eventosPermitidos || []) as Evento[]).sort((a, b) =>
+      nomeEvento(a).localeCompare(nomeEvento(b), "pt-BR"),
+    );
+  }
+
+  async function inicializarDashboard() {
     setLoading(true);
+
+    try {
+      const eventosPermitidos = await carregarEventosPermitidos();
+      setEventos(eventosPermitidos);
+
+      const params = new URLSearchParams(window.location.search);
+      const eventoUrl = params.get("eventoId") || params.get("eventId") || "";
+      const eventoValido = eventosPermitidos.some((evento) => evento.id === eventoUrl);
+      const eventoInicial = eventoValido ? eventoUrl : eventosPermitidos[0]?.id || "";
+
+      setEventoSelecionadoId(eventoInicial);
+      await carregarDashboard(eventoInicial);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido.";
+      alert("Erro ao carregar dashboard: " + message);
+      setConvidados([]);
+      setStats(statsZeradas());
+      setLoading(false);
+    }
+  }
+
+  async function carregarDashboard(eventoIdParam = eventoSelecionadoId) {
+    setLoading(true);
+
+    if (!eventoIdParam) {
+      setConvidados([]);
+      setStats(statsZeradas());
+      setUltimaAtualizacao(
+        new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("convidados")
       .select("*")
+      .eq("evento_id", eventoIdParam)
       .order("grupo", { ascending: true, nullsFirst: false })
       .order("telefone", { ascending: false, nullsFirst: false })
       .order("nome", { ascending: true });
@@ -101,17 +192,17 @@ export default function DashboardPage() {
     const lista = (data || []) as Convidado[];
 
     const total = lista.length;
-    const confirmados = lista.filter((c) => c.status_rsvp === "confirmado").length;
-    const pendentes = lista.filter((c) => c.status_rsvp === "pendente").length;
-    const entradas = lista.filter((c) => c.status_checkin === "entrou").length;
-    const ausentes = lista.filter((c) => c.status_rsvp === "nao").length;
+    const confirmados = lista.filter((c) => statusRsvpNormalizado(c.status_rsvp) === "confirmado").length;
+    const pendentes = lista.filter((c) => statusRsvpNormalizado(c.status_rsvp) === "pendente").length;
+    const entradas = lista.filter((c) => statusCheckinNormalizado(c.status_checkin) === "entrou").length;
+    const ausentes = lista.filter((c) => statusRsvpNormalizado(c.status_rsvp) === "nao").length;
     const criancas = lista.filter((c) => convidadoEhCrianca(c)).length;
     const criancasViaResponsavel = lista.filter((c) =>
       convidadoEhCriancaViaResponsavel(c, lista)
     ).length;
     const contatosPrincipais = lista.filter((c) => {
       const temGrupo = Boolean((c.grupo || "").trim());
-      return temGrupo && c.tipo_convite !== "individual" && Boolean(c.contato_principal);
+      return temGrupo && normalizarTextoChave(c.tipo_convite) !== "individual" && Boolean(c.contato_principal);
     }).length;
     const enviosGrupo = lista.filter((c) => Boolean(c.recebe_convite)).length;
     const restantes = Math.max(confirmados - entradas, 0);
@@ -156,19 +247,27 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
+  function trocarEvento(eventoId: string) {
+    setEventoSelecionadoId(eventoId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("eventoId", eventoId);
+    window.history.replaceState({}, "", url.toString());
+    carregarDashboard(eventoId);
+  }
+
   useEffect(() => {
-    carregarDashboard();
+    inicializarDashboard();
   }, []);
 
   useEffect(() => {
     if (!modoAoVivo) return;
 
     const interval = window.setInterval(() => {
-      carregarDashboard();
+      carregarDashboard(eventoSelecionadoId);
     }, 10000);
 
     return () => window.clearInterval(interval);
-  }, [modoAoVivo]);
+  }, [modoAoVivo, eventoSelecionadoId]);
 
   const percentualConfirmados =
     stats.total > 0 ? Math.round((stats.confirmados / stats.total) * 100) : 0;
@@ -512,6 +611,23 @@ export default function DashboardPage() {
         </div>
 
         <div style={liveActionsStyle}>
+          <select
+            value={eventoSelecionadoId}
+            onChange={(e) => trocarEvento(e.target.value)}
+            style={eventSelectStyle}
+            disabled={eventos.length === 0 || loading}
+          >
+            {eventos.length === 0 ? (
+              <option value="">Nenhum evento disponível</option>
+            ) : (
+              eventos.map((evento) => (
+                <option key={evento.id} value={evento.id}>
+                  {nomeEvento(evento)}{dataEvento(evento) ? ` · ${dataEvento(evento)}` : ""}
+                </option>
+              ))
+            )}
+          </select>
+
           <div style={liveStatusStyle}>
             <span style={modoAoVivo ? liveDotActiveStyle : liveDotPausedStyle} />
             <span>{modoAoVivo ? "Ao vivo" : "Pausado"}</span>
@@ -525,7 +641,7 @@ export default function DashboardPage() {
             {modoAoVivo ? "Pausar ao vivo" : "Ativar ao vivo"}
           </button>
 
-          <button onClick={carregarDashboard} style={refreshButtonStyle}>
+          <button onClick={() => carregarDashboard(eventoSelecionadoId)} style={refreshButtonStyle}>
             {loading ? "Atualizando..." : "Atualizar agora"}
           </button>
         </div>
@@ -822,10 +938,10 @@ function GuestCard({
           {isCrianca && <span style={badgeStyle("#9333ea")}>Criança</span>}
           {isContatoPrincipal && <span style={outlineBadgeStyle("#7c3aed")}>Contato principal</span>}
           {recebeConvite && <span style={outlineBadgeStyle("#0f766e")}>Recebe convite</span>}
-          {convidado.status_checkin === "entrou" && <span style={badgeStyle("#2563eb")}>Entrou</span>}
-          {convidado.status_rsvp === "confirmado" && <span style={badgeStyle("#16a34a")}>Confirmado</span>}
-          {convidado.status_rsvp === "pendente" && <span style={badgeStyle("#f59e0b")}>Pendente</span>}
-          {convidado.status_rsvp === "nao" && <span style={badgeStyle("#dc2626")}>Ausência confirmada</span>}
+          {statusCheckinNormalizado(convidado.status_checkin) === "entrou" && <span style={badgeStyle("#2563eb")}>Entrou</span>}
+          {statusRsvpNormalizado(convidado.status_rsvp) === "confirmado" && <span style={badgeStyle("#16a34a")}>Confirmado</span>}
+          {statusRsvpNormalizado(convidado.status_rsvp) === "pendente" && <span style={badgeStyle("#f59e0b")}>Pendente</span>}
+          {statusRsvpNormalizado(convidado.status_rsvp) === "nao" && <span style={badgeStyle("#dc2626")}>Ausência confirmada</span>}
           <span className="omni-chevron" style={guestChevronStyle}>{aberto ? "⌃" : "⌄"}</span>
         </div>
       </button>
@@ -891,6 +1007,59 @@ function InfoBox({ label, value }: { label: string; value: string }) {
   );
 }
 
+function statsZeradas(): Stats {
+  return {
+    total: 0,
+    confirmados: 0,
+    pendentes: 0,
+    entradas: 0,
+    restantes: 0,
+    ausentes: 0,
+    criancas: 0,
+    criancasViaResponsavel: 0,
+    contatosPrincipais: 0,
+    enviosGrupo: 0,
+  };
+}
+
+function nomeEvento(evento: Evento) {
+  return evento.nome?.trim() || evento.titulo?.trim() || evento.nome_evento?.trim() || "Evento sem nome";
+}
+
+function dataEvento(evento: Evento) {
+  const raw = evento.data_evento || evento.data;
+  if (!raw) return "";
+
+  const date = new Date(`${String(raw).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("pt-BR");
+}
+
+function statusRsvpNormalizado(status: string | null | undefined) {
+  const texto = normalizarTextoChave(status);
+
+  if (["confirmado", "confirmada", "sim", "s", "yes", "confirmed"].includes(texto)) {
+    return "confirmado";
+  }
+
+  if (["nao", "não", "ausente", "ausencia", "ausencia confirmada", "recusado", "cancelado"].includes(texto)) {
+    return "nao";
+  }
+
+  return "pendente";
+}
+
+function statusCheckinNormalizado(status: string | null | undefined) {
+  const texto = normalizarTextoChave(status);
+
+  if (["entrou", "entrada", "checkin", "check-in", "presente"].includes(texto)) {
+    return "entrou";
+  }
+
+  return "nao_entrou";
+}
+
 function convidadoCombinaComBusca(convidado: Convidado, termo: string, todosConvidados: Convidado[]) {
   if (!termo) return true;
 
@@ -915,8 +1084,8 @@ function convidadoCombinaComBusca(convidado: Convidado, termo: string, todosConv
 
 function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus, todosConvidados: Convidado[]) {
   if (filtro === "todos") return true;
-  if (filtro === "confirmados") return convidado.status_rsvp === "confirmado";
-  if (filtro === "pendentes") return convidado.status_rsvp === "pendente";
+  if (filtro === "confirmados") return statusRsvpNormalizado(convidado.status_rsvp) === "confirmado";
+  if (filtro === "pendentes") return statusRsvpNormalizado(convidado.status_rsvp) === "pendente";
   if (filtro === "criancas") return convidadoEhCrianca(convidado);
   if (filtro === "criancas_responsavel") {
     return convidadoEhCriancaViaResponsavel(convidado, todosConvidados);
@@ -925,15 +1094,15 @@ function convidadoCombinaComFiltro(convidado: Convidado, filtro: FiltroStatus, t
   if (filtro === "individual") return !Boolean((convidado.grupo || "").trim());
   if (filtro === "contato_principal") {
     return Boolean((convidado.grupo || "").trim()) &&
-      convidado.tipo_convite !== "individual" &&
+      normalizarTextoChave(convidado.tipo_convite) !== "individual" &&
       Boolean(convidado.contato_principal);
   }
   if (filtro === "recebe_convite") return Boolean(convidado.recebe_convite);
-  if (filtro === "entraram") return convidado.status_checkin === "entrou";
+  if (filtro === "entraram") return statusCheckinNormalizado(convidado.status_checkin) === "entrou";
   if (filtro === "faltam") {
-    return convidado.status_rsvp === "confirmado" && convidado.status_checkin !== "entrou";
+    return statusRsvpNormalizado(convidado.status_rsvp) === "confirmado" && statusCheckinNormalizado(convidado.status_checkin) !== "entrou";
   }
-  if (filtro === "nao") return convidado.status_rsvp === "nao";
+  if (filtro === "nao") return statusRsvpNormalizado(convidado.status_rsvp) === "nao";
 
   return true;
 }
@@ -1000,10 +1169,14 @@ function normalizarTextoChave(value: string | null | undefined) {
 
 function convidadoEhCrianca(convidado: Convidado) {
   const crianca = normalizarTextoChave(convidado.crianca);
+  const tipoConvidado = normalizarTextoChave(convidado.tipo_convidado || convidado.tipo_contato);
+
   return (
     crianca === "sim" ||
     crianca === "s" ||
     crianca === "true" ||
+    tipoConvidado === "crianca" ||
+    tipoConvidado === "criança" ||
     Boolean(convidado.mae?.trim()) ||
     Boolean(convidado.responsavel?.trim()) ||
     Boolean(convidado.idade_crianca)
@@ -1040,17 +1213,18 @@ function nomesIntegrantes(lista: Convidado[]) {
 }
 
 function contarConfirmados(lista: Convidado[]) {
-  return lista.filter((c) => c.status_rsvp === "confirmado").length;
+  return lista.filter((c) => statusRsvpNormalizado(c.status_rsvp) === "confirmado").length;
 }
 
 function labelRsvp(status: string | null) {
-  if (status === "confirmado") return "Confirmado";
-  if (status === "nao") return "Ausência confirmada";
+  const normalizado = statusRsvpNormalizado(status);
+  if (normalizado === "confirmado") return "Confirmado";
+  if (normalizado === "nao") return "Ausência confirmada";
   return "Pendente";
 }
 
 function labelCheckin(status: string | null) {
-  if (status === "entrou") return "Entrou";
+  if (statusCheckinNormalizado(status) === "entrou") return "Entrou";
   return "Não entrou";
 }
 
@@ -1150,6 +1324,18 @@ const liveActionsStyle: React.CSSProperties = {
   justifyContent: "flex-end",
   gap: 10,
   flexWrap: "wrap",
+};
+
+const eventSelectStyle: React.CSSProperties = {
+  minWidth: 240,
+  maxWidth: 360,
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
+  fontWeight: 900,
+  outline: "none",
 };
 
 const liveStatusStyle: React.CSSProperties = {
