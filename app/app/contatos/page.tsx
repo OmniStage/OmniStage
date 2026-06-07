@@ -485,6 +485,8 @@ export default function ContatosPage() {
 
   function abrirEditarPessoa(pessoa: Pessoa) {
     const vinculoAtual = (membrosPorPessoa.get(pessoa.id) || [])[0] || null;
+    const responsavelEfetivo = getResponsavelEfetivoDaPessoa(pessoa, vinculoAtual?.grupo_contato_id);
+    const perfilContato = normalizarPerfilContato(pessoa.tipo_contato);
 
     setPessoaSelecionada(pessoa);
     setNucleoSelecionado(null);
@@ -492,9 +494,9 @@ export default function ContatosPage() {
       nome: pessoa.nome || "",
       telefone: pessoa.telefone || "",
       email: pessoa.email || "",
-      tipo_contato: normalizarPerfilContato(pessoa.tipo_contato),
-      responsavel_nome: pessoa.responsavel_nome || "",
-      responsavel_telefone: pessoa.responsavel_telefone || "",
+      tipo_contato: perfilContato,
+      responsavel_nome: perfilContato === "crianca" ? responsavelEfetivo?.nome || "" : "",
+      responsavel_telefone: perfilContato === "crianca" ? responsavelEfetivo?.telefone || "" : "",
       consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
     });
 
@@ -502,7 +504,7 @@ export default function ContatosPage() {
       setVinculoNucleoId(vinculoAtual.grupo_contato_id || "");
       setVinculoPessoaId("");
       setVinculoRelacao(getPapelMembro(vinculoAtual));
-      setVinculoRecebeComunicacao(Boolean(vinculoAtual.recebe_comunicacao));
+      setVinculoRecebeComunicacao(Boolean(vinculoAtual.recebe_comunicacao || (perfilContato === "crianca" && responsavelEfetivo)));
       setVinculoPrincipalEnvio(Boolean(vinculoAtual.principal_envio));
     } else {
       limparFormularioVinculo();
@@ -602,23 +604,88 @@ export default function ContatosPage() {
     mostrarFeedback("info", titulo, mensagem);
   }
 
-  function getResponsavelPrincipalDoNucleo(nucleoId: string) {
+  function isPessoaCrianca(pessoa: Pessoa | null | undefined) {
+    return normalizarPerfilContato(pessoa?.tipo_contato) === "crianca";
+  }
+
+  function isPapelCrianca(papel: string | null | undefined) {
+    const papelNormalizado = String(papel || "").trim().toLowerCase();
+    return ["crianca", "criança", "filho", "filha", "neto", "neta", "aluno", "aluna"].includes(papelNormalizado);
+  }
+
+  function getResponsavelPrincipalDoNucleo(nucleoId: string, excludePessoaId?: string) {
     const vinculos = membrosPorNucleo.get(nucleoId) || [];
 
-    const vinculoResponsavel =
-      vinculos.find((membro) => Boolean(membro.principal_envio)) ||
-      vinculos.find((membro) => getPapelMembro(membro) === "responsavel") ||
-      vinculos.find((membro) => Boolean(pessoasPorId.get(membro.tenant_contato_id)?.telefone));
+    const candidatos = vinculos.filter((membro) => {
+      if (excludePessoaId && membro.tenant_contato_id === excludePessoaId) return false;
+      return Boolean(pessoasPorId.get(membro.tenant_contato_id));
+    });
 
+    const porPrioridade = [
+      candidatos.find((membro) => Boolean(membro.principal_envio) && !isPessoaCrianca(pessoasPorId.get(membro.tenant_contato_id))),
+      candidatos.find((membro) => getPapelMembro(membro) === "responsavel" && !isPessoaCrianca(pessoasPorId.get(membro.tenant_contato_id))),
+      candidatos.find((membro) => Boolean(membro.recebe_comunicacao) && !isPessoaCrianca(pessoasPorId.get(membro.tenant_contato_id))),
+      candidatos.find((membro) => Boolean(pessoasPorId.get(membro.tenant_contato_id)?.telefone) && !isPessoaCrianca(pessoasPorId.get(membro.tenant_contato_id))),
+      candidatos.find((membro) => Boolean(membro.principal_envio)),
+      candidatos.find((membro) => getPapelMembro(membro) === "responsavel"),
+      candidatos.find((membro) => Boolean(membro.recebe_comunicacao)),
+      candidatos.find((membro) => Boolean(pessoasPorId.get(membro.tenant_contato_id)?.telefone)),
+    ].filter(Boolean) as MembroNucleo[];
+
+    const vinculoResponsavel = porPrioridade[0] || null;
     if (!vinculoResponsavel) return null;
 
     return pessoasPorId.get(vinculoResponsavel.tenant_contato_id) || null;
   }
 
+  function getResponsavelEfetivoDaPessoa(pessoa: Pessoa, nucleoPreferencialId?: string) {
+    const responsavelDiretoNome = pessoa.responsavel_nome?.trim() || "";
+    const responsavelDiretoTelefone = pessoa.responsavel_telefone?.trim() || "";
+
+    if (responsavelDiretoNome || responsavelDiretoTelefone) {
+      return {
+        nome: responsavelDiretoNome,
+        telefone: responsavelDiretoTelefone,
+        origem: "contato" as const,
+        nucleoId: null as string | null,
+        nucleoNome: null as string | null,
+      };
+    }
+
+    if (!isPessoaCrianca(pessoa)) return null;
+
+    const vinculos = membrosPorPessoa.get(pessoa.id) || [];
+    const vinculosOrdenados = nucleoPreferencialId
+      ? [
+          ...vinculos.filter((membro) => membro.grupo_contato_id === nucleoPreferencialId),
+          ...vinculos.filter((membro) => membro.grupo_contato_id !== nucleoPreferencialId),
+        ]
+      : vinculos;
+
+    for (const vinculo of vinculosOrdenados) {
+      const responsavel = getResponsavelPrincipalDoNucleo(vinculo.grupo_contato_id, pessoa.id);
+      if (!responsavel) continue;
+
+      const nome = responsavel.nome?.trim() || "";
+      const telefone = responsavel.telefone?.trim() || "";
+      if (!nome && !telefone) continue;
+
+      return {
+        nome,
+        telefone,
+        origem: "nucleo" as const,
+        nucleoId: vinculo.grupo_contato_id,
+        nucleoNome: nucleosPorId.get(vinculo.grupo_contato_id)?.nome || null,
+      };
+    }
+
+    return null;
+  }
+
   function preencherResponsavelPorNucleo(nucleoId: string) {
     if (!nucleoId) return;
 
-    const responsavel = getResponsavelPrincipalDoNucleo(nucleoId);
+    const responsavel = getResponsavelPrincipalDoNucleo(nucleoId, pessoaSelecionada?.id);
     if (!responsavel) return;
 
     setPessoaForm((current) => {
@@ -630,6 +697,8 @@ export default function ContatosPage() {
         responsavel_telefone: responsavel.telefone || current.responsavel_telefone,
       };
     });
+
+    setVinculoRecebeComunicacao(true);
   }
 
   function selecionarNucleoInicialPessoa(nucleoId: string) {
@@ -638,6 +707,7 @@ export default function ContatosPage() {
     if (nucleoId && normalizarPerfilContato(pessoaForm.tipo_contato) === "crianca") {
       if (vinculoRelacao === "membro") setVinculoRelacao("filho");
       preencherResponsavelPorNucleo(nucleoId);
+      setVinculoRecebeComunicacao(true);
     }
   }
 
@@ -645,18 +715,22 @@ export default function ContatosPage() {
     if (field === "tipo_contato") {
       const perfil = normalizarPerfilContato(String(value));
       const responsavelDoNucleo = perfil === "crianca" && vinculoNucleoId
-        ? getResponsavelPrincipalDoNucleo(vinculoNucleoId)
+        ? getResponsavelPrincipalDoNucleo(vinculoNucleoId, pessoaSelecionada?.id)
         : null;
 
       setPessoaForm((current) => ({
         ...current,
         tipo_contato: perfil,
-        responsavel_nome: perfil === "crianca" ? responsavelDoNucleo?.nome || current.responsavel_nome : "",
-        responsavel_telefone: perfil === "crianca" ? responsavelDoNucleo?.telefone || current.responsavel_telefone : "",
+        responsavel_nome: perfil === "crianca" ? responsavelDoNucleo?.nome || current.responsavel_nome : current.responsavel_nome,
+        responsavel_telefone: perfil === "crianca" ? responsavelDoNucleo?.telefone || current.responsavel_telefone : current.responsavel_telefone,
       }));
 
       if (perfil === "crianca" && vinculoRelacao === "membro") {
         setVinculoRelacao("filho");
+      }
+
+      if (perfil === "crianca" && responsavelDoNucleo) {
+        setVinculoRecebeComunicacao(true);
       }
 
       return;
@@ -720,6 +794,18 @@ export default function ContatosPage() {
         telefoneNormalizado,
         ignorarPessoaId: pessoaSelecionada?.id,
       });
+      const responsavelDoNucleo = isCrianca && vinculoNucleoId
+        ? getResponsavelPrincipalDoNucleo(vinculoNucleoId, pessoaSelecionada?.id)
+        : null;
+      const responsavelFinalNome = isCrianca
+        ? pessoaForm.responsavel_nome.trim() || responsavelDoNucleo?.nome?.trim() || ""
+        : "";
+      const responsavelFinalTelefone = isCrianca
+        ? pessoaForm.responsavel_telefone.trim() || responsavelDoNucleo?.telefone?.trim() || ""
+        : "";
+      const recebeComunicacaoFinal = isCrianca && (responsavelFinalNome || responsavelFinalTelefone)
+        ? true
+        : vinculoRecebeComunicacao;
 
       if (contatoExistente) {
         mostrarInfo(
@@ -735,8 +821,8 @@ export default function ContatosPage() {
         telefone_normalizado: telefoneNormalizado || null,
         email: pessoaForm.email.trim() || null,
         tipo_contato: perfilContato,
-        responsavel_nome: isCrianca ? pessoaForm.responsavel_nome.trim() || null : null,
-        responsavel_telefone: isCrianca ? pessoaForm.responsavel_telefone.trim() || null : null,
+        responsavel_nome: isCrianca ? responsavelFinalNome || null : null,
+        responsavel_telefone: isCrianca ? responsavelFinalTelefone || null : null,
         consentimento_comunicacao: pessoaForm.consentimento_comunicacao,
         updated_at: new Date().toISOString(),
       };
@@ -787,8 +873,8 @@ export default function ContatosPage() {
             .update({
               papel: relacaoFinal,
               papel_nucleo: relacaoFinal,
-              recebe_comunicacao: vinculoRecebeComunicacao,
-              principal_envio: vinculoPrincipalEnvio,
+              recebe_comunicacao: recebeComunicacaoFinal,
+              principal_envio: isCrianca ? false : vinculoPrincipalEnvio,
               updated_at: new Date().toISOString(),
             })
             .eq("id", vinculoExistente.id)
@@ -802,8 +888,8 @@ export default function ContatosPage() {
             tenant_contato_id: pessoaIdSalva,
             papel: relacaoFinal,
             papel_nucleo: relacaoFinal,
-            recebe_comunicacao: vinculoRecebeComunicacao,
-            principal_envio: vinculoPrincipalEnvio,
+            recebe_comunicacao: recebeComunicacaoFinal,
+            principal_envio: isCrianca ? false : vinculoPrincipalEnvio,
           });
 
           if (vinculoError) throw new Error(vinculoError.message);
@@ -1040,6 +1126,13 @@ export default function ContatosPage() {
         membro.tenant_contato_id === pessoaSelecionada.id &&
         membro.grupo_contato_id === vinculoNucleoId,
     );
+    const isCrianca = isPessoaCrianca(pessoaSelecionada);
+    const responsavelDoNucleo = isCrianca
+      ? getResponsavelPrincipalDoNucleo(vinculoNucleoId, pessoaSelecionada.id)
+      : null;
+    const recebeComunicacaoFinal = isCrianca && responsavelDoNucleo
+      ? true
+      : vinculoRecebeComunicacao;
 
     setAcaoLoading(true);
 
@@ -1050,8 +1143,8 @@ export default function ContatosPage() {
           .update({
             papel: vinculoRelacao.trim(),
             papel_nucleo: vinculoRelacao.trim(),
-            recebe_comunicacao: vinculoRecebeComunicacao,
-            principal_envio: vinculoPrincipalEnvio,
+            recebe_comunicacao: recebeComunicacaoFinal,
+            principal_envio: isCrianca ? false : vinculoPrincipalEnvio,
             updated_at: new Date().toISOString(),
           })
           .eq("id", vinculoExistente.id)
@@ -1071,8 +1164,8 @@ export default function ContatosPage() {
         tenant_contato_id: pessoaSelecionada.id,
         papel: vinculoRelacao.trim(),
         papel_nucleo: vinculoRelacao.trim(),
-        recebe_comunicacao: vinculoRecebeComunicacao,
-        principal_envio: vinculoPrincipalEnvio,
+        recebe_comunicacao: recebeComunicacaoFinal,
+        principal_envio: isCrianca ? false : vinculoPrincipalEnvio,
       });
 
       if (error) throw new Error(error.message);
@@ -1198,6 +1291,15 @@ export default function ContatosPage() {
       const perfilContato = normalizarPerfilContato(dados.tipo_contato);
       const isCrianca = perfilContato === "crianca";
       const responsavelDoNucleo = isCrianca ? getResponsavelPrincipalDoNucleo(nucleoSelecionado.id) : null;
+      const responsavelFinalNome = isCrianca
+        ? dados.responsavel_nome.trim() || responsavelDoNucleo?.nome?.trim() || ""
+        : "";
+      const responsavelFinalTelefone = isCrianca
+        ? dados.responsavel_telefone.trim() || responsavelDoNucleo?.telefone?.trim() || ""
+        : "";
+      const recebeComunicacaoFinal = isCrianca && (responsavelFinalNome || responsavelFinalTelefone)
+        ? true
+        : vinculoRecebeComunicacao;
       const contatoExistente = await buscarContatoExistente({
         nome: dados.nome,
         telefoneNormalizado,
@@ -1220,12 +1322,8 @@ export default function ContatosPage() {
           telefone_normalizado: telefoneNormalizado || null,
           email: dados.email.trim() || null,
           tipo_contato: perfilContato,
-          responsavel_nome: isCrianca
-            ? dados.responsavel_nome.trim() || responsavelDoNucleo?.nome || null
-            : null,
-          responsavel_telefone: isCrianca
-            ? dados.responsavel_telefone.trim() || responsavelDoNucleo?.telefone || null
-            : null,
+          responsavel_nome: isCrianca ? responsavelFinalNome || null : null,
+          responsavel_telefone: isCrianca ? responsavelFinalTelefone || null : null,
           consentimento_comunicacao: false,
           origem: "cadastro_manual_nucleo",
           updated_at: new Date().toISOString(),
@@ -1327,12 +1425,18 @@ export default function ContatosPage() {
         return;
       }
 
+      const isCrianca = isPessoaCrianca(pessoaSelecionada);
+      const responsavelEfetivo = getResponsavelEfetivoDaPessoa(pessoaSelecionada);
+      const telefoneEnvio = isCrianca
+        ? responsavelEfetivo?.telefone || pessoaSelecionada.responsavel_telefone || ""
+        : pessoaSelecionada.telefone || "";
+
       const { error } = await supabase.from("convidados").insert({
         tenant_id: tenantId,
         evento_id: eventoImportacaoId,
         tenant_contato_id: pessoaSelecionada.id,
         nome: pessoaSelecionada.nome,
-        telefone: pessoaSelecionada.telefone,
+        telefone: isCrianca ? null : pessoaSelecionada.telefone,
         email: pessoaSelecionada.email,
         token: gerarToken(),
         status_rsvp: "pendente",
@@ -1340,8 +1444,11 @@ export default function ContatosPage() {
         status_checkin: "nao_entrou",
         tipo_convite: "individual",
         relacao_evento: relacaoEventoImportacao.trim() || null,
-        contato_principal: true,
-        recebe_convite: Boolean(pessoaSelecionada.telefone),
+        contato_principal: !isCrianca,
+        recebe_convite: Boolean(telefoneEnvio),
+        crianca: isCrianca ? "sim" : null,
+        responsavel: isCrianca ? responsavelEfetivo?.nome || pessoaSelecionada.responsavel_nome || null : null,
+        responsavel_telefone: isCrianca ? telefoneEnvio || null : null,
         origem_importacao: "contatos",
       });
 
@@ -1391,14 +1498,19 @@ export default function ContatosPage() {
         }
 
         const papel = getPapelMembro(vinculo);
-        const principal = Boolean(vinculo.principal_envio) || papel === "responsavel";
+        const isCrianca = isPessoaCrianca(pessoa) || isPapelCrianca(papel);
+        const responsavelEfetivo = getResponsavelEfetivoDaPessoa(pessoa, nucleoSelecionado.id);
+        const principal = !isCrianca && (Boolean(vinculo.principal_envio) || papel === "responsavel");
+        const telefoneEnvio = isCrianca
+          ? responsavelEfetivo?.telefone || pessoa.responsavel_telefone || ""
+          : pessoa.telefone || "";
 
         const { error } = await supabase.from("convidados").insert({
           tenant_id: tenantId,
           evento_id: eventoImportacaoId,
           tenant_contato_id: pessoa.id,
           nome: pessoa.nome,
-          telefone: pessoa.telefone,
+          telefone: isCrianca ? null : pessoa.telefone,
           email: pessoa.email,
           grupo: nucleoSelecionado.nome,
           token: gerarToken(),
@@ -1408,10 +1520,12 @@ export default function ContatosPage() {
           tipo_convite: "grupo",
           relacao_evento: relacaoEventoImportacao.trim() || null,
           contato_principal: principal,
-          recebe_convite: Boolean(vinculo.recebe_comunicacao || vinculo.principal_envio || principal),
-          crianca: papel === "crianca" ? "sim" : null,
-          responsavel: pessoa.responsavel_nome,
-          responsavel_telefone: pessoa.responsavel_telefone,
+          recebe_convite: isCrianca
+            ? Boolean(telefoneEnvio || vinculo.recebe_comunicacao)
+            : Boolean(vinculo.recebe_comunicacao || vinculo.principal_envio || principal),
+          crianca: isCrianca ? "sim" : null,
+          responsavel: isCrianca ? responsavelEfetivo?.nome || pessoa.responsavel_nome || null : null,
+          responsavel_telefone: isCrianca ? telefoneEnvio || null : null,
           origem_importacao: "contatos_nucleo",
         });
 
@@ -1624,6 +1738,18 @@ export default function ContatosPage() {
                         {eventosPessoa.length > 0 && <Badge>{eventosPessoa.length} evento(s)</Badge>}
                         {pessoa.consentimento_comunicacao && <Badge>Recebe comunicação</Badge>}
                       </div>
+
+                      {isPessoaCrianca(pessoa) && getResponsavelEfetivoDaPessoa(pessoa) && (
+                        <p style={smallMutedStyle}>
+                          Responsável: <strong>{getResponsavelEfetivoDaPessoa(pessoa)?.nome || "Não informado"}</strong>
+                          {getResponsavelEfetivoDaPessoa(pessoa)?.telefone
+                            ? ` · ${getResponsavelEfetivoDaPessoa(pessoa)?.telefone}`
+                            : ""}
+                          {getResponsavelEfetivoDaPessoa(pessoa)?.origem === "nucleo"
+                            ? ` · herdado do núcleo ${getResponsavelEfetivoDaPessoa(pessoa)?.nucleoNome || ""}`
+                            : ""}
+                        </p>
+                      )}
 
                       {vinculos.length > 0 && (
                         <div style={miniListStyle}>
