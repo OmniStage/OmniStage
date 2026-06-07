@@ -258,7 +258,8 @@ export default function ConvidadosPage() {
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
-  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroPerfilConvidado, setFiltroPerfilConvidado] = useState("todos");
+  const [filtroPerfilConvite, setFiltroPerfilConvite] = useState("todos");
   const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
   const [systemDark, setSystemDark] = useState(false);
   const [envioConvitePendenteConfirmacao, setEnvioConvitePendenteConfirmacao] =
@@ -293,11 +294,19 @@ export default function ConvidadosPage() {
         (filtroEnvio === "enviado_manual" &&
           statusConviteFiltro === "enviado_manual") ||
         (filtroEnvio === "erro" && statusConviteFiltro === "erro");
-      const temGrupo = Boolean((convidado.grupo || "").trim());
-      const tipoOk =
-        filtroTipo === "todos" ||
-        (filtroTipo === "grupo" && temGrupo) ||
-        (filtroTipo === "individual" && !temGrupo);
+      const criancaNormalizada = String(convidado.crianca || "").trim().toLowerCase();
+      const perfilConvidadoOk =
+        filtroPerfilConvidado === "todos" ||
+        (filtroPerfilConvidado === "crianca" && criancaNormalizada === "sim") ||
+        (filtroPerfilConvidado === "adulto" && criancaNormalizada !== "sim");
+
+      const tipoConviteNormalizado = String(convidado.tipo_convite || "individual")
+        .trim()
+        .toLowerCase();
+      const perfilConviteOk =
+        filtroPerfilConvite === "todos" ||
+        (filtroPerfilConvite === "grupo" && tipoConviteNormalizado === "grupo") ||
+        (filtroPerfilConvite === "individual" && tipoConviteNormalizado !== "grupo");
 
       const buscaOk =
         !termo ||
@@ -325,7 +334,7 @@ export default function ConvidadosPage() {
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
-      return rsvpOk && envioOk && tipoOk && buscaOk;
+      return rsvpOk && envioOk && perfilConvidadoOk && perfilConviteOk && buscaOk;
     });
 
     return [...filtrados].sort((a, b) => {
@@ -348,7 +357,7 @@ export default function ConvidadosPage() {
 
       return nomeA.localeCompare(nomeB, "pt-BR");
     });
-  }, [convidados, busca, filtroRsvp, filtroEnvio, filtroTipo]);
+  }, [convidados, busca, filtroRsvp, filtroEnvio, filtroPerfilConvidado, filtroPerfilConvite]);
 
   const nucleoSelecionadoConvite = useMemo(() => {
     const grupoAtual = form.grupo.trim().toLowerCase();
@@ -2297,13 +2306,25 @@ ${eventoAtual?.nome || "OmniStage"}`);
           </select>
 
           <select
-            value={filtroTipo}
-            onChange={(event) => setFiltroTipo(event.target.value)}
+            value={filtroPerfilConvidado}
+            onChange={(event) => setFiltroPerfilConvidado(event.target.value)}
             style={inputStyle}
+            aria-label="Filtrar por perfil do convidado"
           >
-            <option value="todos">Todos os tipos</option>
-            <option value="grupo">Grupos/Famílias</option>
-            <option value="individual">Individuais</option>
+            <option value="todos">Perfil do convidado</option>
+            <option value="adulto">Adultos</option>
+            <option value="crianca">Crianças</option>
+          </select>
+
+          <select
+            value={filtroPerfilConvite}
+            onChange={(event) => setFiltroPerfilConvite(event.target.value)}
+            style={inputStyle}
+            aria-label="Filtrar por perfil do convite"
+          >
+            <option value="todos">Perfil do convite</option>
+            <option value="individual">Convite individual</option>
+            <option value="grupo">Convite por núcleo</option>
           </select>
         </div>
 
@@ -4216,7 +4237,6 @@ const emptyStyle: CSSProperties = {
   border: "1px dashed var(--border-strong)",
   color: "var(--muted)",
 };
-
 
 
 
