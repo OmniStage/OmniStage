@@ -1708,16 +1708,16 @@ function normalizarTelefone(telefone: string | null | undefined) {
 
 function getTelefoneEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const telefoneProprio = normalizarTelefone(convidado.telefone);
-
   if (telefoneProprio) return telefoneProprio;
 
-  // Convite individual também precisa aparecer em Envios quando o convidado não tem
-  // telefone próprio, mas possui responsável direto informado no cadastro do convite.
-  // Esse caso não depende de "Visualizar convite neste núcleo".
+  // Convite individual ou núcleo: quando o convidado não tem telefone,
+  // mas possui responsável direto preenchido, o envio deve ir para o responsável,
+  // mesmo que o núcleo não esteja marcado para visualização/agrupamento.
   const telefoneResponsavelDireto = normalizarTelefone(convidado.responsavel_telefone);
-
   if (telefoneResponsavelDireto) return telefoneResponsavelDireto;
 
+  // Último fallback: convidados adultos/crianças sem telefone e sem responsável direto
+  // usam o principal do núcleo/CRM, mesmo que esse principal não seja convidado do evento.
   return normalizarTelefone(getPrincipalNucleoEnvio(convidado, todosConvidados)?.telefone);
 }
 
@@ -1790,14 +1790,6 @@ function normalizarTipoConvite(tipo: string | null | undefined) {
     .replace(/[\s-]+/g, "_");
 }
 
-function isConviteIndividualSemTelefoneComResponsavel(convidado: Convidado) {
-  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
-  const temTelefoneProprio = !!normalizarTelefone(convidado.telefone);
-  const temTelefoneResponsavel = !!normalizarTelefone(convidado.responsavel_telefone);
-
-  return tipoConvite === "individual" && !temTelefoneProprio && temTelefoneResponsavel;
-}
-
 function isConvidadoCrianca(convidado: Convidado) {
   const valor = convidado.crianca as boolean | string | number | null | undefined;
 
@@ -1822,8 +1814,15 @@ function isDependenteGrupoComEnvioViaResponsavel(convidado: Convidado, todosConv
     !!normalizarTelefone(convidado.responsavel_telefone);
   const temPrincipalNucleoEnvio = !!getPrincipalNucleoEnvio(convidado, todosConvidados);
 
-  // Mantém a regra anterior para crianças via responsável e adiciona o caso de adulto/criança
-  // sem telefone que deve ser enviado pelo principal do núcleo.
+  // Convite individual sem telefone e com responsável direto deve aparecer como card próprio,
+  // usando o telefone do responsável. Não agrupa por núcleo e não depende de
+  // "Visualizar convite neste núcleo" estar marcado.
+  if (ehConviteIndividual && !temTelefoneProprio && temResponsavelEnvio) {
+    return false;
+  }
+
+  // Convite em núcleo ou dependente sem telefone e sem envio próprio:
+  // agrupa por responsável/principal para evitar mensagens duplicadas.
   return !temTelefoneProprio && !ehConviteIndividual && (temResponsavelEnvio || temPrincipalNucleoEnvio);
 }
 
@@ -1947,7 +1946,7 @@ function deveEntrarNoPublicoCampanha(
   const telefoneOk = !!getTelefoneEnvio(convidado, todosConvidados);
 
   if (campanha.key === "convite") {
-    return telefoneOk || isConviteIndividualSemTelefoneComResponsavel(convidado);
+    return recebeComunicacaoNesteEvento(convidado) && telefoneOk;
   }
 
   if (campanha.key === "lembrete_rsvp") {
@@ -1980,13 +1979,6 @@ function deveAparecerNoModuloEnvios(
   // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
   if (!recebeComunicacaoNesteEvento(convidado)) {
     return false;
-  }
-
-  // Convite individual sem telefone próprio, mas com responsável direto informado,
-  // deve aparecer normalmente em Envios. Esse perfil não depende do checkbox
-  // "Visualizar convite neste núcleo".
-  if (isConviteIndividualSemTelefoneComResponsavel(convidado)) {
-    return true;
   }
 
   // Crianças/dependentes em convite por núcleo com envio via responsável devem aparecer uma única vez
