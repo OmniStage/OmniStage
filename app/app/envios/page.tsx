@@ -18,7 +18,7 @@ type Convidado = {
   telefone: string | null;
   responsavel?: string | null;
   responsavel_telefone?: string | null;
-  crianca?: boolean | null;
+  crianca?: boolean | string | number | null;
   email?: string | null;
   grupo: string | null;
   status_rsvp: string | null;
@@ -309,7 +309,7 @@ export default function EnviosPage() {
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
 
       return (
-        deveAparecerNoModuloEnvios(convidado, campanha) &&
+        deveAparecerNoModuloEnvios(convidado, campanha, convidados) &&
         (confirmadoSemEnvioConvite || campanha.filtrarPublico(convidado))
       );
     });
@@ -1206,7 +1206,18 @@ export default function EnviosPage() {
                   {envioViaResponsavel && (
                     <span style={responsavelBadgeStyle}>
                       Envio via responsável: {convidado.responsavel || "Responsável"}
+                      {getConvidadosVinculadosAoResponsavel(convidado, convidados).length > 1
+                        ? ` · ${getConvidadosVinculadosAoResponsavel(convidado, convidados).length} convidados vinculados`
+                        : ""}
                     </span>
+                  )}
+
+                  {envioViaResponsavel && getConvidadosVinculadosAoResponsavel(convidado, convidados).length > 1 && (
+                    <small style={sentDateStyle}>
+                      {getConvidadosVinculadosAoResponsavel(convidado, convidados)
+                        .map((item) => item.nome || "Convidado sem nome")
+                        .join(" • ")}
+                    </small>
                   )}
 
                   <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados)}</p>
@@ -1381,12 +1392,14 @@ const campanhas: Record<TipoEnvio, Campanha> = {
     filtrarPublico: (convidado) => !!getTelefoneEnvio(convidado),
     templatePadrao: `Olá {{nome}} ✨
 
-Você está convidado(a) para o evento {{evento}}.
+Os convidados abaixo foram incluídos no convite para o evento {{evento}}:
 
-Acesse seu convite digital:
+{{convidados}}
+
+Acesse o convite digital pelo link:
 {{link_convite}}
 
-Por lá você poderá confirmar sua presença.
+Por lá você poderá confirmar a presença e desmarcar quem não irá.
 
 Com carinho,
 OmniStage`,
@@ -1448,7 +1461,8 @@ OmniStage`,
 };
 
 const variaveis = [
-  { key: "{{nome}}", description: "Nome do convidado" },
+  { key: "{{nome}}", description: "Nome do destinatário/convidado" },
+  { key: "{{convidados}}", description: "Lista de convidados vinculados ao responsável" },
   { key: "{{grupo}}", description: "Grupo ou família do convidado" },
   { key: "{{evento}}", description: "Nome do evento" },
   { key: "{{nome_evento}}", description: "Nome do evento" },
@@ -1657,18 +1671,68 @@ function isDependenteGrupoComEnvioViaResponsavel(convidado: Convidado) {
   return ehCrianca && !ehConviteIndividual && temResponsavelEnvio;
 }
 
-function deveAparecerNoModuloEnvios(convidado: Convidado, campanha: Campanha) {
-  const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
+function getChaveEnvioResponsavelGrupo(convidado: Convidado) {
+  const grupo = String(convidado.grupo || "").trim();
+  const telefoneResponsavel = normalizarTelefone(convidado.responsavel_telefone);
+  const responsavel = String(convidado.responsavel || "").trim().toLowerCase();
 
+  if (!grupo || !telefoneResponsavel) return "";
+
+  return `${grupo}__${telefoneResponsavel}__${responsavel}`;
+}
+
+function isRepresentanteEnvioResponsavelGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  if (!isDependenteGrupoComEnvioViaResponsavel(convidado)) return true;
+
+  const chave = getChaveEnvioResponsavelGrupo(convidado);
+  if (!chave) return true;
+
+  const dependentesMesmoResponsavel = todosConvidados
+    .filter((item) => {
+      return (
+        isDependenteGrupoComEnvioViaResponsavel(item) &&
+        recebeComunicacaoNesteEvento(item) &&
+        getChaveEnvioResponsavelGrupo(item) === chave
+      );
+    })
+    .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+
+  return dependentesMesmoResponsavel[0]?.id === convidado.id;
+}
+
+function getConvidadosVinculadosAoResponsavel(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const chave = getChaveEnvioResponsavelGrupo(convidado);
+
+  if (!chave || !isDependenteGrupoComEnvioViaResponsavel(convidado)) {
+    return [convidado];
+  }
+
+  return todosConvidados
+    .filter((item) => {
+      return (
+        isDependenteGrupoComEnvioViaResponsavel(item) &&
+        recebeComunicacaoNesteEvento(item) &&
+        getChaveEnvioResponsavelGrupo(item) === chave
+      );
+    })
+    .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+}
+
+function deveAparecerNoModuloEnvios(
+  convidado: Convidado,
+  campanha: Campanha,
+  todosConvidados: Convidado[] = []
+) {
   // Regra de comunicação do evento:
   // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
-  // A comunicação do grupo deve ser enviada pelo Principal Núcleo que estiver marcado para receber.
   if (!recebeComunicacaoNesteEvento(convidado)) {
     return false;
   }
 
-  if (isDependenteGrupoComEnvioViaResponsavel(convidado) && !confirmadoSemEnvioConvite) {
-    return false;
+  // Crianças/dependentes em convite por núcleo com envio via responsável devem aparecer uma única vez
+  // por responsável + grupo. Assim evita dois cards e duas mensagens para o mesmo WhatsApp.
+  if (isDependenteGrupoComEnvioViaResponsavel(convidado)) {
+    return isRepresentanteEnvioResponsavelGrupo(convidado, todosConvidados);
   }
 
   return true;
@@ -1749,9 +1813,20 @@ function montarMensagem(
 ) {
   const nomeEvento = evento?.nome || "";
   const tokenConvite = resolverTokenConvite(convidado, todosConvidados);
+  const envioViaResponsavelGrupo = isDependenteGrupoComEnvioViaResponsavel(convidado);
+  const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, todosConvidados);
+  const nomeDestinatario =
+    envioViaResponsavelGrupo && convidado.responsavel
+      ? convidado.responsavel
+      : convidado.nome || "";
+  const listaConvidados = convidadosVinculados
+    .map((item) => `• ${item.nome || "Convidado sem nome"}`)
+    .join("\n");
 
   return template
-    .replaceAll("{{nome}}", convidado.nome || "")
+    .replaceAll("{{nome}}", nomeDestinatario)
+    .replaceAll("{{convidados}}", listaConvidados || convidado.nome || "")
+    .replaceAll("{{convidados_nucleo}}", listaConvidados || convidado.nome || "")
     .replaceAll("{{grupo}}", convidado.grupo || "")
     .replaceAll("{{evento}}", nomeEvento)
     .replaceAll("{{nome_evento}}", nomeEvento)
