@@ -1212,14 +1212,6 @@ export default function EnviosPage() {
                     </span>
                   )}
 
-                  {envioViaResponsavel && getConvidadosVinculadosAoResponsavel(convidado, convidados).length > 1 && (
-                    <small style={sentDateStyle}>
-                      {getConvidadosVinculadosAoResponsavel(convidado, convidados)
-                        .map((item) => item.nome || "Convidado sem nome")
-                        .join(" • ")}
-                    </small>
-                  )}
-
                   <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados)}</p>
 
                   {dataEnvio && (
