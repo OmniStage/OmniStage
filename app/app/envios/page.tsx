@@ -1805,6 +1805,16 @@ function isConvidadoCrianca(convidado: Convidado) {
   return normalizado === "sim" || normalizado === "true" || normalizado === "1" || normalizado === "crianca";
 }
 
+function isConviteIndividualSemTelefoneComResponsavelDireto(convidado: Convidado) {
+  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+
+  return (
+    tipoConvite === "individual" &&
+    !normalizarTelefone(convidado.telefone) &&
+    !!normalizarTelefone(convidado.responsavel_telefone)
+  );
+}
+
 function isDependenteGrupoComEnvioViaResponsavel(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
   const ehConviteIndividual = tipoConvite === "individual";
@@ -1946,7 +1956,12 @@ function deveEntrarNoPublicoCampanha(
   const telefoneOk = !!getTelefoneEnvio(convidado, todosConvidados);
 
   if (campanha.key === "convite") {
-    return recebeComunicacaoNesteEvento(convidado) && telefoneOk;
+    const envioIndividualViaResponsavel = isConviteIndividualSemTelefoneComResponsavelDireto(convidado);
+
+    return (
+      recebeComunicacaoNesteEvento(convidado) &&
+      (telefoneOk || envioIndividualViaResponsavel)
+    );
   }
 
   if (campanha.key === "lembrete_rsvp") {
@@ -1979,6 +1994,12 @@ function deveAparecerNoModuloEnvios(
   // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
   if (!recebeComunicacaoNesteEvento(convidado)) {
     return false;
+  }
+
+  // Convite individual sem telefone, mas com responsável direto e telefone do responsável,
+  // deve aparecer como card próprio. Esta regra NÃO depende de Visualizar/Agrupar convite no núcleo.
+  if (isConviteIndividualSemTelefoneComResponsavelDireto(convidado)) {
+    return true;
   }
 
   // Crianças/dependentes em convite por núcleo com envio via responsável devem aparecer uma única vez
