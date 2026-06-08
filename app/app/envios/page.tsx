@@ -32,6 +32,8 @@ type Convidado = {
   data_hora_envio?: string | null;
   contato_principal?: boolean | null;
   recebe_convite?: boolean | null;
+  principal_nucleo_nome?: string | null;
+  principal_nucleo_telefone?: string | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -47,6 +49,11 @@ type Evento = {
   id: string;
   nome: string | null;
   tenant_id: string | null;
+};
+
+type PrincipalNucleoEnvio = {
+  nome: string | null;
+  telefone: string | null;
 };
 
 type ItemFila = {
@@ -110,7 +117,7 @@ export default function EnviosPage() {
 
     if (evento) {
       await Promise.all([
-        carregarConvidados(evento.id),
+        carregarConvidados(evento.id, evento.tenant_id),
         carregarTemplates(evento.id),
         carregarFila(evento.id),
       ]);
@@ -191,7 +198,7 @@ export default function EnviosPage() {
     setPreviewId(null);
 
     await Promise.all([
-      carregarConvidados(evento.id),
+      carregarConvidados(evento.id, evento.tenant_id),
       carregarTemplates(evento.id),
       carregarFila(evento.id),
     ]);
@@ -199,7 +206,7 @@ export default function EnviosPage() {
     setLoading(false);
   }
 
-  async function carregarConvidados(eventoId: string) {
+  async function carregarConvidados(eventoId: string, tenantId?: string | null) {
     const { data, error } = await supabase
       .from("convidados")
       .select(`
@@ -239,7 +246,110 @@ export default function EnviosPage() {
       return;
     }
 
-    setConvidados((data || []) as Convidado[]);
+    const listaConvidados = (data || []) as Convidado[];
+    const principaisPorGrupo = await carregarPrincipaisNucleoEnvio(tenantId, listaConvidados);
+
+    setConvidados(
+      listaConvidados.map((convidado) => {
+        const grupo = String(convidado.grupo || "").trim();
+        const principal = grupo ? principaisPorGrupo[grupo] : null;
+
+        if (!principal) return convidado;
+
+        return {
+          ...convidado,
+          principal_nucleo_nome: principal.nome,
+          principal_nucleo_telefone: principal.telefone,
+        };
+      })
+    );
+  }
+
+  async function carregarPrincipaisNucleoEnvio(tenantId: string | null | undefined, listaConvidados: Convidado[]) {
+    const grupos = Array.from(
+      new Set(
+        listaConvidados
+          .map((convidado) => String(convidado.grupo || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (!tenantId || grupos.length === 0) {
+      return {} as Record<string, PrincipalNucleoEnvio>;
+    }
+
+    const { data: nucleos, error: nucleosError } = await supabase
+      .from("contato_grupos")
+      .select("id, nome")
+      .eq("tenant_id", tenantId)
+      .in("nome", grupos);
+
+    if (nucleosError || !nucleos?.length) {
+      if (nucleosError) console.warn("Erro ao carregar núcleos para envio:", nucleosError.message);
+      return {} as Record<string, PrincipalNucleoEnvio>;
+    }
+
+    const idsNucleos = nucleos.map((nucleo) => nucleo.id).filter(Boolean);
+
+    if (idsNucleos.length === 0) {
+      return {} as Record<string, PrincipalNucleoEnvio>;
+    }
+
+    const { data: membros, error: membrosError } = await supabase
+      .from("contato_grupo_membros")
+      .select("grupo_contato_id, tenant_contato_id, recebe_comunicacao, principal_envio")
+      .eq("tenant_id", tenantId)
+      .in("grupo_contato_id", idsNucleos)
+      .eq("principal_envio", true);
+
+    if (membrosError || !membros?.length) {
+      if (membrosError) console.warn("Erro ao carregar principais dos núcleos para envio:", membrosError.message);
+      return {} as Record<string, PrincipalNucleoEnvio>;
+    }
+
+    const idsContatos = Array.from(
+      new Set(membros.map((membro) => membro.tenant_contato_id).filter(Boolean))
+    );
+
+    if (idsContatos.length === 0) {
+      return {} as Record<string, PrincipalNucleoEnvio>;
+    }
+
+    const { data: contatos, error: contatosError } = await supabase
+      .from("tenant_contatos")
+      .select("id, nome, telefone, telefone_normalizado")
+      .eq("tenant_id", tenantId)
+      .in("id", idsContatos);
+
+    if (contatosError || !contatos?.length) {
+      if (contatosError) console.warn("Erro ao carregar contatos principais para envio:", contatosError.message);
+      return {} as Record<string, PrincipalNucleoEnvio>;
+    }
+
+    const nucleosPorId = new Map(nucleos.map((nucleo) => [nucleo.id, String(nucleo.nome || "").trim()]));
+    const contatosPorId = new Map(contatos.map((contato) => [contato.id, contato]));
+
+    const principaisPorGrupo: Record<string, PrincipalNucleoEnvio> = {};
+
+    membros.forEach((membro) => {
+      if (membro.recebe_comunicacao === false) return;
+
+      const grupo = nucleosPorId.get(membro.grupo_contato_id);
+      const contato = contatosPorId.get(membro.tenant_contato_id);
+
+      if (!grupo || !contato) return;
+
+      const telefone = normalizarTelefone(contato.telefone || contato.telefone_normalizado);
+
+      if (!telefone || principaisPorGrupo[grupo]) return;
+
+      principaisPorGrupo[grupo] = {
+        nome: contato.nome || null,
+        telefone,
+      };
+    });
+
+    return principaisPorGrupo;
   }
 
   async function carregarFila(eventoId: string) {
@@ -1613,11 +1723,28 @@ function getPrincipalNucleoEnvio(convidado: Convidado, todosConvidados: Convidad
     return String(item.grupo || "").trim() === grupo;
   });
 
-  return (
+  const principalNoEvento =
     membrosMesmoGrupo.find((item) => {
       return item.id !== convidado.id && item.contato_principal === true && recebeComunicacaoNesteEvento(item) && !!normalizarTelefone(item.telefone);
-    }) || null
-  );
+    }) || null;
+
+  if (principalNoEvento) return principalNoEvento;
+
+  const telefonePrincipalCrm = normalizarTelefone(convidado.principal_nucleo_telefone);
+
+  if (telefonePrincipalCrm) {
+    return {
+      id: `principal-crm-${grupo}`,
+      nome: convidado.principal_nucleo_nome || "Responsável",
+      telefone: telefonePrincipalCrm,
+      grupo,
+      status_rsvp: null,
+      recebe_convite: true,
+      contato_principal: true,
+    } as Convidado;
+  }
+
+  return null;
 }
 
 function recebeComunicacaoNesteEvento(convidado: Convidado) {
