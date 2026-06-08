@@ -87,18 +87,34 @@ function normalizarDataISO(dataEvento: string) {
 }
 
 function normalizarHorario(horarioEvento?: string | null) {
-  const value = String(horarioEvento || "00:00")
+  const raw = String(horarioEvento || "00:00")
     .trim()
-    .toLowerCase()
-    .replace("h", ":")
-    .replace(/\s/g, "");
+    .toLowerCase();
 
-  if (/^\d{2}:\d{2}$/.test(value)) return value;
-  if (/^\d{1}:\d{2}$/.test(value)) return `0${value}`;
-  if (/^\d{2}$/.test(value)) return `${value}:00`;
-  if (/^\d{1}$/.test(value)) return `0${value}:00`;
+  // Aceita horários simples ("16", "16h", "16:00", "16h30")
+  // e também textos compostos ("16h até 20h"), usando sempre o primeiro horário.
+  const match = raw.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|:(\d{2}))?/);
 
-  return "00:00";
+  if (!match) return "00:00";
+
+  const hourNumber = Number(match[1]);
+  const minuteNumber = Number(match[2] || match[3] || "00");
+
+  if (
+    Number.isNaN(hourNumber) ||
+    Number.isNaN(minuteNumber) ||
+    hourNumber < 0 ||
+    hourNumber > 23 ||
+    minuteNumber < 0 ||
+    minuteNumber > 59
+  ) {
+    return "00:00";
+  }
+
+  const hour = String(hourNumber).padStart(2, "0");
+  const minute = String(minuteNumber).padStart(2, "0");
+
+  return `${hour}:${minute}`;
 }
 
 function getCountdownBrasil(dataEvento?: string | null, horarioEvento?: string | null) {
