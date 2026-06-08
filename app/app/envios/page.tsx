@@ -305,14 +305,9 @@ export default function EnviosPage() {
   }, [tipoEnvio]);
 
   const publicoCampanha = useMemo(() => {
-    return convidados.filter((convidado) => {
-      const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
-
-      return (
-        deveAparecerNoModuloEnvios(convidado, campanha, convidados) &&
-        (confirmadoSemEnvioConvite || campanha.filtrarPublico(convidado, convidados))
-      );
-    });
+    return convidados.filter((convidado) =>
+      deveAparecerNoModuloEnvios(convidado, campanha, convidados)
+    );
   }, [convidados, campanha]);
 
   const convidadosFiltrados = useMemo(() => {
@@ -343,7 +338,7 @@ export default function EnviosPage() {
       if (!buscaOk) return false;
 
       if (filtroStatus === "todos") return true;
-      if (filtroStatus === "a_enviar") return !enviado && !confirmadoSemEnvioConvite && !!telefoneLimpo && !estaNaFila;
+      if (filtroStatus === "a_enviar") return !enviado && !!telefoneLimpo && !estaNaFila;
       if (filtroStatus === "na_fila") return estaNaFila && !enviado;
       if (filtroStatus === "enviados") return enviado;
       if (filtroStatus === "card_convidado") return enviadoCardConvidado;
@@ -367,7 +362,7 @@ export default function EnviosPage() {
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
       const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
-      return telefoneOk && !enviado && !confirmadoSemEnvioConvite && !estaNaFila;
+      return telefoneOk && !enviado && !estaNaFila;
     });
   }, [convidadosFiltrados, campanha, filaEnvios, tipoEnvio]);
 
@@ -380,7 +375,7 @@ export default function EnviosPage() {
   }, [previewId, convidados, convidadosFiltrados, publicoCampanha]);
 
   const previewMensagem = convidadoPreview
-    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual, convidados)
+    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual, convidados, campanha)
     : mensagemAtual;
 
   const stats = useMemo(() => {
@@ -399,7 +394,7 @@ export default function EnviosPage() {
 
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(c, campanha);
 
-      return !enviado && !confirmadoSemEnvioConvite && telefoneOk && !estaNaFila;
+      return !enviado && telefoneOk && !estaNaFila;
     }).length;
 
     return { total, enviados, enviadosCardConvidado, aEnviar, semTelefone, naFila };
@@ -510,7 +505,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha),
       status: "pendente",
     }));
 
@@ -528,7 +523,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha),
       status: "pendente",
       detalhe: "Adicionado à fila por ação em massa.",
     }));
@@ -583,7 +578,7 @@ export default function EnviosPage() {
       [campanha.dataColumn]: agora,
     };
 
-    const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, convidados);
+    const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, convidados, campanha);
     const idsVinculados = convidadosVinculados.map((item) => item.id).filter(Boolean);
     const idsParaAtualizar = idsVinculados.length > 0 ? idsVinculados : [convidado.id];
 
@@ -689,7 +684,7 @@ export default function EnviosPage() {
       [campanha.dataColumn]: null,
     };
 
-    const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, convidados);
+    const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, convidados, campanha);
     const idsVinculados = convidadosVinculados.map((item) => item.id).filter(Boolean);
     const idsParaAtualizar = idsVinculados.length > 0 ? idsVinculados : [convidado.id];
 
@@ -752,7 +747,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha),
       status,
       detalhe: detalhe || null,
     });
@@ -788,7 +783,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone,
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha),
       status: "pendente",
     });
 
@@ -810,7 +805,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados);
+    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
     registrarHistoricoEnvio(convidado, "pendente", "WhatsApp aberto para envio manual.");
@@ -852,7 +847,7 @@ export default function EnviosPage() {
   }
 
   async function copiarMensagem(convidado: Convidado) {
-    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados));
+    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha));
     alert("Mensagem copiada.");
   }
 
@@ -1206,7 +1201,7 @@ export default function EnviosPage() {
                 </label>
 
                 <div style={guestInfoStyle}>
-                  <strong style={guestNameStyle}>{formatarTituloCardEnvio(convidado, convidados)}</strong>
+                  <strong style={guestNameStyle}>{formatarTituloCardEnvio(convidado, convidados, campanha)}</strong>
                   <span style={guestMetaStyle}>
                     {convidado.grupo || "Sem grupo"} · {telefoneExibicao || "Sem telefone"}
                   </span>
@@ -1214,13 +1209,13 @@ export default function EnviosPage() {
                   {envioViaResponsavel && (
                     <span style={responsavelBadgeStyle}>
                       Envio via responsável: {getNomeResponsavelEnvio(convidado, convidados)}
-                      {getConvidadosVinculadosAoResponsavel(convidado, convidados).length > 1
-                        ? ` · ${getConvidadosVinculadosAoResponsavel(convidado, convidados).length} convidados vinculados`
+                      {getConvidadosVinculadosAoResponsavel(convidado, convidados, campanha).length > 1
+                        ? ` · ${getConvidadosVinculadosAoResponsavel(convidado, convidados, campanha).length} convidados vinculados`
                         : ""}
                     </span>
                   )}
 
-                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados)}</p>
+                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, campanha)}</p>
 
                   {dataEnvio && (
                     <small style={sentDateStyle}>
@@ -1344,7 +1339,7 @@ export default function EnviosPage() {
 
             <p style={sendConfirmTextStyle}>
               Confirme apenas se a mensagem foi enviada no WhatsApp para{" "}
-              <strong>{formatarTituloCardEnvio(envioPendenteConfirmacao, convidados)}</strong>.
+              <strong>{formatarTituloCardEnvio(envioPendenteConfirmacao, convidados, campanha)}</strong>.
               Se você abriu o WhatsApp mas não enviou, cancele para manter o convidado na fila.
             </p>
 
@@ -1389,7 +1384,8 @@ const campanhas: Record<TipoEnvio, Campanha> = {
     dataColumn: "data_envio_convite",
     cor: "#6d28d9",
     corSuave: "#ede9fe",
-    filtrarPublico: (convidado, todosConvidados = []) => !!getTelefoneEnvio(convidado, todosConvidados),
+    filtrarPublico: (convidado, todosConvidados = []) =>
+      isElegivelParaCampanha(convidado, campanhas.convite, todosConvidados),
     templatePadrao: `Olá {{nome}} ✨
 
 Você está convidado(a) para o evento {{evento}}.
@@ -1412,7 +1408,7 @@ Pedro e Família.`,
     cor: "#f59e0b",
     corSuave: "#fef3c7",
     filtrarPublico: (convidado, todosConvidados = []) =>
-      convidado.status_rsvp === "pendente" && !!getTelefoneEnvio(convidado, todosConvidados),
+      isElegivelParaCampanha(convidado, campanhas.lembrete_rsvp, todosConvidados),
     templatePadrao: `Olá {{nome}} ✨
 
 Passando para lembrar que você ainda não confirmou presença no evento {{evento}}.
@@ -1437,11 +1433,7 @@ OmniStage`,
     cor: "#16a34a",
     corSuave: "#dcfce7",
     filtrarPublico: (convidado, todosConvidados = []) =>
-      isRsvpConfirmado(convidado.status_rsvp) &&
-      deveReceberCartaoEvento(convidado) &&
-      recebeComunicacaoNesteEvento(convidado) &&
-      !!getTelefoneEnvio(convidado, todosConvidados) &&
-      !!convidado.token,
+      isElegivelParaCampanha(convidado, campanhas.cartao_evento, todosConvidados),
     templatePadrao: `Olá {{nome}} ✨
 
 Ficamos muito felizes com sua confirmação.
@@ -1604,14 +1596,16 @@ function normalizarTelefone(telefone: string | null | undefined) {
   return (telefone || "").replace(/\D/g, "");
 }
 
-function getPrincipalEnvioDoGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
+function getMembrosMesmoGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const grupo = String(convidado.grupo || "").trim();
 
-  if (!grupo) return null;
+  if (!grupo) return [];
 
-  const membrosMesmoGrupo = todosConvidados.filter(
-    (item) => String(item.grupo || "").trim() === grupo
-  );
+  return todosConvidados.filter((item) => String(item.grupo || "").trim() === grupo);
+}
+
+function getPrincipalEnvioDoGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const membrosMesmoGrupo = getMembrosMesmoGrupo(convidado, todosConvidados);
 
   return (
     membrosMesmoGrupo.find(
@@ -1627,15 +1621,33 @@ function getPrincipalEnvioDoGrupo(convidado: Convidado, todosConvidados: Convida
   );
 }
 
-function getTelefoneEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
+function getDestinatarioEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const telefoneProprio = normalizarTelefone(convidado.telefone);
   const telefoneResponsavel = normalizarTelefone(convidado.responsavel_telefone);
-
-  if (telefoneProprio) return telefoneProprio;
-  if (telefoneResponsavel) return telefoneResponsavel;
-
   const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
-  return normalizarTelefone(principalGrupo?.telefone);
+  const telefonePrincipal = normalizarTelefone(principalGrupo?.telefone);
+
+  if (!isConviteIndividual(convidado) && String(convidado.grupo || "").trim() && telefonePrincipal) {
+    return principalGrupo;
+  }
+
+  if (telefoneProprio && recebeComunicacaoNesteEvento(convidado)) {
+    return convidado;
+  }
+
+  if (telefoneResponsavel) {
+    return {
+      ...convidado,
+      nome: String(convidado.responsavel || "Responsável").trim() || "Responsável",
+      telefone: telefoneResponsavel,
+    } as Convidado;
+  }
+
+  return principalGrupo;
+}
+
+function getTelefoneEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  return normalizarTelefone(getDestinatarioEnvio(convidado, todosConvidados)?.telefone);
 }
 
 function recebeComunicacaoNesteEvento(convidado: Convidado) {
@@ -1659,20 +1671,21 @@ function recebeComunicacaoNesteEvento(convidado: Convidado) {
 }
 
 function isEnvioViaResponsavel(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const telefoneProprio = normalizarTelefone(convidado.telefone);
-  const telefoneResponsavel = normalizarTelefone(convidado.responsavel_telefone);
-  const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
-
-  return !telefoneProprio && (!!telefoneResponsavel || !!normalizarTelefone(principalGrupo?.telefone));
+  const destinatario = getDestinatarioEnvio(convidado, todosConvidados);
+  return !!destinatario && destinatario.id !== convidado.id;
 }
 
 function getNomeResponsavelEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const responsavelDireto = String(convidado.responsavel || "").trim();
+  const destinatario = getDestinatarioEnvio(convidado, todosConvidados);
 
+  if (destinatario?.id && destinatario.id !== convidado.id) {
+    return destinatario.nome || "Responsável";
+  }
+
+  const responsavelDireto = String(convidado.responsavel || "").trim();
   if (responsavelDireto) return responsavelDireto;
 
-  const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
-  return principalGrupo?.nome || "Responsável";
+  return destinatario?.nome || "Responsável";
 }
 
 function temTokenConvite(convidado: Convidado) {
@@ -1718,24 +1731,14 @@ function isDependenteGrupoComEnvioViaResponsavel(convidado: Convidado, todosConv
   if (!grupo) return false;
 
   const telefoneProprio = normalizarTelefone(convidado.telefone);
-  const telefoneResponsavel = normalizarTelefone(convidado.responsavel_telefone);
-  const responsavelNome = String(convidado.responsavel || "").trim();
+  const destinatario = getDestinatarioEnvio(convidado, todosConvidados);
 
-  if (telefoneProprio || convidado.contato_principal === true) return false;
-
-  const temResponsavelDireto = !!responsavelNome || !!telefoneResponsavel;
-  const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
-  const temPrincipalGrupo = !!principalGrupo && principalGrupo.id !== convidado.id;
-
-  return temResponsavelDireto || temPrincipalGrupo;
+  return !!destinatario && destinatario.id !== convidado.id && !telefoneProprio;
 }
 
 function isPrincipalApenasDestinatarioDoGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
   if (convidado.contato_principal !== true) return false;
   if (!normalizarTelefone(convidado.telefone)) return false;
-
-  // Se o principal também tem token, ele é convidado do evento e deve aparecer no envio.
-  // Exemplo: URSULA JOSÉ no PEDRO 10.
   if (temTokenConvite(convidado)) return false;
 
   const grupo = String(convidado.grupo || "").trim();
@@ -1744,32 +1747,21 @@ function isPrincipalApenasDestinatarioDoGrupo(convidado: Convidado, todosConvida
   return todosConvidados.some((item) => {
     if (item.id === convidado.id) return false;
     if (String(item.grupo || "").trim() !== grupo) return false;
-    if (!recebeComunicacaoNesteEvento(item)) return false;
     if (isConviteIndividual(item)) return false;
-    if (item.contato_principal === true) return false;
-    if (!temTokenConvite(item)) return false;
-
-    return !normalizarTelefone(item.telefone) && !normalizarTelefone(item.responsavel_telefone);
+    return temTokenConvite(item) && recebeComunicacaoNesteEvento(item);
   });
 }
 
 function getChaveEnvioResponsavelGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const grupo = String(convidado.grupo || "").trim();
-  const telefoneResponsavel = normalizarTelefone(convidado.responsavel_telefone);
-  const responsavel = String(convidado.responsavel || "").trim().toLowerCase();
+  const destinatario = getDestinatarioEnvio(convidado, todosConvidados);
+  const telefoneDestino = normalizarTelefone(destinatario?.telefone);
 
-  if (!grupo) return "";
-
-  if (telefoneResponsavel) {
-    return `${grupo}__responsavel__${telefoneResponsavel}__${responsavel}`;
+  if (!grupo || isConviteIndividual(convidado) || !telefoneDestino) {
+    return `${convidado.id}__${telefoneDestino || "sem_telefone"}`;
   }
 
-  const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
-  const telefonePrincipal = normalizarTelefone(principalGrupo?.telefone);
-
-  if (!telefonePrincipal) return "";
-
-  return `${grupo}__principal__${telefonePrincipal}__${String(principalGrupo?.nome || "").trim().toLowerCase()}`;
+  return `${grupo}__destino__${telefoneDestino}`;
 }
 
 function ordenarConvidadosParaEnvioNucleo(convidados: Convidado[]) {
@@ -1785,76 +1777,154 @@ function ordenarConvidadosParaEnvioNucleo(convidados: Convidado[]) {
   });
 }
 
-function isRepresentanteEnvioResponsavelGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  if (!isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados)) return true;
+function isRsvpPendente(status: string | null | undefined) {
+  const normalizado = normalizarStatusEnvio(status);
 
-  const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
-  if (!chave) return true;
-
-  const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
-
-  // Se o principal do núcleo também é convidado, o card dele representa o envio do núcleo.
-  // Os demais convidados sem telefone entram vinculados nesse card.
-  if (
-    principalGrupo &&
-    principalGrupo.id !== convidado.id &&
-    isPrincipalConvidadoDoConvite(principalGrupo) &&
-    recebeComunicacaoNesteEvento(principalGrupo) &&
-    getChaveEnvioResponsavelGrupo(principalGrupo, todosConvidados) === chave
-  ) {
-    return false;
-  }
-
-  const dependentesMesmoResponsavel = ordenarConvidadosParaEnvioNucleo(
-    todosConvidados.filter((item) => {
-      return (
-        isDependenteGrupoComEnvioViaResponsavel(item, todosConvidados) &&
-        recebeComunicacaoNesteEvento(item) &&
-        temTokenConvite(item) &&
-        getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave
-      );
-    })
+  return (
+    !normalizado ||
+    normalizado === "pendente" ||
+    normalizado === "aguardando" ||
+    normalizado === "sem_resposta" ||
+    normalizado === "nao_respondeu"
   );
-
-  return dependentesMesmoResponsavel[0]?.id === convidado.id;
 }
 
-function getConvidadosVinculadosAoResponsavel(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
-  const podeAgruparPorResponsavel =
-    isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados) ||
-    isPrincipalConvidadoDoConvite(convidado);
+function isRsvpAusente(status: string | null | undefined) {
+  const normalizado = normalizarStatusEnvio(status);
 
-  if (!chave || !podeAgruparPorResponsavel) {
-    return [convidado];
+  return (
+    normalizado === "ausente" ||
+    normalizado === "nao_vai" ||
+    normalizado === "nao_ira" ||
+    normalizado === "recusado" ||
+    normalizado === "cancelado"
+  );
+}
+
+function conviteJaFoiEnviado(convidado: Convidado) {
+  return (
+    isStatusEnviado(convidado.status_envio_convite) ||
+    isStatusEnviado(convidado.status_envio) ||
+    isEnvioImportado(convidado, campanhas.convite) ||
+    !!convidado.data_envio_convite ||
+    !!convidado.data_hora_envio
+  );
+}
+
+function isElegivelParaCampanha(
+  convidado: Convidado,
+  campanha: Campanha,
+  todosConvidados: Convidado[] = []
+) {
+  if (!recebeComunicacaoNesteEvento(convidado)) return false;
+  if (!temTokenConvite(convidado)) return false;
+  if (!getTelefoneEnvio(convidado, todosConvidados)) return false;
+
+  if (campanha.key === "convite") {
+    return (
+      isRsvpPendente(convidado.status_rsvp) &&
+      !isRsvpConfirmado(convidado.status_rsvp) &&
+      !isRsvpAusente(convidado.status_rsvp)
+    );
   }
 
-  const vinculados = ordenarConvidadosParaEnvioNucleo(
-    todosConvidados.filter((item) => {
-      const mesmoDestino = getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave;
-      const convidadoValidoParaMensagem =
-        temTokenConvite(item) &&
-        recebeComunicacaoNesteEvento(item) &&
-        (
-          isDependenteGrupoComEnvioViaResponsavel(item, todosConvidados) ||
-          (item.id === convidado.id && isPrincipalConvidadoDoConvite(item))
-        );
+  if (campanha.key === "lembrete_rsvp") {
+    return (
+      isRsvpPendente(convidado.status_rsvp) &&
+      conviteJaFoiEnviado(convidado)
+    );
+  }
 
-      return mesmoDestino && convidadoValidoParaMensagem;
-    })
+  if (campanha.key === "cartao_evento") {
+    return (
+      isRsvpConfirmado(convidado.status_rsvp) &&
+      deveReceberCartaoEvento(convidado)
+    );
+  }
+
+  return false;
+}
+
+function getConvidadosElegiveisMesmoDestino(
+  convidado: Convidado,
+  campanha: Campanha,
+  todosConvidados: Convidado[] = []
+) {
+  const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
+
+  return ordenarConvidadosParaEnvioNucleo(
+    todosConvidados.filter((item) =>
+      getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave &&
+      isElegivelParaCampanha(item, campanha, todosConvidados)
+    )
+  );
+}
+
+function isRepresentanteEnvioResponsavelGrupo(
+  convidado: Convidado,
+  campanha: Campanha,
+  todosConvidados: Convidado[] = []
+) {
+  const elegiveis = getConvidadosElegiveisMesmoDestino(convidado, campanha, todosConvidados);
+  return elegiveis[0]?.id === convidado.id;
+}
+
+function getConvidadosVinculadosAoResponsavel(
+  convidado: Convidado,
+  todosConvidados: Convidado[] = [],
+  campanha?: Campanha
+) {
+  if (campanha) {
+    const elegiveis = getConvidadosElegiveisMesmoDestino(convidado, campanha, todosConvidados);
+    return elegiveis.length > 0 ? elegiveis : [convidado];
+  }
+
+  const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
+
+  if (!chave) return [convidado];
+
+  const vinculados = ordenarConvidadosParaEnvioNucleo(
+    todosConvidados.filter((item) =>
+      getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave &&
+      temTokenConvite(item) &&
+      recebeComunicacaoNesteEvento(item)
+    )
   );
 
   return vinculados.length > 0 ? vinculados : [convidado];
 }
 
-function getNomesConvidadosVinculados(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  return getConvidadosVinculadosAoResponsavel(convidado, todosConvidados)
+function deveAparecerNoModuloEnvios(
+  convidado: Convidado,
+  campanha: Campanha,
+  todosConvidados: Convidado[] = []
+) {
+  if (!getTelefoneEnvio(convidado, todosConvidados)) return false;
+
+  const elegiveisMesmoDestino = getConvidadosElegiveisMesmoDestino(convidado, campanha, todosConvidados);
+
+  if (elegiveisMesmoDestino.length === 0) return false;
+
+  return isRepresentanteEnvioResponsavelGrupo(convidado, campanha, todosConvidados);
+}
+
+
+function getNomesConvidadosVinculados(
+  convidado: Convidado,
+  todosConvidados: Convidado[] = [],
+  campanha?: Campanha
+) {
+  return getConvidadosVinculadosAoResponsavel(convidado, todosConvidados, campanha)
     .map((item) => String(item.nome || "").trim())
     .filter(Boolean);
 }
 
-function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
+function formatarNomeConviteInteligente(
+  convidado: Convidado,
+  todosConvidados: Convidado[] = [],
+  campanha?: Campanha
+) {
+  const nomes = getNomesConvidadosVinculados(convidado, todosConvidados, campanha);
 
   if (nomes.length === 0) return convidado.nome || "";
   if (nomes.length === 1) return nomes[0];
@@ -1863,8 +1933,12 @@ function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: C
   return `${nomes[0]} e família`;
 }
 
-function formatarTituloCardEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
+function formatarTituloCardEnvio(
+  convidado: Convidado,
+  todosConvidados: Convidado[] = [],
+  campanha?: Campanha
+) {
+  const nomes = getNomesConvidadosVinculados(convidado, todosConvidados, campanha);
 
   if (nomes.length === 0) return convidado.nome || "Sem nome";
   if (nomes.length === 1) return nomes[0];
@@ -1895,32 +1969,6 @@ function aplicarPluralizacaoAutomatica(template: string, quantidadeConvidados: n
   }
 
   return texto;
-}
-
-function deveAparecerNoModuloEnvios(
-  convidado: Convidado,
-  campanha: Campanha,
-  todosConvidados: Convidado[] = []
-) {
-  // Regra de comunicação do evento:
-  // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
-  if (!recebeComunicacaoNesteEvento(convidado)) {
-    return false;
-  }
-
-  // Quando o principal do núcleo tem telefone, mas não é convidado do convite,
-  // ele serve apenas como destinatário da comunicação e não deve gerar card próprio.
-  if (isPrincipalApenasDestinatarioDoGrupo(convidado, todosConvidados)) {
-    return false;
-  }
-
-  // Dependentes/convidados sem telefone em convite por núcleo devem aparecer uma única vez
-  // por responsável/principal + grupo. Assim evita dois cards e duas mensagens para o mesmo WhatsApp.
-  if (isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados)) {
-    return isRepresentanteEnvioResponsavelGrupo(convidado, todosConvidados);
-  }
-
-  return true;
 }
 
 function extrairTokens(token: string | null | undefined) {
@@ -1994,13 +2042,14 @@ function montarMensagem(
   template: string,
   convidado: Convidado,
   evento?: Evento | null,
-  todosConvidados: Convidado[] = []
+  todosConvidados: Convidado[] = [],
+  campanha?: Campanha
 ) {
   const nomeEvento = evento?.nome || "";
   const tokenConvite = resolverTokenConvite(convidado, todosConvidados);
-  const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, todosConvidados);
+  const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, todosConvidados, campanha);
   const quantidadeConvidados = Math.max(convidadosVinculados.length, 1);
-  const nomeDestinatario = formatarNomeConviteInteligente(convidado, todosConvidados);
+  const nomeDestinatario = formatarNomeConviteInteligente(convidado, todosConvidados, campanha);
   const listaConvidados = convidadosVinculados
     .map((item) => `• ${item.nome || "Convidado sem nome"}`)
     .join("\n");
