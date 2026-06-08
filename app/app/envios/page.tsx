@@ -105,9 +105,18 @@ export default function EnviosPage() {
   const [envioPendenteConfirmacao, setEnvioPendenteConfirmacao] = useState<Convidado | null>(null);
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
   const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null);
+  const [midiasCampanha, setMidiasCampanha] = useState<Record<TipoEnvio, string>>({
+    convite: "",
+    lembrete_rsvp: "",
+    cartao_evento: "",
+  });
+  const [statusMidiaUltimoEnvio, setStatusMidiaUltimoEnvio] = useState<
+    "copiada" | "url_copiada" | "erro" | "sem_midia" | null
+  >(null);
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
+  const midiaAtual = (midiasCampanha[tipoEnvio] || "").trim();
   const templateConfigurado = templatesConfigurados[tipoEnvio];
 
   async function carregarTudo(eventoPreferencialId?: string) {
@@ -909,7 +918,50 @@ export default function EnviosPage() {
     alert("Convidado adicionado à fila de envio.");
   }
 
-  function abrirWhatsApp(convidado: Convidado) {
+  async function copiarMidiaParaClipboard(url: string) {
+    const midiaUrl = url.trim();
+
+    if (!midiaUrl) return "sem_midia" as const;
+
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard não disponível neste navegador.");
+      }
+
+      if (typeof ClipboardItem === "undefined") {
+        await navigator.clipboard.writeText(midiaUrl);
+        return "url_copiada" as const;
+      }
+
+      const response = await fetch(midiaUrl);
+
+      if (!response.ok) {
+        throw new Error("Não foi possível baixar a mídia para copiar.");
+      }
+
+      const blob = await response.blob();
+      const mimeType = blob.type || inferirMimeTypePorUrl(midiaUrl);
+      const arquivo = mimeType ? new Blob([blob], { type: mimeType }) : blob;
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [arquivo.type || "image/png"]: arquivo,
+        }),
+      ]);
+
+      return "copiada" as const;
+    } catch (error) {
+      try {
+        await navigator.clipboard.writeText(midiaUrl);
+        return "url_copiada" as const;
+      } catch (clipboardError) {
+        console.error("Erro ao copiar mídia para o WhatsApp", error, clipboardError);
+        return "erro" as const;
+      }
+    }
+  }
+
+  async function abrirWhatsApp(convidado: Convidado, statusMidia?: "copiada" | "url_copiada" | "erro" | "sem_midia") {
     const telefone = getTelefoneEnvio(convidado, convidados);
 
     if (!telefone) {
@@ -919,12 +971,20 @@ export default function EnviosPage() {
 
     const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+    const detalheMidia =
+      statusMidia === "copiada"
+        ? " Mídia copiada para colar manualmente no WhatsApp."
+        : statusMidia === "url_copiada"
+          ? " URL da mídia copiada para colar manualmente no WhatsApp."
+          : statusMidia === "erro"
+            ? " Não foi possível copiar a mídia automaticamente."
+            : "";
 
-    registrarHistoricoEnvio(convidado, "pendente", "WhatsApp aberto para envio manual.");
+    registrarHistoricoEnvio(convidado, "pendente", `WhatsApp aberto para envio manual.${detalheMidia}`);
     window.open(link, "_blank", "noopener,noreferrer");
   }
 
-  function iniciarEnvioWhatsApp(convidado: Convidado) {
+  async function iniciarEnvioWhatsApp(convidado: Convidado) {
     const telefone = getTelefoneEnvio(convidado, convidados);
 
     if (!telefone) {
@@ -932,7 +992,10 @@ export default function EnviosPage() {
       return;
     }
 
-    abrirWhatsApp(convidado);
+    const statusMidia = midiaAtual ? await copiarMidiaParaClipboard(midiaAtual) : "sem_midia";
+
+    setStatusMidiaUltimoEnvio(statusMidia);
+    await abrirWhatsApp(convidado, statusMidia);
     setEnvioPendenteConfirmacao(convidado);
   }
 
@@ -1139,6 +1202,36 @@ export default function EnviosPage() {
                 style={textareaStyle}
                 rows={14}
               />
+
+              <div style={mediaBoxStyle}>
+                <div>
+                  <strong style={variablesTitleStyle}>Mídia da campanha para teste</strong>
+                  <p style={mediaHelpStyle}>
+                    Cole a URL pública da imagem ou GIF. Ao clicar em WhatsApp, o sistema tenta copiar a mídia e abre a mensagem pronta.
+                  </p>
+                </div>
+
+                <input
+                  value={midiasCampanha[tipoEnvio]}
+                  onChange={(event) =>
+                    setMidiasCampanha((current) => ({
+                      ...current,
+                      [tipoEnvio]: event.target.value,
+                    }))
+                  }
+                  placeholder="https://.../imagem-ou-gif"
+                  style={mediaInputStyle}
+                />
+
+                {midiaAtual && (
+                  <div style={mediaPreviewBoxStyle}>
+                    <img src={midiaAtual} alt="Prévia da mídia da campanha" style={mediaPreviewImageStyle} />
+                    <span style={mediaPreviewTextStyle}>
+                      Esta mídia será copiada antes de abrir o WhatsApp. Depois cole no WhatsApp com Ctrl+V ou Cmd+V.
+                    </span>
+                  </div>
+                )}
+              </div>
 
               <div style={variablesBoxStyle}>
                 <strong style={variablesTitleStyle}>Variáveis disponíveis</strong>
@@ -1455,6 +1548,24 @@ export default function EnviosPage() {
               Se você abriu o WhatsApp mas não enviou, cancele para manter o convidado na fila.
             </p>
 
+            {statusMidiaUltimoEnvio === "copiada" && (
+              <div style={mediaStatusSuccessStyle}>
+                Mídia copiada. No WhatsApp, cole com Ctrl+V ou Cmd+V antes de enviar.
+              </div>
+            )}
+
+            {statusMidiaUltimoEnvio === "url_copiada" && (
+              <div style={mediaStatusWarningStyle}>
+                Não foi possível copiar o arquivo da mídia; a URL foi copiada. Cole no WhatsApp se quiser enviar o link.
+              </div>
+            )}
+
+            {statusMidiaUltimoEnvio === "erro" && (
+              <div style={mediaStatusErrorStyle}>
+                Não foi possível copiar a mídia automaticamente. Envie a imagem manualmente e depois confirme.
+              </div>
+            )}
+
             <div style={sendConfirmActionsStyle}>
               <button
                 type="button"
@@ -1483,6 +1594,17 @@ export default function EnviosPage() {
       )}
     </div>
   );
+}
+
+function inferirMimeTypePorUrl(url: string) {
+  const limpa = url.split("?")[0].toLowerCase();
+
+  if (limpa.endsWith(".gif")) return "image/gif";
+  if (limpa.endsWith(".webp")) return "image/webp";
+  if (limpa.endsWith(".jpg") || limpa.endsWith(".jpeg")) return "image/jpeg";
+  if (limpa.endsWith(".png")) return "image/png";
+
+  return "image/png";
 }
 
 const campanhas: Record<TipoEnvio, Campanha> = {
@@ -2273,6 +2395,16 @@ const responsavelBadgeStyle: React.CSSProperties = { width: "fit-content", margi
 const messagePreviewStyle: React.CSSProperties = { margin: "10px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.45, whiteSpace: "pre-line" };
 const sentDateStyle: React.CSSProperties = { marginTop: 8, color: "var(--muted)", fontWeight: 800 };
 const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" };
+const mediaBoxStyle: React.CSSProperties = { marginTop: 18, padding: 18, borderRadius: 24, border: "1px solid #e2e8f0", background: "#f8fafc", display: "grid", gap: 12 };
+const mediaHelpStyle: React.CSSProperties = { margin: "6px 0 0", color: "#64748b", fontSize: 14, lineHeight: 1.45 };
+const mediaInputStyle: React.CSSProperties = { width: "100%", border: "1px solid #dbe4ef", borderRadius: 16, padding: "13px 15px", fontSize: 15, color: "#0f172a", background: "#fff", outline: "none" };
+const mediaPreviewBoxStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 18, border: "1px solid #dbeafe", background: "#eff6ff" };
+const mediaPreviewImageStyle: React.CSSProperties = { width: 92, height: 92, borderRadius: 16, objectFit: "cover", background: "#fff", border: "1px solid #dbeafe" };
+const mediaPreviewTextStyle: React.CSSProperties = { color: "#1e3a8a", fontSize: 13, fontWeight: 800, lineHeight: 1.45 };
+const mediaStatusSuccessStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "#dcfce7", color: "#166534", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
+const mediaStatusWarningStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "#fef3c7", color: "#92400e", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
+const mediaStatusErrorStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "#fee2e2", color: "#991b1b", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
+
 const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "#16a34a", color: "#fff", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const enviarFilaButtonStyle: React.CSSProperties = { border: "none", background: "#2563eb", color: "#fff", padding: "10px 15px", borderRadius: 999, fontWeight: 950, cursor: "pointer", boxShadow: "0 10px 24px rgba(37,99,235,0.22)" };
 const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "#dbeafe", color: "#1d4ed8", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
