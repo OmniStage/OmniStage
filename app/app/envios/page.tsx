@@ -76,7 +76,8 @@ type Campanha = {
   templatePadrao: string;
 };
 
-
+const ENVIO_MIDIA_BUCKET = "convites";
+const ENVIO_MIDIA_MAX_SIZE_MB = 20;
 
 export default function EnviosPage() {
   const [tipoEnvio, setTipoEnvio] = useState<TipoEnvio>("convite");
@@ -113,6 +114,7 @@ export default function EnviosPage() {
   const [statusMidiaUltimoEnvio, setStatusMidiaUltimoEnvio] = useState<
     "copiada" | "url_copiada" | "erro" | "sem_midia" | null
   >(null);
+  const [uploadingMidia, setUploadingMidia] = useState(false);
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
@@ -918,6 +920,78 @@ export default function EnviosPage() {
     alert("Convidado adicionado à fila de envio.");
   }
 
+
+  async function uploadMidiaCampanha(file: File | null) {
+    if (!file) return;
+
+    if (!eventoAtual?.id) {
+      alert("Selecione um evento antes de fazer upload da mídia.");
+      return;
+    }
+
+    if (!file.type.startsWith("image/") && file.type !== "video/mp4") {
+      alert("Use uma imagem, GIF ou vídeo MP4 curto.");
+      return;
+    }
+
+    const limiteBytes = ENVIO_MIDIA_MAX_SIZE_MB * 1024 * 1024;
+
+    if (file.size > limiteBytes) {
+      alert(`A mídia precisa ter no máximo ${ENVIO_MIDIA_MAX_SIZE_MB} MB.`);
+      return;
+    }
+
+    setUploadingMidia(true);
+
+    try {
+      const extensao = obterExtensaoArquivo(file.name, file.type);
+      const tenantPath = eventoAtual.tenant_id || "sem-tenant";
+      const nomeArquivo = `${Date.now()}-${normalizarNomeArquivo(file.name || `midia.${extensao}`)}`;
+      const path = `envios/${tenantPath}/${eventoAtual.id}/${tipoEnvio}/${nomeArquivo}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(ENVIO_MIDIA_BUCKET)
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type || inferirMimeTypePorUrl(file.name),
+        });
+
+      if (uploadError) {
+        alert(
+          `Erro ao fazer upload da mídia: ${uploadError.message}. Verifique se o bucket "${ENVIO_MIDIA_BUCKET}" existe e está público no Supabase Storage.`
+        );
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(ENVIO_MIDIA_BUCKET)
+        .getPublicUrl(path);
+
+      const publicUrl = publicUrlData?.publicUrl;
+
+      if (!publicUrl) {
+        alert("Upload concluído, mas não foi possível gerar a URL pública da mídia.");
+        return;
+      }
+
+      setMidiasCampanha((current) => ({
+        ...current,
+        [tipoEnvio]: publicUrl,
+      }));
+    } finally {
+      setUploadingMidia(false);
+    }
+  }
+
+  function removerMidiaCampanha() {
+    setMidiasCampanha((current) => ({
+      ...current,
+      [tipoEnvio]: "",
+    }));
+    setStatusMidiaUltimoEnvio(null);
+  }
+
   async function copiarMidiaParaClipboard(url: string) {
     const midiaUrl = url.trim();
 
@@ -1205,10 +1279,33 @@ export default function EnviosPage() {
 
               <div style={mediaBoxStyle}>
                 <div>
-                  <strong style={variablesTitleStyle}>Mídia da campanha para teste</strong>
+                  <strong style={variablesTitleStyle}>Mídia da campanha</strong>
                   <p style={mediaHelpStyle}>
-                    Cole a URL pública da imagem ou GIF. Ao clicar em WhatsApp, o sistema tenta copiar a mídia e abre a mensagem pronta.
+                    Faça upload da imagem/GIF do convite. Ao clicar em WhatsApp, o sistema copia a mídia e abre a conversa com a mensagem pronta.
                   </p>
+                </div>
+
+                <div style={mediaUploadRowStyle}>
+                  <label style={mediaUploadButtonStyle}>
+                    {uploadingMidia ? "Enviando mídia..." : midiaAtual ? "Trocar mídia" : "Fazer upload da mídia"}
+                    <input
+                      type="file"
+                      accept="image/*,video/mp4,.gif"
+                      disabled={uploadingMidia}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        event.target.value = "";
+                        uploadMidiaCampanha(file);
+                      }}
+                      style={hiddenFileInputStyle}
+                    />
+                  </label>
+
+                  {midiaAtual && (
+                    <button type="button" onClick={removerMidiaCampanha} style={mediaRemoveButtonStyle}>
+                      Remover mídia
+                    </button>
+                  )}
                 </div>
 
                 <input
@@ -1219,15 +1316,19 @@ export default function EnviosPage() {
                       [tipoEnvio]: event.target.value,
                     }))
                   }
-                  placeholder="https://.../imagem-ou-gif"
+                  placeholder="URL pública da mídia após upload"
                   style={mediaInputStyle}
                 />
 
                 {midiaAtual && (
                   <div style={mediaPreviewBoxStyle}>
-                    <img src={midiaAtual} alt="Prévia da mídia da campanha" style={mediaPreviewImageStyle} />
+                    {midiaAtual.toLowerCase().split("?")[0].endsWith(".mp4") ? (
+                      <video src={midiaAtual} controls muted style={mediaPreviewImageStyle} />
+                    ) : (
+                      <img src={midiaAtual} alt="Prévia da mídia da campanha" style={mediaPreviewImageStyle} />
+                    )}
                     <span style={mediaPreviewTextStyle}>
-                      Esta mídia será copiada antes de abrir o WhatsApp. Depois cole no WhatsApp com Ctrl+V ou Cmd+V.
+                      No envio manual sem API, o WhatsApp abre com o texto pronto. A mídia fica copiada; cole na conversa com Ctrl+V ou Cmd+V para ela aparecer aberta antes de enviar.
                     </span>
                   </div>
                 )}
@@ -1603,8 +1704,35 @@ function inferirMimeTypePorUrl(url: string) {
   if (limpa.endsWith(".webp")) return "image/webp";
   if (limpa.endsWith(".jpg") || limpa.endsWith(".jpeg")) return "image/jpeg";
   if (limpa.endsWith(".png")) return "image/png";
+  if (limpa.endsWith(".mp4")) return "video/mp4";
 
   return "image/png";
+}
+
+function obterExtensaoArquivo(nome: string, mimeType: string) {
+  const extensaoNome = nome.split(".").pop()?.toLowerCase();
+
+  if (extensaoNome && /^[a-z0-9]+$/.test(extensaoNome)) {
+    return extensaoNome;
+  }
+
+  if (mimeType === "image/jpeg") return "jpg";
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/gif") return "gif";
+  if (mimeType === "image/webp") return "webp";
+  if (mimeType === "video/mp4") return "mp4";
+
+  return "png";
+}
+
+function normalizarNomeArquivo(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
 }
 
 const campanhas: Record<TipoEnvio, Campanha> = {
@@ -2398,6 +2526,10 @@ const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center
 const mediaBoxStyle: React.CSSProperties = { marginTop: 18, padding: 18, borderRadius: 24, border: "1px solid #e2e8f0", background: "#f8fafc", display: "grid", gap: 12 };
 const mediaHelpStyle: React.CSSProperties = { margin: "6px 0 0", color: "#64748b", fontSize: 14, lineHeight: 1.45 };
 const mediaInputStyle: React.CSSProperties = { width: "100%", border: "1px solid #dbe4ef", borderRadius: 16, padding: "13px 15px", fontSize: 15, color: "#0f172a", background: "#fff", outline: "none" };
+const mediaUploadRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
+const mediaUploadButtonStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", border: "none", borderRadius: 999, padding: "12px 16px", background: "#6d28d9", color: "#fff", fontSize: 14, fontWeight: 900, cursor: "pointer" };
+const mediaRemoveButtonStyle: React.CSSProperties = { border: "1px solid #fecaca", borderRadius: 999, padding: "11px 15px", background: "#fff1f2", color: "#be123c", fontSize: 14, fontWeight: 900, cursor: "pointer" };
+const hiddenFileInputStyle: React.CSSProperties = { display: "none" };
 const mediaPreviewBoxStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 18, border: "1px solid #dbeafe", background: "#eff6ff" };
 const mediaPreviewImageStyle: React.CSSProperties = { width: 92, height: 92, borderRadius: 16, objectFit: "cover", background: "#fff", border: "1px solid #dbeafe" };
 const mediaPreviewTextStyle: React.CSSProperties = { color: "#1e3a8a", fontSize: 13, fontWeight: 800, lineHeight: 1.45 };
