@@ -1198,7 +1198,7 @@ export default function EnviosPage() {
                 </label>
 
                 <div style={guestInfoStyle}>
-                  <strong style={guestNameStyle}>{convidado.nome || "Sem nome"}</strong>
+                  <strong style={guestNameStyle}>{formatarTituloCardEnvio(convidado, convidados)}</strong>
                   <span style={guestMetaStyle}>
                     {convidado.grupo || "Sem grupo"} · {telefoneExibicao || "Sem telefone"}
                   </span>
@@ -1392,17 +1392,13 @@ const campanhas: Record<TipoEnvio, Campanha> = {
     filtrarPublico: (convidado) => !!getTelefoneEnvio(convidado),
     templatePadrao: `Olá {{nome}} ✨
 
-Os convidados abaixo foram incluídos no convite para o evento {{evento}}:
+Você está convidado(a) para o evento {{evento}}.
 
-{{convidados}}
-
-Acesse o convite digital pelo link:
+Pedimos com gentileza que confirme sua presença no link:
 {{link_convite}}
 
-Por lá você poderá confirmar a presença e desmarcar quem não irá.
-
 Com carinho,
-OmniStage`,
+Pedro e Família.`,
   },
 
   lembrete_rsvp: {
@@ -1681,21 +1677,34 @@ function getChaveEnvioResponsavelGrupo(convidado: Convidado) {
   return `${grupo}__${telefoneResponsavel}__${responsavel}`;
 }
 
+function ordenarConvidadosParaEnvioNucleo(convidados: Convidado[]) {
+  return [...convidados].sort((a, b) => {
+    const principalA = a.contato_principal ? 1 : 0;
+    const principalB = b.contato_principal ? 1 : 0;
+
+    if (principalA !== principalB) {
+      return principalB - principalA;
+    }
+
+    return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+  });
+}
+
 function isRepresentanteEnvioResponsavelGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
   if (!isDependenteGrupoComEnvioViaResponsavel(convidado)) return true;
 
   const chave = getChaveEnvioResponsavelGrupo(convidado);
   if (!chave) return true;
 
-  const dependentesMesmoResponsavel = todosConvidados
-    .filter((item) => {
+  const dependentesMesmoResponsavel = ordenarConvidadosParaEnvioNucleo(
+    todosConvidados.filter((item) => {
       return (
         isDependenteGrupoComEnvioViaResponsavel(item) &&
         recebeComunicacaoNesteEvento(item) &&
         getChaveEnvioResponsavelGrupo(item) === chave
       );
     })
-    .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+  );
 
   return dependentesMesmoResponsavel[0]?.id === convidado.id;
 }
@@ -1707,15 +1716,65 @@ function getConvidadosVinculadosAoResponsavel(convidado: Convidado, todosConvida
     return [convidado];
   }
 
-  return todosConvidados
-    .filter((item) => {
+  return ordenarConvidadosParaEnvioNucleo(
+    todosConvidados.filter((item) => {
       return (
         isDependenteGrupoComEnvioViaResponsavel(item) &&
         recebeComunicacaoNesteEvento(item) &&
         getChaveEnvioResponsavelGrupo(item) === chave
       );
     })
-    .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+  );
+}
+
+function getNomesConvidadosVinculados(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  return getConvidadosVinculadosAoResponsavel(convidado, todosConvidados)
+    .map((item) => String(item.nome || "").trim())
+    .filter(Boolean);
+}
+
+function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
+
+  if (nomes.length === 0) return convidado.nome || "";
+  if (nomes.length === 1) return nomes[0];
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
+
+  return `${nomes[0]} e família`;
+}
+
+function formatarTituloCardEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
+
+  if (nomes.length === 0) return convidado.nome || "Sem nome";
+  if (nomes.length === 1) return nomes[0];
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
+
+  return `${nomes[0]} + ${nomes.length - 1} convidados`;
+}
+
+function aplicarPluralizacaoAutomatica(template: string, quantidadeConvidados: number) {
+  let texto = template;
+
+  if (quantidadeConvidados > 1) {
+    texto = texto
+      .replace(/Você\(s\)\s+estão\s+convidado\(s\)/gi, "Vocês estão convidados")
+      .replace(/Você\s+está\s+convidado\(a\)/gi, "Vocês estão convidados")
+      .replace(/Você\s+está\s+convidado/gi, "Vocês estão convidados")
+      .replace(/Você\s+está\s+convidada/gi, "Vocês estão convidados")
+      .replace(/confirme\s+sua\s+presença/gi, "confirmem suas presenças")
+      .replace(/confirme\s+a\s+sua\s+presença/gi, "confirmem as suas presenças")
+      .replace(/confirmar\s+sua\s+presença/gi, "confirmar suas presenças");
+  } else {
+    texto = texto
+      .replace(/Você\(s\)\s+estão\s+convidado\(s\)/gi, "Você está convidado(a)")
+      .replace(/Vocês\s+estão\s+convidados/gi, "Você está convidado(a)")
+      .replace(/confirmem\s+suas\s+presenças/gi, "confirme sua presença")
+      .replace(/confirmem\s+as\s+suas\s+presenças/gi, "confirme a sua presença")
+      .replace(/confirmar\s+suas\s+presenças/gi, "confirmar sua presença");
+  }
+
+  return texto;
 }
 
 function deveAparecerNoModuloEnvios(
@@ -1813,17 +1872,14 @@ function montarMensagem(
 ) {
   const nomeEvento = evento?.nome || "";
   const tokenConvite = resolverTokenConvite(convidado, todosConvidados);
-  const envioViaResponsavelGrupo = isDependenteGrupoComEnvioViaResponsavel(convidado);
   const convidadosVinculados = getConvidadosVinculadosAoResponsavel(convidado, todosConvidados);
-  const nomeDestinatario =
-    envioViaResponsavelGrupo && convidado.responsavel
-      ? convidado.responsavel
-      : convidado.nome || "";
+  const quantidadeConvidados = Math.max(convidadosVinculados.length, 1);
+  const nomeDestinatario = formatarNomeConviteInteligente(convidado, todosConvidados);
   const listaConvidados = convidadosVinculados
     .map((item) => `• ${item.nome || "Convidado sem nome"}`)
     .join("\n");
 
-  return template
+  return aplicarPluralizacaoAutomatica(template, quantidadeConvidados)
     .replaceAll("{{nome}}", nomeDestinatario)
     .replaceAll("{{convidados}}", listaConvidados || convidado.nome || "")
     .replaceAll("{{convidados_nucleo}}", listaConvidados || convidado.nome || "")
