@@ -1707,11 +1707,18 @@ function normalizarTelefone(telefone: string | null | undefined) {
 }
 
 function getTelefoneEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  return (
-    normalizarTelefone(convidado.telefone) ||
-    normalizarTelefone(convidado.responsavel_telefone) ||
-    normalizarTelefone(getPrincipalNucleoEnvio(convidado, todosConvidados)?.telefone)
-  );
+  const telefoneProprio = normalizarTelefone(convidado.telefone);
+
+  if (telefoneProprio) return telefoneProprio;
+
+  // Convite individual também precisa aparecer em Envios quando o convidado não tem
+  // telefone próprio, mas possui responsável direto informado no cadastro do convite.
+  // Esse caso não depende de "Visualizar convite neste núcleo".
+  const telefoneResponsavelDireto = normalizarTelefone(convidado.responsavel_telefone);
+
+  if (telefoneResponsavelDireto) return telefoneResponsavelDireto;
+
+  return normalizarTelefone(getPrincipalNucleoEnvio(convidado, todosConvidados)?.telefone);
 }
 
 function getPrincipalNucleoEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
@@ -1781,6 +1788,14 @@ function normalizarTipoConvite(tipo: string | null | undefined) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\s-]+/g, "_");
+}
+
+function isConviteIndividualSemTelefoneComResponsavel(convidado: Convidado) {
+  const tipoConvite = normalizarTipoConvite(convidado.tipo_convite);
+  const temTelefoneProprio = !!normalizarTelefone(convidado.telefone);
+  const temTelefoneResponsavel = !!normalizarTelefone(convidado.responsavel_telefone);
+
+  return tipoConvite === "individual" && !temTelefoneProprio && temTelefoneResponsavel;
 }
 
 function isConvidadoCrianca(convidado: Convidado) {
@@ -1932,7 +1947,7 @@ function deveEntrarNoPublicoCampanha(
   const telefoneOk = !!getTelefoneEnvio(convidado, todosConvidados);
 
   if (campanha.key === "convite") {
-    return telefoneOk;
+    return telefoneOk || isConviteIndividualSemTelefoneComResponsavel(convidado);
   }
 
   if (campanha.key === "lembrete_rsvp") {
@@ -1965,6 +1980,13 @@ function deveAparecerNoModuloEnvios(
   // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
   if (!recebeComunicacaoNesteEvento(convidado)) {
     return false;
+  }
+
+  // Convite individual sem telefone próprio, mas com responsável direto informado,
+  // deve aparecer normalmente em Envios. Esse perfil não depende do checkbox
+  // "Visualizar convite neste núcleo".
+  if (isConviteIndividualSemTelefoneComResponsavel(convidado)) {
+    return true;
   }
 
   // Crianças/dependentes em convite por núcleo com envio via responsável devem aparecer uma única vez
