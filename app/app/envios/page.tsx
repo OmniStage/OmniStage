@@ -1675,6 +1675,14 @@ function getNomeResponsavelEnvio(convidado: Convidado, todosConvidados: Convidad
   return principalGrupo?.nome || "Responsável";
 }
 
+function temTokenConvite(convidado: Convidado) {
+  return extrairTokens(convidado.token).length > 0;
+}
+
+function isPrincipalConvidadoDoConvite(convidado: Convidado) {
+  return convidado.contato_principal === true && temTokenConvite(convidado);
+}
+
 function normalizarTipoConvite(tipo: string | null | undefined) {
   return String(tipo || "")
     .trim()
@@ -1726,6 +1734,10 @@ function isPrincipalApenasDestinatarioDoGrupo(convidado: Convidado, todosConvida
   if (convidado.contato_principal !== true) return false;
   if (!normalizarTelefone(convidado.telefone)) return false;
 
+  // Se o principal também tem token, ele é convidado do evento e deve aparecer no envio.
+  // Exemplo: URSULA JOSÉ no PEDRO 10.
+  if (temTokenConvite(convidado)) return false;
+
   const grupo = String(convidado.grupo || "").trim();
   if (!grupo) return false;
 
@@ -1735,6 +1747,7 @@ function isPrincipalApenasDestinatarioDoGrupo(convidado: Convidado, todosConvida
     if (!recebeComunicacaoNesteEvento(item)) return false;
     if (isConviteIndividual(item)) return false;
     if (item.contato_principal === true) return false;
+    if (!temTokenConvite(item)) return false;
 
     return !normalizarTelefone(item.telefone) && !normalizarTelefone(item.responsavel_telefone);
   });
@@ -1778,11 +1791,26 @@ function isRepresentanteEnvioResponsavelGrupo(convidado: Convidado, todosConvida
   const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
   if (!chave) return true;
 
+  const principalGrupo = getPrincipalEnvioDoGrupo(convidado, todosConvidados);
+
+  // Se o principal do núcleo também é convidado, o card dele representa o envio do núcleo.
+  // Os demais convidados sem telefone entram vinculados nesse card.
+  if (
+    principalGrupo &&
+    principalGrupo.id !== convidado.id &&
+    isPrincipalConvidadoDoConvite(principalGrupo) &&
+    recebeComunicacaoNesteEvento(principalGrupo) &&
+    getChaveEnvioResponsavelGrupo(principalGrupo, todosConvidados) === chave
+  ) {
+    return false;
+  }
+
   const dependentesMesmoResponsavel = ordenarConvidadosParaEnvioNucleo(
     todosConvidados.filter((item) => {
       return (
         isDependenteGrupoComEnvioViaResponsavel(item, todosConvidados) &&
         recebeComunicacaoNesteEvento(item) &&
+        temTokenConvite(item) &&
         getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave
       );
     })
@@ -1793,20 +1821,30 @@ function isRepresentanteEnvioResponsavelGrupo(convidado: Convidado, todosConvida
 
 function getConvidadosVinculadosAoResponsavel(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
+  const podeAgruparPorResponsavel =
+    isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados) ||
+    isPrincipalConvidadoDoConvite(convidado);
 
-  if (!chave || !isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados)) {
+  if (!chave || !podeAgruparPorResponsavel) {
     return [convidado];
   }
 
-  return ordenarConvidadosParaEnvioNucleo(
+  const vinculados = ordenarConvidadosParaEnvioNucleo(
     todosConvidados.filter((item) => {
-      return (
-        isDependenteGrupoComEnvioViaResponsavel(item, todosConvidados) &&
+      const mesmoDestino = getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave;
+      const convidadoValidoParaMensagem =
+        temTokenConvite(item) &&
         recebeComunicacaoNesteEvento(item) &&
-        getChaveEnvioResponsavelGrupo(item, todosConvidados) === chave
-      );
+        (
+          isDependenteGrupoComEnvioViaResponsavel(item, todosConvidados) ||
+          (item.id === convidado.id && isPrincipalConvidadoDoConvite(item))
+        );
+
+      return mesmoDestino && convidadoValidoParaMensagem;
     })
   );
+
+  return vinculados.length > 0 ? vinculados : [convidado];
 }
 
 function getNomesConvidadosVinculados(convidado: Convidado, todosConvidados: Convidado[] = []) {
