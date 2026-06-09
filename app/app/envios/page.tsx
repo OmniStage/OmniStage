@@ -77,6 +77,7 @@ type Campanha = {
 };
 
 const ENVIO_MIDIA_BUCKET = "convites";
+const CAMPAIGN_ASSETS_BUCKET = "campaign-assets";
 const ENVIO_MIDIA_MAX_SIZE_MB = 20;
 
 export default function EnviosPage() {
@@ -945,12 +946,14 @@ export default function EnviosPage() {
 
     try {
       const extensao = obterExtensaoArquivo(file.name, file.type);
-      const tenantPath = eventoAtual.tenant_id || "sem-tenant";
+      const tenantPath = normalizarSegmentoStorage(eventoAtual.tenant_id || "sem-tenant");
+      const eventoPath = normalizarSegmentoStorage(eventoAtual.id);
+      const pastaCampanha = normalizarSegmentoStorage(tipoEnvio);
       const nomeArquivo = `${Date.now()}-${normalizarNomeArquivo(file.name || `midia.${extensao}`)}`;
-      const path = `envios/${tenantPath}/${eventoAtual.id}/${tipoEnvio}/${nomeArquivo}`;
+      const path = `${tenantPath}/${eventoPath}/${pastaCampanha}/${nomeArquivo}`;
 
       const { error: uploadError } = await supabase.storage
-        .from(ENVIO_MIDIA_BUCKET)
+        .from(CAMPAIGN_ASSETS_BUCKET)
         .upload(path, file, {
           cacheControl: "3600",
           upsert: true,
@@ -959,13 +962,13 @@ export default function EnviosPage() {
 
       if (uploadError) {
         alert(
-          `Erro ao fazer upload da mídia: ${uploadError.message}. Verifique se o bucket "${ENVIO_MIDIA_BUCKET}" existe e está público no Supabase Storage.`
+          `Erro ao fazer upload da mídia: ${uploadError.message}. Verifique se o bucket "${CAMPAIGN_ASSETS_BUCKET}" existe e está público no Supabase Storage.`
         );
         return;
       }
 
       const { data: publicUrlData } = supabase.storage
-        .from(ENVIO_MIDIA_BUCKET)
+        .from(CAMPAIGN_ASSETS_BUCKET)
         .getPublicUrl(path);
 
       const publicUrl = publicUrlData?.publicUrl;
@@ -1733,6 +1736,10 @@ function normalizarNomeArquivo(nome: string) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
+}
+
+function normalizarSegmentoStorage(valor: string) {
+  return normalizarNomeArquivo(valor || "sem-identificacao") || "sem-identificacao";
 }
 
 const campanhas: Record<TipoEnvio, Campanha> = {
