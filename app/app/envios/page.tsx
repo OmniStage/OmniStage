@@ -382,7 +382,17 @@ export default function EnviosPage() {
   async function carregarTemplates(eventoId: string) {
     const { data, error } = await supabase
       .from("envio_templates")
-      .select("evento_id, tipo_envio, mensagem, ativo")
+      .select(`
+        evento_id,
+        tipo_envio,
+        mensagem,
+        ativo,
+        midia_url,
+        midia_bucket,
+        midia_path,
+        midia_tipo,
+        midia_nome
+      `)
       .eq("evento_id", eventoId)
       .eq("ativo", true);
 
@@ -403,16 +413,24 @@ export default function EnviosPage() {
       cartao_evento: false,
     };
 
+    const novasMidias: Record<TipoEnvio, string> = {
+      convite: "",
+      lembrete_rsvp: "",
+      cartao_evento: "",
+    };
+
     (data || []).forEach((template) => {
       const tipo = template.tipo_envio as TipoEnvio;
       if (tipo in novosTemplates) {
         novosTemplates[tipo] = template.mensagem || campanhas[tipo].templatePadrao;
         novosConfigurados[tipo] = true;
+        novasMidias[tipo] = template.midia_url || "";
       }
     });
 
     setTemplates(novosTemplates);
     setTemplatesConfigurados(novosConfigurados);
+    setMidiasCampanha(novasMidias);
   }
 
   useEffect(() => {
@@ -922,6 +940,46 @@ export default function EnviosPage() {
   }
 
 
+  async function salvarMidiaCampanhaNoTemplate(params: {
+    publicUrl: string;
+    path?: string | null;
+    file?: File | null;
+  }) {
+    if (!eventoAtual?.id) return false;
+
+    const { error } = await supabase.from("envio_templates").upsert(
+      {
+        evento_id: eventoAtual.id,
+        tipo_envio: tipoEnvio,
+        titulo: campanha.titulo,
+        mensagem: mensagemAtual,
+        ativo: true,
+        midia_url: params.publicUrl || null,
+        midia_bucket: params.publicUrl ? CAMPAIGN_ASSETS_BUCKET : null,
+        midia_path: params.path || null,
+        midia_tipo: params.file?.type || (params.publicUrl ? inferirMimeTypePorUrl(params.publicUrl) : null),
+        midia_nome: params.file?.name || null,
+        midia_tamanho_bytes: params.file?.size || null,
+        midia_atualizado_em: params.publicUrl ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "evento_id,tipo_envio" }
+    );
+
+    if (error) {
+      alert("Erro ao salvar a mídia da campanha: " + error.message);
+      return false;
+    }
+
+    setTemplatesConfigurados((current) => ({
+      ...current,
+      [tipoEnvio]: true,
+    }));
+
+    return true;
+  }
+
+
   async function uploadMidiaCampanha(file: File | null) {
     if (!file) return;
 
@@ -978,6 +1036,14 @@ export default function EnviosPage() {
         return;
       }
 
+      const salvouMidia = await salvarMidiaCampanhaNoTemplate({
+        publicUrl,
+        path,
+        file,
+      });
+
+      if (!salvouMidia) return;
+
       setMidiasCampanha((current) => ({
         ...current,
         [tipoEnvio]: publicUrl,
@@ -987,12 +1053,108 @@ export default function EnviosPage() {
     }
   }
 
-  function removerMidiaCampanha() {
+  async function removerMidiaCampanha() {
+    if (!eventoAtual?.id) {
+      setMidiasCampanha((current) => ({
+        ...current,
+        [tipoEnvio]: "",
+      }));
+      setStatusMidiaUltimoEnvio(null);
+      return;
+    }
+
+    const confirmar = window.confirm("Remover a mídia desta campanha de envio?");
+
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("envio_templates")
+      .update({
+        midia_url: null,
+        midia_bucket: null,
+        midia_path: null,
+        midia_tipo: null,
+        midia_nome: null,
+        midia_tamanho_bytes: null,
+        midia_atualizado_em: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("evento_id", eventoAtual.id)
+      .eq("tipo_envio", tipoEnvio);
+
+    if (error) {
+      alert("Erro ao remover mídia: " + error.message);
+      return;
+    }
+
     setMidiasCampanha((current) => ({
       ...current,
       [tipoEnvio]: "",
     }));
     setStatusMidiaUltimoEnvio(null);
+  }
+
+  async function salvarUrlManualMidiaCampanha(url: string) {
+    const publicUrl = url.trim();
+
+    setMidiasCampanha((current) => ({
+      ...current,
+      [tipoEnvio]: publicUrl,
+    }));
+
+    if (!publicUrl) {
+      await removerMidiaCampanha();
+      return;
+    }
+
+    await salvarMidiaCampanhaNoTemplate({
+      publicUrl,
+      path: null,
+      file: null,
+    });
+  }
+
+  async function copiarLinkMidiaCampanha() {
+    if (!midiaAtual) {
+      alert("Não existe mídia para copiar.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(midiaAtual);
+    setStatusMidiaUltimoEnvio("url_copiada");
+    alert("Link da mídia copiado.");
+  }
+
+  function abrirMidiaCampanha() {
+    if (!midiaAtual) {
+      alert("Não existe mídia para abrir.");
+      return;
+    }
+
+    window.open(midiaAtual, "_blank", "noopener,noreferrer");
+  }
+
+  async function copiarImagemEstaticaCampanha() {
+    if (!midiaAtual) {
+      alert("Não existe imagem para copiar.");
+      return;
+    }
+
+    if (!isImagemEstaticaCopiavel(midiaAtual)) {
+      alert("Use este botão apenas para imagem estática (.png, .jpg, .jpeg ou .webp). Para GIF/MP4, use Copiar link ou Abrir mídia.");
+      return;
+    }
+
+    const status = await copiarMidiaParaClipboard(midiaAtual);
+    setStatusMidiaUltimoEnvio(status);
+
+    if (status === "copiada") {
+      alert("Imagem copiada. Cole no WhatsApp com Ctrl+V ou Cmd+V.");
+    } else if (status === "url_copiada") {
+      alert("Não foi possível copiar a imagem diretamente; o link foi copiado.");
+    } else {
+      alert("Não foi possível copiar a imagem.");
+    }
   }
 
   async function copiarMidiaParaClipboard(url: string) {
@@ -1305,9 +1467,22 @@ export default function EnviosPage() {
                   </label>
 
                   {midiaAtual && (
-                    <button type="button" onClick={removerMidiaCampanha} style={mediaRemoveButtonStyle}>
-                      Remover mídia
-                    </button>
+                    <>
+                      <button type="button" onClick={copiarLinkMidiaCampanha} style={mediaActionButtonStyle}>
+                        Copiar link / GIF
+                      </button>
+                      <button type="button" onClick={abrirMidiaCampanha} style={mediaActionButtonStyle}>
+                        Abrir mídia
+                      </button>
+                      {isImagemEstaticaCopiavel(midiaAtual) && (
+                        <button type="button" onClick={copiarImagemEstaticaCampanha} style={mediaActionButtonStyle}>
+                          Copiar imagem
+                        </button>
+                      )}
+                      <button type="button" onClick={removerMidiaCampanha} style={mediaRemoveButtonStyle}>
+                        Remover mídia
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -1319,6 +1494,7 @@ export default function EnviosPage() {
                       [tipoEnvio]: event.target.value,
                     }))
                   }
+                  onBlur={(event) => salvarUrlManualMidiaCampanha(event.target.value)}
                   placeholder="URL pública da mídia após upload"
                   style={mediaInputStyle}
                 />
@@ -1331,7 +1507,7 @@ export default function EnviosPage() {
                       <img src={midiaAtual} alt="Prévia da mídia da campanha" style={mediaPreviewImageStyle} />
                     )}
                     <span style={mediaPreviewTextStyle}>
-                      No envio manual sem API, o WhatsApp abre com o texto pronto. A mídia fica copiada; cole na conversa com Ctrl+V ou Cmd+V para ela aparecer aberta antes de enviar.
+                      PNG/JPG: use “Copiar imagem” para colar no WhatsApp. GIF/MP4: use “Copiar link / GIF” ou “Abrir mídia”, pois o WhatsApp pode colar GIF como imagem estática quando copiado pelo navegador.
                     </span>
                   </div>
                 )}
@@ -2425,6 +2601,17 @@ function montarMensagem(
     .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
 }
 
+
+function isImagemEstaticaCopiavel(url: string) {
+  const caminho = url.split("?")[0].toLowerCase();
+  return (
+    caminho.endsWith(".png") ||
+    caminho.endsWith(".jpg") ||
+    caminho.endsWith(".jpeg") ||
+    caminho.endsWith(".webp")
+  );
+}
+
 function formatarData(data: string) {
   return new Date(data).toLocaleString("pt-BR", {
     day: "2-digit",
@@ -2535,6 +2722,7 @@ const mediaHelpStyle: React.CSSProperties = { margin: "6px 0 0", color: "#64748b
 const mediaInputStyle: React.CSSProperties = { width: "100%", border: "1px solid #dbe4ef", borderRadius: 16, padding: "13px 15px", fontSize: 15, color: "#0f172a", background: "#fff", outline: "none" };
 const mediaUploadRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
 const mediaUploadButtonStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", border: "none", borderRadius: 999, padding: "12px 16px", background: "#6d28d9", color: "#fff", fontSize: 14, fontWeight: 900, cursor: "pointer" };
+const mediaActionButtonStyle: React.CSSProperties = { border: "1px solid #bfdbfe", borderRadius: 999, padding: "11px 15px", background: "#eff6ff", color: "#1d4ed8", fontSize: 14, fontWeight: 900, cursor: "pointer" };
 const mediaRemoveButtonStyle: React.CSSProperties = { border: "1px solid #fecaca", borderRadius: 999, padding: "11px 15px", background: "#fff1f2", color: "#be123c", fontSize: 14, fontWeight: 900, cursor: "pointer" };
 const hiddenFileInputStyle: React.CSSProperties = { display: "none" };
 const mediaPreviewBoxStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 18, border: "1px solid #dbeafe", background: "#eff6ff" };
