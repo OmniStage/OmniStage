@@ -385,6 +385,7 @@ export default function OrganizacaoPage() {
     Record<string, { titulo: string; categoria: string }>
   >({});
   const [acaoAberta, setAcaoAberta] = useState<AcaoProducao | null>(null);
+  const [acaoArrastadaId, setAcaoArrastadaId] = useState<string | null>(null);
   const [novoFornecedor, setNovoFornecedor] = useState({
     nome: "",
     categoria: "buffet",
@@ -836,13 +837,28 @@ export default function OrganizacaoPage() {
 
   async function atualizarAcaoCampo(
     acao: AcaoProducao,
-    campo: "status" | "categoria" | "prioridade",
-    valor: string,
+    campo:
+      | "status"
+      | "categoria"
+      | "prioridade"
+      | "titulo"
+      | "descricao"
+      | "responsavel_nome"
+      | "data_limite"
+      | "fornecedor_id"
+      | "observacoes",
+    valor: string | null,
   ) {
-    const payload: Record<string, string | null> = { [campo]: valor };
-    if (campo === "status")
+    const valorTratado =
+      valor === null || String(valor).trim() === "" ? null : String(valor).trim();
+
+    const payload: Record<string, string | null> = { [campo]: valorTratado };
+
+    if (campo === "status") {
+      payload.status = valorTratado || "a_fazer";
       payload.concluido_em =
-        valor === "concluido" ? new Date().toISOString() : null;
+        valorTratado === "concluido" ? new Date().toISOString() : null;
+    }
 
     const { error } = await supabase
       .from("organizacao_producao")
@@ -861,6 +877,133 @@ export default function OrganizacaoPage() {
       })
       .eq("id", acao.id);
     await depoisSalvar(error);
+  }
+
+  async function moverAcaoParaColuna(acao: AcaoProducao, status: string) {
+    const statusNormalizado = normalizarStatusProducao(status);
+    const statusAtual = normalizarStatusProducao(acao.status);
+
+    if (!statusNormalizado || statusAtual === statusNormalizado) {
+      setAcaoArrastadaId(null);
+      return;
+    }
+
+    setProducao((prev) =>
+      prev.map((item) =>
+        item.id === acao.id
+          ? {
+              ...item,
+              status: statusNormalizado,
+              concluido_em:
+                statusNormalizado === "concluido"
+                  ? new Date().toISOString()
+                  : null,
+            }
+          : item,
+      ),
+    );
+
+    const { error } = await supabase
+      .from("organizacao_producao")
+      .update({
+        status: statusNormalizado,
+        concluido_em:
+          statusNormalizado === "concluido" ? new Date().toISOString() : null,
+      })
+      .eq("id", acao.id);
+
+    setAcaoArrastadaId(null);
+
+    if (error) {
+      setErro(error.message || "Erro ao mover a ação.");
+      if (eventoAtual) await carregarOrganizacao(eventoAtual);
+    }
+  }
+
+  function encontrarAcaoPorId(id: string | null) {
+    if (!id) return null;
+    return producao.find((acao) => acao.id === id) || null;
+  }
+
+  function abrirEdicaoEtiqueta(acao: AcaoProducao) {
+    const atual = CATEGORIAS_PRODUCAO.find((c) => c.value === acao.categoria);
+    const categorias = CATEGORIAS_PRODUCAO.map((c) => `${c.value} = ${c.label}`)
+      .join("\n");
+    const categoria = window.prompt(
+      `Escolha a etiqueta/categoria:\n\n${categorias}`,
+      atual?.value || acao.categoria || "outros",
+    );
+    if (categoria === null) return;
+
+    const categoriaValida = CATEGORIAS_PRODUCAO.some(
+      (item) => item.value === categoria.trim(),
+    );
+
+    if (!categoriaValida) {
+      setErro("Categoria inválida. Use uma das opções listadas.");
+      return;
+    }
+
+    atualizarAcaoCampo(acao, "categoria", categoria.trim());
+  }
+
+  function abrirEdicaoData(acao: AcaoProducao) {
+    const data = window.prompt(
+      "Defina a data de entrega no formato AAAA-MM-DD",
+      acao.data_limite ? acao.data_limite.slice(0, 10) : "",
+    );
+    if (data === null) return;
+    atualizarAcaoCampo(acao, "data_limite", data);
+  }
+
+  function abrirEdicaoMembro(acao: AcaoProducao) {
+    const responsavel = window.prompt(
+      "Defina o responsável por esta ação",
+      acao.responsavel_nome || "",
+    );
+    if (responsavel === null) return;
+    atualizarAcaoCampo(acao, "responsavel_nome", responsavel);
+  }
+
+  function abrirEdicaoDescricao(acao: AcaoProducao) {
+    const descricao = window.prompt(
+      "Descrição da ação",
+      acao.descricao || acao.observacoes || "",
+    );
+    if (descricao === null) return;
+    atualizarAcaoCampo(acao, "descricao", descricao);
+  }
+
+  function abrirVinculoFornecedor(acao: AcaoProducao) {
+    const fornecedores = fornecedoresEvento
+      .map((item) => `${item.fornecedor_id} = ${item.fornecedor?.nome || "Fornecedor"}`)
+      .join("\n");
+    const fornecedor = window.prompt(
+      `Informe o ID do fornecedor para vincular ou deixe vazio para remover:\n\n${fornecedores || "Nenhum fornecedor cadastrado."}`,
+      acao.fornecedor_id || "",
+    );
+    if (fornecedor === null) return;
+    atualizarAcaoCampo(acao, "fornecedor_id", fornecedor);
+  }
+
+  function abrirMovimentoManual(acao: AcaoProducao) {
+    const status = STATUS_PRODUCAO.map((s) => `${s.value} = ${s.label}`).join("\n");
+    const destino = window.prompt(
+      `Mover cartão para qual lista?\n\n${status}`,
+      normalizarStatusProducao(acao.status),
+    );
+    if (destino === null) return;
+
+    const destinoValido = STATUS_PRODUCAO.some(
+      (item) => item.value === destino.trim(),
+    );
+
+    if (!destinoValido) {
+      setErro("Lista inválida. Use uma das opções listadas.");
+      return;
+    }
+
+    alterarStatusAcao(acao, destino.trim());
   }
 
   async function editarAcao(acao: AcaoProducao) {
@@ -1784,7 +1927,16 @@ export default function OrganizacaoPage() {
     const renderCardProducao = (acao: AcaoProducao) => (
       <div
         key={acao.id}
-        className="org-trello-card"
+        className={`org-trello-card ${
+          acaoArrastadaId === acao.id ? "dragging" : ""
+        }`}
+        draggable
+        onDragStart={(e) => {
+          setAcaoArrastadaId(acao.id);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", acao.id);
+        }}
+        onDragEnd={() => setAcaoArrastadaId(null)}
         onDoubleClick={() => setAcaoAberta(acao)}
       >
         <div className="org-card-tags">
@@ -2009,7 +2161,23 @@ export default function OrganizacaoPage() {
                   normalizarStatusProducao(acao.status) === coluna.value,
               );
               return (
-                <div key={coluna.value} className="org-trello-column">
+                <div
+                  key={coluna.value}
+                  className={`org-trello-column ${
+                    acaoArrastadaId ? "drop-enabled" : ""
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const acaoId =
+                      e.dataTransfer.getData("text/plain") || acaoArrastadaId;
+                    const acao = encontrarAcaoPorId(acaoId);
+                    if (acao) moverAcaoParaColuna(acao, coluna.value);
+                  }}
+                >
                   <div className="org-trello-head">
                     <div>
                       <strong>{coluna.label}</strong>
@@ -2268,9 +2436,39 @@ export default function OrganizacaoPage() {
               </div>
 
               <div className="org-card-modal-sidebar">
+                <strong>Adicionar ao cartão</strong>
+                <button type="button" onClick={() => abrirEdicaoEtiqueta(acaoAberta)}>
+                  🏷️ Etiquetas
+                </button>
+                <button type="button" onClick={() => abrirEdicaoData(acaoAberta)}>
+                  🕒 Datas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAba("execucao");
+                    setSubExecucao("checklist");
+                    setAcaoAberta(null);
+                  }}
+                >
+                  ☑️ Checklist
+                </button>
+                <button type="button" onClick={() => abrirEdicaoMembro(acaoAberta)}>
+                  👥 Membros
+                </button>
+                <button type="button" onClick={() => abrirVinculoFornecedor(acaoAberta)}>
+                  🏢 Fornecedor
+                </button>
+                <button type="button" onClick={() => abrirEdicaoDescricao(acaoAberta)}>
+                  📝 Descrição
+                </button>
+
                 <strong>Ações do cartão</strong>
                 <button type="button" onClick={() => editarAcao(acaoAberta)}>
                   ✏️ Editar dados
+                </button>
+                <button type="button" onClick={() => abrirMovimentoManual(acaoAberta)}>
+                  ➜ Mover
                 </button>
                 <button
                   type="button"
@@ -3320,6 +3518,31 @@ const styles = `
 
 @media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+
+.org-trello-column.drop-enabled {
+  outline: 2px dashed rgba(109, 40, 217, .25);
+  outline-offset: 3px;
+}
+.org-trello-column.drop-enabled:hover {
+  background: #f1f5ff;
+  border-color: rgba(109, 40, 217, .35);
+}
+.org-trello-card {
+  cursor: grab;
+}
+.org-trello-card:active {
+  cursor: grabbing;
+}
+.org-trello-card.dragging {
+  opacity: .55;
+  transform: rotate(1deg) scale(.99);
+}
+.org-card-title-button {
+  text-align: left;
+}
+.org-card-modal-sidebar strong:not(:first-child) {
+  margin-top: 12px;
+}
 `;
 
 function styleToCss(style: React.CSSProperties) {
@@ -3330,6 +3553,7 @@ function styleToCss(style: React.CSSProperties) {
     )
     .join("");
 }
+
 
 
 
