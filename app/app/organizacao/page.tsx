@@ -342,6 +342,95 @@ const CHECKLIST_PADRAO_DIA = [
   },
 ];
 
+const ROTEIROS_PADRAO = [
+  {
+    value: "aniversario_infantil",
+    label: "Aniversário infantil",
+    items: [
+      ["Montagem inicial", "montagem", "08:00", "09:00"],
+      ["Chegada da decoração", "montagem", "09:00", "10:30"],
+      ["Buffet montado", "buffet", "11:00", "12:00"],
+      ["Teste de som e iluminação", "infraestrutura", "12:00", "12:30"],
+      ["Recepção dos convidados", "recepcao", "13:00", "13:30"],
+      ["Início do evento", "cerimonial", "13:30", "13:45"],
+      ["Atividades / recreação", "recreacao", "14:00", "15:30"],
+      ["Parabéns", "cerimonial", "16:00", "16:20"],
+      ["Fotos oficiais", "foto_video", "16:20", "16:45"],
+      ["Encerramento", "cerimonial", "17:00", "17:15"],
+      ["Desmontagem", "desmontagem", "17:30", "18:30"],
+    ],
+  },
+  {
+    value: "quinze_anos",
+    label: "15 anos",
+    items: [
+      ["Montagem inicial", "montagem", "14:00", "16:00"],
+      ["Decoração finalizada", "decoracao", "17:00", "18:00"],
+      ["Teste de som, luz e telão", "infraestrutura", "18:00", "18:30"],
+      ["Chegada da equipe e alinhamento", "equipe", "19:00", "19:30"],
+      ["Recepção dos convidados", "recepcao", "20:00", "21:00"],
+      ["Entrada da debutante", "cerimonial", "21:15", "21:30"],
+      ["Valsa", "cerimonial", "21:30", "21:45"],
+      ["Homenagens", "cerimonial", "21:45", "22:10"],
+      ["Jantar", "buffet", "22:15", "23:00"],
+      ["Abertura da pista", "musica", "23:00", "23:15"],
+      ["Parabéns", "cerimonial", "00:00", "00:20"],
+      ["Balada", "musica", "00:20", "02:00"],
+      ["Encerramento", "cerimonial", "02:00", "02:15"],
+    ],
+  },
+  {
+    value: "casamento",
+    label: "Casamento",
+    items: [
+      ["Montagem inicial", "montagem", "10:00", "12:00"],
+      ["Decoração finalizada", "decoracao", "14:00", "15:00"],
+      ["Teste de som e iluminação", "infraestrutura", "15:00", "15:30"],
+      ["Chegada da equipe", "equipe", "15:30", "16:00"],
+      ["Recepção dos convidados", "recepcao", "16:30", "17:00"],
+      ["Cerimônia", "cerimonial", "17:00", "18:00"],
+      ["Fotos oficiais", "foto_video", "18:00", "18:40"],
+      ["Entrada dos noivos", "cerimonial", "19:00", "19:15"],
+      ["Jantar", "buffet", "20:00", "21:00"],
+      ["Brinde / discurso", "cerimonial", "21:10", "21:30"],
+      ["Abertura da pista", "musica", "21:40", "22:00"],
+      ["Bolo / doces", "buffet", "23:00", "23:20"],
+      ["Encerramento", "cerimonial", "01:00", "01:15"],
+    ],
+  },
+  {
+    value: "corporativo",
+    label: "Corporativo",
+    items: [
+      ["Montagem inicial", "montagem", "08:00", "09:00"],
+      ["Credenciamento pronto", "recepcao", "09:00", "09:30"],
+      ["Teste de áudio, vídeo e internet", "infraestrutura", "09:30", "10:00"],
+      ["Recepção dos participantes", "recepcao", "10:00", "10:30"],
+      ["Abertura oficial", "cerimonial", "10:30", "10:45"],
+      ["Palestra / apresentação", "cerimonial", "10:45", "12:00"],
+      ["Coffee break", "buffet", "12:00", "12:30"],
+      ["Networking / ativações", "comunicacao", "12:30", "13:30"],
+      ["Encerramento", "cerimonial", "14:00", "14:15"],
+      ["Desmontagem", "desmontagem", "14:30", "15:30"],
+    ],
+  },
+  {
+    value: "show_festa",
+    label: "Show / festa",
+    items: [
+      ["Montagem de palco e estrutura", "montagem", "10:00", "12:00"],
+      ["Passagem de som", "musica", "15:00", "16:00"],
+      ["Alinhamento de segurança", "seguranca", "17:00", "17:30"],
+      ["Abertura de portas", "recepcao", "18:00", "18:30"],
+      ["DJ / abertura", "musica", "19:00", "20:00"],
+      ["Atração principal", "musica", "21:00", "22:30"],
+      ["Encerramento musical", "musica", "23:30", "00:00"],
+      ["Saída do público", "seguranca", "00:00", "00:30"],
+      ["Desmontagem", "desmontagem", "00:30", "02:00"],
+    ],
+  },
+];
+
 const cardStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.92)",
   border: "1px solid rgba(226,232,240,0.95)",
@@ -431,6 +520,7 @@ export default function OrganizacaoPage() {
     responsavel: "",
     descricao: "",
   });
+  const [modeloRoteiroPadrao, setModeloRoteiroPadrao] = useState("quinze_anos");
 
   useEffect(() => {
     carregarTudo();
@@ -1598,6 +1688,57 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         descricao: "",
       }),
     );
+  }
+
+  async function usarRoteiroPadrao() {
+    if (!eventoAtual) return;
+
+    const modelo = ROTEIROS_PADRAO.find(
+      (item) => item.value === modeloRoteiroPadrao,
+    );
+
+    if (!modelo) {
+      setErro("Selecione um modelo de roteiro padrão.");
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Adicionar o roteiro padrão "${modelo.label}" ao evento?\n\nOs itens que já existirem pelo mesmo título não serão duplicados.`,
+    );
+    if (!confirmar) return;
+
+    const titulosExistentes = new Set(
+      agenda
+        .map((item) => (item.titulo || "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+
+    const itensParaInserir = modelo.items
+      .filter(([titulo]) => !titulosExistentes.has(String(titulo).trim().toLowerCase()))
+      .map(([titulo, categoria, inicio, fim], index) => ({
+        tenant_id: tenantId || null,
+        evento_id: eventoAtual.id,
+        titulo: String(titulo),
+        categoria: String(categoria),
+        data_inicio: montarDataHoraDoEvento(eventoAtual, String(inicio)),
+        data_fim: montarDataHoraDoEvento(eventoAtual, String(fim)),
+        responsavel: null,
+        descricao: `Criado pelo roteiro padrão: ${modelo.label}`,
+        status: "pendente",
+        cor: null,
+      }));
+
+    if (itensParaInserir.length === 0) {
+      setErro("Este roteiro padrão já foi aplicado neste evento.");
+      return;
+    }
+
+    setSalvando(true);
+    const { error } = await supabase
+      .from("event_agenda_items")
+      .insert(itensParaInserir);
+
+    await depoisSalvar(error);
   }
 
   async function editarAgenda(item: AgendaItem) {
@@ -2951,6 +3092,26 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         title="Roteiro do Evento"
         subtitle="Timeline e cerimonial usando event_agenda_items"
       >
+        <div className="org-template-actions">
+          <div>
+            <strong>Roteiro padrão</strong>
+            <span>Use um modelo inicial e ajuste horários, responsáveis e itens depois.</span>
+          </div>
+          <select
+            value={modeloRoteiroPadrao}
+            onChange={(e) => setModeloRoteiroPadrao(e.target.value)}
+          >
+            {ROTEIROS_PADRAO.map((modelo) => (
+              <option key={modelo.value} value={modelo.value}>
+                {modelo.label}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={usarRoteiroPadrao} disabled={salvando}>
+            Usar roteiro padrão
+          </button>
+        </div>
+
         <div className="org-form-grid roteiro">
           <input
             placeholder="Título"
@@ -3375,6 +3536,20 @@ function valorOuZero(value: string | number | null | undefined) {
   return toNumber(value);
 }
 
+function montarDataHoraDoEvento(evento: Evento, horario: string) {
+  const dataBase = (evento.data_inicio || evento.data_evento || "").slice(0, 10);
+  if (!dataBase || !horario) return null;
+
+  const [hora, minuto] = horario.split(":");
+  const data = new Date(
+    `${dataBase}T${String(hora || "00").padStart(2, "0")}:${String(
+      minuto || "00",
+    ).padStart(2, "0")}:00-03:00`,
+  );
+
+  return Number.isNaN(data.getTime()) ? null : data.toISOString();
+}
+
 function datetimeOuNull(value: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -3556,6 +3731,12 @@ const styles = `
 .org-panel-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .org-panel h2 { margin: 0; font-size: 22px; letter-spacing: -.04em; }
 .org-panel p { margin: 4px 0 0; color: #64748b; font-weight: 700; }
+.org-template-actions { display: grid; grid-template-columns: minmax(0, 1fr) 280px auto; gap: 12px; align-items: center; padding: 16px; border: 1px solid #e2e8f0; border-radius: 22px; background: #f8fafc; margin-bottom: 16px; }
+.org-template-actions strong { display: block; color: #0f172a; font-size: 16px; font-weight: 950; }
+.org-template-actions span { display: block; color: #64748b; font-weight: 800; margin-top: 4px; }
+.org-template-actions select { width: 100%; border: 1px solid #dbe3ef; border-radius: 14px; padding: 12px 13px; background: #fff; color: #0f172a; font-weight: 800; outline: none; }
+.org-template-actions button { border: 0; border-radius: 999px; padding: 12px 18px; background: #6d28d9; color: #fff; font-weight: 950; cursor: pointer; white-space: nowrap; }
+.org-template-actions button:disabled { opacity: .55; cursor: not-allowed; }
 .org-form-grid { display: grid; gap: 10px; margin-bottom: 16px; }
 .org-form-grid.five { grid-template-columns: 1.4fr 1fr .8fr .75fr auto; }
 .org-form-grid.fornecedor { grid-template-columns: 1.3fr .8fr .8fr 1fr .8fr auto; }
@@ -3703,7 +3884,7 @@ const styles = `
 .org-card-modal-sidebar button:hover { border-color: #7c3aed; color: #6d28d9; }
 .org-card-modal-sidebar button.danger { color: #b91c1c; }
 
-@media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 1100px) { .org-template-actions { grid-template-columns: 1fr; } .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 `;
 
@@ -3715,7 +3896,6 @@ function styleToCss(style: React.CSSProperties) {
     )
     .join("");
 }
-
 
 
 
