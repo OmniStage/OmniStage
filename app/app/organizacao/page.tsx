@@ -687,6 +687,8 @@ export default function OrganizacaoPage() {
       );
     if (equipeRes.error)
       setErro("Erro ao carregar equipe: " + equipeRes.error.message);
+    if (agendaRes.error)
+      setErro("Erro ao carregar roteiro: " + agendaRes.error.message);
 
     const vinculos = (fornecedoresEventoRes.data || []) as FornecedorEvento[];
     const fornecedorIds = Array.from(
@@ -1830,7 +1832,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     const { error } = await supabase.from("event_agenda_items").insert({
       tenant_id: tenantId || item.tenant_id || null,
       evento_id: eventoAtual.id,
-      titulo: `${item.titulo || "Item do roteiro"} - cópia`,
+      titulo: `${String(item.titulo || "Item do roteiro")} - cópia`,
       categoria: item.categoria || "cerimonial",
       data_inicio: item.data_inicio,
       data_fim: item.data_fim,
@@ -1845,7 +1847,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
   async function excluirAgenda(item: AgendaItem) {
     const confirmar = window.confirm(
-      `Excluir "${item.titulo || "Item do roteiro"}" do roteiro?`,
+      `Excluir "${String(item.titulo || "Item do roteiro")}" do roteiro?`,
     );
     if (!confirmar) return;
 
@@ -2887,9 +2889,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
   const checklistPorAgenda = useMemo(() => {
     return checklist.reduce<Record<string, Checklist[]>>((acc, item) => {
-      if (!item.agenda_item_id) return acc;
-      if (!acc[item.agenda_item_id]) acc[item.agenda_item_id] = [];
-      acc[item.agenda_item_id].push(item);
+      const agendaItemId = item.agenda_item_id ? String(item.agenda_item_id) : "";
+      if (!agendaItemId) return acc;
+      if (!acc[agendaItemId]) acc[agendaItemId] = [];
+      acc[agendaItemId].push(item);
       return acc;
     }, {});
   }, [checklist]);
@@ -2918,7 +2921,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   function progressoChecklistAgenda(itemAgenda: AgendaItem) {
-    const itens = checklistPorAgenda[itemAgenda.id] || [];
+    const agendaItemId = itemAgenda?.id ? String(itemAgenda.id) : "";
+    const itens = agendaItemId ? checklistPorAgenda[agendaItemId] || [] : [];
     const total = itens.length;
     const concluidos = itens.filter((item) => item.concluido).length;
     const percentual = total ? Math.round((concluidos / total) * 100) : 0;
@@ -3539,6 +3543,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   function renderRoteiro() {
+    const agendaVisivel = Array.isArray(agendaFiltrada) ? agendaFiltrada : [];
+
     return (
       <Panel
         title="Roteiro do Evento"
@@ -3601,22 +3607,22 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           </button>
         </div>
         <div className="org-timeline">
-          {agendaFiltrada.map((item) => {
+          {agendaVisivel.map((item) => {
             const progresso = progressoChecklistAgenda(item);
             return (
-              <div key={item.id} className="org-timeline-row roteiro-com-checklist">
+              <div key={item.id || `${item.titulo || "roteiro"}-${item.data_inicio || ""}`} className="org-timeline-row roteiro-com-checklist">
                 <div className="org-time">
                   <strong>{hora(item.data_inicio)}</strong>
                   <span>{hora(item.data_fim)}</span>
                 </div>
                 <div className="org-dot" />
                 <div className="org-timeline-content">
-                  <h3>{item.titulo || "Item do roteiro"}</h3>
+                  <h3>{String(item.titulo || "Item do roteiro")}</h3>
                   <p>
-                    {item.categoria || "Roteiro"} ·{" "}
-                    {item.responsavel || "Sem responsável"}
+                    {String(item.categoria || "Roteiro")} ·{" "}
+                    {String(item.responsavel || "Sem responsável")}
                   </p>
-                  {item.descricao ? <small>{item.descricao}</small> : null}
+                  {item.descricao ? <small>{String(item.descricao)}</small> : null}
 
                   <div className="org-roteiro-checklist">
                     <div className="org-roteiro-checklist-head">
@@ -3648,7 +3654,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                             >
                               {check.concluido ? "✓" : ""}
                             </button>
-                            <span>{check.item}</span>
+                            <span>{String(check.item || "")}</span>
                             <button type="button" onClick={() => alterarChecklist(check)}>
                               ✏️
                             </button>
@@ -3707,7 +3713,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               </div>
             );
           })}
-          {agendaFiltrada.length === 0 && (
+          {agendaVisivel.length === 0 && (
             <Empty text="Nenhum item de roteiro encontrado." />
           )}
         </div>
@@ -4209,11 +4215,16 @@ function Empty({ text }: { text: string }) {
 function filtrar<T>(
   items: T[],
   termo: string,
-  campos: (item: T) => Array<string | null | undefined>,
+  campos: (item: T) => Array<string | number | boolean | null | undefined>,
 ) {
+  if (!Array.isArray(items)) return [];
   if (!termo) return items;
   return items.filter((item) =>
-    campos(item).some((campo) => (campo || "").toLowerCase().includes(termo)),
+    campos(item).some((campo) =>
+      String(campo ?? "")
+        .toLowerCase()
+        .includes(termo),
+    ),
   );
 }
 
