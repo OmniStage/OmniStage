@@ -6,10 +6,8 @@ import { supabase } from "@/lib/supabase";
 type AbaOrganizacao =
   | "visao"
   | "equipe"
-  | "fornecedores"
-  | "producao"
   | "contratacoes"
-  | "financeiro"
+  | "producao"
   | "roteiro"
   | "pendencias";
 type SubPlanejamento =
@@ -75,6 +73,7 @@ type Checklist = {
   concluido_em: string | null;
   responsavel_nome: string | null;
   ordem: number;
+  agenda_item_id?: string | null;
 };
 
 type Fornecedor = {
@@ -499,6 +498,7 @@ export default function OrganizacaoPage() {
   const [acaoAberta, setAcaoAberta] = useState<AcaoProducao | null>(null);
   const [acaoArrastadaId, setAcaoArrastadaId] = useState<string | null>(null);
   const [novoChecklistCartao, setNovoChecklistCartao] = useState<Record<string, string>>({});
+  const [novoChecklistRoteiro, setNovoChecklistRoteiro] = useState<Record<string, string>>({});
   const [novoFornecedor, setNovoFornecedor] = useState({
     nome: "",
     categoria: "buffet",
@@ -1300,7 +1300,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("contratacoes");
+      setAba("planejamento");
       setSubPlanejamento("contratacoes");
       return;
     }
@@ -1327,7 +1327,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     await depoisSalvar(error);
     if (!error) {
-      setAba("contratacoes");
+      setAba("planejamento");
       setSubPlanejamento("contratacoes");
     }
   }
@@ -1338,7 +1338,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("financeiro");
+      setAba("planejamento");
       setSubPlanejamento("financeiro");
       return;
     }
@@ -1991,28 +1991,16 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 Equipe
               </button>
               <button
-                className={aba === "fornecedores" ? "active" : ""}
-                onClick={() => setAba("fornecedores")}
-              >
-                Fornecedores
-              </button>
-              <button
-                className={aba === "producao" ? "active" : ""}
-                onClick={() => setAba("producao")}
-              >
-                Produção
-              </button>
-              <button
                 className={aba === "contratacoes" ? "active" : ""}
                 onClick={() => setAba("contratacoes")}
               >
                 Contratações
               </button>
               <button
-                className={aba === "financeiro" ? "active" : ""}
-                onClick={() => setAba("financeiro")}
+                className={aba === "producao" ? "active" : ""}
+                onClick={() => setAba("producao")}
               >
-                Financeiro
+                Produção
               </button>
               <button
                 className={aba === "roteiro" ? "active" : ""}
@@ -2124,10 +2112,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           )}
 
           {aba === "equipe" && renderEquipe()}
-          {aba === "fornecedores" && renderFornecedores()}
+          {aba === "contratacoes" && renderContratacoesUnificadas()}
           {aba === "producao" && renderProducao()}
-          {aba === "contratacoes" && renderContratacoes(false)}
-          {aba === "financeiro" && renderContratacoes(true)}
           {aba === "roteiro" && renderRoteiro()}
 
           {aba === "pendencias" && (
@@ -2901,6 +2887,400 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
   }
 
+
+  const checklistPorAgenda = useMemo(() => {
+    return checklist.reduce<Record<string, Checklist[]>>((acc, item) => {
+      if (!item.agenda_item_id) return acc;
+      if (!acc[item.agenda_item_id]) acc[item.agenda_item_id] = [];
+      acc[item.agenda_item_id].push(item);
+      return acc;
+    }, {});
+  }, [checklist]);
+
+  async function criarChecklistRoteiro(itemAgenda: AgendaItem) {
+    if (!eventoAtual || !tenantId) return;
+    const texto = (novoChecklistRoteiro[itemAgenda.id] || "").trim();
+    if (!texto) return;
+
+    setSalvando(true);
+    const { error } = await supabase.from("organizacao_checklist").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      agenda_item_id: itemAgenda.id,
+      item: texto,
+      categoria: itemAgenda.categoria || "roteiro",
+      tipo: "dia_evento",
+      obrigatorio: true,
+      concluido: false,
+      responsavel_nome: itemAgenda.responsavel || null,
+    });
+
+    await depoisSalvar(error, () =>
+      setNovoChecklistRoteiro((prev) => ({ ...prev, [itemAgenda.id]: "" })),
+    );
+  }
+
+  function progressoChecklistAgenda(itemAgenda: AgendaItem) {
+    const itens = checklistPorAgenda[itemAgenda.id] || [];
+    const total = itens.length;
+    const concluidos = itens.filter((item) => item.concluido).length;
+    const percentual = total ? Math.round((concluidos / total) * 100) : 0;
+    return { itens, total, concluidos, percentual };
+  }
+
+  function nomeFornecedorContrato(item: Contratacao) {
+    const vinculo = fornecedoresEvento.find(
+      (fornecedor) => fornecedor.id === item.fornecedor_evento_id,
+    );
+    return vinculo?.fornecedor?.nome || "Sem fornecedor vinculado";
+  }
+
+  function contratacoesDoFornecedor(fornecedorEventoId: string) {
+    return contratacoesFiltradas.filter(
+      (contratacao) => contratacao.fornecedor_evento_id === fornecedorEventoId,
+    );
+  }
+
+  function renderContratacoesUnificadas() {
+    const contratacoesSemFornecedor = contratacoesFiltradas.filter(
+      (contratacao) => !contratacao.fornecedor_evento_id,
+    );
+
+    return (
+      <Panel
+        title="Contratações"
+        subtitle="Fornecedores, serviços contratados, contratos e pagamentos em uma única visão"
+      >
+        <div className="org-money-grid contratacoes-resumo">
+          <div>
+            <span>Total contratado</span>
+            <strong>{formatarMoeda(metricas.valorContratado)}</strong>
+          </div>
+          <div>
+            <span>Total pago</span>
+            <strong>{formatarMoeda(metricas.valorPago)}</strong>
+          </div>
+          <div>
+            <span>Saldo pendente</span>
+            <strong>{formatarMoeda(metricas.saldoPendente)}</strong>
+          </div>
+        </div>
+
+        <div className="org-section-title">
+          <div>
+            <span className="org-eyebrow">Fornecedor</span>
+            <h3>Adicionar fornecedor ao evento</h3>
+          </div>
+        </div>
+
+        <div className="org-form-grid fornecedor">
+          <input
+            placeholder="Nome do fornecedor"
+            value={novoFornecedor.nome}
+            onChange={(e) =>
+              setNovoFornecedor({ ...novoFornecedor, nome: e.target.value })
+            }
+          />
+          <select
+            value={novoFornecedor.categoria}
+            onChange={(e) =>
+              setNovoFornecedor({
+                ...novoFornecedor,
+                categoria: e.target.value,
+              })
+            }
+          >
+            {CATEGORIAS_FORNECEDOR.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Telefone"
+            value={novoFornecedor.telefone}
+            onChange={(e) =>
+              setNovoFornecedor({ ...novoFornecedor, telefone: e.target.value })
+            }
+          />
+          <input
+            placeholder="E-mail"
+            value={novoFornecedor.email}
+            onChange={(e) =>
+              setNovoFornecedor({ ...novoFornecedor, email: e.target.value })
+            }
+          />
+          <input
+            placeholder="Valor fechado"
+            value={novoFornecedor.valor_fechado}
+            onChange={(e) =>
+              setNovoFornecedor({
+                ...novoFornecedor,
+                valor_fechado: e.target.value,
+              })
+            }
+          />
+          <button
+            onClick={criarFornecedor}
+            disabled={salvando || !novoFornecedor.nome.trim()}
+          >
+            Adicionar fornecedor
+          </button>
+        </div>
+
+        <div className="org-section-title">
+          <div>
+            <span className="org-eyebrow">Serviço / contrato</span>
+            <h3>Adicionar serviço contratado</h3>
+          </div>
+        </div>
+
+        <div className="org-form-grid contratacao">
+          <input
+            placeholder="Serviço contratado. Ex.: DJ + som + iluminação"
+            value={novaContratacao.titulo}
+            onChange={(e) =>
+              setNovaContratacao({
+                ...novaContratacao,
+                titulo: e.target.value,
+              })
+            }
+          />
+          <select
+            value={novaContratacao.fornecedor_evento_id}
+            onChange={(e) =>
+              setNovaContratacao({
+                ...novaContratacao,
+                fornecedor_evento_id: e.target.value,
+              })
+            }
+          >
+            <option value="">Sem fornecedor vinculado</option>
+            {fornecedoresEvento.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.fornecedor?.nome || "Fornecedor"}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Valor contratado"
+            value={novaContratacao.valor_contratado}
+            onChange={(e) =>
+              setNovaContratacao({
+                ...novaContratacao,
+                valor_contratado: e.target.value,
+              })
+            }
+          />
+          <input
+            placeholder="Valor pago"
+            value={novaContratacao.valor_pago}
+            onChange={(e) =>
+              setNovaContratacao({
+                ...novaContratacao,
+                valor_pago: e.target.value,
+              })
+            }
+          />
+          <input
+            type="date"
+            value={novaContratacao.data_vencimento}
+            onChange={(e) =>
+              setNovaContratacao({
+                ...novaContratacao,
+                data_vencimento: e.target.value,
+              })
+            }
+          />
+          <button
+            onClick={criarContratacao}
+            disabled={salvando || !novaContratacao.titulo.trim()}
+          >
+            Adicionar serviço
+          </button>
+        </div>
+
+        <div className="org-contract-groups">
+          {fornecedoresFiltrados.map((fornecedorEvento) => {
+            const servicos = contratacoesDoFornecedor(fornecedorEvento.id);
+            const contratado = servicos.reduce(
+              (total, item) => total + toNumber(item.valor_contratado),
+              0,
+            );
+            const pago = servicos.reduce(
+              (total, item) => total + toNumber(item.valor_pago),
+              0,
+            );
+            return (
+              <div key={fornecedorEvento.id} className="org-contract-group">
+                <div className="org-contract-header">
+                  <div>
+                    <span className={`org-pill ${fornecedorEvento.status}`}>
+                      {labelStatus(fornecedorEvento.status)}
+                    </span>
+                    <h3>{fornecedorEvento.fornecedor?.nome || "Fornecedor"}</h3>
+                    <p>
+                      {labelCategoria(
+                        fornecedorEvento.fornecedor?.categoria ||
+                          fornecedorEvento.categoria_evento,
+                      )}{" "}
+                      · {fornecedorEvento.fornecedor?.telefone || "Sem telefone"}
+                    </p>
+                  </div>
+                  <div className="org-finance-values">
+                    <strong>{formatarMoeda(contratado)}</strong>
+                    <span>Pago {formatarMoeda(pago)}</span>
+                    <span>Saldo {formatarMoeda(contratado - pago)}</span>
+                  </div>
+                </div>
+
+                <div className="org-card-actions compact">
+                  <select
+                    value={fornecedorEvento.status}
+                    onChange={(e) =>
+                      atualizarStatusFornecedor(fornecedorEvento, e.target.value)
+                    }
+                  >
+                    {STATUS_FORNECEDOR.map((s) => (
+                      <option key={s} value={s}>
+                        {labelStatus(s)}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => editarFornecedor(fornecedorEvento)}>
+                    ✏️ Editar fornecedor
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => excluirFornecedor(fornecedorEvento)}
+                  >
+                    🗑️ Excluir
+                  </button>
+                </div>
+
+                <div className="org-service-list">
+                  {servicos.length === 0 ? (
+                    <Empty text="Nenhum serviço contratado para este fornecedor." />
+                  ) : (
+                    servicos.map((servico) => (
+                      <div key={servico.id} className="org-service-card">
+                        <div>
+                          <span className={`org-pill ${servico.status}`}>
+                            {labelStatus(servico.status)}
+                          </span>
+                          <h4>{servico.titulo}</h4>
+                          <p>
+                            Vencimento {formatarData(servico.data_vencimento)} ·{" "}
+                            {servico.parcelas || 1} parcela(s)
+                          </p>
+                        </div>
+                        <div className="org-finance-values compact-values">
+                          <strong>{formatarMoeda(toNumber(servico.valor_contratado))}</strong>
+                          <span>Pago {formatarMoeda(toNumber(servico.valor_pago))}</span>
+                          <span>
+                            Saldo{" "}
+                            {formatarMoeda(
+                              toNumber(
+                                servico.valor_pendente ??
+                                  toNumber(servico.valor_contratado) -
+                                    toNumber(servico.valor_pago),
+                              ),
+                            )}
+                          </span>
+                        </div>
+                        <div className="org-card-actions compact">
+                          <button type="button" onClick={() => editarContratacao(servico)}>
+                            ✏️ Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => marcarContratacaoPaga(servico)}
+                            disabled={servico.status === "pago"}
+                          >
+                            ✅ Marcar pago
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => anexarComprovanteContratacao(servico)}
+                          >
+                            📎 Comprovante
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => excluirContratacao(servico)}
+                          >
+                            🗑️ Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {contratacoesSemFornecedor.length > 0 && (
+            <div className="org-contract-group">
+              <div className="org-contract-header">
+                <div>
+                  <span className="org-pill pendente">Sem fornecedor</span>
+                  <h3>Serviços sem fornecedor vinculado</h3>
+                  <p>Contratações cadastradas sem vínculo com fornecedor.</p>
+                </div>
+              </div>
+              <div className="org-service-list">
+                {contratacoesSemFornecedor.map((servico) => (
+                  <div key={servico.id} className="org-service-card">
+                    <div>
+                      <span className={`org-pill ${servico.status}`}>
+                        {labelStatus(servico.status)}
+                      </span>
+                      <h4>{servico.titulo}</h4>
+                      <p>
+                        {nomeFornecedorContrato(servico)} · Vencimento{" "}
+                        {formatarData(servico.data_vencimento)}
+                      </p>
+                    </div>
+                    <div className="org-finance-values compact-values">
+                      <strong>{formatarMoeda(toNumber(servico.valor_contratado))}</strong>
+                      <span>Pago {formatarMoeda(toNumber(servico.valor_pago))}</span>
+                    </div>
+                    <div className="org-card-actions compact">
+                      <button type="button" onClick={() => editarContratacao(servico)}>
+                        ✏️ Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => marcarContratacaoPaga(servico)}
+                        disabled={servico.status === "pago"}
+                      >
+                        ✅ Marcar pago
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => excluirContratacao(servico)}
+                      >
+                        🗑️ Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {fornecedoresFiltrados.length === 0 && contratacoesSemFornecedor.length === 0 && (
+            <Empty text="Nenhuma contratação encontrada." />
+          )}
+        </div>
+      </Panel>
+    );
+  }
+
   function renderFornecedores() {
     return (
       <Panel
@@ -3224,38 +3604,112 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           </button>
         </div>
         <div className="org-timeline">
-          {agendaFiltrada.map((item) => (
-            <div key={item.id} className="org-timeline-row">
-              <div className="org-time">
-                <strong>{hora(item.data_inicio)}</strong>
-                <span>{hora(item.data_fim)}</span>
-              </div>
-              <div className="org-dot" />
-              <div className="org-timeline-content">
-                <h3>{item.titulo || "Item do roteiro"}</h3>
-                <p>
-                  {item.categoria || "Roteiro"} ·{" "}
-                  {item.responsavel || "Sem responsável"}
-                </p>
-                {item.descricao ? <small>{item.descricao}</small> : null}
-                <div className="org-row-actions">
-                  <button type="button" onClick={() => abrirEdicaoAgenda(item)}>
-                    ✏️ Editar
-                  </button>
-                  <button type="button" onClick={() => duplicarAgenda(item)}>
-                    📄 Duplicar
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => excluirAgenda(item)}
-                  >
-                    🗑️ Excluir
-                  </button>
+          {agendaFiltrada.map((item) => {
+            const progresso = progressoChecklistAgenda(item);
+            return (
+              <div key={item.id} className="org-timeline-row roteiro-com-checklist">
+                <div className="org-time">
+                  <strong>{hora(item.data_inicio)}</strong>
+                  <span>{hora(item.data_fim)}</span>
+                </div>
+                <div className="org-dot" />
+                <div className="org-timeline-content">
+                  <h3>{item.titulo || "Item do roteiro"}</h3>
+                  <p>
+                    {item.categoria || "Roteiro"} ·{" "}
+                    {item.responsavel || "Sem responsável"}
+                  </p>
+                  {item.descricao ? <small>{item.descricao}</small> : null}
+
+                  <div className="org-roteiro-checklist">
+                    <div className="org-roteiro-checklist-head">
+                      <div>
+                        <strong>Checklist operacional</strong>
+                        <span>
+                          {progresso.concluidos}/{progresso.total} concluídos
+                        </span>
+                      </div>
+                      <div className="org-progress mini">
+                        <i style={{ width: `${progresso.percentual}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="org-roteiro-checklist-list">
+                      {progresso.itens.length === 0 ? (
+                        <p className="org-muted">Nenhum checklist vinculado a este item do roteiro.</p>
+                      ) : (
+                        progresso.itens.map((check) => (
+                          <div
+                            key={check.id}
+                            className={`org-roteiro-check ${check.concluido ? "done" : ""}`}
+                          >
+                            <button
+                              type="button"
+                              className="org-check-toggle small"
+                              onClick={() => alternarChecklist(check)}
+                              aria-label={check.concluido ? "Reabrir item" : "Concluir item"}
+                            >
+                              {check.concluido ? "✓" : ""}
+                            </button>
+                            <span>{check.item}</span>
+                            <button type="button" onClick={() => alterarChecklist(check)}>
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              className="danger"
+                              onClick={() => excluirChecklist(check)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="org-inline-add-check">
+                      <input
+                        value={novoChecklistRoteiro[item.id] || ""}
+                        onChange={(e) =>
+                          setNovoChecklistRoteiro((prev) => ({
+                            ...prev,
+                            [item.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") criarChecklistRoteiro(item);
+                        }}
+                        placeholder="Adicionar item ao checklist deste roteiro..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => criarChecklistRoteiro(item)}
+                        disabled={salvando || !(novoChecklistRoteiro[item.id] || "").trim()}
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="org-row-actions">
+                    <button type="button" onClick={() => abrirEdicaoAgenda(item)}>
+                      ✏️ Editar
+                    </button>
+                    <button type="button" onClick={() => duplicarAgenda(item)}>
+                      📄 Duplicar
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => excluirAgenda(item)}
+                    >
+                      🗑️ Excluir
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {agendaFiltrada.length === 0 && (
             <Empty text="Nenhum item de roteiro encontrado." />
           )}
@@ -4150,6 +4604,29 @@ const styles = `
 .org-card-modal-sidebar button:hover { border-color: #7c3aed; color: #6d28d9; }
 .org-card-modal-sidebar button.danger { color: #b91c1c; }
 
+
+.org-section-title { margin-top: 24px; margin-bottom: 12px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.org-section-title h3 { margin: 4px 0 0; font-size: 16px; color: #0f172a; }
+.contratacoes-resumo { margin-bottom: 18px; }
+.org-contract-groups { display: grid; gap: 16px; margin-top: 20px; }
+.org-contract-group { border: 1px solid rgba(226,232,240,0.95); border-radius: 20px; background: rgba(255,255,255,0.86); padding: 16px; }
+.org-contract-header, .org-service-card { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.org-contract-header h3, .org-service-card h4 { margin: 8px 0 4px; color: #0f172a; }
+.org-service-list { display: grid; gap: 12px; margin-top: 14px; }
+.org-service-card { border: 1px solid rgba(226,232,240,0.9); border-radius: 16px; padding: 14px; background: #f8fafc; }
+.compact-values { min-width: 140px; text-align: right; }
+.roteiro-com-checklist .org-timeline-content { width: 100%; }
+.org-roteiro-checklist { margin-top: 14px; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 14px; background: rgba(248,250,252,0.82); }
+.org-roteiro-checklist-head { display: grid; gap: 8px; margin-bottom: 10px; }
+.org-roteiro-checklist-head > div:first-child { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.org-progress.mini { height: 7px; border-radius: 999px; }
+.org-roteiro-checklist-list { display: grid; gap: 8px; }
+.org-roteiro-check { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 8px; border-radius: 12px; background: white; border: 1px solid rgba(226,232,240,0.7); }
+.org-roteiro-check.done span { text-decoration: line-through; color: #64748b; }
+.org-check-toggle.small { width: 24px; height: 24px; min-width: 24px; border-radius: 8px; }
+.org-inline-add-check { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+.org-inline-add-check input { min-width: 0; }
+
 @media (max-width: 1100px) { .org-template-actions { grid-template-columns: 1fr; } .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
 .org-agenda-modal { width: min(860px, 94vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 26px; border: 1px solid #e2e8f0; box-shadow: 0 30px 80px rgba(15,23,42,.3); padding: 28px; }
 .org-agenda-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
@@ -4170,6 +4647,8 @@ const styles = `
 .org-agenda-modal-actions button:disabled { opacity: .55; cursor: not-allowed; }
 
 @media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields, .org-agenda-modal-grid { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+
+@media (max-width: 760px) { .org-contract-header, .org-service-card { display: grid; } .compact-values { text-align: left; } .org-inline-add-check { grid-template-columns: 1fr; } }
 `;
 
 function styleToCss(style: React.CSSProperties) {
