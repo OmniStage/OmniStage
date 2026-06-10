@@ -36,6 +36,7 @@ export default function AppLayout({
     { name: "Dashboard", href: "/app/dashboard" },
     { name: "Eventos", href: "/app/eventos" },
     { name: "Calendário", href: "/app/calendario" },
+    { name: "Organização", href: "/app/organizacao" },
     { name: "Contatos", href: "/app/contatos" },
     { name: "Convidados", href: "/app/convidados" },
     { name: "Convite Digital", href: "/app/convite" },
@@ -525,4 +526,3 @@ export default function AppLayout({
     </div>
   );
 }
-
