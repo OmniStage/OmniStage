@@ -230,6 +230,18 @@ function calcularDiasRestantes(evento: EventoCalendario | null) {
   return Math.ceil((dataEvento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function adicionarDias(data: Date, dias: number) {
+  const novaData = new Date(data);
+  novaData.setDate(novaData.getDate() + dias);
+  return novaData;
+}
+
+function formatarInputDateTime(data: Date) {
+  const offset = data.getTimezoneOffset();
+  const local = new Date(data.getTime() - offset * 60 * 1000);
+  return local.toISOString().slice(0, 16);
+}
+
 function mesmoDia(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -270,6 +282,17 @@ export default function CalendarioPage() {
   const [visao, setVisao] = useState<VisaoCalendario>("mes");
   const [eventoSelecionadoId, setEventoSelecionadoId] = useState<string>("");
   const [detalheAberto, setDetalheAberto] = useState<ItemCalendario | EventoCalendario | null>(null);
+  const [novoItemAberto, setNovoItemAberto] = useState(false);
+  const [salvandoAgenda, setSalvandoAgenda] = useState(false);
+  const [agendaForm, setAgendaForm] = useState({
+    titulo: "",
+    descricao: "",
+    categoria: "operacional",
+    data_inicio: "",
+    data_fim: "",
+    status: "pendente",
+    responsavel: "",
+  });
 
   useEffect(() => {
     carregarCalendario();
@@ -435,6 +458,60 @@ export default function CalendarioPage() {
     setLoading(false);
   }
 
+  function abrirNovoItemAgenda() {
+    const base = eventoSelecionado?.data ? new Date(eventoSelecionado.data) : new Date();
+    base.setHours(9, 0, 0, 0);
+    setAgendaForm({
+      titulo: "",
+      descricao: "",
+      categoria: "operacional",
+      data_inicio: formatarInputDateTime(base),
+      data_fim: "",
+      status: "pendente",
+      responsavel: "",
+    });
+    setNovoItemAberto(true);
+  }
+
+  async function salvarNovoItemAgenda(event?: any) {
+    event?.preventDefault();
+    if (!tenantId || !eventoSelecionado?.id) {
+      setErro("Selecione um evento antes de cadastrar um item de agenda.");
+      return;
+    }
+    if (!agendaForm.titulo.trim() || !agendaForm.data_inicio) {
+      setErro("Informe o título e a data inicial do item de agenda.");
+      return;
+    }
+
+    setSalvandoAgenda(true);
+    setErro(null);
+
+    const { error } = await supabase.from("event_agenda_items").insert({
+      tenant_id: tenantId,
+      evento_id: eventoSelecionado.id,
+      titulo: agendaForm.titulo.trim(),
+      descricao: agendaForm.descricao.trim() || null,
+      categoria: agendaForm.categoria,
+      data_inicio: new Date(agendaForm.data_inicio).toISOString(),
+      data_fim: agendaForm.data_fim ? new Date(agendaForm.data_fim).toISOString() : null,
+      status: agendaForm.status,
+      responsavel: agendaForm.responsavel.trim() || null,
+      cor: null,
+      atualizado_em: new Date().toISOString(),
+    });
+
+    setSalvandoAgenda(false);
+
+    if (error) {
+      setErro("Erro ao salvar item de agenda: " + error.message);
+      return;
+    }
+
+    setNovoItemAberto(false);
+    await carregarCalendario();
+  }
+
   const eventosFiltrados = useMemo(() => {
     const termo = normalizarTexto(busca);
 
@@ -512,24 +589,75 @@ export default function CalendarioPage() {
 
   const timelineSelecionada = useMemo(() => {
     if (!eventoSelecionado) return [];
-    const eventoPrincipal: ItemCalendario[] = eventoSelecionado.data
-      ? [
-          {
-            id: `evento-${eventoSelecionado.id}`,
-            eventoId: eventoSelecionado.id,
-            titulo: "Dia do evento",
-            descricao: `${eventoSelecionado.nome} • ${eventoSelecionado.localTexto}`,
-            categoria: "evento",
-            dataInicio: eventoSelecionado.data,
-            dataFim: null,
-            status: eventoSelecionado.statusTexto,
-            responsavel: "",
-            origem: "eventos",
-          },
-        ]
-      : [];
 
-    return [...campanhasSelecionado, ...itensAgendaSelecionado, ...eventoPrincipal]
+    const timelineAutomatica: ItemCalendario[] = [];
+
+    if (eventoSelecionado.data) {
+      timelineAutomatica.push(
+        {
+          id: `auto-convite-${eventoSelecionado.id}`,
+          eventoId: eventoSelecionado.id,
+          titulo: "Convite inicial",
+          descricao: "Marco automático para disparo ou conferência do convite principal.",
+          categoria: "timeline",
+          dataInicio: adicionarDias(eventoSelecionado.data, -30),
+          dataFim: null,
+          status: campanhasSelecionado.some((item) => slugTipoEnvio(item.titulo) === "convite") ? "configurado" : "sugerido",
+          responsavel: "OmniStage",
+          origem: "eventos",
+        },
+        {
+          id: `auto-lembrete-${eventoSelecionado.id}`,
+          eventoId: eventoSelecionado.id,
+          titulo: "Lembrete RSVP",
+          descricao: "Marco automático para reforço de confirmação de presença.",
+          categoria: "rsvp",
+          dataInicio: adicionarDias(eventoSelecionado.data, -7),
+          dataFim: null,
+          status: campanhasSelecionado.some((item) => slugTipoEnvio(item.titulo) === "lembrete_rsvp") ? "configurado" : "sugerido",
+          responsavel: "OmniStage",
+          origem: "eventos",
+        },
+        {
+          id: `auto-cartao-${eventoSelecionado.id}`,
+          eventoId: eventoSelecionado.id,
+          titulo: "Cartão de entrada",
+          descricao: "Marco automático para envio ou conferência dos cartões de entrada.",
+          categoria: "checkin",
+          dataInicio: adicionarDias(eventoSelecionado.data, -1),
+          dataFim: null,
+          status: campanhasSelecionado.some((item) => slugTipoEnvio(item.titulo) === "cartao_evento") ? "configurado" : "sugerido",
+          responsavel: "OmniStage",
+          origem: "eventos",
+        },
+        {
+          id: `evento-${eventoSelecionado.id}`,
+          eventoId: eventoSelecionado.id,
+          titulo: "Dia do evento",
+          descricao: `${eventoSelecionado.nome} • ${eventoSelecionado.localTexto}`,
+          categoria: "evento",
+          dataInicio: eventoSelecionado.data,
+          dataFim: null,
+          status: eventoSelecionado.statusTexto,
+          responsavel: "",
+          origem: "eventos",
+        },
+        {
+          id: `auto-pos-${eventoSelecionado.id}`,
+          eventoId: eventoSelecionado.id,
+          titulo: "Pós-evento",
+          descricao: "Agradecimento, fotos, vídeo e fechamento do relatório.",
+          categoria: "pos_evento",
+          dataInicio: adicionarDias(eventoSelecionado.data, 1),
+          dataFim: null,
+          status: "sugerido",
+          responsavel: "OmniStage",
+          origem: "eventos",
+        }
+      );
+    }
+
+    return [...timelineAutomatica, ...campanhasSelecionado, ...itensAgendaSelecionado]
       .filter((item) => item.dataInicio)
       .sort((a, b) => (a.dataInicio?.getTime() || 0) - (b.dataInicio?.getTime() || 0));
   }, [campanhasSelecionado, eventoSelecionado, itensAgendaSelecionado]);
@@ -616,6 +744,49 @@ export default function CalendarioPage() {
   const taxaRsvp = eventoSelecionado?.convidadosTotal ? Math.round((eventoSelecionado.confirmados / eventoSelecionado.convidadosTotal) * 100) : 0;
   const diasCalendario = useMemo(() => criarDiasCalendario(mesAtual), [mesAtual]);
 
+  const alertasPendencias = useMemo(() => {
+    const alertas: Array<{ titulo: string; descricao: string; nivel: "alto" | "medio" | "baixo" }> = [];
+
+    if (!eventoSelecionado) return alertas;
+
+    const dias = calcularDiasRestantes(eventoSelecionado);
+    const eventoFuturo = dias === null || dias >= 0;
+
+    if (eventoFuturo && agendaOperacional.length === 0) {
+      alertas.push({
+        titulo: "Agenda operacional vazia",
+        descricao: "Cadastre montagem, fornecedores, cerimonial e check-in para organizar a produção.",
+        nivel: "alto",
+      });
+    }
+
+    if (eventoFuturo && campanhasSelecionado.length === 0) {
+      alertas.push({
+        titulo: "Sem campanhas vinculadas",
+        descricao: "Inclua ou revise as campanhas de convite, lembrete RSVP e cartão de entrada.",
+        nivel: "medio",
+      });
+    }
+
+    if (eventoSelecionado.convidadosTotal > 0 && taxaRsvp < 60 && eventoFuturo) {
+      alertas.push({
+        titulo: "RSVP abaixo de 60%",
+        descricao: "Considere criar um lembrete RSVP para reduzir pendências antes do evento.",
+        nivel: "medio",
+      });
+    }
+
+    if (eventoFuturo && dias !== null && dias <= 3 && agendaOperacional.some((item) => !normalizarTexto(item.status).includes("concl"))) {
+      alertas.push({
+        titulo: "Evento próximo com pendências",
+        descricao: "Revise os itens operacionais ainda não concluídos antes da data do evento.",
+        nivel: "alto",
+      });
+    }
+
+    return alertas;
+  }, [agendaOperacional, campanhasSelecionado.length, eventoSelecionado, taxaRsvp]);
+
   function mudarMes(delta: number) {
     setMesAtual((atual) => new Date(atual.getFullYear(), atual.getMonth() + delta, 1));
   }
@@ -668,6 +839,17 @@ export default function CalendarioPage() {
         <MetricCard label="Próximo evento" value={indicadoresCalendario.proximo} detail="Contagem regressiva" />
       </section>
 
+      {alertasPendencias.length > 0 && (
+        <section style={alertsGridStyle}>
+          {alertasPendencias.map((alerta) => (
+            <div key={alerta.titulo} style={alerta.nivel === "alto" ? alertCardHighStyle : alertCardMediumStyle}>
+              <strong style={alertTitleStyle}>{alerta.titulo}</strong>
+              <span style={alertTextStyle}>{alerta.descricao}</span>
+            </div>
+          ))}
+        </section>
+      )}
+
       <section style={overviewGridStyle} className="cal-overview-grid">
         <div style={panelStyle}>
           <div style={panelHeaderStyle}>
@@ -711,7 +893,6 @@ export default function CalendarioPage() {
             </div>
             <div style={calendarActionsStyle}>
               <button onClick={() => mudarMes(-1)} style={iconButtonStyle} aria-label="Mês anterior">‹</button>
-              <button onClick={irParaHoje} style={ghostButtonStyle}>Hoje</button>
               <button onClick={() => mudarMes(1)} style={iconButtonStyle} aria-label="Próximo mês">›</button>
             </div>
           </div>
@@ -729,6 +910,14 @@ export default function CalendarioPage() {
               <button onClick={() => setVisao("mes")} style={visao === "mes" ? segmentActiveStyle : segmentStyle}>Mês</button>
               <button onClick={() => setVisao("lista")} style={visao === "lista" ? segmentActiveStyle : segmentStyle}>Lista</button>
             </div>
+          </div>
+
+          <div style={legendStyle}>
+            <LegendItem label="Evento" styleDef={CATEGORIA_COR.evento} />
+            <LegendItem label="Campanha" styleDef={CATEGORIA_COR.campanha} />
+            <LegendItem label="Agenda" styleDef={CATEGORIA_COR.operacional} />
+            <LegendItem label="RSVP" styleDef={CATEGORIA_COR.rsvp} />
+            <LegendItem label="Pós-evento" styleDef={CATEGORIA_COR.pos_evento} />
           </div>
 
           {visao === "mes" ? (
@@ -790,7 +979,10 @@ export default function CalendarioPage() {
                 <span style={sectionKickerStyle}>Agenda operacional</span>
                 <h2 style={panelTitleStyle}>Produção</h2>
               </div>
-              <span style={counterStyle}>{agendaOperacional.length}</span>
+              <div style={agendaHeaderActionsStyle}>
+                <span style={counterStyle}>{agendaOperacional.length}</span>
+                <button onClick={abrirNovoItemAgenda} style={smallPrimaryButtonStyle}>Adicionar</button>
+              </div>
             </div>
             <div style={listStackStyle}>
               {agendaOperacional.length === 0 ? (
@@ -821,6 +1013,111 @@ export default function CalendarioPage() {
           </div>
         </aside>
       </section>
+
+      {novoItemAberto && (
+        <div style={modalBackdropStyle}>
+          <div style={modalStyle}>
+            <form onSubmit={salvarNovoItemAgenda}>
+              <div style={modalHeaderStyle}>
+                <div>
+                  <span style={{ ...badgeStyle, ...categoriaStyle("operacional") }}>Agenda operacional</span>
+                  <h2 style={modalTitleStyle}>Adicionar item de agenda</h2>
+                  <p style={panelTextStyle}>{eventoSelecionado?.nome || "Selecione um evento para vincular o item."}</p>
+                </div>
+                <button type="button" onClick={() => setNovoItemAberto(false)} style={closeButtonStyle}>×</button>
+              </div>
+
+              <div style={formGridStyle}>
+                <label style={formFieldStyle}>
+                  <span style={formLabelStyle}>Título</span>
+                  <input
+                    value={agendaForm.titulo}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, titulo: event.target.value }))}
+                    placeholder="Ex.: Montagem, Buffet, Cerimonial, Check-in"
+                    style={formInputStyle}
+                  />
+                </label>
+
+                <label style={formFieldStyle}>
+                  <span style={formLabelStyle}>Categoria</span>
+                  <select
+                    value={agendaForm.categoria}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, categoria: event.target.value }))}
+                    style={formInputStyle}
+                  >
+                    <option value="operacional">Operacional</option>
+                    <option value="tarefa">Tarefa</option>
+                    <option value="fornecedor">Fornecedor</option>
+                    <option value="cerimonial">Cerimonial</option>
+                    <option value="checkin">Check-in</option>
+                    <option value="rsvp">RSVP</option>
+                    <option value="pos_evento">Pós-evento</option>
+                  </select>
+                </label>
+
+                <label style={formFieldStyle}>
+                  <span style={formLabelStyle}>Início</span>
+                  <input
+                    type="datetime-local"
+                    value={agendaForm.data_inicio}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, data_inicio: event.target.value }))}
+                    style={formInputStyle}
+                  />
+                </label>
+
+                <label style={formFieldStyle}>
+                  <span style={formLabelStyle}>Fim</span>
+                  <input
+                    type="datetime-local"
+                    value={agendaForm.data_fim}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, data_fim: event.target.value }))}
+                    style={formInputStyle}
+                  />
+                </label>
+
+                <label style={formFieldStyle}>
+                  <span style={formLabelStyle}>Status</span>
+                  <select
+                    value={agendaForm.status}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, status: event.target.value }))}
+                    style={formInputStyle}
+                  >
+                    <option value="pendente">Pendente</option>
+                    <option value="andamento">Em andamento</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </label>
+
+                <label style={formFieldStyle}>
+                  <span style={formLabelStyle}>Responsável</span>
+                  <input
+                    value={agendaForm.responsavel}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, responsavel: event.target.value }))}
+                    placeholder="Nome da pessoa/equipe"
+                    style={formInputStyle}
+                  />
+                </label>
+
+                <label style={{ ...formFieldStyle, gridColumn: "1 / -1" }}>
+                  <span style={formLabelStyle}>Descrição</span>
+                  <textarea
+                    value={agendaForm.descricao}
+                    onChange={(event) => setAgendaForm((atual) => ({ ...atual, descricao: event.target.value }))}
+                    placeholder="Detalhes do compromisso, observações e instruções operacionais."
+                    style={formTextareaStyle}
+                  />
+                </label>
+              </div>
+
+              <div style={modalFooterStyle}>
+                <button type="submit" disabled={salvandoAgenda} style={primaryActionButtonStyle}>{salvandoAgenda ? "Salvando..." : "Salvar item"}</button>
+                <button type="button" onClick={() => setNovoItemAberto(false)} style={secondaryActionButtonStyle}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {detalheAberto && (
         <div style={modalBackdropStyle}>
@@ -870,6 +1167,15 @@ export default function CalendarioPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function LegendItem({ label, styleDef }: { label: string; styleDef: { bg: string; color: string; border: string } }) {
+  return (
+    <span style={legendItemStyle}>
+      <span style={{ ...legendDotStyle, background: styleDef.color }} />
+      {label}
+    </span>
   );
 }
 
@@ -1119,6 +1425,16 @@ const overviewGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px"
 const mainGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 18, alignItems: "start" };
 const sideColumnStyle: CSSProperties = { display: "grid", gap: 18 };
 
+const alertsGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 };
+const alertCardHighStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fecdd3", background: "#fff1f2", display: "grid", gap: 5 };
+const alertCardMediumStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fde68a", background: "#fffbeb", display: "grid", gap: 5 };
+const alertTitleStyle: CSSProperties = { color: "#0f172a", fontSize: 14, fontWeight: 800 };
+const alertTextStyle: CSSProperties = { color: "#64748b", fontSize: 13, fontWeight: 600, lineHeight: 1.45 };
+const legendStyle: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", margin: "0 0 16px", padding: "12px 14px", borderRadius: 18, border: "1px solid #e2e8f0", background: "#f8fafc" };
+const legendItemStyle: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, color: "#475569", fontSize: 12, fontWeight: 700 };
+const legendDotStyle: CSSProperties = { width: 10, height: 10, borderRadius: 999, display: "inline-block" };
+
+
 const panelStyle: CSSProperties = { padding: 22, borderRadius: 28, border: "1px solid #e2e8f0", background: "#fff", boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
 const calendarPanelStyle: CSSProperties = { ...panelStyle, minWidth: 0 };
 const panelHeaderStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 16 };
@@ -1131,6 +1447,9 @@ const miniLabelStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeig
 const miniValueStyle: CSSProperties = { color: "#0f172a", fontSize: 24, fontWeight: 800, letterSpacing: "-0.025em" };
 const miniValueCompactStyle: CSSProperties = { color: "#0f172a", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" };
 const eventInfoGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 14 };
+
+const agendaHeaderActionsStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" };
+const smallPrimaryButtonStyle: CSSProperties = { minHeight: 34, padding: "0 12px", borderRadius: 12, border: "none", background: "#6d28d9", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer" };
 
 const quickActionsStyle: CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 };
 const primaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, background: "#6d28d9", color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 13 };
@@ -1190,3 +1509,11 @@ const detailGridStyle: CSSProperties = { padding: 24, display: "grid", gridTempl
 const detailBoxStyle: CSSProperties = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: 16, minWidth: 0 };
 const detailValueStyle: CSSProperties = { display: "block", marginTop: 6, color: "#0f172a", fontSize: 15, fontWeight: 900, overflowWrap: "anywhere" };
 const modalFooterStyle: CSSProperties = { borderTop: "1px solid #e2e8f0", padding: 24, display: "flex", flexWrap: "wrap", gap: 10 };
+
+const formGridStyle: CSSProperties = { padding: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 };
+const formFieldStyle: CSSProperties = { display: "grid", gap: 7 };
+const formLabelStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" };
+const formInputStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 13px", color: "#0f172a", fontSize: 14, fontWeight: 650, background: "#fff" };
+const formTextareaStyle: CSSProperties = { ...formInputStyle, minHeight: 94, padding: 13, resize: "vertical", fontFamily: "inherit" };
+const primaryActionButtonStyle: CSSProperties = { minHeight: 44, padding: "0 18px", borderRadius: 15, border: "none", background: "#6d28d9", color: "#fff", fontWeight: 800, cursor: "pointer" };
+const secondaryActionButtonStyle: CSSProperties = { minHeight: 44, padding: "0 18px", borderRadius: 15, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontWeight: 800, cursor: "pointer" };
