@@ -342,6 +342,21 @@ const CHECKLIST_PADRAO_DIA = [
   },
 ];
 
+const CATEGORIAS_ROTEIRO = [
+  { value: "montagem", label: "Montagem" },
+  { value: "cerimonial", label: "Cerimonial" },
+  { value: "recepcao", label: "Recepção" },
+  { value: "buffet", label: "Buffet" },
+  { value: "musica", label: "Música" },
+  { value: "atracao", label: "Atração" },
+  { value: "fotografia", label: "Fotografia" },
+  { value: "video", label: "Vídeo" },
+  { value: "seguranca", label: "Segurança" },
+  { value: "limpeza", label: "Limpeza" },
+  { value: "desmontagem", label: "Desmontagem" },
+  { value: "outro", label: "Outro" },
+];
+
 const ROTEIROS_PADRAO = [
   {
     value: "aniversario_infantil",
@@ -519,6 +534,16 @@ export default function OrganizacaoPage() {
     data_fim: "",
     responsavel: "",
     descricao: "",
+  });
+  const [agendaEditando, setAgendaEditando] = useState<AgendaItem | null>(null);
+  const [formAgendaEditando, setFormAgendaEditando] = useState({
+    titulo: "",
+    categoria: "cerimonial",
+    data_inicio: "",
+    data_fim: "",
+    responsavel: "",
+    descricao: "",
+    status: "pendente",
   });
   const [modeloRoteiroPadrao, setModeloRoteiroPadrao] = useState("quinze_anos");
 
@@ -1741,29 +1766,74 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     await depoisSalvar(error);
   }
 
-  async function editarAgenda(item: AgendaItem) {
-    const titulo = window.prompt(
-      "Alterar título do roteiro",
-      item.titulo || "",
-    );
-    if (titulo === null) return;
+  function abrirEdicaoAgenda(item: AgendaItem) {
+    setAgendaEditando(item);
+    setFormAgendaEditando({
+      titulo: item.titulo || "",
+      categoria: item.categoria || "cerimonial",
+      data_inicio: datetimeLocalInput(item.data_inicio),
+      data_fim: datetimeLocalInput(item.data_fim),
+      responsavel: item.responsavel || "",
+      descricao: item.descricao || "",
+      status: item.status || "pendente",
+    });
+  }
 
-    const tituloLimpo = titulo.trim();
-    if (!tituloLimpo) {
+  function fecharEdicaoAgenda() {
+    setAgendaEditando(null);
+    setFormAgendaEditando({
+      titulo: "",
+      categoria: "cerimonial",
+      data_inicio: "",
+      data_fim: "",
+      responsavel: "",
+      descricao: "",
+      status: "pendente",
+    });
+  }
+
+  async function salvarAgendaEditada() {
+    if (!agendaEditando) return;
+
+    const titulo = formAgendaEditando.titulo.trim();
+    if (!titulo) {
       setErro("O título do roteiro não pode ficar vazio.");
       return;
     }
 
-    const responsavel = window.prompt(
-      "Alterar responsável",
-      item.responsavel || "",
-    );
-    if (responsavel === null) return;
-
+    setSalvando(true);
     const { error } = await supabase
       .from("event_agenda_items")
-      .update({ titulo: tituloLimpo, responsavel: limpar(responsavel) })
-      .eq("id", item.id);
+      .update({
+        titulo,
+        categoria: limpar(formAgendaEditando.categoria) || "cerimonial",
+        data_inicio: datetimeOuNull(formAgendaEditando.data_inicio),
+        data_fim: datetimeOuNull(formAgendaEditando.data_fim),
+        responsavel: limpar(formAgendaEditando.responsavel),
+        descricao: limpar(formAgendaEditando.descricao),
+        status: limpar(formAgendaEditando.status) || "pendente",
+      })
+      .eq("id", agendaEditando.id);
+
+    await depoisSalvar(error, fecharEdicaoAgenda);
+  }
+
+  async function duplicarAgenda(item: AgendaItem) {
+    if (!eventoAtual) return;
+
+    setSalvando(true);
+    const { error } = await supabase.from("event_agenda_items").insert({
+      tenant_id: tenantId || item.tenant_id || null,
+      evento_id: eventoAtual.id,
+      titulo: `${item.titulo || "Item do roteiro"} - cópia`,
+      categoria: item.categoria || "cerimonial",
+      data_inicio: item.data_inicio,
+      data_fim: item.data_fim,
+      responsavel: item.responsavel,
+      descricao: item.descricao,
+      status: item.status || "pendente",
+      cor: item.cor,
+    });
 
     await depoisSalvar(error);
   }
@@ -3164,8 +3234,11 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 </p>
                 {item.descricao ? <small>{item.descricao}</small> : null}
                 <div className="org-row-actions">
-                  <button type="button" onClick={() => editarAgenda(item)}>
+                  <button type="button" onClick={() => abrirEdicaoAgenda(item)}>
                     ✏️ Editar
+                  </button>
+                  <button type="button" onClick={() => duplicarAgenda(item)}>
+                    📄 Duplicar
                   </button>
                   <button
                     type="button"
@@ -3182,6 +3255,185 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             <Empty text="Nenhum item de roteiro encontrado." />
           )}
         </div>
+
+        {agendaEditando && (
+          <div
+            className="org-modal-backdrop"
+            onClick={fecharEdicaoAgenda}
+          >
+            <div
+              className="org-agenda-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="org-agenda-modal-header">
+                <div>
+                  <span className="org-eyebrow">Roteiro do evento</span>
+                  <h2>Editar item do roteiro</h2>
+                  <p>Ajuste horário, categoria, responsável e descrição.</p>
+                </div>
+                <button
+                  type="button"
+                  className="org-modal-close static"
+                  onClick={fecharEdicaoAgenda}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="org-agenda-modal-grid">
+                <label className="full">
+                  Título
+                  <input
+                    value={formAgendaEditando.titulo}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        titulo: e.target.value,
+                      })
+                    }
+                    autoFocus
+                  />
+                </label>
+
+                <label>
+                  Categoria
+                  <select
+                    value={formAgendaEditando.categoria}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        categoria: e.target.value,
+                      })
+                    }
+                  >
+                    {CATEGORIAS_ROTEIRO.map((categoria) => (
+                      <option key={categoria.value} value={categoria.value}>
+                        {categoria.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Status
+                  <select
+                    value={formAgendaEditando.status}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        status: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="pendente">Pendente</option>
+                    <option value="em_andamento">Em andamento</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </label>
+
+                <label>
+                  Início
+                  <input
+                    type="datetime-local"
+                    value={formAgendaEditando.data_inicio}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        data_inicio: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Fim
+                  <input
+                    type="datetime-local"
+                    value={formAgendaEditando.data_fim}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        data_fim: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="full">
+                  Responsável
+                  <input
+                    list="organizacao-equipe-roteiro"
+                    value={formAgendaEditando.responsavel}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        responsavel: e.target.value,
+                      })
+                    }
+                    placeholder="Nome do responsável"
+                  />
+                  <datalist id="organizacao-equipe-roteiro">
+                    {equipe.map((pessoa) => (
+                      <option key={pessoa.id} value={pessoa.nome} />
+                    ))}
+                  </datalist>
+                </label>
+
+                <label className="full">
+                  Descrição
+                  <textarea
+                    value={formAgendaEditando.descricao}
+                    onChange={(e) =>
+                      setFormAgendaEditando({
+                        ...formAgendaEditando,
+                        descricao: e.target.value,
+                      })
+                    }
+                    placeholder="Observações, detalhes operacionais ou instruções para a equipe..."
+                  />
+                </label>
+              </div>
+
+              <div className="org-agenda-modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={fecharEdicaoAgenda}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => duplicarAgenda(agendaEditando)}
+                  disabled={salvando}
+                >
+                  📄 Duplicar
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={async () => {
+                    const item = agendaEditando;
+                    fecharEdicaoAgenda();
+                    await excluirAgenda(item);
+                  }}
+                  disabled={salvando}
+                >
+                  🗑️ Excluir
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={salvarAgendaEditada}
+                  disabled={salvando || !formAgendaEditando.titulo.trim()}
+                >
+                  Salvar alterações
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Panel>
     );
   }
@@ -3556,6 +3808,15 @@ function datetimeOuNull(value: string) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function datetimeLocalInput(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
+}
+
 function formatarMoeda(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -3885,7 +4146,25 @@ const styles = `
 .org-card-modal-sidebar button.danger { color: #b91c1c; }
 
 @media (max-width: 1100px) { .org-template-actions { grid-template-columns: 1fr; } .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+.org-agenda-modal { width: min(860px, 94vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 26px; border: 1px solid #e2e8f0; box-shadow: 0 30px 80px rgba(15,23,42,.3); padding: 28px; }
+.org-agenda-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+.org-agenda-modal-header h2 { margin: 4px 0 6px; color: #0f172a; font-size: 28px; line-height: 1.1; }
+.org-agenda-modal-header p { margin: 0; color: #64748b; font-weight: 800; }
+.org-modal-close.static { position: static; flex: 0 0 auto; }
+.org-agenda-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.org-agenda-modal-grid label { display: flex; flex-direction: column; gap: 7px; color: #64748b; font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.org-agenda-modal-grid label.full { grid-column: 1 / -1; }
+.org-agenda-modal-grid input, .org-agenda-modal-grid select, .org-agenda-modal-grid textarea { width: 100%; border: 1px solid #dbe4f0; border-radius: 16px; padding: 13px 14px; background: #fff; color: #0f172a; font-size: 15px; font-weight: 850; text-transform: none; letter-spacing: 0; outline: none; }
+.org-agenda-modal-grid input:focus, .org-agenda-modal-grid select:focus, .org-agenda-modal-grid textarea:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
+.org-agenda-modal-grid textarea { min-height: 120px; resize: vertical; }
+.org-agenda-modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 22px; padding-top: 18px; border-top: 1px solid #e2e8f0; }
+.org-agenda-modal-actions button { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 14px; padding: 12px 16px; font-weight: 950; cursor: pointer; color: #334155; }
+.org-agenda-modal-actions button.primary { border-color: #7c3aed; background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; }
+.org-agenda-modal-actions button.secondary { background: #fff; }
+.org-agenda-modal-actions button.danger { color: #b91c1c; background: #fff; border-color: rgba(185,28,28,.22); }
+.org-agenda-modal-actions button:disabled { opacity: .55; cursor: not-allowed; }
+
+@media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields, .org-agenda-modal-grid { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 `;
 
 function styleToCss(style: React.CSSProperties) {
@@ -3896,6 +4175,7 @@ function styleToCss(style: React.CSSProperties) {
     )
     .join("");
 }
+
 
 
 
