@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type AbaOrganizacao = "visao" | "planejamento" | "execucao" | "pendencias";
-type SubPlanejamento = "tarefas" | "fornecedores" | "contratacoes" | "financeiro";
+type SubPlanejamento = "producao" | "fornecedores" | "contratacoes" | "financeiro";
 type SubExecucao = "roteiro" | "equipe" | "checklist";
 
 type Evento = {
@@ -19,21 +19,22 @@ type Evento = {
   status?: string | null;
 };
 
-type Tarefa = {
+type AcaoProducao = {
   id: string;
   tenant_id: string;
   evento_id: string;
   titulo: string;
   descricao: string | null;
-  tipo: string;
-  prioridade: "baixa" | "media" | "alta" | "critica" | string;
-  status: "pendente" | "em_andamento" | "concluido" | "atrasado" | "cancelado" | string;
+  categoria: string;
+  status: "ideia" | "a_fazer" | "em_andamento" | "aguardando_terceiro" | "concluido" | "cancelado" | string;
+  prioridade: "baixa" | "media" | "alta" | "urgente" | string;
   responsavel_nome: string | null;
-  data_inicio: string | null;
+  fornecedor_id: string | null;
   data_limite: string | null;
   concluido_em: string | null;
   observacoes: string | null;
   criado_em: string;
+  atualizado_em?: string;
 };
 
 type Checklist = {
@@ -151,14 +152,30 @@ const CATEGORIAS_FORNECEDOR = [
   { value: "outros", label: "Outros" },
 ];
 
-const STATUS_TAREFA = [
+const STATUS_PRODUCAO = [
   { value: "ideia", label: "Ideias" },
   { value: "a_fazer", label: "A fazer" },
   { value: "em_andamento", label: "Em andamento" },
   { value: "aguardando_terceiro", label: "Aguardando terceiros" },
   { value: "concluido", label: "Concluído" },
-  { value: "atrasado", label: "Atrasado" },
   { value: "cancelado", label: "Cancelado" },
+];
+
+const CATEGORIAS_PRODUCAO = [
+  { value: "decoracao", label: "🎨 Decoração" },
+  { value: "buffet", label: "🍽 Buffet" },
+  { value: "foto_video", label: "📷 Foto e Vídeo" },
+  { value: "musica", label: "🎵 Música" },
+  { value: "cerimonial", label: "📋 Cerimonial" },
+  { value: "recepcao", label: "🚪 Recepção" },
+  { value: "espaco", label: "🏢 Espaço" },
+  { value: "logistica", label: "🚗 Logística" },
+  { value: "equipe", label: "👥 Equipe" },
+  { value: "financeiro", label: "💰 Financeiro" },
+  { value: "contratos", label: "📄 Contratos" },
+  { value: "brindes", label: "🎁 Brindes" },
+  { value: "comunicacao", label: "📢 Comunicação" },
+  { value: "outros", label: "⭐ Outros" },
 ];
 
 const COLUNAS_PRODUCAO = [
@@ -201,22 +218,22 @@ const cardStyle: React.CSSProperties = {
 export default function OrganizacaoPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoAtual, setEventoAtual] = useState<Evento | null>(null);
-  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [producao, setProducao] = useState<AcaoProducao[]>([]);
   const [checklist, setChecklist] = useState<Checklist[]>([]);
   const [fornecedoresEvento, setFornecedoresEvento] = useState<FornecedorEvento[]>([]);
   const [contratacoes, setContratacoes] = useState<Contratacao[]>([]);
   const [equipe, setEquipe] = useState<Equipe[]>([]);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [aba, setAba] = useState<AbaOrganizacao>("visao");
-  const [subPlanejamento, setSubPlanejamento] = useState<SubPlanejamento>("tarefas");
-  const [visualizacaoProducao, setVisualizacaoProducao] = useState<"kanban" | "lista">("kanban");
+  const [subPlanejamento, setSubPlanejamento] = useState<SubPlanejamento>("producao");
+  const [visualizacaoProducao, setVisualizacaoProducao] = useState<"quadro" | "acoes" | "calendario">("quadro");
   const [subExecucao, setSubExecucao] = useState<SubExecucao>("roteiro");
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const [novaTarefa, setNovaTarefa] = useState({ titulo: "", responsavel_nome: "", data_limite: "", prioridade: "media", tipo: "planejamento" });
+  const [novaAcao, setNovaAcao] = useState({ titulo: "", categoria: "decoracao", responsavel_nome: "", data_limite: "", prioridade: "media", fornecedor_id: "", descricao: "" });
   const [novoFornecedor, setNovoFornecedor] = useState({ nome: "", categoria: "buffet", telefone: "", email: "", responsavel_nome: "", valor_orcado: "", valor_fechado: "", status: "orcamento" });
   const [novaContratacao, setNovaContratacao] = useState({ titulo: "", fornecedor_evento_id: "", valor_contratado: "", valor_entrada: "", valor_pago: "", parcelas: "1", data_vencimento: "", status: "pendente" });
   const [novoEquipe, setNovoEquipe] = useState({ nome: "", funcao: "", telefone: "", email: "", horario_inicio: "", horario_fim: "", contato_principal: false });
@@ -287,8 +304,8 @@ export default function OrganizacaoPage() {
   async function carregarOrganizacao(evento: Evento) {
     const eventoId = evento.id;
 
-    const [tarefasRes, checklistRes, fornecedoresEventoRes, contratacoesRes, equipeRes, agendaRes] = await Promise.all([
-      supabase.from("organizacao_tarefas").select("*").eq("evento_id", eventoId).order("data_limite", { ascending: true, nullsFirst: false }),
+    const [producaoRes, checklistRes, fornecedoresEventoRes, contratacoesRes, equipeRes, agendaRes] = await Promise.all([
+      supabase.from("organizacao_producao").select("*").eq("evento_id", eventoId).order("data_limite", { ascending: true, nullsFirst: false }),
       supabase.from("organizacao_checklist").select("*").eq("evento_id", eventoId).order("ordem", { ascending: true }),
       supabase.from("organizacao_fornecedores_evento").select("*").eq("evento_id", eventoId).order("criado_em", { ascending: false }),
       supabase.from("organizacao_contratacoes").select("*").eq("evento_id", eventoId).order("data_vencimento", { ascending: true, nullsFirst: false }),
@@ -296,7 +313,7 @@ export default function OrganizacaoPage() {
       supabase.from("event_agenda_items").select("id, evento_id, tenant_id, titulo, descricao, categoria, data_inicio, data_fim, status, responsavel, cor").eq("evento_id", eventoId).order("data_inicio", { ascending: true, nullsFirst: false }),
     ]);
 
-    if (tarefasRes.error) setErro("Erro ao carregar tarefas: " + tarefasRes.error.message);
+    if (producaoRes.error) setErro("Erro ao carregar ações da produção: " + producaoRes.error.message);
     if (checklistRes.error) setErro("Erro ao carregar checklist: " + checklistRes.error.message);
     if (fornecedoresEventoRes.error) setErro("Erro ao carregar fornecedores do evento: " + fornecedoresEventoRes.error.message);
     if (contratacoesRes.error) setErro("Erro ao carregar contratações: " + contratacoesRes.error.message);
@@ -315,7 +332,7 @@ export default function OrganizacaoPage() {
       fornecedoresPorId = Object.fromEntries(((fornecedoresData || []) as Fornecedor[]).map((fornecedor) => [fornecedor.id, fornecedor]));
     }
 
-    setTarefas((tarefasRes.data || []) as Tarefa[]);
+    setProducao((producaoRes.data || []) as AcaoProducao[]);
     setChecklist((checklistRes.data || []) as Checklist[]);
     setFornecedoresEvento(vinculos.map((vinculo) => ({ ...vinculo, fornecedor: fornecedoresPorId[vinculo.fornecedor_id] || null })));
     setContratacoes((contratacoesRes.data || []) as Contratacao[]);
@@ -326,21 +343,21 @@ export default function OrganizacaoPage() {
   const tenantId = eventoAtual?.tenant_id || "";
 
   const metricas = useMemo(() => {
-    const tarefasConcluidas = tarefas.filter((t) => t.status === "concluido").length;
-    const tarefasAtrasadas = tarefas.filter((t) => t.status === "atrasado" || isAtrasada(t.data_limite, t.status)).length;
+    const acoesConcluidas = producao.filter((a) => a.status === "concluido").length;
+    const acoesAtrasadas = producao.filter((a) => isAtrasada(a.data_limite, a.status)).length;
     const checklistConcluido = checklist.filter((c) => c.concluido).length;
     const fornecedoresContratados = fornecedoresEvento.filter((f) => ["contratado", "confirmado"].includes(f.status)).length;
     const valorContratado = contratacoes.reduce((total, item) => total + toNumber(item.valor_contratado), 0);
     const valorPago = contratacoes.reduce((total, item) => total + toNumber(item.valor_pago), 0);
     const pendenciasFinanceiras = contratacoes.filter((item) => ["pendente", "parcial", "vencido"].includes(item.status)).length;
 
-    const base = tarefas.length + checklist.length + fornecedoresEvento.length + contratacoes.length + equipe.length + agenda.length;
-    const concluidos = tarefasConcluidas + checklistConcluido + fornecedoresContratados + contratacoes.filter((c) => c.status === "pago").length + equipe.filter((e) => ["confirmado", "presente"].includes(e.status)).length + agenda.filter((a) => a.status === "concluido").length;
+    const base = producao.length + checklist.length + fornecedoresEvento.length + contratacoes.length + equipe.length + agenda.length;
+    const concluidos = acoesConcluidas + checklistConcluido + fornecedoresContratados + contratacoes.filter((c) => c.status === "pago").length + equipe.filter((e) => ["confirmado", "presente"].includes(e.status)).length + agenda.filter((a) => a.status === "concluido").length;
 
     return {
-      tarefasTotal: tarefas.length,
-      tarefasConcluidas,
-      tarefasAtrasadas,
+      acoesTotal: producao.length,
+      acoesConcluidas,
+      acoesAtrasadas,
       checklistTotal: checklist.length,
       checklistConcluido,
       fornecedoresTotal: fornecedoresEvento.length,
@@ -355,13 +372,13 @@ export default function OrganizacaoPage() {
       progresso: base > 0 ? Math.round((concluidos / base) * 100) : 0,
       diasRestantes: calcularDiasRestantes(eventoAtual),
     };
-  }, [tarefas, checklist, fornecedoresEvento, contratacoes, equipe, agenda, eventoAtual]);
+  }, [producao, checklist, fornecedoresEvento, contratacoes, equipe, agenda, eventoAtual]);
 
   const pendencias = useMemo(() => {
     const itens: { titulo: string; detalhe: string; tipo: string; criticidade: "alta" | "media" | "baixa" }[] = [];
 
-    tarefas.forEach((t) => {
-      if (isAtrasada(t.data_limite, t.status)) itens.push({ titulo: t.titulo, detalhe: "Tarefa com prazo vencido", tipo: "Tarefa", criticidade: "alta" });
+    producao.forEach((a) => {
+      if (isAtrasada(a.data_limite, a.status)) itens.push({ titulo: a.titulo, detalhe: "Ação com prazo vencido", tipo: "Produção", criticidade: "alta" });
     });
 
     contratacoes.forEach((c) => {
@@ -378,10 +395,10 @@ export default function OrganizacaoPage() {
     });
 
     return itens;
-  }, [tarefas, contratacoes, fornecedoresEvento, checklist]);
+  }, [producao, contratacoes, fornecedoresEvento, checklist]);
 
   const termoBusca = busca.trim().toLowerCase();
-  const tarefasFiltradas = filtrar<Tarefa>(tarefas, termoBusca, (t) => [t.titulo, t.responsavel_nome, t.status, t.prioridade]);
+  const producaoFiltrada = filtrar<AcaoProducao>(producao, termoBusca, (a) => [a.titulo, a.responsavel_nome, a.status, a.prioridade, a.categoria, a.descricao]);
   const fornecedoresFiltrados = filtrar<FornecedorEvento>(fornecedoresEvento, termoBusca, (f) => [f.fornecedor?.nome, f.fornecedor?.telefone, f.fornecedor?.email, f.status, f.fornecedor?.categoria]);
   const contratacoesFiltradas = filtrar<Contratacao>(contratacoes, termoBusca, (c) => [c.titulo, c.status, c.forma_pagamento]);
   const equipeFiltrada = filtrar<Equipe>(equipe, termoBusca, (e) => [e.nome, e.funcao, e.telefone, e.status]);
@@ -398,64 +415,65 @@ export default function OrganizacaoPage() {
     }
   }
 
-  async function criarTarefa() {
-    if (!eventoAtual || !tenantId || !novaTarefa.titulo.trim()) return;
+  async function criarAcao() {
+    if (!eventoAtual || !tenantId || !novaAcao.titulo.trim()) return;
     setSalvando(true);
-    const { error } = await supabase.from("organizacao_tarefas").insert({
+    const { error } = await supabase.from("organizacao_producao").insert({
       tenant_id: tenantId,
       evento_id: eventoAtual.id,
-      titulo: novaTarefa.titulo.trim(),
-      responsavel_nome: limpar(novaTarefa.responsavel_nome),
-      data_limite: novaTarefa.data_limite || null,
-      prioridade: novaTarefa.prioridade,
-      tipo: novaTarefa.tipo,
+      titulo: novaAcao.titulo.trim(),
+      descricao: limpar(novaAcao.descricao),
+      categoria: novaAcao.categoria,
+      responsavel_nome: limpar(novaAcao.responsavel_nome),
+      data_limite: novaAcao.data_limite || null,
+      prioridade: novaAcao.prioridade,
+      fornecedor_id: novaAcao.fornecedor_id || null,
       status: "a_fazer",
     });
-    await depoisSalvar(error, () => setNovaTarefa({ titulo: "", responsavel_nome: "", data_limite: "", prioridade: "media", tipo: "planejamento" }));
+    await depoisSalvar(error, () => setNovaAcao({ titulo: "", categoria: "decoracao", responsavel_nome: "", data_limite: "", prioridade: "media", fornecedor_id: "", descricao: "" }));
   }
 
-  async function alterarStatusTarefa(tarefa: Tarefa, status: string) {
+  async function alterarStatusAcao(acao: AcaoProducao, status: string) {
     const { error } = await supabase
-      .from("organizacao_tarefas")
+      .from("organizacao_producao")
       .update({ status, concluido_em: status === "concluido" ? new Date().toISOString() : null })
-      .eq("id", tarefa.id);
+      .eq("id", acao.id);
     await depoisSalvar(error);
   }
 
-
-  async function editarTarefa(tarefa: Tarefa) {
-    const titulo = window.prompt("Alterar título da tarefa", tarefa.titulo);
+  async function editarAcao(acao: AcaoProducao) {
+    const titulo = window.prompt("Alterar título da ação", acao.titulo);
     if (titulo === null) return;
 
     const tituloLimpo = titulo.trim();
     if (!tituloLimpo) {
-      setErro("O título da tarefa não pode ficar vazio.");
+      setErro("O título da ação não pode ficar vazio.");
       return;
     }
 
-    const responsavel = window.prompt("Alterar responsável", tarefa.responsavel_nome || "");
+    const responsavel = window.prompt("Alterar responsável", acao.responsavel_nome || "");
     if (responsavel === null) return;
 
-    const prazo = window.prompt("Alterar prazo no formato AAAA-MM-DD", tarefa.data_limite ? tarefa.data_limite.slice(0, 10) : "");
+    const prazo = window.prompt("Alterar prazo no formato AAAA-MM-DD", acao.data_limite ? acao.data_limite.slice(0, 10) : "");
     if (prazo === null) return;
 
     const { error } = await supabase
-      .from("organizacao_tarefas")
+      .from("organizacao_producao")
       .update({
         titulo: tituloLimpo,
         responsavel_nome: limpar(responsavel),
         data_limite: prazo.trim() || null,
       })
-      .eq("id", tarefa.id);
+      .eq("id", acao.id);
 
     await depoisSalvar(error);
   }
 
-  async function excluirTarefa(tarefa: Tarefa) {
-    const confirmar = window.confirm(`Excluir a tarefa "${tarefa.titulo}"?`);
+  async function excluirAcao(acao: AcaoProducao) {
+    const confirmar = window.confirm(`Excluir a ação "${acao.titulo}"?`);
     if (!confirmar) return;
 
-    const { error } = await supabase.from("organizacao_tarefas").delete().eq("id", tarefa.id);
+    const { error } = await supabase.from("organizacao_producao").delete().eq("id", acao.id);
     await depoisSalvar(error);
   }
 
@@ -936,7 +954,7 @@ export default function OrganizacaoPage() {
 
           <section className="org-metrics-grid">
             <Metric title="Dias restantes" value={metricas.diasRestantes ?? "--"} detail="até o evento" />
-            <Metric title="Produção" value={`${metricas.tarefasConcluidas}/${metricas.tarefasTotal}`} detail={`${metricas.tarefasAtrasadas} atrasadas`} danger={metricas.tarefasAtrasadas > 0} />
+            <Metric title="Produção" value={`${metricas.acoesConcluidas}/${metricas.acoesTotal}`} detail={`${metricas.acoesAtrasadas} atrasadas`} danger={metricas.acoesAtrasadas > 0} />
             <Metric title="Fornecedores" value={`${metricas.fornecedoresContratados}/${metricas.fornecedoresTotal}`} detail="contratados/confirmados" />
             <Metric title="Financeiro" value={formatarMoeda(metricas.saldoPendente)} detail="saldo pendente" danger={metricas.saldoPendente > 0} />
             <Metric title="Equipe" value={metricas.equipeTotal} detail="pessoas na operação" />
@@ -955,8 +973,8 @@ export default function OrganizacaoPage() {
 
           {aba === "visao" && (
             <div className="org-grid-two">
-              <Panel title="Próximas ações" subtitle="Tarefas e roteiro mais próximos">
-                {[...tarefasFiltradas.slice(0, 4).map((t) => ({ titulo: t.titulo, detalhe: `${labelStatus(t.status)} · ${formatarData(t.data_limite)}`, status: t.status })), ...agendaFiltrada.slice(0, 4).map((a) => ({ titulo: a.titulo || "Item do roteiro", detalhe: `${a.categoria || "Roteiro"} · ${formatarDataHora(a.data_inicio)}`, status: a.status || "pendente" }))].slice(0, 6).map((item, index) => <MiniRow key={index} title={item.titulo} detail={item.detalhe} status={item.status} />)}
+              <Panel title="Próximas ações" subtitle="Ações e roteiro mais próximos">
+                {[...producaoFiltrada.slice(0, 4).map((a) => ({ titulo: a.titulo, detalhe: `${labelStatus(a.status)} · ${formatarData(a.data_limite)}`, status: a.status })), ...agendaFiltrada.slice(0, 4).map((a) => ({ titulo: a.titulo || "Item do roteiro", detalhe: `${a.categoria || "Roteiro"} · ${formatarDataHora(a.data_inicio)}`, status: a.status || "pendente" }))].slice(0, 6).map((item, index) => <MiniRow key={index} title={item.titulo} detail={item.detalhe} status={item.status} />)}
               </Panel>
 
               <Panel title="Pendências críticas" subtitle="Itens que exigem atenção">
@@ -980,8 +998,8 @@ export default function OrganizacaoPage() {
 
           {aba === "planejamento" && (
             <>
-              <SubTabs items={["tarefas", "fornecedores", "contratacoes", "financeiro"]} active={subPlanejamento} onChange={(value) => setSubPlanejamento(value as SubPlanejamento)} />
-              {subPlanejamento === "tarefas" && renderTarefas()}
+              <SubTabs items={["producao", "fornecedores", "contratacoes", "financeiro"]} active={subPlanejamento} onChange={(value) => setSubPlanejamento(value as SubPlanejamento)} />
+              {subPlanejamento === "producao" && renderProducao()}
               {subPlanejamento === "fornecedores" && renderFornecedores()}
               {subPlanejamento === "contratacoes" && renderContratacoes(false)}
               {subPlanejamento === "financeiro" && renderContratacoes(true)}
@@ -998,7 +1016,7 @@ export default function OrganizacaoPage() {
           )}
 
           {aba === "pendencias" && (
-            <Panel title="Central de Pendências" subtitle="Alertas automáticos de tarefas, contratos, fornecedores e checklist">
+            <Panel title="Central de Pendências" subtitle="Alertas automáticos de ações, contratos, fornecedores e checklist">
               {pendencias.length === 0 ? <Empty text="Nenhuma pendência encontrada para este evento." /> : <div className="org-list">{pendencias.map((item, index) => <MiniRow key={index} title={item.titulo} detail={`${item.tipo} · ${item.detalhe}`} status={item.criticidade} />)}</div>}
             </Panel>
           )}
@@ -1007,51 +1025,65 @@ export default function OrganizacaoPage() {
     </div>
   );
 
-  function renderTarefas() {
-    const renderCardProducao = (tarefa: Tarefa) => (
-      <div key={tarefa.id} className="org-item-card org-kanban-card">
+  function renderProducao() {
+    const fornecedorNome = (fornecedorId?: string | null) => fornecedoresEvento.find((item) => item.fornecedor_id === fornecedorId)?.fornecedor?.nome || "";
+
+    const renderCardProducao = (acao: AcaoProducao) => (
+      <div key={acao.id} className="org-item-card org-kanban-card">
         <div className="org-item-main">
-          <span className={`org-pill ${tarefa.status}`}>{labelStatus(tarefa.status)}</span>
-          <h3>{tarefa.titulo}</h3>
-          <p>{tarefa.responsavel_nome || "Sem responsável"} · prazo {formatarData(tarefa.data_limite)}</p>
-          <p className="org-muted">Prioridade: {labelStatus(tarefa.prioridade)}</p>
+          <span className={`org-pill ${acao.status}`}>{labelStatus(acao.status)}</span>
+          <h3>{acao.titulo}</h3>
+          <p>{labelCategoriaProducao(acao.categoria)} · {acao.responsavel_nome || "Sem responsável"} · prazo {formatarData(acao.data_limite)}</p>
+          <p className="org-muted">Prioridade: {labelStatus(acao.prioridade)}{acao.fornecedor_id ? ` · Fornecedor: ${fornecedorNome(acao.fornecedor_id)}` : ""}</p>
         </div>
         <div className="org-card-actions compact">
-          <select value={tarefa.status} onChange={(e) => alterarStatusTarefa(tarefa, e.target.value)}>
-            {STATUS_TAREFA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          <select value={acao.status} onChange={(e) => alterarStatusAcao(acao, e.target.value)}>
+            {STATUS_PRODUCAO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
-          <button type="button" onClick={() => alterarStatusTarefa(tarefa, tarefa.status === "concluido" ? "a_fazer" : "concluido")}>{tarefa.status === "concluido" ? "↩️ Reabrir" : "✅ Concluir"}</button>
-          <button type="button" onClick={() => editarTarefa(tarefa)}>✏️ Editar</button>
-          <button type="button" className="danger" onClick={() => excluirTarefa(tarefa)}>🗑️ Excluir</button>
+          <button type="button" onClick={() => alterarStatusAcao(acao, acao.status === "concluido" ? "a_fazer" : "concluido")}>{acao.status === "concluido" ? "↩️ Reabrir" : "✅ Concluir"}</button>
+          <button type="button" onClick={() => editarAcao(acao)}>✏️ Editar</button>
+          <button type="button" className="danger" onClick={() => excluirAcao(acao)}>🗑️ Excluir</button>
         </div>
       </div>
     );
 
+    const acoesPorData = producaoFiltrada
+      .filter((acao) => acao.data_limite)
+      .sort((a, b) => String(a.data_limite).localeCompare(String(b.data_limite)));
+
     return (
-      <Panel title="Produção" subtitle="Kanban de ações do planejamento, com opção de visualização em lista">
+      <Panel title="Produção" subtitle="Central de ações do evento com quadro, lista e calendário">
         <div className="org-section-toolbar">
           <div>
-            <strong>Quadro de produção</strong>
-            <span>Organize ideias, tarefas, pendências com terceiros e itens concluídos.</span>
+            <strong>Central de produção</strong>
+            <span>Crie ações por setor e acompanhe o avanço geral da organização do evento.</span>
           </div>
           <div className="org-view-toggle">
-            <button type="button" className={visualizacaoProducao === "kanban" ? "active" : ""} onClick={() => setVisualizacaoProducao("kanban")}>Kanban</button>
-            <button type="button" className={visualizacaoProducao === "lista" ? "active" : ""} onClick={() => setVisualizacaoProducao("lista")}>Lista</button>
+            <button type="button" className={visualizacaoProducao === "quadro" ? "active" : ""} onClick={() => setVisualizacaoProducao("quadro")}>Quadro</button>
+            <button type="button" className={visualizacaoProducao === "acoes" ? "active" : ""} onClick={() => setVisualizacaoProducao("acoes")}>Ações</button>
+            <button type="button" className={visualizacaoProducao === "calendario" ? "active" : ""} onClick={() => setVisualizacaoProducao("calendario")}>Calendário</button>
           </div>
         </div>
 
         <div className="org-form-grid producao">
-          <input placeholder="Título da ação" value={novaTarefa.titulo} onChange={(e) => setNovaTarefa({ ...novaTarefa, titulo: e.target.value })} />
-          <input placeholder="Responsável" value={novaTarefa.responsavel_nome} onChange={(e) => setNovaTarefa({ ...novaTarefa, responsavel_nome: e.target.value })} />
-          <input type="date" value={novaTarefa.data_limite} onChange={(e) => setNovaTarefa({ ...novaTarefa, data_limite: e.target.value })} />
-          <select value={novaTarefa.prioridade} onChange={(e) => setNovaTarefa({ ...novaTarefa, prioridade: e.target.value })}><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option><option value="critica">Crítica</option></select>
-          <button onClick={criarTarefa} disabled={salvando || !novaTarefa.titulo.trim()}>Adicionar</button>
+          <input placeholder="Título da ação" value={novaAcao.titulo} onChange={(e) => setNovaAcao({ ...novaAcao, titulo: e.target.value })} />
+          <select value={novaAcao.categoria} onChange={(e) => setNovaAcao({ ...novaAcao, categoria: e.target.value })}>
+            {CATEGORIAS_PRODUCAO.map((categoria) => <option key={categoria.value} value={categoria.value}>{categoria.label}</option>)}
+          </select>
+          <input placeholder="Responsável" value={novaAcao.responsavel_nome} onChange={(e) => setNovaAcao({ ...novaAcao, responsavel_nome: e.target.value })} />
+          <input type="date" value={novaAcao.data_limite} onChange={(e) => setNovaAcao({ ...novaAcao, data_limite: e.target.value })} />
+          <select value={novaAcao.prioridade} onChange={(e) => setNovaAcao({ ...novaAcao, prioridade: e.target.value })}><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select>
+          <select value={novaAcao.fornecedor_id} onChange={(e) => setNovaAcao({ ...novaAcao, fornecedor_id: e.target.value })}>
+            <option value="">Fornecedor opcional</option>
+            {fornecedoresEvento.map((item) => <option key={item.id} value={item.fornecedor_id}>{item.fornecedor?.nome || "Fornecedor"}</option>)}
+          </select>
+          <button onClick={criarAcao} disabled={salvando || !novaAcao.titulo.trim()}>Adicionar ação</button>
         </div>
 
-        {visualizacaoProducao === "kanban" ? (
+        {visualizacaoProducao === "quadro" && (
           <div className="org-kanban">
             {COLUNAS_PRODUCAO.map((coluna) => {
-              const itens = tarefasFiltradas.filter((tarefa) => normalizarStatusProducao(tarefa.status) === coluna.value);
+              const itens = producaoFiltrada.filter((acao) => normalizarStatusProducao(acao.status) === coluna.value);
               return (
                 <div key={coluna.value} className="org-kanban-column">
                   <div className="org-kanban-head">
@@ -1063,16 +1095,34 @@ export default function OrganizacaoPage() {
                   </div>
                   <div className="org-kanban-list">
                     {itens.map(renderCardProducao)}
-                    {itens.length === 0 && <Empty text="Nenhum item nesta etapa." />}
+                    {itens.length === 0 && <Empty text="Nenhuma ação nesta etapa." />}
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : (
+        )}
+
+        {visualizacaoProducao === "acoes" && (
           <div className="org-card-list">
-            {tarefasFiltradas.map(renderCardProducao)}
-            {tarefasFiltradas.length === 0 && <Empty text="Nenhuma ação de produção encontrada." />}
+            {producaoFiltrada.map(renderCardProducao)}
+            {producaoFiltrada.length === 0 && <Empty text="Nenhuma ação de produção encontrada." />}
+          </div>
+        )}
+
+        {visualizacaoProducao === "calendario" && (
+          <div className="org-calendar-list">
+            {acoesPorData.map((acao) => (
+              <div key={acao.id} className="org-calendar-row">
+                <div className="org-calendar-date">{formatarData(acao.data_limite)}</div>
+                <div className="org-calendar-content">
+                  <strong>{acao.titulo}</strong>
+                  <span>{labelCategoriaProducao(acao.categoria)} · {labelStatus(acao.status)} · {acao.responsavel_nome || "Sem responsável"}</span>
+                </div>
+                <button type="button" onClick={() => editarAcao(acao)}>Editar</button>
+              </div>
+            ))}
+            {acoesPorData.length === 0 && <Empty text="Nenhuma ação com prazo para exibir no calendário." />}
           </div>
         )}
       </Panel>
@@ -1337,13 +1387,17 @@ function labelCategoria(value: string | null | undefined) {
   return found?.label || labelStatus(value || "outros");
 }
 
+function labelCategoriaProducao(value?: string | null) {
+  return CATEGORIAS_PRODUCAO.find((categoria) => categoria.value === value)?.label || "⭐ Outros";
+}
+
 function labelStatus(value: string | null | undefined) {
   const labels: Record<string, string> = {
     visao: "Visão Geral",
     planejamento: "Planejamento",
     execucao: "Execução",
     pendencias: "Pendências",
-    tarefas: "Produção",
+    producao: "Produção",
     fornecedores: "Fornecedores",
     contratacoes: "Contratações",
     financeiro: "Financeiro",
@@ -1362,6 +1416,7 @@ function labelStatus(value: string | null | undefined) {
     media: "Média",
     alta: "Alta",
     critica: "Crítica",
+    urgente: "Urgente",
     orcamento: "Orçamento",
     negociando: "Negociando",
     contratado: "Contratado",
@@ -1476,7 +1531,7 @@ const styles = `
 .org-view-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; background: #fff; border: 1px solid #e2e8f0; }
 .org-view-toggle button { border: 0; border-radius: 999px; padding: 9px 13px; background: transparent; color: #475569; font-weight: 900; cursor: pointer; }
 .org-view-toggle button.active { background: #6d28d9; color: #fff; }
-.org-form-grid.producao { grid-template-columns: 1.4fr 1fr .8fr .75fr auto; }
+.org-form-grid.producao { grid-template-columns: 1.35fr .9fr .9fr .75fr .75fr 1fr auto; }
 .org-kanban { display: grid; grid-template-columns: repeat(5, minmax(240px, 1fr)); gap: 12px; align-items: stretch; overflow-x: auto; padding-bottom: 6px; }
 .org-kanban-column { min-width: 240px; border-radius: 22px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; }
 .org-kanban-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
@@ -1486,6 +1541,13 @@ const styles = `
 .org-kanban-list { display: flex; flex-direction: column; gap: 10px; }
 .org-kanban-card { align-items: stretch; flex-direction: column; }
 .org-kanban-card .org-card-actions { justify-content: flex-start; }
+.org-calendar-list { display: flex; flex-direction: column; gap: 10px; }
+.org-calendar-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; padding: 14px; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; }
+.org-calendar-date { font-weight: 950; color: #6d28d9; }
+.org-calendar-content strong { display: block; color: #0f172a; }
+.org-calendar-content span { display: block; color: #64748b; font-weight: 700; font-size: 13px; margin-top: 3px; }
+.org-calendar-row button { border: 1px solid #e2e8f0; background: #fff; border-radius: 999px; padding: 9px 12px; font-weight: 900; cursor: pointer; }
+
 .org-pill.ideia { background: #e0f2fe; color: #075985; }
 .org-pill.a_fazer { background: #ede9fe; color: #5b21b6; }
 .org-pill.aguardando_terceiro { background: #ffedd5; color: #9a3412; }
