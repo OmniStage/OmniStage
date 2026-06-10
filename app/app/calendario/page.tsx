@@ -595,26 +595,9 @@ export default function CalendarioPage() {
           </p>
         </div>
 
-        <div style={heroActionsStyle}>
-          <button onClick={irParaHoje} style={secondaryDarkButtonStyle}>Hoje</button>
-          <button onClick={carregarCalendario} style={primaryButtonStyle}>{loading ? "Atualizando..." : "Atualizar"}</button>
-        </div>
       </section>
 
       {erro && <div style={errorBoxStyle}>{erro}</div>}
-
-      <section style={eventSelectorPanelStyle}>
-        <div>
-          <label style={fieldLabelStyle}>Evento selecionado</label>
-          <p style={panelTextStyle}>Escolha o evento para visualizar a agenda completa, campanhas e indicadores.</p>
-        </div>
-
-        <select value={eventoSelecionadoId} onChange={(event) => setEventoSelecionadoId(event.target.value)} style={eventSelectStyle}>
-          {eventos.map((evento) => (
-            <option key={evento.id} value={evento.id}>{evento.nome}</option>
-          ))}
-        </select>
-      </section>
 
       <section style={statsGridStyle}>
         <MetricCard label="Eventos" value={totais.eventos} detail="Eventos filtrados" />
@@ -964,21 +947,18 @@ const loadingCardStyle: CSSProperties = {
 const heroStyle: CSSProperties = {
   maxWidth: 1280,
   margin: "0 auto 22px",
-  padding: 28,
-  borderRadius: 32,
-  background: "linear-gradient(135deg, #4c1d95 0%, #6d28d9 46%, #312e81 100%)",
-  color: "#fff",
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 24,
-  alignItems: "flex-end",
-  boxShadow: "0 24px 60px rgba(76,29,149,0.24)",
+  padding: 32,
+  borderRadius: 28,
+  background: "#fff",
+  color: "#0f172a",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 18px 45px rgba(15,23,42,0.06)",
 };
 
-const heroActionsStyle: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "flex-end" };
-const eyebrowStyle: CSSProperties = { fontSize: 12, fontWeight: 900, letterSpacing: "0.28em", textTransform: "uppercase", color: "#ddd6fe" };
-const titleStyle: CSSProperties = { margin: "12px 0 8px", fontSize: 34, lineHeight: 1.05, fontWeight: 950, letterSpacing: "-0.04em" };
-const subtitleStyle: CSSProperties = { margin: 0, maxWidth: 820, color: "#ede9fe", fontSize: 15, lineHeight: 1.65, fontWeight: 600 };
+const heroActionsStyle: CSSProperties = { display: "none" };
+const eyebrowStyle: CSSProperties = { fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6d28d9" };
+const titleStyle: CSSProperties = { margin: "12px 0 10px", fontSize: 34, lineHeight: 1.05, fontWeight: 950, letterSpacing: "-0.04em", color: "#0f172a" };
+const subtitleStyle: CSSProperties = { margin: 0, maxWidth: 920, color: "#64748b", fontSize: 15, lineHeight: 1.65, fontWeight: 600 };
 
 const primaryButtonStyle: CSSProperties = {
   border: "none",
