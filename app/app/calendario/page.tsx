@@ -274,6 +274,14 @@ function formatarHoraItem(item: ItemCalendario) {
   return formatarHoraData(item.dataInicio);
 }
 
+function formatarPeriodoItem(item: ItemCalendario) {
+  if (!item.dataInicio && !item.dataFim) return "Horário não definido";
+  const inicio = item.dataInicio ? formatarHoraData(item.dataInicio) : "Início não definido";
+  const fim = item.dataFim ? formatarHoraData(item.dataFim) : "Fim não definido";
+  if (!item.dataFim) return inicio;
+  return `${inicio} - ${fim}`;
+}
+
 function getLocalEvento(evento: EventoBanco) {
   return valorPrimeiro(evento, ["local", "local_evento", "espaco", "endereco", "cidade", "location"]) || "Local não definido";
 }
@@ -1030,8 +1038,14 @@ export default function CalendarioPage() {
                       </div>
                       <div style={dayEventsStyle}>
                         {itens.slice(0, 3).map((item) => (
-                          <button key={`${item.origem}-${item.id}`} onClick={() => setDetalheAberto(item)} style={{ ...dayEventStyle, ...categoriaStyle(item.categoria) }} title={`${formatarHoraItem(item)} ${item.titulo}`.trim()}>
-                            {`${formatarHoraItem(item)} ${item.titulo}`.trim()}
+                          <button
+                            key={`${item.origem}-${item.id}`}
+                            onClick={() => setDetalheAberto(item)}
+                            style={{ ...dayEventStyle, ...categoriaStyle(item.categoria) }}
+                            title={`${item.titulo} • ${formatarPeriodoItem(item)}`}
+                          >
+                            <span style={dayEventTitleStyle}>{item.titulo}</span>
+                            <span style={dayEventTimeStyle}>{formatarPeriodoItem(item)}</span>
                           </button>
                         ))}
                         {itens.length > 3 && <span style={moreEventsStyle}>+{itens.length - 3}</span>}
@@ -1575,12 +1589,14 @@ const calendarWrapperStyle: CSSProperties = { border: "1px solid #e2e8f0", borde
 const weekHeaderStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" };
 const weekDayStyle: CSSProperties = { padding: "12px 8px", textAlign: "center", fontSize: 12, fontWeight: 950, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" };
 const calendarGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" };
-const dayCellStyle: CSSProperties = { minHeight: 118, borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: 8, background: "#fff", overflow: "hidden" };
+const dayCellStyle: CSSProperties = { minHeight: 138, borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: 8, background: "#fff", overflow: "hidden" };
 const dayTopStyle: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 };
 const dayNumberStyle: CSSProperties = { display: "inline-flex", width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 999, color: "#475569", fontSize: 12, fontWeight: 900 };
 const todayNumberStyle: CSSProperties = { ...dayNumberStyle, background: "#6d28d9", color: "#fff" };
-const dayEventsStyle: CSSProperties = { display: "grid", gap: 4 };
-const dayEventStyle: CSSProperties = { width: "100%", borderRadius: 9, padding: "5px 7px", fontSize: 11, fontWeight: 900, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" };
+const dayEventsStyle: CSSProperties = { display: "grid", gap: 5 };
+const dayEventStyle: CSSProperties = { width: "100%", borderRadius: 10, padding: "7px 8px", fontSize: 11, fontWeight: 800, cursor: "pointer", overflow: "hidden", textAlign: "left", display: "grid", gap: 2, lineHeight: 1.2 };
+const dayEventTitleStyle: CSSProperties = { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 900 };
+const dayEventTimeStyle: CSSProperties = { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700, opacity: 0.86 };
 const moreEventsStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 900, paddingLeft: 6 };
 const listModeStyle: CSSProperties = { display: "grid", gap: 10 };
 
