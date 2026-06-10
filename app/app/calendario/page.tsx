@@ -554,6 +554,64 @@ export default function CalendarioPage() {
     );
   }, [eventosFiltrados]);
 
+  const indicadoresCalendario = useMemo(() => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const eventosComData = eventosFiltrados.filter((evento) => evento.data);
+    const eventosDoMes = eventosComData.filter(
+      (evento) => evento.data!.getFullYear() === mesAtual.getFullYear() && evento.data!.getMonth() === mesAtual.getMonth()
+    );
+    const realizados = eventosDoMes.filter((evento) => {
+      const dataEvento = new Date(evento.data!);
+      dataEvento.setHours(0, 0, 0, 0);
+      return dataEvento < hoje;
+    }).length;
+    const hojeCount = eventosDoMes.filter((evento) => evento.data && mesmoDia(evento.data, hoje)).length;
+    const aRealizar = eventosDoMes.filter((evento) => {
+      const dataEvento = new Date(evento.data!);
+      dataEvento.setHours(0, 0, 0, 0);
+      return dataEvento >= hoje;
+    }).length;
+
+    const campanhasDoMes = campanhasItems.filter(
+      (campanha) =>
+        campanha.dataInicio &&
+        campanha.dataInicio.getFullYear() === mesAtual.getFullYear() &&
+        campanha.dataInicio.getMonth() === mesAtual.getMonth() &&
+        eventosFiltrados.some((evento) => evento.id === campanha.eventoId)
+    ).length;
+
+    const agendaDoMes = agendaItems.filter(
+      (agenda) =>
+        agenda.dataInicio &&
+        agenda.dataInicio.getFullYear() === mesAtual.getFullYear() &&
+        agenda.dataInicio.getMonth() === mesAtual.getMonth() &&
+        eventosFiltrados.some((evento) => evento.id === agenda.eventoId)
+    ).length;
+
+    const rsvpMedio = totais.convidados > 0 ? Math.round((totais.confirmados / totais.convidados) * 100) : 0;
+    const proximoEvento = eventosComData
+      .filter((evento) => {
+        const dataEvento = new Date(evento.data!);
+        dataEvento.setHours(0, 0, 0, 0);
+        return dataEvento >= hoje;
+      })
+      .sort((a, b) => (a.data?.getTime() || 0) - (b.data?.getTime() || 0))[0];
+    const diasProximo = calcularDiasRestantes(proximoEvento || null);
+
+    return {
+      eventosNoMes: eventosDoMes.length,
+      realizados,
+      aRealizar,
+      hoje: hojeCount,
+      campanhasDoMes,
+      agendaDoMes,
+      rsvpMedio,
+      proximo: diasProximo === null ? "--" : diasProximo < 0 ? `D+${Math.abs(diasProximo)}` : `D-${diasProximo}`,
+    };
+  }, [agendaItems, campanhasItems, eventosFiltrados, mesAtual, totais.confirmados, totais.convidados]);
+
   const diasRestantes = calcularDiasRestantes(eventoSelecionado);
   const taxaRsvp = eventoSelecionado?.convidadosTotal ? Math.round((eventoSelecionado.confirmados / eventoSelecionado.convidadosTotal) * 100) : 0;
   const diasCalendario = useMemo(() => criarDiasCalendario(mesAtual), [mesAtual]);
@@ -600,10 +658,14 @@ export default function CalendarioPage() {
       {erro && <div style={errorBoxStyle}>{erro}</div>}
 
       <section style={statsGridStyle}>
-        <MetricCard label="Eventos" value={totais.eventos} detail="Eventos filtrados" />
-        <MetricCard label="Convidados" value={totais.convidados} detail="Total vinculado" />
-        <MetricCard label="Confirmados" value={totais.confirmados} detail="RSVP confirmado" />
-        <MetricCard label="Check-ins" value={totais.checkins} detail="Entradas realizadas" />
+        <MetricCard label="Eventos no mês" value={indicadoresCalendario.eventosNoMes} detail={`${MESES[mesAtual.getMonth()]} ${mesAtual.getFullYear()}`} />
+        <MetricCard label="Realizados" value={indicadoresCalendario.realizados} detail="Eventos já ocorridos no mês" />
+        <MetricCard label="A realizar" value={indicadoresCalendario.aRealizar} detail="Eventos de hoje em diante" />
+        <MetricCard label="Hoje" value={indicadoresCalendario.hoje} detail="Eventos marcados para hoje" />
+        <MetricCard label="Campanhas" value={indicadoresCalendario.campanhasDoMes} detail="Campanhas no mês" />
+        <MetricCard label="Agenda operacional" value={indicadoresCalendario.agendaDoMes} detail="Tarefas e compromissos" />
+        <MetricCard label="RSVP médio" value={`${indicadoresCalendario.rsvpMedio}%`} detail="Confirmados sobre convidados" />
+        <MetricCard label="Próximo evento" value={indicadoresCalendario.proximo} detail="Contagem regressiva" />
       </section>
 
       <section style={overviewGridStyle} className="cal-overview-grid">
@@ -811,11 +873,13 @@ export default function CalendarioPage() {
   );
 }
 
-function MetricCard({ label, value, detail }: { label: string; value: number; detail: string }) {
+function MetricCard({ label, value, detail }: { label: string; value: number | string; detail: string }) {
+  const valueText = typeof value === "number" ? value.toLocaleString("pt-BR") : value;
+
   return (
     <article style={metricCardStyle} className="cal-card-hover">
       <span style={metricLabelStyle}>{label}</span>
-      <strong style={metricValueStyle}>{value.toLocaleString("pt-BR")}</strong>
+      <strong style={metricValueStyle}>{valueText}</strong>
       <small style={metricDetailStyle}>{detail}</small>
     </article>
   );
@@ -867,7 +931,9 @@ function ItemRow({
       {isEvento && (
         <>
           <div style={eventInfoGridStyle}>
-            <MiniCard label="Dias" value={dias === null ? "--" : dias < 0 ? `D+${Math.abs(dias)}` : `D-${dias}`} compact />
+            <MiniCard label="Status" value={dias === null ? evento.statusTexto : dias < 0 ? "Realizado" : dias === 0 ? "Hoje" : "A realizar"} compact />
+            <MiniCard label="Convidados" value={evento.convidadosTotal} compact />
+            <MiniCard label="Confirmados" value={evento.confirmados} compact />
             <MiniCard label="RSVP" value={`${taxa}%`} compact />
             <MiniCard label="Campanhas" value={campanhasCount} compact />
             <MiniCard label="Agenda" value={agendaCount} compact />
