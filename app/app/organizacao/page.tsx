@@ -411,6 +411,43 @@ export default function OrganizacaoPage() {
     await depoisSalvar(error);
   }
 
+
+  async function editarTarefa(tarefa: Tarefa) {
+    const titulo = window.prompt("Alterar título da tarefa", tarefa.titulo);
+    if (titulo === null) return;
+
+    const tituloLimpo = titulo.trim();
+    if (!tituloLimpo) {
+      setErro("O título da tarefa não pode ficar vazio.");
+      return;
+    }
+
+    const responsavel = window.prompt("Alterar responsável", tarefa.responsavel_nome || "");
+    if (responsavel === null) return;
+
+    const prazo = window.prompt("Alterar prazo no formato AAAA-MM-DD", tarefa.data_limite ? tarefa.data_limite.slice(0, 10) : "");
+    if (prazo === null) return;
+
+    const { error } = await supabase
+      .from("organizacao_tarefas")
+      .update({
+        titulo: tituloLimpo,
+        responsavel_nome: limpar(responsavel),
+        data_limite: prazo.trim() || null,
+      })
+      .eq("id", tarefa.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function excluirTarefa(tarefa: Tarefa) {
+    const confirmar = window.confirm(`Excluir a tarefa "${tarefa.titulo}"?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("organizacao_tarefas").delete().eq("id", tarefa.id);
+    await depoisSalvar(error);
+  }
+
   async function criarFornecedor() {
     if (!eventoAtual || !tenantId || !novoFornecedor.nome.trim()) return;
     setSalvando(true);
@@ -452,6 +489,104 @@ export default function OrganizacaoPage() {
     await depoisSalvar(error);
   }
 
+
+  async function editarFornecedor(item: FornecedorEvento) {
+    const fornecedor = item.fornecedor;
+    const nome = window.prompt("Alterar nome do fornecedor", fornecedor?.nome || "");
+    if (nome === null) return;
+
+    const nomeLimpo = nome.trim();
+    if (!nomeLimpo) {
+      setErro("O nome do fornecedor não pode ficar vazio.");
+      return;
+    }
+
+    const telefone = window.prompt("Alterar telefone", fornecedor?.telefone || "");
+    if (telefone === null) return;
+
+    const email = window.prompt("Alterar e-mail", fornecedor?.email || "");
+    if (email === null) return;
+
+    const valor = window.prompt("Alterar valor fechado", item.valor_fechado ? String(item.valor_fechado) : "");
+    if (valor === null) return;
+
+    setSalvando(true);
+
+    const { error: fornecedorError } = await supabase
+      .from("organizacao_fornecedores")
+      .update({
+        nome: nomeLimpo,
+        telefone: limpar(telefone),
+        telefone_normalizado: normalizarTelefone(telefone),
+        email: limpar(email),
+      })
+      .eq("id", item.fornecedor_id);
+
+    if (fornecedorError) {
+      await depoisSalvar(fornecedorError);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("organizacao_fornecedores_evento")
+      .update({ valor_fechado: valorOuNull(valor) })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function abrirContratoFornecedor(item: FornecedorEvento) {
+    const contratacaoExistente = contratacoes.find((contratacao) => contratacao.fornecedor_evento_id === item.id);
+
+    if (contratacaoExistente) {
+      setAba("planejamento");
+      setSubPlanejamento("contratacoes");
+      return;
+    }
+
+    const confirmar = window.confirm(`Criar uma contratação para "${item.fornecedor?.nome || "Fornecedor"}"?`);
+    if (!confirmar || !eventoAtual || !tenantId) return;
+
+    setSalvando(true);
+    const { error } = await supabase.from("organizacao_contratacoes").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      fornecedor_evento_id: item.id,
+      titulo: `Contrato - ${item.fornecedor?.nome || "Fornecedor"}`,
+      valor_contratado: valorOuZero(item.valor_fechado || item.valor_orcado || 0),
+      valor_entrada: 0,
+      valor_pago: 0,
+      parcelas: 1,
+      status: "pendente",
+    });
+
+    await depoisSalvar(error);
+    if (!error) {
+      setAba("planejamento");
+      setSubPlanejamento("contratacoes");
+    }
+  }
+
+  async function abrirPagamentoFornecedor(item: FornecedorEvento) {
+    const contratacaoExistente = contratacoes.find((contratacao) => contratacao.fornecedor_evento_id === item.id);
+
+    if (contratacaoExistente) {
+      setAba("planejamento");
+      setSubPlanejamento("financeiro");
+      return;
+    }
+
+    await abrirContratoFornecedor(item);
+  }
+
+  async function excluirFornecedor(item: FornecedorEvento) {
+    const confirmar = window.confirm(`Remover "${item.fornecedor?.nome || "Fornecedor"}" deste evento?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("organizacao_fornecedores_evento").delete().eq("id", item.id);
+    await depoisSalvar(error);
+  }
+
   async function criarContratacao() {
     if (!eventoAtual || !tenantId || !novaContratacao.titulo.trim()) return;
     setSalvando(true);
@@ -470,6 +605,81 @@ export default function OrganizacaoPage() {
     await depoisSalvar(error, () => setNovaContratacao({ titulo: "", fornecedor_evento_id: "", valor_contratado: "", valor_entrada: "", valor_pago: "", parcelas: "1", data_vencimento: "", status: "pendente" }));
   }
 
+
+  async function editarContratacao(item: Contratacao) {
+    const titulo = window.prompt("Alterar título da contratação", item.titulo);
+    if (titulo === null) return;
+
+    const tituloLimpo = titulo.trim();
+    if (!tituloLimpo) {
+      setErro("O título da contratação não pode ficar vazio.");
+      return;
+    }
+
+    const valorContratado = window.prompt("Alterar valor contratado", String(item.valor_contratado || ""));
+    if (valorContratado === null) return;
+
+    const valorPago = window.prompt("Alterar valor pago", String(item.valor_pago || ""));
+    if (valorPago === null) return;
+
+    const vencimento = window.prompt("Alterar vencimento no formato AAAA-MM-DD", item.data_vencimento || "");
+    if (vencimento === null) return;
+
+    const valorContratadoNumero = valorOuZero(valorContratado);
+    const valorPagoNumero = valorOuZero(valorPago);
+    const status = valorPagoNumero >= valorContratadoNumero && valorContratadoNumero > 0 ? "pago" : valorPagoNumero > 0 ? "parcial" : item.status;
+
+    const { error } = await supabase
+      .from("organizacao_contratacoes")
+      .update({
+        titulo: tituloLimpo,
+        valor_contratado: valorContratadoNumero,
+        valor_pago: valorPagoNumero,
+        data_vencimento: vencimento.trim() || null,
+        status,
+        data_pagamento: status === "pago" ? new Date().toISOString().slice(0, 10) : item.data_pagamento,
+      })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function marcarContratacaoPaga(item: Contratacao) {
+    const confirmar = window.confirm(`Marcar "${item.titulo}" como pago?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("organizacao_contratacoes")
+      .update({
+        valor_pago: valorOuZero(item.valor_contratado),
+        status: "pago",
+        data_pagamento: new Date().toISOString().slice(0, 10),
+      })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function anexarComprovanteContratacao(item: Contratacao) {
+    const comprovanteUrl = window.prompt("Informe a URL do comprovante", item.comprovante_url || "");
+    if (comprovanteUrl === null) return;
+
+    const { error } = await supabase
+      .from("organizacao_contratacoes")
+      .update({ comprovante_url: limpar(comprovanteUrl) })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function excluirContratacao(item: Contratacao) {
+    const confirmar = window.confirm(`Excluir a contratação "${item.titulo}"?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("organizacao_contratacoes").delete().eq("id", item.id);
+    await depoisSalvar(error);
+  }
+
   async function criarEquipe() {
     if (!eventoAtual || !tenantId || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()) return;
     setSalvando(true);
@@ -486,6 +696,48 @@ export default function OrganizacaoPage() {
       status: "confirmado",
     });
     await depoisSalvar(error, () => setNovoEquipe({ nome: "", funcao: "", telefone: "", email: "", horario_inicio: "", horario_fim: "", contato_principal: false }));
+  }
+
+
+  async function editarEquipe(item: Equipe) {
+    const nome = window.prompt("Alterar nome", item.nome);
+    if (nome === null) return;
+
+    const nomeLimpo = nome.trim();
+    if (!nomeLimpo) {
+      setErro("O nome da equipe não pode ficar vazio.");
+      return;
+    }
+
+    const funcao = window.prompt("Alterar função", item.funcao);
+    if (funcao === null) return;
+
+    const telefone = window.prompt("Alterar telefone", item.telefone || "");
+    if (telefone === null) return;
+
+    const { error } = await supabase
+      .from("organizacao_equipe")
+      .update({
+        nome: nomeLimpo,
+        funcao: funcao.trim() || item.funcao,
+        telefone: limpar(telefone),
+      })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function atualizarStatusEquipe(item: Equipe, status: string) {
+    const { error } = await supabase.from("organizacao_equipe").update({ status }).eq("id", item.id);
+    await depoisSalvar(error);
+  }
+
+  async function excluirEquipe(item: Equipe) {
+    const confirmar = window.confirm(`Excluir "${item.nome}" da equipe?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("organizacao_equipe").delete().eq("id", item.id);
+    await depoisSalvar(error);
   }
 
   async function criarChecklist() {
@@ -583,6 +835,36 @@ export default function OrganizacaoPage() {
       status: "pendente",
     });
     await depoisSalvar(error, () => setNovoAgenda({ titulo: "", categoria: "cerimonial", data_inicio: "", data_fim: "", responsavel: "", descricao: "" }));
+  }
+
+
+  async function editarAgenda(item: AgendaItem) {
+    const titulo = window.prompt("Alterar título do roteiro", item.titulo || "");
+    if (titulo === null) return;
+
+    const tituloLimpo = titulo.trim();
+    if (!tituloLimpo) {
+      setErro("O título do roteiro não pode ficar vazio.");
+      return;
+    }
+
+    const responsavel = window.prompt("Alterar responsável", item.responsavel || "");
+    if (responsavel === null) return;
+
+    const { error } = await supabase
+      .from("event_agenda_items")
+      .update({ titulo: tituloLimpo, responsavel: limpar(responsavel) })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function excluirAgenda(item: AgendaItem) {
+    const confirmar = window.confirm(`Excluir "${item.titulo || "Item do roteiro"}" do roteiro?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("event_agenda_items").delete().eq("id", item.id);
+    await depoisSalvar(error);
   }
 
   async function depoisSalvar(error: { message?: string } | Error | null, limparFormulario?: () => void) {
@@ -727,8 +1009,13 @@ export default function OrganizacaoPage() {
         <div className="org-card-list">
           {tarefasFiltradas.map((tarefa) => (
             <div key={tarefa.id} className="org-item-card">
-              <div><span className={`org-pill ${tarefa.status}`}>{labelStatus(tarefa.status)}</span><h3>{tarefa.titulo}</h3><p>{tarefa.responsavel_nome || "Sem responsável"} · prazo {formatarData(tarefa.data_limite)}</p></div>
-              <select value={tarefa.status} onChange={(e) => alterarStatusTarefa(tarefa, e.target.value)}>{STATUS_TAREFA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+              <div className="org-item-main"><span className={`org-pill ${tarefa.status}`}>{labelStatus(tarefa.status)}</span><h3>{tarefa.titulo}</h3><p>{tarefa.responsavel_nome || "Sem responsável"} · prazo {formatarData(tarefa.data_limite)}</p></div>
+              <div className="org-card-actions">
+                <select value={tarefa.status} onChange={(e) => alterarStatusTarefa(tarefa, e.target.value)}>{STATUS_TAREFA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+                <button type="button" onClick={() => alterarStatusTarefa(tarefa, tarefa.status === "concluido" ? "pendente" : "concluido")}>{tarefa.status === "concluido" ? "↩️ Reabrir" : "✅ Concluir"}</button>
+                <button type="button" onClick={() => editarTarefa(tarefa)}>✏️ Editar</button>
+                <button type="button" className="danger" onClick={() => excluirTarefa(tarefa)}>🗑️ Excluir</button>
+              </div>
             </div>
           ))}
           {tarefasFiltradas.length === 0 && <Empty text="Nenhuma tarefa encontrada." />}
@@ -751,8 +1038,14 @@ export default function OrganizacaoPage() {
         <div className="org-card-list">
           {fornecedoresFiltrados.map((item) => (
             <div key={item.id} className="org-item-card">
-              <div><span className={`org-pill ${item.status}`}>{labelStatus(item.status)}</span><h3>{item.fornecedor?.nome || "Fornecedor"}</h3><p>{labelCategoria(item.fornecedor?.categoria || item.categoria_evento)} · {item.fornecedor?.telefone || "Sem telefone"} · {formatarMoeda(toNumber(item.valor_fechado || item.valor_orcado))}</p></div>
-              <select value={item.status} onChange={(e) => atualizarStatusFornecedor(item, e.target.value)}>{STATUS_FORNECEDOR.map((s) => <option key={s} value={s}>{labelStatus(s)}</option>)}</select>
+              <div className="org-item-main"><span className={`org-pill ${item.status}`}>{labelStatus(item.status)}</span><h3>{item.fornecedor?.nome || "Fornecedor"}</h3><p>{labelCategoria(item.fornecedor?.categoria || item.categoria_evento)} · {item.fornecedor?.telefone || "Sem telefone"} · {formatarMoeda(toNumber(item.valor_fechado || item.valor_orcado))}</p></div>
+              <div className="org-card-actions">
+                <select value={item.status} onChange={(e) => atualizarStatusFornecedor(item, e.target.value)}>{STATUS_FORNECEDOR.map((s) => <option key={s} value={s}>{labelStatus(s)}</option>)}</select>
+                <button type="button" onClick={() => editarFornecedor(item)}>✏️ Editar</button>
+                <button type="button" onClick={() => abrirContratoFornecedor(item)}>📄 Contrato</button>
+                <button type="button" onClick={() => abrirPagamentoFornecedor(item)}>💰 Pagamento</button>
+                <button type="button" className="danger" onClick={() => excluirFornecedor(item)}>🗑️ Excluir</button>
+              </div>
             </div>
           ))}
           {fornecedoresFiltrados.length === 0 && <Empty text="Nenhum fornecedor encontrado." />}
@@ -777,8 +1070,14 @@ export default function OrganizacaoPage() {
         <div className="org-card-list">
           {contratacoesFiltradas.map((item) => (
             <div key={item.id} className="org-item-card finance">
-              <div><span className={`org-pill ${item.status}`}>{labelStatus(item.status)}</span><h3>{item.titulo}</h3><p>Vencimento {formatarData(item.data_vencimento)} · {item.parcelas || 1} parcela(s)</p></div>
+              <div className="org-item-main"><span className={`org-pill ${item.status}`}>{labelStatus(item.status)}</span><h3>{item.titulo}</h3><p>Vencimento {formatarData(item.data_vencimento)} · {item.parcelas || 1} parcela(s)</p></div>
               <div className="org-finance-values"><strong>{formatarMoeda(toNumber(item.valor_contratado))}</strong><span>Pago {formatarMoeda(toNumber(item.valor_pago))}</span><span>Pendente {formatarMoeda(toNumber(item.valor_pendente ?? toNumber(item.valor_contratado) - toNumber(item.valor_pago)))}</span></div>
+              <div className="org-card-actions compact">
+                <button type="button" onClick={() => editarContratacao(item)}>✏️ Editar</button>
+                <button type="button" onClick={() => marcarContratacaoPaga(item)} disabled={item.status === "pago"}>✅ Marcar pago</button>
+                <button type="button" onClick={() => anexarComprovanteContratacao(item)}>📎 Comprovante</button>
+                <button type="button" className="danger" onClick={() => excluirContratacao(item)}>🗑️ Excluir</button>
+              </div>
             </div>
           ))}
           {contratacoesFiltradas.length === 0 && <Empty text="Nenhuma contratação encontrada." />}
@@ -799,7 +1098,7 @@ export default function OrganizacaoPage() {
         </div>
         <div className="org-timeline">
           {agendaFiltrada.map((item) => (
-            <div key={item.id} className="org-timeline-row"><div className="org-time"><strong>{hora(item.data_inicio)}</strong><span>{hora(item.data_fim)}</span></div><div className="org-dot" /><div><h3>{item.titulo || "Item do roteiro"}</h3><p>{item.categoria || "Roteiro"} · {item.responsavel || "Sem responsável"}</p>{item.descricao ? <small>{item.descricao}</small> : null}</div></div>
+            <div key={item.id} className="org-timeline-row"><div className="org-time"><strong>{hora(item.data_inicio)}</strong><span>{hora(item.data_fim)}</span></div><div className="org-dot" /><div className="org-timeline-content"><h3>{item.titulo || "Item do roteiro"}</h3><p>{item.categoria || "Roteiro"} · {item.responsavel || "Sem responsável"}</p>{item.descricao ? <small>{item.descricao}</small> : null}<div className="org-row-actions"><button type="button" onClick={() => editarAgenda(item)}>✏️ Editar</button><button type="button" className="danger" onClick={() => excluirAgenda(item)}>🗑️ Excluir</button></div></div></div>
           ))}
           {agendaFiltrada.length === 0 && <Empty text="Nenhum item de roteiro encontrado." />}
         </div>
@@ -818,7 +1117,7 @@ export default function OrganizacaoPage() {
           <button onClick={criarEquipe} disabled={salvando || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()}>Adicionar</button>
         </div>
         <div className="org-card-list">
-          {equipeFiltrada.map((item) => <div key={item.id} className="org-item-card"><div><span className={`org-pill ${item.status}`}>{item.contato_principal ? "Principal" : labelStatus(item.status)}</span><h3>{item.nome}</h3><p>{item.funcao} · {item.telefone || "Sem telefone"}</p></div><span className="org-muted">{formatarDataHora(item.horario_inicio)}</span></div>)}
+          {equipeFiltrada.map((item) => <div key={item.id} className="org-item-card"><div className="org-item-main"><span className={`org-pill ${item.status}`}>{item.contato_principal ? "Principal" : labelStatus(item.status)}</span><h3>{item.nome}</h3><p>{item.funcao} · {item.telefone || "Sem telefone"}</p></div><span className="org-muted">{formatarDataHora(item.horario_inicio)}</span><div className="org-card-actions"><select value={item.status} onChange={(e) => atualizarStatusEquipe(item, e.target.value)}><option value="convidado">Convidado</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="ausente">Ausente</option><option value="cancelado">Cancelado</option></select><button type="button" onClick={() => atualizarStatusEquipe(item, item.status === "presente" ? "confirmado" : "presente")}>{item.status === "presente" ? "↩️ Reabrir" : "✅ Confirmar"}</button><button type="button" onClick={() => editarEquipe(item)}>✏️ Editar</button><button type="button" className="danger" onClick={() => excluirEquipe(item)}>🗑️ Excluir</button></div></div>)}
           {equipeFiltrada.length === 0 && <Empty text="Nenhum membro da equipe encontrado." />}
         </div>
       </Panel>
@@ -851,8 +1150,9 @@ export default function OrganizacaoPage() {
                 <p>{item.categoria} · {labelStatus(item.tipo)} {item.obrigatorio ? "· obrigatório" : ""}</p>
               </div>
               <div className="org-row-actions">
-                <button type="button" onClick={() => alterarChecklist(item)}>Alterar</button>
-                <button type="button" className="danger" onClick={() => excluirChecklist(item)}>Excluir</button>
+                <button type="button" onClick={() => alternarChecklist(item)}>{item.concluido ? "↩️ Reabrir" : "✅ Concluir"}</button>
+                <button type="button" onClick={() => alterarChecklist(item)}>✏️ Editar</button>
+                <button type="button" className="danger" onClick={() => excluirChecklist(item)}>🗑️ Excluir</button>
               </div>
             </div>
           ))}
@@ -906,12 +1206,12 @@ function toNumber(value: number | string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function valorOuNull(value: string) {
+function valorOuNull(value: string | number | null | undefined) {
   const parsed = toNumber(value);
-  return value.trim() ? parsed : null;
+  return String(value || "").trim() ? parsed : null;
 }
 
-function valorOuZero(value: string) {
+function valorOuZero(value: string | number | null | undefined) {
   return toNumber(value);
 }
 
@@ -1069,12 +1369,17 @@ const styles = `
 .org-checklist-actions span { color: #64748b; font-weight: 800; font-size: 13px; }
 .org-check-content { flex: 1; min-width: 0; }
 .org-check-toggle { width: 32px; height: 32px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; color: #16a34a; font-weight: 900; cursor: pointer; }
-.org-row-actions { display: flex; align-items: center; gap: 8px; }
-.org-row-actions button { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 9px 12px; font-weight: 900; cursor: pointer; }
-.org-row-actions button.danger { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+.org-row-actions, .org-card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.org-card-actions { justify-content: flex-end; }
+.org-card-actions.compact { max-width: 460px; }
+.org-item-main { min-width: 0; flex: 1; }
+.org-row-actions button, .org-card-actions button { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 9px 12px; font-weight: 900; cursor: pointer; white-space: nowrap; }
+.org-row-actions button:disabled, .org-card-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.org-row-actions button.danger, .org-card-actions button.danger { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
 .org-item-card h3, .org-mini-row strong, .org-check-row h3 { margin: 6px 0 4px; font-size: 16px; letter-spacing: -.02em; }
 .org-item-card p, .org-mini-row span, .org-check-row p { margin: 0; color: #64748b; font-weight: 700; font-size: 13px; }
 .org-item-card select { max-width: 190px; }
+.org-card-actions select { min-width: 165px; }
 .org-pill.concluido, .org-pill.pago, .org-pill.confirmado, .org-pill.presente, .org-pill.contratado { background: #dcfce7; color: #166534; }
 .org-pill.atrasado, .org-pill.vencido, .org-pill.alta, .org-pill.critica { background: #fee2e2; color: #991b1b; }
 .org-pill.pendente, .org-pill.parcial, .org-pill.negociando, .org-pill.orcamento, .org-pill.media { background: #fef3c7; color: #92400e; }
@@ -1092,6 +1397,7 @@ const styles = `
 .org-time span { color: #94a3b8; font-size: 12px; }
 .org-dot { width: 14px; height: 14px; border-radius: 999px; background: #6d28d9; margin-top: 4px; box-shadow: 0 0 0 5px #ede9fe; }
 .org-timeline-row h3 { margin: 0 0 4px; font-size: 17px; }
+.org-timeline-content .org-row-actions { margin-top: 10px; }
 .org-timeline-row p, .org-timeline-row small { margin: 0; color: #64748b; font-weight: 700; }
 .org-check { display: flex; align-items: center; gap: 8px; font-weight: 900; color: #475569; }
 .org-check-row { width: 100%; text-align: left; cursor: pointer; }
@@ -1099,9 +1405,10 @@ const styles = `
 .org-check-row.done span { background: #16a34a; border-color: #16a34a; }
 .org-check-row.done h3 { text-decoration: line-through; color: #64748b; }
 @media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 `;
 
 function styleToCss(style: React.CSSProperties) {
   return Object.entries(style).map(([key, value]) => `${key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}:${value};`).join("");
 }
+
