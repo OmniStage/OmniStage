@@ -610,33 +610,6 @@ export default function CalendarioPage() {
         <div style={panelStyle}>
           <div style={panelHeaderStyle}>
             <div>
-              <span style={sectionKickerStyle}>Visão geral</span>
-              <h2 style={panelTitleStyle}>{eventoSelecionado?.nome || "Selecione um evento"}</h2>
-              <p style={panelTextStyle}>{eventoSelecionado ? `${eventoSelecionado.dataTexto} • ${eventoSelecionado.horarioTexto} • ${eventoSelecionado.localTexto}` : "Nenhum evento encontrado."}</p>
-            </div>
-            {eventoSelecionado && <span style={{ ...badgeStyle, ...statusStyle(eventoSelecionado.statusTexto) }}>{eventoSelecionado.statusTexto}</span>}
-          </div>
-
-          <div style={miniGridStyle} className="cal-mini-grid">
-            <MiniCard label="Dias restantes" value={diasRestantes === null ? "--" : diasRestantes < 0 ? `D+${Math.abs(diasRestantes)}` : `D-${diasRestantes}`} />
-            <MiniCard label="RSVP" value={`${taxaRsvp}%`} />
-            <MiniCard label="Campanhas" value={campanhasSelecionado.length} />
-            <MiniCard label="Agenda" value={itensAgendaSelecionado.length} />
-          </div>
-
-          {eventoSelecionado && (
-            <div style={quickActionsStyle}>
-              <a href={`/app/eventos?evento=${eventoSelecionado.id}`} style={primaryLinkStyle}>Ver evento</a>
-              <a href={`/app/convidados?evento=${eventoSelecionado.id}`} style={secondaryLinkStyle}>Convidados</a>
-              <a href={`/app/envios?evento=${eventoSelecionado.id}`} style={secondaryLinkStyle}>Envios</a>
-              <a href={`/app/rsvp?evento=${eventoSelecionado.id}`} style={secondaryLinkStyle}>RSVP</a>
-            </div>
-          )}
-        </div>
-
-        <div style={panelStyle}>
-          <div style={panelHeaderStyle}>
-            <div>
               <span style={sectionKickerStyle}>Próximos</span>
               <h2 style={panelTitleStyle}>Compromissos</h2>
               <p style={panelTextStyle}>Eventos, campanhas e tarefas com data definida.</p>
@@ -648,7 +621,20 @@ export default function CalendarioPage() {
             {proximosItens.length === 0 ? (
               <EmptyState title="Sem próximos itens" description="Cadastre campanhas ou itens de agenda operacional." />
             ) : (
-              proximosItens.map((item) => <ItemRow key={`${item.origem}-${item.id}`} item={item} onClick={() => setDetalheAberto(item)} compact />)
+              proximosItens.map((item) => {
+                const eventoDoItem = eventos.find((evento) => evento.id === item.eventoId) || null;
+                return (
+                  <ItemRow
+                    key={`${item.origem}-${item.id}`}
+                    item={item}
+                    evento={eventoDoItem}
+                    campanhasCount={campanhasItems.filter((campanha) => campanha.eventoId === item.eventoId).length}
+                    agendaCount={agendaItems.filter((agenda) => agenda.eventoId === item.eventoId).length}
+                    onClick={() => setDetalheAberto(item)}
+                    compact
+                  />
+                );
+              })
             )}
           </div>
         </div>
@@ -835,27 +821,66 @@ function MetricCard({ label, value, detail }: { label: string; value: number; de
   );
 }
 
-function MiniCard({ label, value }: { label: string; value: string | number }) {
+function MiniCard({ label, value, compact = false }: { label: string; value: string | number; compact?: boolean }) {
   return (
-    <div style={miniCardStyle}>
+    <div style={compact ? miniCardCompactStyle : miniCardStyle}>
       <span style={miniLabelStyle}>{label}</span>
-      <strong style={miniValueStyle}>{value}</strong>
+      <strong style={compact ? miniValueCompactStyle : miniValueStyle}>{value}</strong>
     </div>
   );
 }
 
-function ItemRow({ item, onClick, compact = false }: { item: ItemCalendario; onClick: () => void; compact?: boolean }) {
+function ItemRow({
+  item,
+  onClick,
+  compact = false,
+  evento,
+  campanhasCount = 0,
+  agendaCount = 0,
+}: {
+  item: ItemCalendario;
+  onClick: () => void;
+  compact?: boolean;
+  evento?: EventoCalendario | null;
+  campanhasCount?: number;
+  agendaCount?: number;
+}) {
+  const isEvento = item.categoria === "evento" && evento;
+  const dias = isEvento ? calcularDiasRestantes(evento) : null;
+  const taxa = isEvento && evento.convidadosTotal ? Math.round((evento.confirmados / evento.convidadosTotal) * 100) : 0;
+
   return (
-    <button onClick={onClick} style={itemRowStyle} className="cal-card-hover">
+    <article onClick={onClick} style={itemRowStyle} className="cal-card-hover" role="button" tabIndex={0}>
       <div style={itemRowTopStyle}>
         <div style={{ minWidth: 0 }}>
-          <strong style={compact ? itemTitleCompactStyle : itemTitleStyle}>{item.titulo}</strong>
-          <span style={itemDateStyle}>{formatarDataHora(item.dataInicio)}</span>
+          <strong style={compact ? itemTitleCompactStyle : itemTitleStyle}>{isEvento ? evento.nome : item.titulo}</strong>
+          <span style={itemDateStyle}>
+            {isEvento
+              ? `${evento.dataTexto} • ${evento.horarioTexto}${evento.localTexto ? ` • ${evento.localTexto}` : ""}`
+              : formatarDataHora(item.dataInicio)}
+          </span>
           {!compact && <span style={itemDescStyle}>{item.descricao}</span>}
         </div>
         <span style={{ ...badgeStyle, ...categoriaStyle(item.categoria) }}>{CATEGORIA_LABEL[item.categoria] || item.categoria}</span>
       </div>
-    </button>
+
+      {isEvento && (
+        <>
+          <div style={eventInfoGridStyle}>
+            <MiniCard label="Dias" value={dias === null ? "--" : dias < 0 ? `D+${Math.abs(dias)}` : `D-${dias}`} compact />
+            <MiniCard label="RSVP" value={`${taxa}%`} compact />
+            <MiniCard label="Campanhas" value={campanhasCount} compact />
+            <MiniCard label="Agenda" value={agendaCount} compact />
+          </div>
+          <div style={quickActionsStyle}>
+            <a href={`/app/eventos?evento=${evento.id}`} style={primaryLinkStyle} onClick={(event) => event.stopPropagation()}>Ver evento</a>
+            <a href={`/app/convidados?evento=${evento.id}`} style={secondaryLinkStyle} onClick={(event) => event.stopPropagation()}>Convidados</a>
+            <a href={`/app/envios?evento=${evento.id}`} style={secondaryLinkStyle} onClick={(event) => event.stopPropagation()}>Envios</a>
+            <a href={`/app/rsvp?evento=${evento.id}`} style={secondaryLinkStyle} onClick={(event) => event.stopPropagation()}>RSVP</a>
+          </div>
+        </>
+      )}
+    </article>
   );
 }
 
@@ -957,7 +982,7 @@ const heroStyle: CSSProperties = {
 
 const heroActionsStyle: CSSProperties = { display: "none" };
 const eyebrowStyle: CSSProperties = { fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6d28d9" };
-const titleStyle: CSSProperties = { margin: "12px 0 10px", fontSize: 34, lineHeight: 1.05, fontWeight: 950, letterSpacing: "-0.04em", color: "#0f172a" };
+const titleStyle: CSSProperties = { margin: "12px 0 10px", fontSize: 34, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.035em", color: "#0f172a" };
 const subtitleStyle: CSSProperties = { margin: 0, maxWidth: 920, color: "#64748b", fontSize: 15, lineHeight: 1.65, fontWeight: 600 };
 
 const primaryButtonStyle: CSSProperties = {
@@ -1008,8 +1033,8 @@ const eventSelectStyle: CSSProperties = {
 
 const fieldLabelStyle: CSSProperties = { display: "block", marginBottom: 4, color: "#475569", fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" };
 const panelTextStyle: CSSProperties = { margin: 0, color: "#64748b", fontSize: 14, lineHeight: 1.55, fontWeight: 600 };
-const panelTitleStyle: CSSProperties = { margin: "4px 0", fontSize: 22, fontWeight: 950, letterSpacing: "-0.03em", color: "#0f172a" };
-const sectionKickerStyle: CSSProperties = { color: "#6d28d9", fontSize: 12, fontWeight: 950, textTransform: "uppercase", letterSpacing: "0.12em" };
+const panelTitleStyle: CSSProperties = { margin: "4px 0", fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "#0f172a" };
+const sectionKickerStyle: CSSProperties = { color: "#6d28d9", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em" };
 
 const statsGridStyle: CSSProperties = {
   maxWidth: 1280,
@@ -1021,10 +1046,10 @@ const statsGridStyle: CSSProperties = {
 
 const metricCardStyle: CSSProperties = { padding: 20, borderRadius: 24, border: "1px solid #e2e8f0", background: "#fff", display: "grid", gap: 5 };
 const metricLabelStyle: CSSProperties = { color: "#64748b", fontWeight: 800, fontSize: 13 };
-const metricValueStyle: CSSProperties = { color: "#0f172a", fontSize: 30, fontWeight: 950, letterSpacing: "-0.04em" };
+const metricValueStyle: CSSProperties = { color: "#0f172a", fontSize: 30, fontWeight: 800, letterSpacing: "-0.035em" };
 const metricDetailStyle: CSSProperties = { color: "#94a3b8", fontSize: 12, fontWeight: 700 };
 
-const overviewGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 18 };
+const overviewGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", display: "grid", gridTemplateColumns: "1fr", gap: 18 };
 const mainGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "minmax(0, 1fr) 380px", gap: 18, alignItems: "start" };
 const sideColumnStyle: CSSProperties = { display: "grid", gap: 18 };
 
@@ -1035,22 +1060,25 @@ const counterStyle: CSSProperties = { display: "inline-flex", minWidth: 34, heig
 
 const miniGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 18 };
 const miniCardStyle: CSSProperties = { padding: 16, borderRadius: 20, background: "#f8fafc", border: "1px solid #e2e8f0", display: "grid", gap: 5 };
+const miniCardCompactStyle: CSSProperties = { padding: 12, borderRadius: 16, background: "#f8fafc", border: "1px solid #e2e8f0", display: "grid", gap: 4 };
 const miniLabelStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 950, letterSpacing: "0.08em", textTransform: "uppercase" };
-const miniValueStyle: CSSProperties = { color: "#0f172a", fontSize: 24, fontWeight: 950, letterSpacing: "-0.03em" };
+const miniValueStyle: CSSProperties = { color: "#0f172a", fontSize: 24, fontWeight: 800, letterSpacing: "-0.025em" };
+const miniValueCompactStyle: CSSProperties = { color: "#0f172a", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" };
+const eventInfoGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 14 };
 
 const quickActionsStyle: CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 };
-const primaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, background: "#6d28d9", color: "#fff", textDecoration: "none", fontWeight: 900, fontSize: 13 };
-const secondaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", textDecoration: "none", fontWeight: 900, fontSize: 13 };
+const primaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, background: "#6d28d9", color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 13 };
+const secondaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", textDecoration: "none", fontWeight: 800, fontSize: 13 };
 
 const listStackStyle: CSSProperties = { display: "grid", gap: 10 };
 const timelineStackStyle: CSSProperties = { display: "grid", gap: 0 };
 const itemRowStyle: CSSProperties = { width: "100%", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 22, padding: 14, textAlign: "left", cursor: "pointer" };
 const itemRowTopStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" };
-const itemTitleStyle: CSSProperties = { display: "block", color: "#0f172a", fontWeight: 950, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
-const itemTitleCompactStyle: CSSProperties = { display: "block", color: "#0f172a", fontWeight: 950, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const itemTitleStyle: CSSProperties = { display: "block", color: "#0f172a", fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const itemTitleCompactStyle: CSSProperties = { display: "block", color: "#0f172a", fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const itemDateStyle: CSSProperties = { display: "block", marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 700 };
 const itemDescStyle: CSSProperties = { display: "block", marginTop: 4, color: "#94a3b8", fontSize: 12, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
-const badgeStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 999, padding: "5px 10px", fontSize: 11, fontWeight: 950, whiteSpace: "nowrap" };
+const badgeStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 999, padding: "5px 10px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" };
 
 const calendarActionsStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 8 };
 const iconButtonStyle: CSSProperties = { width: 40, height: 40, borderRadius: 14, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontSize: 24, fontWeight: 900, cursor: "pointer" };
@@ -1096,5 +1124,3 @@ const detailGridStyle: CSSProperties = { padding: 24, display: "grid", gridTempl
 const detailBoxStyle: CSSProperties = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: 16, minWidth: 0 };
 const detailValueStyle: CSSProperties = { display: "block", marginTop: 6, color: "#0f172a", fontSize: 15, fontWeight: 900, overflowWrap: "anywhere" };
 const modalFooterStyle: CSSProperties = { borderTop: "1px solid #e2e8f0", padding: 24, display: "flex", flexWrap: "wrap", gap: 10 };
-
-
