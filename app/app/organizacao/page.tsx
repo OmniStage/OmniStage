@@ -3,7 +3,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type AbaOrganizacao = "visao" | "planejamento" | "execucao" | "pendencias";
+type AbaOrganizacao =
+  | "visao"
+  | "equipe"
+  | "fornecedores"
+  | "producao"
+  | "contratacoes"
+  | "financeiro"
+  | "roteiro"
+  | "pendencias";
 type SubPlanejamento =
   | "producao"
   | "fornecedores"
@@ -1292,7 +1300,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("planejamento");
+      setAba("contratacoes");
       setSubPlanejamento("contratacoes");
       return;
     }
@@ -1319,7 +1327,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     await depoisSalvar(error);
     if (!error) {
-      setAba("planejamento");
+      setAba("contratacoes");
       setSubPlanejamento("contratacoes");
     }
   }
@@ -1330,7 +1338,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("planejamento");
+      setAba("financeiro");
       setSubPlanejamento("financeiro");
       return;
     }
@@ -1977,16 +1985,40 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 Visão Geral
               </button>
               <button
-                className={aba === "planejamento" ? "active" : ""}
-                onClick={() => setAba("planejamento")}
+                className={aba === "equipe" ? "active" : ""}
+                onClick={() => setAba("equipe")}
               >
-                Planejamento
+                Equipe
               </button>
               <button
-                className={aba === "execucao" ? "active" : ""}
-                onClick={() => setAba("execucao")}
+                className={aba === "fornecedores" ? "active" : ""}
+                onClick={() => setAba("fornecedores")}
               >
-                Execução
+                Fornecedores
+              </button>
+              <button
+                className={aba === "producao" ? "active" : ""}
+                onClick={() => setAba("producao")}
+              >
+                Produção
+              </button>
+              <button
+                className={aba === "contratacoes" ? "active" : ""}
+                onClick={() => setAba("contratacoes")}
+              >
+                Contratações
+              </button>
+              <button
+                className={aba === "financeiro" ? "active" : ""}
+                onClick={() => setAba("financeiro")}
+              >
+                Financeiro
+              </button>
+              <button
+                className={aba === "roteiro" ? "active" : ""}
+                onClick={() => setAba("roteiro")}
+              >
+                Roteiro
               </button>
               <button
                 className={aba === "pendencias" ? "active" : ""}
@@ -2091,39 +2123,12 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             </div>
           )}
 
-          {aba === "planejamento" && (
-            <>
-              <SubTabs
-                items={[
-                  "producao",
-                  "fornecedores",
-                  "contratacoes",
-                  "financeiro",
-                ]}
-                active={subPlanejamento}
-                onChange={(value) =>
-                  setSubPlanejamento(value as SubPlanejamento)
-                }
-              />
-              {subPlanejamento === "producao" && renderProducao()}
-              {subPlanejamento === "fornecedores" && renderFornecedores()}
-              {subPlanejamento === "contratacoes" && renderContratacoes(false)}
-              {subPlanejamento === "financeiro" && renderContratacoes(true)}
-            </>
-          )}
-
-          {aba === "execucao" && (
-            <>
-              <SubTabs
-                items={["roteiro", "equipe", "checklist"]}
-                active={subExecucao}
-                onChange={(value) => setSubExecucao(value as SubExecucao)}
-              />
-              {subExecucao === "roteiro" && renderRoteiro()}
-              {subExecucao === "equipe" && renderEquipe()}
-              {subExecucao === "checklist" && renderChecklist()}
-            </>
-          )}
+          {aba === "equipe" && renderEquipe()}
+          {aba === "fornecedores" && renderFornecedores()}
+          {aba === "producao" && renderProducao()}
+          {aba === "contratacoes" && renderContratacoes(false)}
+          {aba === "financeiro" && renderContratacoes(true)}
+          {aba === "roteiro" && renderRoteiro()}
 
           {aba === "pendencias" && (
             <Panel
@@ -4175,7 +4180,4 @@ function styleToCss(style: React.CSSProperties) {
     )
     .join("");
 }
-
-
-
 
