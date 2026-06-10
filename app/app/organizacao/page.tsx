@@ -152,11 +152,21 @@ const CATEGORIAS_FORNECEDOR = [
 ];
 
 const STATUS_TAREFA = [
-  { value: "pendente", label: "Pendente" },
+  { value: "ideia", label: "Ideias" },
+  { value: "a_fazer", label: "A fazer" },
   { value: "em_andamento", label: "Em andamento" },
+  { value: "aguardando_terceiro", label: "Aguardando terceiros" },
   { value: "concluido", label: "Concluído" },
   { value: "atrasado", label: "Atrasado" },
   { value: "cancelado", label: "Cancelado" },
+];
+
+const COLUNAS_PRODUCAO = [
+  { value: "ideia", label: "Ideias", description: "Sugestões e possibilidades para avaliar." },
+  { value: "a_fazer", label: "A fazer", description: "Ações que ainda precisam começar." },
+  { value: "em_andamento", label: "Em andamento", description: "Itens já em execução." },
+  { value: "aguardando_terceiro", label: "Aguardando terceiros", description: "Dependências de fornecedor, cliente ou equipe." },
+  { value: "concluido", label: "Concluído", description: "Ações finalizadas." },
 ];
 
 const STATUS_FORNECEDOR = ["orcamento", "negociando", "contratado", "confirmado", "cancelado", "dispensado"];
@@ -199,6 +209,7 @@ export default function OrganizacaoPage() {
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [aba, setAba] = useState<AbaOrganizacao>("visao");
   const [subPlanejamento, setSubPlanejamento] = useState<SubPlanejamento>("tarefas");
+  const [visualizacaoProducao, setVisualizacaoProducao] = useState<"kanban" | "lista">("kanban");
   const [subExecucao, setSubExecucao] = useState<SubExecucao>("roteiro");
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
@@ -398,7 +409,7 @@ export default function OrganizacaoPage() {
       data_limite: novaTarefa.data_limite || null,
       prioridade: novaTarefa.prioridade,
       tipo: novaTarefa.tipo,
-      status: "pendente",
+      status: "a_fazer",
     });
     await depoisSalvar(error, () => setNovaTarefa({ titulo: "", responsavel_nome: "", data_limite: "", prioridade: "media", tipo: "planejamento" }));
   }
@@ -925,7 +936,7 @@ export default function OrganizacaoPage() {
 
           <section className="org-metrics-grid">
             <Metric title="Dias restantes" value={metricas.diasRestantes ?? "--"} detail="até o evento" />
-            <Metric title="Tarefas" value={`${metricas.tarefasConcluidas}/${metricas.tarefasTotal}`} detail={`${metricas.tarefasAtrasadas} atrasadas`} danger={metricas.tarefasAtrasadas > 0} />
+            <Metric title="Produção" value={`${metricas.tarefasConcluidas}/${metricas.tarefasTotal}`} detail={`${metricas.tarefasAtrasadas} atrasadas`} danger={metricas.tarefasAtrasadas > 0} />
             <Metric title="Fornecedores" value={`${metricas.fornecedoresContratados}/${metricas.fornecedoresTotal}`} detail="contratados/confirmados" />
             <Metric title="Financeiro" value={formatarMoeda(metricas.saldoPendente)} detail="saldo pendente" danger={metricas.saldoPendente > 0} />
             <Metric title="Equipe" value={metricas.equipeTotal} detail="pessoas na operação" />
@@ -997,29 +1008,73 @@ export default function OrganizacaoPage() {
   );
 
   function renderTarefas() {
+    const renderCardProducao = (tarefa: Tarefa) => (
+      <div key={tarefa.id} className="org-item-card org-kanban-card">
+        <div className="org-item-main">
+          <span className={`org-pill ${tarefa.status}`}>{labelStatus(tarefa.status)}</span>
+          <h3>{tarefa.titulo}</h3>
+          <p>{tarefa.responsavel_nome || "Sem responsável"} · prazo {formatarData(tarefa.data_limite)}</p>
+          <p className="org-muted">Prioridade: {labelStatus(tarefa.prioridade)}</p>
+        </div>
+        <div className="org-card-actions compact">
+          <select value={tarefa.status} onChange={(e) => alterarStatusTarefa(tarefa, e.target.value)}>
+            {STATUS_TAREFA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <button type="button" onClick={() => alterarStatusTarefa(tarefa, tarefa.status === "concluido" ? "a_fazer" : "concluido")}>{tarefa.status === "concluido" ? "↩️ Reabrir" : "✅ Concluir"}</button>
+          <button type="button" onClick={() => editarTarefa(tarefa)}>✏️ Editar</button>
+          <button type="button" className="danger" onClick={() => excluirTarefa(tarefa)}>🗑️ Excluir</button>
+        </div>
+      </div>
+    );
+
     return (
-      <Panel title="Tarefas" subtitle="Ações do planejamento e da execução">
-        <div className="org-form-grid five">
-          <input placeholder="Título da tarefa" value={novaTarefa.titulo} onChange={(e) => setNovaTarefa({ ...novaTarefa, titulo: e.target.value })} />
+      <Panel title="Produção" subtitle="Kanban de ações do planejamento, com opção de visualização em lista">
+        <div className="org-section-toolbar">
+          <div>
+            <strong>Quadro de produção</strong>
+            <span>Organize ideias, tarefas, pendências com terceiros e itens concluídos.</span>
+          </div>
+          <div className="org-view-toggle">
+            <button type="button" className={visualizacaoProducao === "kanban" ? "active" : ""} onClick={() => setVisualizacaoProducao("kanban")}>Kanban</button>
+            <button type="button" className={visualizacaoProducao === "lista" ? "active" : ""} onClick={() => setVisualizacaoProducao("lista")}>Lista</button>
+          </div>
+        </div>
+
+        <div className="org-form-grid producao">
+          <input placeholder="Título da ação" value={novaTarefa.titulo} onChange={(e) => setNovaTarefa({ ...novaTarefa, titulo: e.target.value })} />
           <input placeholder="Responsável" value={novaTarefa.responsavel_nome} onChange={(e) => setNovaTarefa({ ...novaTarefa, responsavel_nome: e.target.value })} />
           <input type="date" value={novaTarefa.data_limite} onChange={(e) => setNovaTarefa({ ...novaTarefa, data_limite: e.target.value })} />
           <select value={novaTarefa.prioridade} onChange={(e) => setNovaTarefa({ ...novaTarefa, prioridade: e.target.value })}><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option><option value="critica">Crítica</option></select>
           <button onClick={criarTarefa} disabled={salvando || !novaTarefa.titulo.trim()}>Adicionar</button>
         </div>
-        <div className="org-card-list">
-          {tarefasFiltradas.map((tarefa) => (
-            <div key={tarefa.id} className="org-item-card">
-              <div className="org-item-main"><span className={`org-pill ${tarefa.status}`}>{labelStatus(tarefa.status)}</span><h3>{tarefa.titulo}</h3><p>{tarefa.responsavel_nome || "Sem responsável"} · prazo {formatarData(tarefa.data_limite)}</p></div>
-              <div className="org-card-actions">
-                <select value={tarefa.status} onChange={(e) => alterarStatusTarefa(tarefa, e.target.value)}>{STATUS_TAREFA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
-                <button type="button" onClick={() => alterarStatusTarefa(tarefa, tarefa.status === "concluido" ? "pendente" : "concluido")}>{tarefa.status === "concluido" ? "↩️ Reabrir" : "✅ Concluir"}</button>
-                <button type="button" onClick={() => editarTarefa(tarefa)}>✏️ Editar</button>
-                <button type="button" className="danger" onClick={() => excluirTarefa(tarefa)}>🗑️ Excluir</button>
-              </div>
-            </div>
-          ))}
-          {tarefasFiltradas.length === 0 && <Empty text="Nenhuma tarefa encontrada." />}
-        </div>
+
+        {visualizacaoProducao === "kanban" ? (
+          <div className="org-kanban">
+            {COLUNAS_PRODUCAO.map((coluna) => {
+              const itens = tarefasFiltradas.filter((tarefa) => normalizarStatusProducao(tarefa.status) === coluna.value);
+              return (
+                <div key={coluna.value} className="org-kanban-column">
+                  <div className="org-kanban-head">
+                    <div>
+                      <strong>{coluna.label}</strong>
+                      <span>{coluna.description}</span>
+                    </div>
+                    <em>{itens.length}</em>
+                  </div>
+                  <div className="org-kanban-list">
+                    {itens.map(renderCardProducao)}
+                    {itens.length === 0 && <Empty text="Nenhum item nesta etapa." />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="org-card-list">
+            {tarefasFiltradas.map(renderCardProducao)}
+            {tarefasFiltradas.length === 0 && <Empty text="Nenhuma ação de produção encontrada." />}
+          </div>
+        )}
       </Panel>
     );
   }
@@ -1263,6 +1318,13 @@ function formatarDataEvento(evento: Evento) {
   return horaInicio ? `${dia} às ${horaInicio}` : dia;
 }
 
+function normalizarStatusProducao(status: string | null | undefined) {
+  if (status === "pendente") return "a_fazer";
+  if (status === "atrasado") return "aguardando_terceiro";
+  if (status === "ideia" || status === "a_fazer" || status === "em_andamento" || status === "aguardando_terceiro" || status === "concluido") return status;
+  return "a_fazer";
+}
+
 function isAtrasada(dataLimite: string | null, status: string | null) {
   if (!dataLimite || status === "concluido" || status === "cancelado") return false;
   const limite = new Date(dataLimite);
@@ -1281,7 +1343,7 @@ function labelStatus(value: string | null | undefined) {
     planejamento: "Planejamento",
     execucao: "Execução",
     pendencias: "Pendências",
-    tarefas: "Tarefas",
+    tarefas: "Produção",
     fornecedores: "Fornecedores",
     contratacoes: "Contratações",
     financeiro: "Financeiro",
@@ -1289,6 +1351,9 @@ function labelStatus(value: string | null | undefined) {
     equipe: "Equipe",
     checklist: "Checklist",
     pendente: "Pendente",
+    ideia: "Ideias",
+    a_fazer: "A fazer",
+    aguardando_terceiro: "Aguardando terceiros",
     em_andamento: "Em andamento",
     concluido: "Concluído",
     atrasado: "Atrasado",
@@ -1404,11 +1469,33 @@ const styles = `
 .org-check-row span { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #cbd5e1; border-radius: 9px; color: #fff; font-weight: 900; flex: 0 0 auto; }
 .org-check-row.done span { background: #16a34a; border-color: #16a34a; }
 .org-check-row.done h3 { text-decoration: line-through; color: #64748b; }
-@media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+
+.org-section-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; padding: 14px; border-radius: 18px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.org-section-toolbar strong { display: block; font-size: 15px; letter-spacing: -.02em; }
+.org-section-toolbar span { display: block; color: #64748b; font-weight: 700; font-size: 13px; margin-top: 2px; }
+.org-view-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; background: #fff; border: 1px solid #e2e8f0; }
+.org-view-toggle button { border: 0; border-radius: 999px; padding: 9px 13px; background: transparent; color: #475569; font-weight: 900; cursor: pointer; }
+.org-view-toggle button.active { background: #6d28d9; color: #fff; }
+.org-form-grid.producao { grid-template-columns: 1.4fr 1fr .8fr .75fr auto; }
+.org-kanban { display: grid; grid-template-columns: repeat(5, minmax(240px, 1fr)); gap: 12px; align-items: stretch; overflow-x: auto; padding-bottom: 6px; }
+.org-kanban-column { min-width: 240px; border-radius: 22px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; }
+.org-kanban-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.org-kanban-head strong { display: block; font-size: 15px; letter-spacing: -.02em; }
+.org-kanban-head span { display: block; margin-top: 3px; color: #64748b; font-weight: 700; font-size: 12px; line-height: 1.35; }
+.org-kanban-head em { min-width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #fff; color: #0f172a; font-weight: 900; font-style: normal; border: 1px solid #e2e8f0; }
+.org-kanban-list { display: flex; flex-direction: column; gap: 10px; }
+.org-kanban-card { align-items: stretch; flex-direction: column; }
+.org-kanban-card .org-card-actions { justify-content: flex-start; }
+.org-pill.ideia { background: #e0f2fe; color: #075985; }
+.org-pill.a_fazer { background: #ede9fe; color: #5b21b6; }
+.org-pill.aguardando_terceiro { background: #ffedd5; color: #9a3412; }
+
+@media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 `;
 
 function styleToCss(style: React.CSSProperties) {
   return Object.entries(style).map(([key, value]) => `${key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}:${value};`).join("");
 }
+
 
