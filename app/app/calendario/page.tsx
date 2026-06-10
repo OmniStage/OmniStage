@@ -14,8 +14,11 @@ type EventoCalendario = {
   id: string;
   nome: string;
   data: Date | null;
+  dataFim: Date | null;
   dataTexto: string;
   horarioTexto: string;
+  horarioFimTexto: string;
+  periodoTexto: string;
   localTexto: string;
   statusTexto: string;
   tenantId: string | null;
@@ -78,6 +81,7 @@ type VisaoCalendario = "mes" | "lista";
 type FiltroStatus = "todos" | "com_data" | "sem_data" | "ativos" | "finalizados";
 
 const MODULE_KEY = "calendario";
+const TIME_ZONE_BR = "America/Sao_Paulo";
 
 const MESES = [
   "Janeiro",
@@ -140,40 +144,117 @@ function normalizarTexto(valor: unknown) {
 
 function parseDateSafe(valor: unknown) {
   if (!valor) return null;
-  const data = new Date(String(valor));
+
+  const texto = String(valor).trim();
+  const somenteData = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (somenteData) {
+    const [, ano, mes, dia] = somenteData;
+    return new Date(Number(ano), Number(mes) - 1, Number(dia), 0, 0, 0, 0);
+  }
+
+  const data = new Date(texto);
   if (Number.isNaN(data.getTime())) return null;
   return data;
 }
 
-function parseDataEvento(evento: EventoBanco) {
-  return parseDateSafe(
-    valorPrimeiro(evento, [
-      "data_evento",
-      "data",
-      "data_inicio",
-      "data_hora_inicio",
-      "data_hora",
-      "inicio",
-      "start_date",
-      "event_date",
-      "created_at",
-    ])
+function normalizarHorario(valor: unknown) {
+  if (valor === null || valor === undefined) return null;
+  const texto = String(valor).trim();
+  if (!texto) return null;
+
+  const match = texto.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!match) return texto;
+
+  const horas = match[1].padStart(2, "0");
+  const minutos = match[2];
+  return `${horas}:${minutos}`;
+}
+
+function aplicarHorario(data: Date | null, horario: unknown) {
+  if (!data) return null;
+
+  const horarioNormalizado = normalizarHorario(horario);
+  if (!horarioNormalizado) return data;
+
+  const match = horarioNormalizado.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return data;
+
+  const novaData = new Date(data);
+  novaData.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return novaData;
+}
+
+function parseDataInicioEvento(evento: EventoBanco) {
+  const dataHoraCompleta = parseDateSafe(valorPrimeiro(evento, ["data_hora_inicio", "data_inicio", "inicio", "start_date", "data_hora"]));
+
+  if (dataHoraCompleta) {
+    const horarioExplicito = valorPrimeiro(evento, ["horario_inicio", "hora_inicio", "horario", "hora", "hora_evento"]);
+    return aplicarHorario(dataHoraCompleta, horarioExplicito);
+  }
+
+  const dataBase = parseDateSafe(valorPrimeiro(evento, ["data_evento", "data", "event_date"]));
+  return aplicarHorario(dataBase, valorPrimeiro(evento, ["horario_inicio", "hora_inicio", "horario", "hora", "hora_evento"]));
+}
+
+function parseDataFimEvento(evento: EventoBanco, dataInicio: Date | null) {
+  const dataFimCompleta = parseDateSafe(
+    valorPrimeiro(evento, ["data_hora_fim", "data_fim", "fim", "end_date", "data_hora_termino", "termino"])
   );
+
+  const horarioFim = valorPrimeiro(evento, ["horario_fim", "hora_fim", "horario_termino", "hora_termino", "termino_hora"]);
+
+  if (dataFimCompleta) return aplicarHorario(dataFimCompleta, horarioFim);
+  if (dataInicio && horarioFim) return aplicarHorario(new Date(dataInicio), horarioFim);
+
+  return null;
+}
+
+function parseDataEvento(evento: EventoBanco) {
+  return parseDataInicioEvento(evento);
 }
 
 function formatarData(data: Date | null) {
   if (!data) return "Sem data definida";
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(data);
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: TIME_ZONE_BR,
+  }).format(data);
+}
+
+function formatarHoraData(data: Date | null) {
+  if (!data) return "Horário não definido";
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: TIME_ZONE_BR,
+  }).format(data);
 }
 
 function formatarHorario(evento: EventoBanco, data: Date | null) {
-  const horario = valorPrimeiro(evento, ["horario", "hora", "hora_evento", "hora_inicio"]);
-  if (horario) return String(horario);
+  const horario = normalizarHorario(valorPrimeiro(evento, ["horario_inicio", "hora_inicio", "horario", "hora", "hora_evento"]));
+  if (horario) return horario;
   if (!data) return "Horário não definido";
   const horas = data.getHours();
   const minutos = data.getMinutes();
   if (horas === 0 && minutos === 0) return "Horário não definido";
-  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(data);
+  return formatarHoraData(data);
+}
+
+function formatarHorarioFim(evento: EventoBanco, dataFim: Date | null) {
+  const horario = normalizarHorario(valorPrimeiro(evento, ["horario_fim", "hora_fim", "horario_termino", "hora_termino", "termino_hora"]));
+  if (horario) return horario;
+  if (!dataFim) return "Fim não definido";
+  return formatarHoraData(dataFim);
+}
+
+function formatarPeriodo(horarioInicio: string, horarioFim: string) {
+  if (horarioInicio === "Horário não definido" && horarioFim === "Fim não definido") return "Horário não definido";
+  if (horarioFim === "Fim não definido") return horarioInicio;
+  if (horarioInicio === "Horário não definido") return `Até ${horarioFim}`;
+  return `${horarioInicio} às ${horarioFim}`;
 }
 
 function formatarDataHora(data: Date | null) {
@@ -184,7 +265,13 @@ function formatarDataHora(data: Date | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: TIME_ZONE_BR,
   }).format(data);
+}
+
+function formatarHoraItem(item: ItemCalendario) {
+  if (!item.dataInicio) return "";
+  return formatarHoraData(item.dataInicio);
 }
 
 function getLocalEvento(evento: EventoBanco) {
@@ -363,7 +450,10 @@ export default function CalendarioPage() {
     }
 
     const eventosNormalizados = eventosBanco.map((evento) => {
-      const data = parseDataEvento(evento);
+      const data = parseDataInicioEvento(evento);
+      const dataFim = parseDataFimEvento(evento, data);
+      const horarioTexto = formatarHorario(evento, data);
+      const horarioFimTexto = formatarHorarioFim(evento, dataFim);
       const convidados = convidadosPorEvento.get(evento.id) || [];
       const confirmados = convidados.filter((convidado) => normalizarTexto(convidado.status_rsvp).includes("confirm")).length;
       const pendentes = convidados.filter((convidado) => {
@@ -378,8 +468,11 @@ export default function CalendarioPage() {
         id: evento.id,
         nome: String(evento.nome || evento.titulo || "Evento sem nome"),
         data,
+        dataFim,
         dataTexto: formatarData(data),
-        horarioTexto: formatarHorario(evento, data),
+        horarioTexto,
+        horarioFimTexto,
+        periodoTexto: formatarPeriodo(horarioTexto, horarioFimTexto),
         localTexto: String(getLocalEvento(evento)),
         statusTexto: getStatusEvento(evento),
         tenantId: evento.tenant_id || membro.tenant_id,
@@ -562,7 +655,7 @@ export default function CalendarioPage() {
       descricao: `${evento.localTexto} • ${evento.convidadosTotal} convidado(s)`,
       categoria: "evento",
       dataInicio: evento.data,
-      dataFim: null,
+      dataFim: evento.dataFim,
       status: evento.statusTexto,
       responsavel: "",
       origem: "eventos",
@@ -637,7 +730,7 @@ export default function CalendarioPage() {
           descricao: `${eventoSelecionado.nome} • ${eventoSelecionado.localTexto}`,
           categoria: "evento",
           dataInicio: eventoSelecionado.data,
-          dataFim: null,
+          dataFim: eventoSelecionado.dataFim,
           status: eventoSelecionado.statusTexto,
           responsavel: "",
           origem: "eventos",
@@ -937,8 +1030,8 @@ export default function CalendarioPage() {
                       </div>
                       <div style={dayEventsStyle}>
                         {itens.slice(0, 3).map((item) => (
-                          <button key={`${item.origem}-${item.id}`} onClick={() => setDetalheAberto(item)} style={{ ...dayEventStyle, ...categoriaStyle(item.categoria) }} title={item.titulo}>
-                            {item.titulo}
+                          <button key={`${item.origem}-${item.id}`} onClick={() => setDetalheAberto(item)} style={{ ...dayEventStyle, ...categoriaStyle(item.categoria) }} title={`${formatarHoraItem(item)} ${item.titulo}`.trim()}>
+                            {`${formatarHoraItem(item)} ${item.titulo}`.trim()}
                           </button>
                         ))}
                         {itens.length > 3 && <span style={moreEventsStyle}>+{itens.length - 3}</span>}
@@ -1128,7 +1221,7 @@ export default function CalendarioPage() {
                   {"categoria" in detalheAberto ? CATEGORIA_LABEL[detalheAberto.categoria] || detalheAberto.categoria : detalheAberto.statusTexto}
                 </span>
                 <h2 style={modalTitleStyle}>{"titulo" in detalheAberto ? detalheAberto.titulo : detalheAberto.nome}</h2>
-                <p style={panelTextStyle}>{"dataInicio" in detalheAberto ? formatarDataHora(detalheAberto.dataInicio) : `${detalheAberto.dataTexto} • ${detalheAberto.horarioTexto}`}</p>
+                <p style={panelTextStyle}>{"dataInicio" in detalheAberto ? formatarDataHora(detalheAberto.dataInicio) : `${detalheAberto.dataTexto} • ${detalheAberto.periodoTexto}`}</p>
               </div>
               <button onClick={() => setDetalheAberto(null)} style={closeButtonStyle}>×</button>
             </div>
@@ -1146,7 +1239,9 @@ export default function CalendarioPage() {
             ) : (
               <div style={detailGridStyle}>
                 <DetailBox label="Data" value={detalheAberto.dataTexto} />
-                <DetailBox label="Horário" value={detalheAberto.horarioTexto} />
+                <DetailBox label="Início" value={formatarDataHora(detalheAberto.data)} />
+                <DetailBox label="Fim" value={formatarDataHora(detalheAberto.dataFim)} />
+                <DetailBox label="Período" value={detalheAberto.periodoTexto} />
                 <DetailBox label="Local" value={detalheAberto.localTexto} />
                 <DetailBox label="Tenant" value={detalheAberto.tenantId || tenantId || "Não identificado"} />
                 <DetailBox label="Convidados" value={detalheAberto.convidadosTotal} />
@@ -1226,7 +1321,7 @@ function ItemRow({
           <strong style={compact ? itemTitleCompactStyle : itemTitleStyle}>{isEvento ? evento.nome : item.titulo}</strong>
           <span style={itemDateStyle}>
             {isEvento
-              ? `${evento.dataTexto} • ${evento.horarioTexto}${evento.localTexto ? ` • ${evento.localTexto}` : ""}`
+              ? `${evento.dataTexto} • ${evento.periodoTexto}${evento.localTexto ? ` • ${evento.localTexto}` : ""}`
               : formatarDataHora(item.dataInicio)}
           </span>
           {!compact && <span style={itemDescStyle}>{item.descricao}</span>}
