@@ -386,6 +386,7 @@ export default function OrganizacaoPage() {
   >({});
   const [acaoAberta, setAcaoAberta] = useState<AcaoProducao | null>(null);
   const [acaoArrastadaId, setAcaoArrastadaId] = useState<string | null>(null);
+  const [novoChecklistCartao, setNovoChecklistCartao] = useState<Record<string, string>>({});
   const [novoFornecedor, setNovoFornecedor] = useState({
     nome: "",
     categoria: "buffet",
@@ -860,23 +861,50 @@ export default function OrganizacaoPage() {
         valorTratado === "concluido" ? new Date().toISOString() : null;
     }
 
+    const patch = { ...payload } as Partial<AcaoProducao>;
+    setProducao((prev) =>
+      prev.map((item) => (item.id === acao.id ? { ...item, ...patch } : item)),
+    );
+    setAcaoAberta((prev) =>
+      prev && prev.id === acao.id ? ({ ...prev, ...patch } as AcaoProducao) : prev,
+    );
+
     const { error } = await supabase
       .from("organizacao_producao")
       .update(payload)
       .eq("id", acao.id);
 
-    await depoisSalvar(error);
+    if (error) {
+      setErro(error.message || "Erro ao salvar ação.");
+      if (eventoAtual) await carregarOrganizacao(eventoAtual);
+    }
   }
 
   async function alterarStatusAcao(acao: AcaoProducao, status: string) {
+    const concluido_em = status === "concluido" ? new Date().toISOString() : null;
+    setProducao((prev) =>
+      prev.map((item) =>
+        item.id === acao.id ? { ...item, status, concluido_em } : item,
+      ),
+    );
+    setAcaoAberta((prev) =>
+      prev && prev.id === acao.id ? { ...prev, status, concluido_em } : prev,
+    );
+
     const { error } = await supabase
       .from("organizacao_producao")
-      .update({
-        status,
-        concluido_em: status === "concluido" ? new Date().toISOString() : null,
-      })
+      .update({ status, concluido_em })
       .eq("id", acao.id);
-    await depoisSalvar(error);
+
+    if (error) {
+      setErro(error.message || "Erro ao alterar status.");
+      if (eventoAtual) await carregarOrganizacao(eventoAtual);
+    }
+  }
+
+  function encontrarAcaoPorId(id: string | null) {
+    if (!id) return null;
+    return producao.find((acao) => acao.id === id) || null;
   }
 
   async function moverAcaoParaColuna(acao: AcaoProducao, status: string) {
@@ -920,23 +948,26 @@ export default function OrganizacaoPage() {
     }
   }
 
-  function encontrarAcaoPorId(id: string | null) {
-    if (!id) return null;
-    return producao.find((acao) => acao.id === id) || null;
+  function abrirEdicaoData(acao: AcaoProducao) {
+    const input = document.getElementById(`org-card-date-${acao.id}`) as HTMLInputElement | null;
+    input?.focus();
+    (input as any)?.showPicker?.();
   }
 
+
   function abrirEdicaoEtiqueta(acao: AcaoProducao) {
-    const atual = CATEGORIAS_PRODUCAO.find((c) => c.value === acao.categoria);
-    const categorias = CATEGORIAS_PRODUCAO.map((c) => `${c.value} = ${c.label}`)
-      .join("\n");
+    const categorias = CATEGORIAS_PRODUCAO.map((c) => `${c.value} = ${c.label}`).join("\n");
     const categoria = window.prompt(
-      `Escolha a etiqueta/categoria:\n\n${categorias}`,
-      atual?.value || acao.categoria || "outros",
+      `Escolha a etiqueta/categoria:
+
+${categorias}`,
+      acao.categoria || "outros",
     );
     if (categoria === null) return;
 
+    const categoriaLimpa = categoria.trim();
     const categoriaValida = CATEGORIAS_PRODUCAO.some(
-      (item) => item.value === categoria.trim(),
+      (item) => item.value === categoriaLimpa,
     );
 
     if (!categoriaValida) {
@@ -944,16 +975,7 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    atualizarAcaoCampo(acao, "categoria", categoria.trim());
-  }
-
-  function abrirEdicaoData(acao: AcaoProducao) {
-    const data = window.prompt(
-      "Defina a data de entrega no formato AAAA-MM-DD",
-      acao.data_limite ? acao.data_limite.slice(0, 10) : "",
-    );
-    if (data === null) return;
-    atualizarAcaoCampo(acao, "data_limite", data);
+    atualizarAcaoCampo(acao, "categoria", categoriaLimpa);
   }
 
   function abrirEdicaoMembro(acao: AcaoProducao) {
@@ -965,6 +987,20 @@ export default function OrganizacaoPage() {
     atualizarAcaoCampo(acao, "responsavel_nome", responsavel);
   }
 
+  function abrirVinculoFornecedor(acao: AcaoProducao) {
+    const fornecedores = fornecedoresEvento
+      .map((item) => `${item.fornecedor_id} = ${item.fornecedor?.nome || "Fornecedor"}`)
+      .join("\n");
+    const fornecedor = window.prompt(
+      `Informe o ID do fornecedor para vincular ou deixe vazio para remover:
+
+${fornecedores || "Nenhum fornecedor cadastrado."}`,
+      acao.fornecedor_id || "",
+    );
+    if (fornecedor === null) return;
+    atualizarAcaoCampo(acao, "fornecedor_id", fornecedor || null);
+  }
+
   function abrirEdicaoDescricao(acao: AcaoProducao) {
     const descricao = window.prompt(
       "Descrição da ação",
@@ -972,38 +1008,6 @@ export default function OrganizacaoPage() {
     );
     if (descricao === null) return;
     atualizarAcaoCampo(acao, "descricao", descricao);
-  }
-
-  function abrirVinculoFornecedor(acao: AcaoProducao) {
-    const fornecedores = fornecedoresEvento
-      .map((item) => `${item.fornecedor_id} = ${item.fornecedor?.nome || "Fornecedor"}`)
-      .join("\n");
-    const fornecedor = window.prompt(
-      `Informe o ID do fornecedor para vincular ou deixe vazio para remover:\n\n${fornecedores || "Nenhum fornecedor cadastrado."}`,
-      acao.fornecedor_id || "",
-    );
-    if (fornecedor === null) return;
-    atualizarAcaoCampo(acao, "fornecedor_id", fornecedor);
-  }
-
-  function abrirMovimentoManual(acao: AcaoProducao) {
-    const status = STATUS_PRODUCAO.map((s) => `${s.value} = ${s.label}`).join("\n");
-    const destino = window.prompt(
-      `Mover cartão para qual lista?\n\n${status}`,
-      normalizarStatusProducao(acao.status),
-    );
-    if (destino === null) return;
-
-    const destinoValido = STATUS_PRODUCAO.some(
-      (item) => item.value === destino.trim(),
-    );
-
-    if (!destinoValido) {
-      setErro("Lista inválida. Use uma das opções listadas.");
-      return;
-    }
-
-    alterarStatusAcao(acao, destino.trim());
   }
 
   async function editarAcao(acao: AcaoProducao) {
@@ -1437,6 +1441,31 @@ export default function OrganizacaoPage() {
       .delete()
       .eq("id", item.id);
     await depoisSalvar(error);
+  }
+
+  async function criarChecklistCartao(acao: AcaoProducao) {
+    if (!eventoAtual || !tenantId) return;
+
+    const item = (novoChecklistCartao[acao.id] || "").trim();
+    if (!item) return;
+
+    setSalvando(true);
+    const { error } = await supabase.from("organizacao_checklist").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      item,
+      categoria: "producao",
+      tipo: "planejamento",
+      descricao: `acao:${acao.id}`,
+      responsavel_nome: limpar(acao.responsavel_nome),
+      obrigatorio: false,
+      concluido: false,
+      ordem: checklist.length + 1,
+    });
+
+    await depoisSalvar(error, () =>
+      setNovoChecklistCartao((prev) => ({ ...prev, [acao.id]: "" })),
+    );
   }
 
   async function criarChecklist() {
@@ -1924,77 +1953,88 @@ export default function OrganizacaoPage() {
 
     const acoesSemData = producaoFiltrada.filter((acao) => !acao.data_limite);
 
-    const renderCardProducao = (acao: AcaoProducao) => (
-      <div
-        key={acao.id}
-        className={`org-trello-card ${
-          acaoArrastadaId === acao.id ? "dragging" : ""
-        }`}
-        draggable
-        onDragStart={(e) => {
-          setAcaoArrastadaId(acao.id);
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", acao.id);
-        }}
-        onDragEnd={() => setAcaoArrastadaId(null)}
-        onDoubleClick={() => setAcaoAberta(acao)}
-      >
-        <div className="org-card-tags">
-          <span className={`org-category-tag ${acao.categoria}`}>
-            {labelCategoriaProducao(acao.categoria)}
-          </span>
-          <span className={`org-priority-tag ${acao.prioridade}`}>
-            {labelStatus(acao.prioridade)}
-          </span>
-        </div>
+    const checklistDoCartao = (acaoId: string) =>
+      checklist.filter((item) => item.descricao === `acao:${acaoId}`);
 
-        <button
-          type="button"
-          className="org-card-title-button"
-          onClick={() => setAcaoAberta(acao)}
+    const renderCardProducao = (acao: AcaoProducao) => {
+      const checklistItens = checklistDoCartao(acao.id);
+      const checklistConcluidos = checklistItens.filter((item) => item.concluido).length;
+
+      return (
+        <div
+          key={acao.id}
+          className={`org-trello-card ${
+            acaoArrastadaId === acao.id ? "dragging" : ""
+          }`}
+          draggable
+          onDragStart={(e) => {
+            setAcaoArrastadaId(acao.id);
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", acao.id);
+          }}
+          onDragEnd={() => setAcaoArrastadaId(null)}
+          onDoubleClick={() => setAcaoAberta(acao)}
         >
-          {acao.titulo}
-        </button>
-
-        {(acao.responsavel_nome || acao.data_limite || acao.fornecedor_id) && (
-          <div className="org-card-meta">
-            {acao.responsavel_nome && <span>👤 {acao.responsavel_nome}</span>}
-            {acao.data_limite && (
-              <span
-                className={
-                  isAtrasada(acao.data_limite, acao.status) ? "danger" : ""
-                }
-              >
-                📅 {formatarData(acao.data_limite)}
-              </span>
-            )}
-            {acao.fornecedor_id && (
-              <span>🏢 {fornecedorNome(acao.fornecedor_id)}</span>
-            )}
+          <div className="org-card-tags">
+            <span className={`org-category-tag ${acao.categoria}`}>
+              {labelCategoriaProducao(acao.categoria)}
+            </span>
+            <span className={`org-priority-tag ${acao.prioridade}`}>
+              {labelStatus(acao.prioridade)}
+            </span>
           </div>
-        )}
 
-        <div className="org-card-footer-actions">
-          <button type="button" onClick={() => setAcaoAberta(acao)}>
-            Abrir cartão
-          </button>
-          <button type="button" onClick={() => editarAcao(acao)}>
-            Editar
-          </button>
           <button
             type="button"
-            onClick={() =>
-              alterarStatusAcao(
-                acao,
-                acao.status === "concluido" ? "a_fazer" : "concluido",
-              )
-            }
+            className="org-card-title-button"
+            onClick={() => setAcaoAberta(acao)}
           >
-            {acao.status === "concluido" ? "Reabrir" : "Concluir"}
+            {acao.titulo}
           </button>
+
+          {(acao.responsavel_nome || acao.data_limite || acao.fornecedor_id || checklistItens.length > 0) && (
+            <div className="org-card-meta">
+              {acao.responsavel_nome && <span>👤 {acao.responsavel_nome}</span>}
+              {acao.data_limite && (
+                <span
+                  className={
+                    isAtrasada(acao.data_limite, acao.status) ? "danger" : ""
+                  }
+                >
+                  📅 {formatarData(acao.data_limite)}
+                </span>
+              )}
+              {checklistItens.length > 0 && (
+                <span>☑️ {checklistConcluidos}/{checklistItens.length}</span>
+              )}
+              {acao.fornecedor_id && (
+                <span>🏢 {fornecedorNome(acao.fornecedor_id)}</span>
+              )}
+            </div>
+          )}
+
+          <div className="org-card-footer-actions">
+            <button type="button" onClick={() => setAcaoAberta(acao)}>
+              Abrir cartão
+            </button>
+            <button type="button" onClick={() => editarAcao(acao)}>
+              Editar
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                alterarStatusAcao(
+                  acao,
+                  acao.status === "concluido" ? "a_fazer" : "concluido",
+                )
+              }
+            >
+              {acao.status === "concluido" ? "Reabrir" : "Concluir"}
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
+    };
 
     const renderAdicionarNoQuadro = (status: string) => {
       const atual = novaAcaoRapida[status] || {
@@ -2351,7 +2391,29 @@ export default function OrganizacaoPage() {
                 <span className={`org-category-tag ${acaoAberta.categoria}`}>
                   {labelCategoriaProducao(acaoAberta.categoria)}
                 </span>
-                <h2>{acaoAberta.titulo}</h2>
+                <input
+                  className="org-card-title-input"
+                  value={acaoAberta.titulo}
+                  onChange={(e) =>
+                    setAcaoAberta({ ...acaoAberta, titulo: e.target.value })
+                  }
+                  onBlur={(e) => {
+                    const titulo = e.target.value.trim();
+                    if (!titulo) {
+                      setErro("O título da ação não pode ficar vazio.");
+                      return;
+                    }
+                    const tituloAtual =
+                      producao.find((item) => item.id === acaoAberta.id)?.titulo ||
+                      acaoAberta.titulo;
+                    if (titulo !== tituloAtual) {
+                      atualizarAcaoCampo(acaoAberta, "titulo", titulo);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                />
                 <p className="org-muted">
                   Na lista {labelStatus(acaoAberta.status)}
                 </p>
@@ -2409,15 +2471,75 @@ export default function OrganizacaoPage() {
                       <option value="urgente">Urgente</option>
                     </select>
                   </label>
+                  <label>
+                    Prazo
+                    <input
+                      id={`org-card-date-${acaoAberta.id}`}
+                      type="date"
+                      value={acaoAberta.data_limite ? acaoAberta.data_limite.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        atualizarAcaoCampo(
+                          acaoAberta,
+                          "data_limite",
+                          e.target.value || null,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    Responsável
+                    <input
+                      value={acaoAberta.responsavel_nome || ""}
+                      onChange={(e) =>
+                        setAcaoAberta({
+                          ...acaoAberta,
+                          responsavel_nome: e.target.value,
+                        })
+                      }
+                      onBlur={(e) =>
+                        atualizarAcaoCampo(
+                          acaoAberta,
+                          "responsavel_nome",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    Fornecedor
+                    <select
+                      value={acaoAberta.fornecedor_id || ""}
+                      onChange={(e) =>
+                        atualizarAcaoCampo(
+                          acaoAberta,
+                          "fornecedor_id",
+                          e.target.value || null,
+                        )
+                      }
+                    >
+                      <option value="">Sem fornecedor</option>
+                      {fornecedoresEvento.map((item) => (
+                        <option key={item.id} value={item.fornecedor_id}>
+                          {item.fornecedor?.nome || "Fornecedor"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
 
                 <div className="org-modal-section">
                   <h3>Descrição</h3>
-                  <p>
-                    {acaoAberta.descricao ||
-                      acaoAberta.observacoes ||
-                      "Nenhuma descrição adicionada."}
-                  </p>
+                  <textarea
+                    className="org-description-input"
+                    placeholder="Adicione uma descrição mais detalhada..."
+                    value={acaoAberta.descricao || ""}
+                    onChange={(e) =>
+                      setAcaoAberta({ ...acaoAberta, descricao: e.target.value })
+                    }
+                    onBlur={(e) =>
+                      atualizarAcaoCampo(acaoAberta, "descricao", e.target.value)
+                    }
+                  />
                 </div>
 
                 <div className="org-modal-section">
@@ -2433,6 +2555,60 @@ export default function OrganizacaoPage() {
                       "Sem fornecedor vinculado"}
                   </p>
                 </div>
+
+                <div className="org-modal-section">
+                  <h3>Checklist do cartão</h3>
+                  <div className="org-card-checklist-input">
+                    <input
+                      placeholder="Adicionar item ao checklist..."
+                      value={novoChecklistCartao[acaoAberta.id] || ""}
+                      onChange={(e) =>
+                        setNovoChecklistCartao((prev) => ({
+                          ...prev,
+                          [acaoAberta.id]: e.target.value,
+                        }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") criarChecklistCartao(acaoAberta);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => criarChecklistCartao(acaoAberta)}
+                      disabled={salvando || !(novoChecklistCartao[acaoAberta.id] || "").trim()}
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+
+                  <div className="org-card-checklist-list">
+                    {checklistDoCartao(acaoAberta.id).map((item) => (
+                      <label key={item.id} className="org-card-checklist-row">
+                        <input
+                          type="checkbox"
+                          checked={item.concluido}
+                          onChange={() => alternarChecklist(item)}
+                        />
+                        <span className={item.concluido ? "done" : ""}>
+                          {item.item}
+                        </span>
+                        <button type="button" onClick={() => alterarChecklist(item)}>
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => excluirChecklist(item)}
+                        >
+                          Excluir
+                        </button>
+                      </label>
+                    ))}
+                    {checklistDoCartao(acaoAberta.id).length === 0 && (
+                      <p>Nenhum item de checklist neste cartão.</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="org-card-modal-sidebar">
@@ -2446,9 +2622,10 @@ export default function OrganizacaoPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setAba("execucao");
-                    setSubExecucao("checklist");
-                    setAcaoAberta(null);
+                    const input = document.querySelector<HTMLInputElement>(
+                      `.org-card-checklist-input input`,
+                    );
+                    input?.focus();
                   }}
                 >
                   ☑️ Checklist
@@ -2466,9 +2643,6 @@ export default function OrganizacaoPage() {
                 <strong>Ações do cartão</strong>
                 <button type="button" onClick={() => editarAcao(acaoAberta)}>
                   ✏️ Editar dados
-                </button>
-                <button type="button" onClick={() => abrirMovimentoManual(acaoAberta)}>
-                  ➜ Mover
                 </button>
                 <button
                   type="button"
@@ -3467,7 +3641,9 @@ const styles = `
 .org-trello-head span { display: block; margin-top: 3px; color: #64748b; font-weight: 750; font-size: 12px; line-height: 1.35; }
 .org-trello-head em { min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #fff; color: #0f172a; font-weight: 950; font-style: normal; border: 1px solid #e2e8f0; }
 .org-trello-list { display: flex; flex-direction: column; gap: 10px; }
+.org-trello-column.drop-enabled { outline: 2px dashed rgba(124,58,237,.35); outline-offset: -6px; }
 .org-trello-card { border: 1px solid #dbe3ef; border-radius: 18px; background: #fff; padding: 12px; box-shadow: 0 8px 18px rgba(15,23,42,.06); }
+.org-trello-card.dragging { opacity: .55; transform: rotate(1deg); }
 .org-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .org-category-tag, .org-priority-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 8px; font-weight: 900; font-size: 11px; background: #ede9fe; color: #5b21b6; }
 .org-priority-tag.alta, .org-priority-tag.urgente { background: #fee2e2; color: #991b1b; }
@@ -3506,7 +3682,18 @@ const styles = `
 .org-modal-close { position: absolute; top: 18px; right: 18px; width: 38px; height: 38px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; font-size: 24px; }
 .org-modal-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
 .org-modal-fields label { display: flex; flex-direction: column; gap: 6px; color: #64748b; font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
-.org-modal-fields select { border: 1px solid #e2e8f0; border-radius: 14px; padding: 11px 12px; background: #fff; color: #0f172a; font-weight: 900; text-transform: none; letter-spacing: 0; }
+.org-modal-fields select, .org-modal-fields input { border: 1px solid #e2e8f0; border-radius: 14px; padding: 11px 12px; background: #fff; color: #0f172a; font-weight: 900; text-transform: none; letter-spacing: 0; }
+.org-card-title-input { width: 100%; border: 2px solid transparent; border-radius: 14px; background: transparent; color: #0f172a; font-size: 30px; line-height: 1.1; font-weight: 950; letter-spacing: -.04em; padding: 8px 10px; margin: 10px 0 2px; outline: none; }
+.org-card-title-input:focus { border-color: #7c3aed; background: #fff; }
+.org-description-input { width: 100%; min-height: 100px; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; color: #0f172a; font-weight: 750; resize: vertical; outline: none; }
+.org-description-input:focus { border-color: #7c3aed; }
+.org-card-checklist-input { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 12px; }
+.org-card-checklist-input input { border: 1px solid #e2e8f0; border-radius: 14px; padding: 11px 12px; font-weight: 800; outline: none; }
+.org-card-checklist-input input:focus { border-color: #7c3aed; }
+.org-card-checklist-input button, .org-card-checklist-row button { border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 9px 11px; font-weight: 900; cursor: pointer; }
+.org-card-checklist-row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #f1f5f9; color: #334155; font-weight: 850; }
+.org-card-checklist-row .done { text-decoration: line-through; color: #94a3b8; }
+.org-card-checklist-row .danger { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
 .org-modal-section { margin-top: 18px; padding: 16px; border-radius: 18px; background: #fff; border: 1px solid #e2e8f0; }
 .org-modal-section h3 { margin: 0 0 8px; color: #0f172a; }
 .org-modal-section p { margin: 4px 0; color: #475569; font-weight: 750; }
@@ -3518,31 +3705,6 @@ const styles = `
 
 @media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
-
-.org-trello-column.drop-enabled {
-  outline: 2px dashed rgba(109, 40, 217, .25);
-  outline-offset: 3px;
-}
-.org-trello-column.drop-enabled:hover {
-  background: #f1f5ff;
-  border-color: rgba(109, 40, 217, .35);
-}
-.org-trello-card {
-  cursor: grab;
-}
-.org-trello-card:active {
-  cursor: grabbing;
-}
-.org-trello-card.dragging {
-  opacity: .55;
-  transform: rotate(1deg) scale(.99);
-}
-.org-card-title-button {
-  text-align: left;
-}
-.org-card-modal-sidebar strong:not(:first-child) {
-  margin-top: 12px;
-}
 `;
 
 function styleToCss(style: React.CSSProperties) {
