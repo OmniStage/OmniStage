@@ -1300,8 +1300,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("planejamento");
-      setSubPlanejamento("contratacoes");
+      setAba("contratacoes");
       return;
     }
 
@@ -1327,8 +1326,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     await depoisSalvar(error);
     if (!error) {
-      setAba("planejamento");
-      setSubPlanejamento("contratacoes");
+      setAba("contratacoes");
     }
   }
 
@@ -1338,8 +1336,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("planejamento");
-      setSubPlanejamento("financeiro");
+      setAba("contratacoes");
       return;
     }
 
@@ -4659,4 +4656,3 @@ function styleToCss(style: React.CSSProperties) {
     )
     .join("");
 }
-
