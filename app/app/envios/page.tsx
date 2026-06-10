@@ -63,6 +63,21 @@ type ItemFila = {
   status: string;
 };
 
+type CampanhaEnvioRegistro = {
+  id: string;
+  evento_id: string;
+  tenant_id: string | null;
+  tipo_envio: TipoEnvio;
+  nome: string | null;
+  mensagem: string | null;
+  midia_url: string | null;
+  midia_bucket: string | null;
+  midia_path: string | null;
+  midia_tipo: string | null;
+  midia_nome: string | null;
+  midia_tamanho_bytes?: number | null;
+};
+
 type Campanha = {
   key: TipoEnvio;
   titulo: string;
@@ -112,6 +127,11 @@ export default function EnviosPage() {
     lembrete_rsvp: "",
     cartao_evento: "",
   });
+  const [campanhasEnvioIds, setCampanhasEnvioIds] = useState<Record<TipoEnvio, string>>({
+    convite: "",
+    lembrete_rsvp: "",
+    cartao_evento: "",
+  });
   const [statusMidiaUltimoEnvio, setStatusMidiaUltimoEnvio] = useState<
     "copiada" | "url_copiada" | "erro" | "sem_midia" | null
   >(null);
@@ -130,7 +150,7 @@ export default function EnviosPage() {
     if (evento) {
       await Promise.all([
         carregarConvidados(evento.id, evento.tenant_id),
-        carregarTemplates(evento.id),
+        carregarTemplatesECampanhas(evento.id, evento.tenant_id),
         carregarFila(evento.id),
       ]);
     } else {
@@ -211,7 +231,7 @@ export default function EnviosPage() {
 
     await Promise.all([
       carregarConvidados(evento.id, evento.tenant_id),
-      carregarTemplates(evento.id),
+      carregarTemplatesECampanhas(evento.id, evento.tenant_id),
       carregarFila(evento.id),
     ]);
 
@@ -379,26 +399,15 @@ export default function EnviosPage() {
     setFilaEnvios((data || []) as ItemFila[]);
   }
 
-  async function carregarTemplates(eventoId: string) {
-    const { data, error } = await supabase
+  async function carregarTemplatesECampanhas(eventoId: string, tenantId?: string | null) {
+    const { data: templatesData, error: templatesError } = await supabase
       .from("envio_templates")
-      .select(`
-        evento_id,
-        tipo_envio,
-        mensagem,
-        ativo,
-        midia_url,
-        midia_bucket,
-        midia_path,
-        midia_tipo,
-        midia_nome
-      `)
+      .select("evento_id, tipo_envio, mensagem, ativo, midia_url, midia_bucket, midia_path, midia_tipo, midia_nome, midia_tamanho_bytes")
       .eq("evento_id", eventoId)
       .eq("ativo", true);
 
-    if (error) {
-      console.warn("Templates ainda não configurados:", error.message);
-      return;
+    if (templatesError) {
+      console.warn("Templates ainda não configurados:", templatesError.message);
     }
 
     const novosTemplates: Record<TipoEnvio, string> = {
@@ -413,24 +422,132 @@ export default function EnviosPage() {
       cartao_evento: false,
     };
 
+    const midiasTemplateLegado: Record<TipoEnvio, {
+      midia_url?: string | null;
+      midia_bucket?: string | null;
+      midia_path?: string | null;
+      midia_tipo?: string | null;
+      midia_nome?: string | null;
+      midia_tamanho_bytes?: number | null;
+    }> = {
+      convite: {},
+      lembrete_rsvp: {},
+      cartao_evento: {},
+    };
+
+    (templatesData || []).forEach((template) => {
+      const tipo = template.tipo_envio as TipoEnvio;
+      if (tipo in novosTemplates) {
+        novosTemplates[tipo] = template.mensagem || campanhas[tipo].templatePadrao;
+        novosConfigurados[tipo] = true;
+        midiasTemplateLegado[tipo] = {
+          midia_url: template.midia_url || null,
+          midia_bucket: template.midia_bucket || null,
+          midia_path: template.midia_path || null,
+          midia_tipo: template.midia_tipo || null,
+          midia_nome: template.midia_nome || null,
+          midia_tamanho_bytes: template.midia_tamanho_bytes || null,
+        };
+      }
+    });
+
     const novasMidias: Record<TipoEnvio, string> = {
       convite: "",
       lembrete_rsvp: "",
       cartao_evento: "",
     };
 
-    (data || []).forEach((template) => {
-      const tipo = template.tipo_envio as TipoEnvio;
-      if (tipo in novosTemplates) {
-        novosTemplates[tipo] = template.mensagem || campanhas[tipo].templatePadrao;
-        novosConfigurados[tipo] = true;
-        novasMidias[tipo] = template.midia_url || "";
+    const novosIds: Record<TipoEnvio, string> = {
+      convite: "",
+      lembrete_rsvp: "",
+      cartao_evento: "",
+    };
+
+    const { data: campanhasData, error: campanhasError } = await supabase
+      .from("envio_campanhas")
+      .select("id, evento_id, tenant_id, tipo_envio, nome, mensagem, midia_url, midia_bucket, midia_path, midia_tipo, midia_nome, midia_tamanho_bytes")
+      .eq("evento_id", eventoId)
+      .eq("ativo", true)
+      .order("criado_em", { ascending: true });
+
+    if (campanhasError) {
+      console.warn("Campanhas de envio ainda não configuradas:", campanhasError.message);
+    }
+
+    const campanhasPorTipo = new Map<TipoEnvio, CampanhaEnvioRegistro>();
+
+    ((campanhasData || []) as CampanhaEnvioRegistro[]).forEach((campanhaRegistro) => {
+      const tipo = campanhaRegistro.tipo_envio as TipoEnvio;
+      if (tipo in novasMidias && !campanhasPorTipo.has(tipo)) {
+        campanhasPorTipo.set(tipo, campanhaRegistro);
       }
     });
+
+    const tipos = Object.keys(campanhas) as TipoEnvio[];
+
+    for (const tipo of tipos) {
+      let campanhaRegistro = campanhasPorTipo.get(tipo);
+
+      if (!campanhaRegistro) {
+        const { data: criada, error: criarError } = await supabase
+          .from("envio_campanhas")
+          .insert({
+            evento_id: eventoId,
+            tenant_id: tenantId || null,
+            tipo_envio: tipo,
+            nome: campanhas[tipo].titulo,
+            mensagem: novosTemplates[tipo] || campanhas[tipo].templatePadrao,
+            midia_url: midiasTemplateLegado[tipo]?.midia_url || null,
+            midia_bucket: midiasTemplateLegado[tipo]?.midia_bucket || null,
+            midia_path: midiasTemplateLegado[tipo]?.midia_path || null,
+            midia_tipo: midiasTemplateLegado[tipo]?.midia_tipo || null,
+            midia_nome: midiasTemplateLegado[tipo]?.midia_nome || null,
+            midia_tamanho_bytes: midiasTemplateLegado[tipo]?.midia_tamanho_bytes || null,
+            ativo: true,
+          })
+          .select("id, evento_id, tenant_id, tipo_envio, nome, mensagem, midia_url, midia_bucket, midia_path, midia_tipo, midia_nome, midia_tamanho_bytes")
+          .single();
+
+        if (criarError) {
+          console.warn(`Não foi possível criar campanha padrão para ${tipo}:`, criarError.message);
+        } else if (criada) {
+          campanhaRegistro = criada as CampanhaEnvioRegistro;
+        }
+      }
+
+      if (campanhaRegistro?.id) {
+        const midiaLegado = midiasTemplateLegado[tipo];
+        const deveMigrarMidiaLegado = !campanhaRegistro.midia_url && !!midiaLegado?.midia_url;
+
+        novosIds[tipo] = campanhaRegistro.id;
+        novasMidias[tipo] = campanhaRegistro.midia_url || midiaLegado?.midia_url || "";
+
+        if (deveMigrarMidiaLegado) {
+          await supabase
+            .from("envio_campanhas")
+            .update({
+              midia_url: midiaLegado.midia_url || null,
+              midia_bucket: midiaLegado.midia_bucket || null,
+              midia_path: midiaLegado.midia_path || null,
+              midia_tipo: midiaLegado.midia_tipo || null,
+              midia_nome: midiaLegado.midia_nome || null,
+              midia_tamanho_bytes: midiaLegado.midia_tamanho_bytes || null,
+              atualizado_em: new Date().toISOString(),
+            })
+            .eq("id", campanhaRegistro.id);
+        }
+
+        if (campanhaRegistro.mensagem && !novosConfigurados[tipo]) {
+          novosTemplates[tipo] = campanhaRegistro.mensagem;
+          novosConfigurados[tipo] = true;
+        }
+      }
+    }
 
     setTemplates(novosTemplates);
     setTemplatesConfigurados(novosConfigurados);
     setMidiasCampanha(novasMidias);
+    setCampanhasEnvioIds(novosIds);
   }
 
   useEffect(() => {
@@ -561,12 +678,31 @@ export default function EnviosPage() {
       { onConflict: "evento_id,tipo_envio" }
     );
 
-    setSalvandoTemplate(false);
-
     if (error) {
+      setSalvandoTemplate(false);
       alert("Erro ao salvar mensagem: " + error.message);
       return;
     }
+
+    const campanhaId = await garantirCampanhaEnvioAtual();
+
+    if (campanhaId) {
+      const { error: campanhaError } = await supabase
+        .from("envio_campanhas")
+        .update({
+          mensagem: mensagemAtual,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("id", campanhaId);
+
+      if (campanhaError) {
+        setSalvandoTemplate(false);
+        alert("Mensagem salva no template, mas houve erro ao atualizar a campanha: " + campanhaError.message);
+        return;
+      }
+    }
+
+    setSalvandoTemplate(false);
 
     setTemplatesConfigurados((current) => ({
       ...current,
@@ -940,31 +1076,76 @@ export default function EnviosPage() {
   }
 
 
-  async function salvarMidiaCampanhaNoTemplate(params: {
+  async function garantirCampanhaEnvioAtual() {
+    if (!eventoAtual?.id) return null;
+
+    const existente = campanhasEnvioIds[tipoEnvio];
+    if (existente) return existente;
+
+    const { data: existenteData, error: buscarError } = await supabase
+      .from("envio_campanhas")
+      .select("id")
+      .eq("evento_id", eventoAtual.id)
+      .eq("tipo_envio", tipoEnvio)
+      .eq("ativo", true)
+      .order("criado_em", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (buscarError) {
+      alert("Erro ao localizar campanha de envio: " + buscarError.message);
+      return null;
+    }
+
+    if (existenteData?.id) {
+      setCampanhasEnvioIds((current) => ({ ...current, [tipoEnvio]: existenteData.id }));
+      return existenteData.id as string;
+    }
+
+    const { data: criada, error: criarError } = await supabase
+      .from("envio_campanhas")
+      .insert({
+        evento_id: eventoAtual.id,
+        tenant_id: eventoAtual.tenant_id || null,
+        tipo_envio: tipoEnvio,
+        nome: campanha.titulo,
+        mensagem: mensagemAtual,
+        ativo: true,
+      })
+      .select("id")
+      .single();
+
+    if (criarError || !criada?.id) {
+      alert("Erro ao criar campanha de envio: " + (criarError?.message || "campanha não retornada."));
+      return null;
+    }
+
+    setCampanhasEnvioIds((current) => ({ ...current, [tipoEnvio]: criada.id }));
+    return criada.id as string;
+  }
+
+  async function salvarMidiaCampanha(params: {
     publicUrl: string;
     path?: string | null;
     file?: File | null;
   }) {
-    if (!eventoAtual?.id) return false;
+    const campanhaId = await garantirCampanhaEnvioAtual();
 
-    const { error } = await supabase.from("envio_templates").upsert(
-      {
-        evento_id: eventoAtual.id,
-        tipo_envio: tipoEnvio,
-        titulo: campanha.titulo,
+    if (!campanhaId) return false;
+
+    const { error } = await supabase
+      .from("envio_campanhas")
+      .update({
         mensagem: mensagemAtual,
-        ativo: true,
         midia_url: params.publicUrl || null,
         midia_bucket: params.publicUrl ? CAMPAIGN_ASSETS_BUCKET : null,
         midia_path: params.path || null,
         midia_tipo: params.file?.type || (params.publicUrl ? inferirMimeTypePorUrl(params.publicUrl) : null),
         midia_nome: params.file?.name || null,
         midia_tamanho_bytes: params.file?.size || null,
-        midia_atualizado_em: params.publicUrl ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "evento_id,tipo_envio" }
-    );
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", campanhaId);
 
     if (error) {
       alert("Erro ao salvar a mídia da campanha: " + error.message);
@@ -1003,12 +1184,16 @@ export default function EnviosPage() {
     setUploadingMidia(true);
 
     try {
+      const campanhaId = await garantirCampanhaEnvioAtual();
+      if (!campanhaId) return;
+
       const extensao = obterExtensaoArquivo(file.name, file.type);
       const tenantPath = normalizarSegmentoStorage(eventoAtual.tenant_id || "sem-tenant");
       const eventoPath = normalizarSegmentoStorage(eventoAtual.id);
-      const pastaCampanha = normalizarSegmentoStorage(tipoEnvio);
+      const pastaTipoEnvio = normalizarSegmentoStorage(tipoEnvio);
+      const campanhaPath = normalizarSegmentoStorage(campanhaId);
       const nomeArquivo = `${Date.now()}-${normalizarNomeArquivo(file.name || `midia.${extensao}`)}`;
-      const path = `${tenantPath}/${eventoPath}/${pastaCampanha}/${nomeArquivo}`;
+      const path = `${tenantPath}/${eventoPath}/${pastaTipoEnvio}/${campanhaPath}/${nomeArquivo}`;
 
       const { error: uploadError } = await supabase.storage
         .from(CAMPAIGN_ASSETS_BUCKET)
@@ -1036,7 +1221,7 @@ export default function EnviosPage() {
         return;
       }
 
-      const salvouMidia = await salvarMidiaCampanhaNoTemplate({
+      const salvouMidia = await salvarMidiaCampanha({
         publicUrl,
         path,
         file,
@@ -1067,8 +1252,12 @@ export default function EnviosPage() {
 
     if (!confirmar) return;
 
+    const campanhaId = await garantirCampanhaEnvioAtual();
+
+    if (!campanhaId) return;
+
     const { error } = await supabase
-      .from("envio_templates")
+      .from("envio_campanhas")
       .update({
         midia_url: null,
         midia_bucket: null,
@@ -1076,11 +1265,9 @@ export default function EnviosPage() {
         midia_tipo: null,
         midia_nome: null,
         midia_tamanho_bytes: null,
-        midia_atualizado_em: null,
-        updated_at: new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
       })
-      .eq("evento_id", eventoAtual.id)
-      .eq("tipo_envio", tipoEnvio);
+      .eq("id", campanhaId);
 
     if (error) {
       alert("Erro ao remover mídia: " + error.message);
@@ -1107,7 +1294,7 @@ export default function EnviosPage() {
       return;
     }
 
-    await salvarMidiaCampanhaNoTemplate({
+    await salvarMidiaCampanha({
       publicUrl,
       path: null,
       file: null,
@@ -1145,7 +1332,8 @@ export default function EnviosPage() {
       return;
     }
 
-    const status = await copiarMidiaParaClipboard(midiaAtual);
+    const campanhaId = campanhasEnvioIds[tipoEnvio];
+    const status = await copiarMidiaParaClipboard(midiaAtual, campanhaId || undefined);
     setStatusMidiaUltimoEnvio(status);
 
     if (status === "copiada") {
@@ -1157,7 +1345,7 @@ export default function EnviosPage() {
     }
   }
 
-  async function copiarMidiaParaClipboard(url: string) {
+  async function copiarMidiaParaClipboard(url: string, campanhaId?: string) {
     const midiaUrl = url.trim();
 
     if (!midiaUrl) return "sem_midia" as const;
@@ -1172,7 +1360,22 @@ export default function EnviosPage() {
         return "url_copiada" as const;
       }
 
-      const response = await fetch(midiaUrl);
+      const proxyUrl = campanhaId
+        ? `/api/campaign-assets/proxy?campanha_id=${encodeURIComponent(campanhaId)}`
+        : midiaUrl;
+
+      const headers: Record<string, string> = {};
+
+      if (campanhaId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+      }
+
+      const response = await fetch(proxyUrl, { headers });
 
       if (!response.ok) {
         throw new Error("Não foi possível baixar a mídia para copiar.");
@@ -1231,7 +1434,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const statusMidia = midiaAtual ? await copiarMidiaParaClipboard(midiaAtual) : "sem_midia";
+    const statusMidia = midiaAtual ? await copiarMidiaParaClipboard(midiaAtual, campanhasEnvioIds[tipoEnvio] || undefined) : "sem_midia";
 
     setStatusMidiaUltimoEnvio(statusMidia);
     await abrirWhatsApp(convidado, statusMidia);
@@ -1446,7 +1649,7 @@ export default function EnviosPage() {
                 <div>
                   <strong style={variablesTitleStyle}>Mídia da campanha</strong>
                   <p style={mediaHelpStyle}>
-                    Faça upload da imagem/GIF do convite. Ao clicar em WhatsApp, o sistema copia a mídia e abre a conversa com a mensagem pronta.
+                    Faça upload da imagem/GIF do convite. Imagens PNG/JPG/WebP podem ser copiadas com controle por campanha; GIF/MP4 devem ser enviados por link ou abertos manualmente.
                   </p>
                 </div>
 
