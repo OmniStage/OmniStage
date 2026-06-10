@@ -163,6 +163,24 @@ const STATUS_FORNECEDOR = ["orcamento", "negociando", "contratado", "confirmado"
 const STATUS_CONTRATACAO = ["pendente", "parcial", "pago", "vencido", "cancelado"];
 const STATUS_EQUIPE = ["convidado", "confirmado", "presente", "ausente", "cancelado"];
 
+
+const CHECKLIST_PADRAO_DIA = [
+  { item: "Som testado", categoria: "som", tipo: "dia_evento", obrigatorio: true },
+  { item: "Iluminação testada", categoria: "iluminacao", tipo: "dia_evento", obrigatorio: true },
+  { item: "Buffet montado", categoria: "buffet", tipo: "dia_evento", obrigatorio: true },
+  { item: "Mesa principal montada", categoria: "decoracao", tipo: "montagem", obrigatorio: true },
+  { item: "Decoração finalizada", categoria: "decoracao", tipo: "montagem", obrigatorio: true },
+  { item: "Recepção alinhada", categoria: "recepcao", tipo: "dia_evento", obrigatorio: true },
+  { item: "Equipe de check-in posicionada", categoria: "check-in", tipo: "dia_evento", obrigatorio: true },
+  { item: "QR Code / lista de convidados conferida", categoria: "check-in", tipo: "dia_evento", obrigatorio: true },
+  { item: "Fotógrafo / filmagem confirmados", categoria: "foto e video", tipo: "dia_evento", obrigatorio: true },
+  { item: "Cerimonial alinhado", categoria: "cerimonial", tipo: "dia_evento", obrigatorio: true },
+  { item: "Banheiros revisados", categoria: "infraestrutura", tipo: "dia_evento", obrigatorio: false },
+  { item: "Gerador / energia conferidos", categoria: "infraestrutura", tipo: "dia_evento", obrigatorio: true },
+  { item: "Brinde / parabéns / momento especial preparado", categoria: "cerimonial", tipo: "dia_evento", obrigatorio: true },
+  { item: "Saída / desmontagem alinhada", categoria: "desmontagem", tipo: "desmontagem", obrigatorio: false },
+];
+
 const cardStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.92)",
   border: "1px solid rgba(226,232,240,0.95)",
@@ -492,6 +510,64 @@ export default function OrganizacaoPage() {
     await depoisSalvar(error);
   }
 
+  async function usarChecklistPadrao() {
+    if (!eventoAtual || !tenantId) return;
+
+    const itensExistentes = new Set(checklist.map((item) => item.item.trim().toLowerCase()));
+    const itensParaInserir = CHECKLIST_PADRAO_DIA
+      .filter((item) => !itensExistentes.has(item.item.trim().toLowerCase()))
+      .map((item, index) => ({
+        tenant_id: tenantId,
+        evento_id: eventoAtual.id,
+        item: item.item,
+        categoria: item.categoria,
+        tipo: item.tipo,
+        obrigatorio: item.obrigatorio,
+        ordem: checklist.length + index + 1,
+      }));
+
+    if (itensParaInserir.length === 0) {
+      setErro("O checklist padrão já foi aplicado neste evento.");
+      return;
+    }
+
+    setSalvando(true);
+    const { error } = await supabase.from("organizacao_checklist").insert(itensParaInserir);
+    await depoisSalvar(error);
+  }
+
+  async function alterarChecklist(item: Checklist) {
+    const novoItem = window.prompt("Alterar item do checklist", item.item);
+    if (novoItem === null) return;
+
+    const itemLimpo = novoItem.trim();
+    if (!itemLimpo) {
+      setErro("O item do checklist não pode ficar vazio.");
+      return;
+    }
+
+    const novaCategoria = window.prompt("Alterar categoria", item.categoria || "geral");
+    if (novaCategoria === null) return;
+
+    const { error } = await supabase
+      .from("organizacao_checklist")
+      .update({
+        item: itemLimpo,
+        categoria: novaCategoria.trim() || "geral",
+      })
+      .eq("id", item.id);
+
+    await depoisSalvar(error);
+  }
+
+  async function excluirChecklist(item: Checklist) {
+    const confirmar = window.confirm(`Excluir o item "${item.item}" do checklist?`);
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("organizacao_checklist").delete().eq("id", item.id);
+    await depoisSalvar(error);
+  }
+
   async function criarAgenda() {
     if (!eventoAtual || !novoAgenda.titulo.trim()) return;
     setSalvando(true);
@@ -752,6 +828,13 @@ export default function OrganizacaoPage() {
   function renderChecklist() {
     return (
       <Panel title="Checklist do Dia" subtitle="Itens de montagem, cerimônia, operação e desmontagem">
+        <div className="org-checklist-actions">
+          <button onClick={usarChecklistPadrao} disabled={salvando || !eventoAtual}>
+            {checklist.length === 0 ? "Usar checklist padrão" : "Adicionar itens padrão restantes"}
+          </button>
+          <span>{CHECKLIST_PADRAO_DIA.length} itens padrão disponíveis</span>
+        </div>
+
         <div className="org-form-grid checklist">
           <input placeholder="Item do checklist" value={novoChecklist.item} onChange={(e) => setNovoChecklist({ ...novoChecklist, item: e.target.value })} />
           <input placeholder="Categoria" value={novoChecklist.categoria} onChange={(e) => setNovoChecklist({ ...novoChecklist, categoria: e.target.value })} />
@@ -760,8 +843,20 @@ export default function OrganizacaoPage() {
           <button onClick={criarChecklist} disabled={salvando || !novoChecklist.item.trim()}>Adicionar</button>
         </div>
         <div className="org-card-list">
-          {checklistFiltrado.map((item) => <button key={item.id} className={`org-check-row ${item.concluido ? "done" : ""}`} onClick={() => alternarChecklist(item)}><span>{item.concluido ? "✓" : ""}</span><div><h3>{item.item}</h3><p>{item.categoria} · {labelStatus(item.tipo)} {item.obrigatorio ? "· obrigatório" : ""}</p></div></button>)}
-          {checklistFiltrado.length === 0 && <Empty text="Nenhum item de checklist encontrado." />}
+          {checklistFiltrado.map((item) => (
+            <div key={item.id} className={`org-check-row ${item.concluido ? "done" : ""}`}>
+              <button className="org-check-toggle" onClick={() => alternarChecklist(item)} aria-label={item.concluido ? "Marcar como pendente" : "Marcar como concluído"}>{item.concluido ? "✓" : ""}</button>
+              <div className="org-check-content">
+                <h3>{item.item}</h3>
+                <p>{item.categoria} · {labelStatus(item.tipo)} {item.obrigatorio ? "· obrigatório" : ""}</p>
+              </div>
+              <div className="org-row-actions">
+                <button type="button" onClick={() => alterarChecklist(item)}>Alterar</button>
+                <button type="button" className="danger" onClick={() => excluirChecklist(item)}>Excluir</button>
+              </div>
+            </div>
+          ))}
+          {checklistFiltrado.length === 0 && <Empty text="Nenhum item de checklist encontrado. Use o checklist padrão ou adicione itens manualmente." />}
         </div>
       </Panel>
     );
@@ -968,6 +1063,15 @@ const styles = `
 .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr 1fr .85fr .65fr auto; }
 .org-card-list, .org-list { display: flex; flex-direction: column; gap: 10px; }
 .org-item-card, .org-mini-row, .org-check-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2e8f0; background: #fff; border-radius: 18px; padding: 14px; }
+.org-checklist-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 14px; border-radius: 18px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.org-checklist-actions button { border: 0; border-radius: 999px; padding: 12px 16px; background: #6d28d9; color: #fff; font-weight: 900; cursor: pointer; }
+.org-checklist-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.org-checklist-actions span { color: #64748b; font-weight: 800; font-size: 13px; }
+.org-check-content { flex: 1; min-width: 0; }
+.org-check-toggle { width: 32px; height: 32px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; color: #16a34a; font-weight: 900; cursor: pointer; }
+.org-row-actions { display: flex; align-items: center; gap: 8px; }
+.org-row-actions button { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 9px 12px; font-weight: 900; cursor: pointer; }
+.org-row-actions button.danger { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
 .org-item-card h3, .org-mini-row strong, .org-check-row h3 { margin: 6px 0 4px; font-size: 16px; letter-spacing: -.02em; }
 .org-item-card p, .org-mini-row span, .org-check-row p { margin: 0; color: #64748b; font-weight: 700; font-size: 13px; }
 .org-item-card select { max-width: 190px; }
@@ -995,7 +1099,7 @@ const styles = `
 .org-check-row.done span { background: #16a34a; border-color: #16a34a; }
 .org-check-row.done h3 { text-decoration: line-through; color: #64748b; }
 @media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 `;
 
 function styleToCss(style: React.CSSProperties) {
