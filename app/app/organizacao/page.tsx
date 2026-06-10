@@ -4,7 +4,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type AbaOrganizacao = "visao" | "planejamento" | "execucao" | "pendencias";
-type SubPlanejamento = "producao" | "fornecedores" | "contratacoes" | "financeiro";
+type SubPlanejamento =
+  | "producao"
+  | "fornecedores"
+  | "contratacoes"
+  | "financeiro";
 type SubExecucao = "roteiro" | "equipe" | "checklist";
 
 type Evento = {
@@ -26,7 +30,14 @@ type AcaoProducao = {
   titulo: string;
   descricao: string | null;
   categoria: string;
-  status: "ideia" | "a_fazer" | "em_andamento" | "aguardando_terceiro" | "concluido" | "cancelado" | string;
+  status:
+    | "ideia"
+    | "a_fazer"
+    | "em_andamento"
+    | "aguardando_terceiro"
+    | "concluido"
+    | "cancelado"
+    | string;
   prioridade: "baixa" | "media" | "alta" | "urgente" | string;
   responsavel_nome: string | null;
   fornecedor_id: string | null;
@@ -44,7 +55,13 @@ type Checklist = {
   categoria: string;
   item: string;
   descricao: string | null;
-  tipo: "planejamento" | "dia_evento" | "montagem" | "desmontagem" | "outro" | string;
+  tipo:
+    | "planejamento"
+    | "dia_evento"
+    | "montagem"
+    | "desmontagem"
+    | "outro"
+    | string;
   obrigatorio: boolean;
   concluido: boolean;
   concluido_em: string | null;
@@ -75,7 +92,14 @@ type FornecedorEvento = {
   evento_id: string;
   fornecedor_id: string;
   categoria_evento: string | null;
-  status: "orcamento" | "negociando" | "contratado" | "confirmado" | "cancelado" | "dispensado" | string;
+  status:
+    | "orcamento"
+    | "negociando"
+    | "contratado"
+    | "confirmado"
+    | "cancelado"
+    | "dispensado"
+    | string;
   valor_orcado: number | string | null;
   valor_fechado: number | string | null;
   data_contratacao: string | null;
@@ -118,7 +142,13 @@ type Equipe = {
   contato_principal: boolean;
   horario_inicio: string | null;
   horario_fim: string | null;
-  status: "convidado" | "confirmado" | "presente" | "ausente" | "cancelado" | string;
+  status:
+    | "convidado"
+    | "confirmado"
+    | "presente"
+    | "ausente"
+    | "cancelado"
+    | string;
   observacoes: string | null;
 };
 
@@ -179,33 +209,137 @@ const CATEGORIAS_PRODUCAO = [
 ];
 
 const COLUNAS_PRODUCAO = [
-  { value: "ideia", label: "Ideias", description: "Sugestões e possibilidades para avaliar." },
-  { value: "a_fazer", label: "A fazer", description: "Ações que ainda precisam começar." },
-  { value: "em_andamento", label: "Em andamento", description: "Itens já em execução." },
-  { value: "aguardando_terceiro", label: "Aguardando terceiros", description: "Dependências de fornecedor, cliente ou equipe." },
+  {
+    value: "ideia",
+    label: "Ideias",
+    description: "Sugestões e possibilidades para avaliar.",
+  },
+  {
+    value: "a_fazer",
+    label: "A fazer",
+    description: "Ações que ainda precisam começar.",
+  },
+  {
+    value: "em_andamento",
+    label: "Em andamento",
+    description: "Itens já em execução.",
+  },
+  {
+    value: "aguardando_terceiro",
+    label: "Aguardando terceiros",
+    description: "Dependências de fornecedor, cliente ou equipe.",
+  },
   { value: "concluido", label: "Concluído", description: "Ações finalizadas." },
 ];
 
-const STATUS_FORNECEDOR = ["orcamento", "negociando", "contratado", "confirmado", "cancelado", "dispensado"];
-const STATUS_CONTRATACAO = ["pendente", "parcial", "pago", "vencido", "cancelado"];
-const STATUS_EQUIPE = ["convidado", "confirmado", "presente", "ausente", "cancelado"];
-
+const STATUS_FORNECEDOR = [
+  "orcamento",
+  "negociando",
+  "contratado",
+  "confirmado",
+  "cancelado",
+  "dispensado",
+];
+const STATUS_CONTRATACAO = [
+  "pendente",
+  "parcial",
+  "pago",
+  "vencido",
+  "cancelado",
+];
+const STATUS_EQUIPE = [
+  "convidado",
+  "confirmado",
+  "presente",
+  "ausente",
+  "cancelado",
+];
 
 const CHECKLIST_PADRAO_DIA = [
-  { item: "Som testado", categoria: "som", tipo: "dia_evento", obrigatorio: true },
-  { item: "Iluminação testada", categoria: "iluminacao", tipo: "dia_evento", obrigatorio: true },
-  { item: "Buffet montado", categoria: "buffet", tipo: "dia_evento", obrigatorio: true },
-  { item: "Mesa principal montada", categoria: "decoracao", tipo: "montagem", obrigatorio: true },
-  { item: "Decoração finalizada", categoria: "decoracao", tipo: "montagem", obrigatorio: true },
-  { item: "Recepção alinhada", categoria: "recepcao", tipo: "dia_evento", obrigatorio: true },
-  { item: "Equipe de check-in posicionada", categoria: "check-in", tipo: "dia_evento", obrigatorio: true },
-  { item: "QR Code / lista de convidados conferida", categoria: "check-in", tipo: "dia_evento", obrigatorio: true },
-  { item: "Fotógrafo / filmagem confirmados", categoria: "foto e video", tipo: "dia_evento", obrigatorio: true },
-  { item: "Cerimonial alinhado", categoria: "cerimonial", tipo: "dia_evento", obrigatorio: true },
-  { item: "Banheiros revisados", categoria: "infraestrutura", tipo: "dia_evento", obrigatorio: false },
-  { item: "Gerador / energia conferidos", categoria: "infraestrutura", tipo: "dia_evento", obrigatorio: true },
-  { item: "Brinde / parabéns / momento especial preparado", categoria: "cerimonial", tipo: "dia_evento", obrigatorio: true },
-  { item: "Saída / desmontagem alinhada", categoria: "desmontagem", tipo: "desmontagem", obrigatorio: false },
+  {
+    item: "Som testado",
+    categoria: "som",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Iluminação testada",
+    categoria: "iluminacao",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Buffet montado",
+    categoria: "buffet",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Mesa principal montada",
+    categoria: "decoracao",
+    tipo: "montagem",
+    obrigatorio: true,
+  },
+  {
+    item: "Decoração finalizada",
+    categoria: "decoracao",
+    tipo: "montagem",
+    obrigatorio: true,
+  },
+  {
+    item: "Recepção alinhada",
+    categoria: "recepcao",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Equipe de check-in posicionada",
+    categoria: "check-in",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "QR Code / lista de convidados conferida",
+    categoria: "check-in",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Fotógrafo / filmagem confirmados",
+    categoria: "foto e video",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Cerimonial alinhado",
+    categoria: "cerimonial",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Banheiros revisados",
+    categoria: "infraestrutura",
+    tipo: "dia_evento",
+    obrigatorio: false,
+  },
+  {
+    item: "Gerador / energia conferidos",
+    categoria: "infraestrutura",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Brinde / parabéns / momento especial preparado",
+    categoria: "cerimonial",
+    tipo: "dia_evento",
+    obrigatorio: true,
+  },
+  {
+    item: "Saída / desmontagem alinhada",
+    categoria: "desmontagem",
+    tipo: "desmontagem",
+    obrigatorio: false,
+  },
 ];
 
 const cardStyle: React.CSSProperties = {
@@ -220,25 +354,81 @@ export default function OrganizacaoPage() {
   const [eventoAtual, setEventoAtual] = useState<Evento | null>(null);
   const [producao, setProducao] = useState<AcaoProducao[]>([]);
   const [checklist, setChecklist] = useState<Checklist[]>([]);
-  const [fornecedoresEvento, setFornecedoresEvento] = useState<FornecedorEvento[]>([]);
+  const [fornecedoresEvento, setFornecedoresEvento] = useState<
+    FornecedorEvento[]
+  >([]);
   const [contratacoes, setContratacoes] = useState<Contratacao[]>([]);
   const [equipe, setEquipe] = useState<Equipe[]>([]);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [aba, setAba] = useState<AbaOrganizacao>("visao");
-  const [subPlanejamento, setSubPlanejamento] = useState<SubPlanejamento>("producao");
-  const [visualizacaoProducao, setVisualizacaoProducao] = useState<"quadro" | "acoes" | "calendario">("quadro");
+  const [subPlanejamento, setSubPlanejamento] =
+    useState<SubPlanejamento>("producao");
+  const [visualizacaoProducao, setVisualizacaoProducao] = useState<
+    "quadro" | "acoes" | "calendario" | "cronograma"
+  >("quadro");
   const [subExecucao, setSubExecucao] = useState<SubExecucao>("roteiro");
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const [novaAcao, setNovaAcao] = useState({ titulo: "", categoria: "decoracao", responsavel_nome: "", data_limite: "", prioridade: "media", fornecedor_id: "", descricao: "" });
-  const [novoFornecedor, setNovoFornecedor] = useState({ nome: "", categoria: "buffet", telefone: "", email: "", responsavel_nome: "", valor_orcado: "", valor_fechado: "", status: "orcamento" });
-  const [novaContratacao, setNovaContratacao] = useState({ titulo: "", fornecedor_evento_id: "", valor_contratado: "", valor_entrada: "", valor_pago: "", parcelas: "1", data_vencimento: "", status: "pendente" });
-  const [novoEquipe, setNovoEquipe] = useState({ nome: "", funcao: "", telefone: "", email: "", horario_inicio: "", horario_fim: "", contato_principal: false });
-  const [novoChecklist, setNovoChecklist] = useState({ item: "", categoria: "geral", tipo: "dia_evento", responsavel_nome: "", obrigatorio: false });
-  const [novoAgenda, setNovoAgenda] = useState({ titulo: "", categoria: "cerimonial", data_inicio: "", data_fim: "", responsavel: "", descricao: "" });
+  const [novaAcao, setNovaAcao] = useState({
+    titulo: "",
+    categoria: "decoracao",
+    responsavel_nome: "",
+    data_limite: "",
+    prioridade: "media",
+    fornecedor_id: "",
+    descricao: "",
+  });
+  const [novaAcaoRapida, setNovaAcaoRapida] = useState<
+    Record<string, { titulo: string; categoria: string }>
+  >({});
+  const [acaoAberta, setAcaoAberta] = useState<AcaoProducao | null>(null);
+  const [novoFornecedor, setNovoFornecedor] = useState({
+    nome: "",
+    categoria: "buffet",
+    telefone: "",
+    email: "",
+    responsavel_nome: "",
+    valor_orcado: "",
+    valor_fechado: "",
+    status: "orcamento",
+  });
+  const [novaContratacao, setNovaContratacao] = useState({
+    titulo: "",
+    fornecedor_evento_id: "",
+    valor_contratado: "",
+    valor_entrada: "",
+    valor_pago: "",
+    parcelas: "1",
+    data_vencimento: "",
+    status: "pendente",
+  });
+  const [novoEquipe, setNovoEquipe] = useState({
+    nome: "",
+    funcao: "",
+    telefone: "",
+    email: "",
+    horario_inicio: "",
+    horario_fim: "",
+    contato_principal: false,
+  });
+  const [novoChecklist, setNovoChecklist] = useState({
+    item: "",
+    categoria: "geral",
+    tipo: "dia_evento",
+    responsavel_nome: "",
+    obrigatorio: false,
+  });
+  const [novoAgenda, setNovoAgenda] = useState({
+    titulo: "",
+    categoria: "cerimonial",
+    data_inicio: "",
+    data_fim: "",
+    responsavel: "",
+    descricao: "",
+  });
 
   useEffect(() => {
     carregarTudo();
@@ -255,8 +445,12 @@ export default function OrganizacaoPage() {
     setLoading(false);
   }
 
-  async function carregarEventos(eventoPreferencialId?: string): Promise<Evento | null> {
-    const { data: { user } } = await supabase.auth.getUser();
+  async function carregarEventos(
+    eventoPreferencialId?: string,
+  ): Promise<Evento | null> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       setErro("Usuário não autenticado.");
@@ -279,7 +473,9 @@ export default function OrganizacaoPage() {
 
     let query = supabase
       .from("eventos")
-      .select("id, nome, tenant_id, data_evento, data_inicio, hora_inicio, local, nome_local, status, created_at")
+      .select(
+        "id, nome, tenant_id, data_evento, data_inicio, hora_inicio, local, nome_local, status, created_at",
+      )
       .order("created_at", { ascending: false });
 
     if (tenantId) query = query.eq("tenant_id", tenantId);
@@ -296,7 +492,10 @@ export default function OrganizacaoPage() {
     const lista = (data || []) as Evento[];
     setEventos(lista);
 
-    const escolhido = lista.find((evento) => evento.id === eventoPreferencialId) || lista[0] || null;
+    const escolhido =
+      lista.find((evento) => evento.id === eventoPreferencialId) ||
+      lista[0] ||
+      null;
     setEventoAtual(escolhido);
     return escolhido;
   }
@@ -304,23 +503,70 @@ export default function OrganizacaoPage() {
   async function carregarOrganizacao(evento: Evento) {
     const eventoId = evento.id;
 
-    const [producaoRes, checklistRes, fornecedoresEventoRes, contratacoesRes, equipeRes, agendaRes] = await Promise.all([
-      supabase.from("organizacao_producao").select("*").eq("evento_id", eventoId).order("data_limite", { ascending: true, nullsFirst: false }),
-      supabase.from("organizacao_checklist").select("*").eq("evento_id", eventoId).order("ordem", { ascending: true }),
-      supabase.from("organizacao_fornecedores_evento").select("*").eq("evento_id", eventoId).order("criado_em", { ascending: false }),
-      supabase.from("organizacao_contratacoes").select("*").eq("evento_id", eventoId).order("data_vencimento", { ascending: true, nullsFirst: false }),
-      supabase.from("organizacao_equipe").select("*").eq("evento_id", eventoId).order("contato_principal", { ascending: false }),
-      supabase.from("event_agenda_items").select("id, evento_id, tenant_id, titulo, descricao, categoria, data_inicio, data_fim, status, responsavel, cor").eq("evento_id", eventoId).order("data_inicio", { ascending: true, nullsFirst: false }),
+    const [
+      producaoRes,
+      checklistRes,
+      fornecedoresEventoRes,
+      contratacoesRes,
+      equipeRes,
+      agendaRes,
+    ] = await Promise.all([
+      supabase
+        .from("organizacao_producao")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("data_limite", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("organizacao_checklist")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("ordem", { ascending: true }),
+      supabase
+        .from("organizacao_fornecedores_evento")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("criado_em", { ascending: false }),
+      supabase
+        .from("organizacao_contratacoes")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("data_vencimento", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("organizacao_equipe")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("contato_principal", { ascending: false }),
+      supabase
+        .from("event_agenda_items")
+        .select(
+          "id, evento_id, tenant_id, titulo, descricao, categoria, data_inicio, data_fim, status, responsavel, cor",
+        )
+        .eq("evento_id", eventoId)
+        .order("data_inicio", { ascending: true, nullsFirst: false }),
     ]);
 
-    if (producaoRes.error) setErro("Erro ao carregar ações da produção: " + producaoRes.error.message);
-    if (checklistRes.error) setErro("Erro ao carregar checklist: " + checklistRes.error.message);
-    if (fornecedoresEventoRes.error) setErro("Erro ao carregar fornecedores do evento: " + fornecedoresEventoRes.error.message);
-    if (contratacoesRes.error) setErro("Erro ao carregar contratações: " + contratacoesRes.error.message);
-    if (equipeRes.error) setErro("Erro ao carregar equipe: " + equipeRes.error.message);
+    if (producaoRes.error)
+      setErro(
+        "Erro ao carregar ações da produção: " + producaoRes.error.message,
+      );
+    if (checklistRes.error)
+      setErro("Erro ao carregar checklist: " + checklistRes.error.message);
+    if (fornecedoresEventoRes.error)
+      setErro(
+        "Erro ao carregar fornecedores do evento: " +
+          fornecedoresEventoRes.error.message,
+      );
+    if (contratacoesRes.error)
+      setErro(
+        "Erro ao carregar contratações: " + contratacoesRes.error.message,
+      );
+    if (equipeRes.error)
+      setErro("Erro ao carregar equipe: " + equipeRes.error.message);
 
     const vinculos = (fornecedoresEventoRes.data || []) as FornecedorEvento[];
-    const fornecedorIds = Array.from(new Set(vinculos.map((v) => v.fornecedor_id).filter(Boolean)));
+    const fornecedorIds = Array.from(
+      new Set(vinculos.map((v) => v.fornecedor_id).filter(Boolean)),
+    );
     let fornecedoresPorId: Record<string, Fornecedor> = {};
 
     if (fornecedorIds.length > 0) {
@@ -329,12 +575,22 @@ export default function OrganizacaoPage() {
         .select("*")
         .in("id", fornecedorIds);
 
-      fornecedoresPorId = Object.fromEntries(((fornecedoresData || []) as Fornecedor[]).map((fornecedor) => [fornecedor.id, fornecedor]));
+      fornecedoresPorId = Object.fromEntries(
+        ((fornecedoresData || []) as Fornecedor[]).map((fornecedor) => [
+          fornecedor.id,
+          fornecedor,
+        ]),
+      );
     }
 
     setProducao((producaoRes.data || []) as AcaoProducao[]);
     setChecklist((checklistRes.data || []) as Checklist[]);
-    setFornecedoresEvento(vinculos.map((vinculo) => ({ ...vinculo, fornecedor: fornecedoresPorId[vinculo.fornecedor_id] || null })));
+    setFornecedoresEvento(
+      vinculos.map((vinculo) => ({
+        ...vinculo,
+        fornecedor: fornecedoresPorId[vinculo.fornecedor_id] || null,
+      })),
+    );
     setContratacoes((contratacoesRes.data || []) as Contratacao[]);
     setEquipe((equipeRes.data || []) as Equipe[]);
     setAgenda((agendaRes.data || []) as AgendaItem[]);
@@ -343,16 +599,43 @@ export default function OrganizacaoPage() {
   const tenantId = eventoAtual?.tenant_id || "";
 
   const metricas = useMemo(() => {
-    const acoesConcluidas = producao.filter((a) => a.status === "concluido").length;
-    const acoesAtrasadas = producao.filter((a) => isAtrasada(a.data_limite, a.status)).length;
+    const acoesConcluidas = producao.filter(
+      (a) => a.status === "concluido",
+    ).length;
+    const acoesAtrasadas = producao.filter((a) =>
+      isAtrasada(a.data_limite, a.status),
+    ).length;
     const checklistConcluido = checklist.filter((c) => c.concluido).length;
-    const fornecedoresContratados = fornecedoresEvento.filter((f) => ["contratado", "confirmado"].includes(f.status)).length;
-    const valorContratado = contratacoes.reduce((total, item) => total + toNumber(item.valor_contratado), 0);
-    const valorPago = contratacoes.reduce((total, item) => total + toNumber(item.valor_pago), 0);
-    const pendenciasFinanceiras = contratacoes.filter((item) => ["pendente", "parcial", "vencido"].includes(item.status)).length;
+    const fornecedoresContratados = fornecedoresEvento.filter((f) =>
+      ["contratado", "confirmado"].includes(f.status),
+    ).length;
+    const valorContratado = contratacoes.reduce(
+      (total, item) => total + toNumber(item.valor_contratado),
+      0,
+    );
+    const valorPago = contratacoes.reduce(
+      (total, item) => total + toNumber(item.valor_pago),
+      0,
+    );
+    const pendenciasFinanceiras = contratacoes.filter((item) =>
+      ["pendente", "parcial", "vencido"].includes(item.status),
+    ).length;
 
-    const base = producao.length + checklist.length + fornecedoresEvento.length + contratacoes.length + equipe.length + agenda.length;
-    const concluidos = acoesConcluidas + checklistConcluido + fornecedoresContratados + contratacoes.filter((c) => c.status === "pago").length + equipe.filter((e) => ["confirmado", "presente"].includes(e.status)).length + agenda.filter((a) => a.status === "concluido").length;
+    const base =
+      producao.length +
+      checklist.length +
+      fornecedoresEvento.length +
+      contratacoes.length +
+      equipe.length +
+      agenda.length;
+    const concluidos =
+      acoesConcluidas +
+      checklistConcluido +
+      fornecedoresContratados +
+      contratacoes.filter((c) => c.status === "pago").length +
+      equipe.filter((e) => ["confirmado", "presente"].includes(e.status))
+        .length +
+      agenda.filter((a) => a.status === "concluido").length;
 
     return {
       acoesTotal: producao.length,
@@ -372,38 +655,118 @@ export default function OrganizacaoPage() {
       progresso: base > 0 ? Math.round((concluidos / base) * 100) : 0,
       diasRestantes: calcularDiasRestantes(eventoAtual),
     };
-  }, [producao, checklist, fornecedoresEvento, contratacoes, equipe, agenda, eventoAtual]);
+  }, [
+    producao,
+    checklist,
+    fornecedoresEvento,
+    contratacoes,
+    equipe,
+    agenda,
+    eventoAtual,
+  ]);
 
   const pendencias = useMemo(() => {
-    const itens: { titulo: string; detalhe: string; tipo: string; criticidade: "alta" | "media" | "baixa" }[] = [];
+    const itens: {
+      titulo: string;
+      detalhe: string;
+      tipo: string;
+      criticidade: "alta" | "media" | "baixa";
+    }[] = [];
 
     producao.forEach((a) => {
-      if (isAtrasada(a.data_limite, a.status)) itens.push({ titulo: a.titulo, detalhe: "Ação com prazo vencido", tipo: "Produção", criticidade: "alta" });
+      if (isAtrasada(a.data_limite, a.status))
+        itens.push({
+          titulo: a.titulo,
+          detalhe: "Ação com prazo vencido",
+          tipo: "Produção",
+          criticidade: "alta",
+        });
     });
 
     contratacoes.forEach((c) => {
-      if (c.status === "vencido") itens.push({ titulo: c.titulo, detalhe: "Pagamento vencido", tipo: "Financeiro", criticidade: "alta" });
-      else if (["pendente", "parcial"].includes(c.status)) itens.push({ titulo: c.titulo, detalhe: "Pagamento ainda pendente", tipo: "Financeiro", criticidade: "media" });
+      if (c.status === "vencido")
+        itens.push({
+          titulo: c.titulo,
+          detalhe: "Pagamento vencido",
+          tipo: "Financeiro",
+          criticidade: "alta",
+        });
+      else if (["pendente", "parcial"].includes(c.status))
+        itens.push({
+          titulo: c.titulo,
+          detalhe: "Pagamento ainda pendente",
+          tipo: "Financeiro",
+          criticidade: "media",
+        });
     });
 
     fornecedoresEvento.forEach((f) => {
-      if (["orcamento", "negociando"].includes(f.status)) itens.push({ titulo: f.fornecedor?.nome || "Fornecedor", detalhe: "Fornecedor ainda não contratado", tipo: "Fornecedor", criticidade: "media" });
+      if (["orcamento", "negociando"].includes(f.status))
+        itens.push({
+          titulo: f.fornecedor?.nome || "Fornecedor",
+          detalhe: "Fornecedor ainda não contratado",
+          tipo: "Fornecedor",
+          criticidade: "media",
+        });
     });
 
-    checklist.filter((c) => c.obrigatorio && !c.concluido).forEach((c) => {
-      itens.push({ titulo: c.item, detalhe: "Checklist obrigatório pendente", tipo: "Checklist", criticidade: "media" });
-    });
+    checklist
+      .filter((c) => c.obrigatorio && !c.concluido)
+      .forEach((c) => {
+        itens.push({
+          titulo: c.item,
+          detalhe: "Checklist obrigatório pendente",
+          tipo: "Checklist",
+          criticidade: "media",
+        });
+      });
 
     return itens;
   }, [producao, contratacoes, fornecedoresEvento, checklist]);
 
   const termoBusca = busca.trim().toLowerCase();
-  const producaoFiltrada = filtrar<AcaoProducao>(producao, termoBusca, (a) => [a.titulo, a.responsavel_nome, a.status, a.prioridade, a.categoria, a.descricao]);
-  const fornecedoresFiltrados = filtrar<FornecedorEvento>(fornecedoresEvento, termoBusca, (f) => [f.fornecedor?.nome, f.fornecedor?.telefone, f.fornecedor?.email, f.status, f.fornecedor?.categoria]);
-  const contratacoesFiltradas = filtrar<Contratacao>(contratacoes, termoBusca, (c) => [c.titulo, c.status, c.forma_pagamento]);
-  const equipeFiltrada = filtrar<Equipe>(equipe, termoBusca, (e) => [e.nome, e.funcao, e.telefone, e.status]);
-  const checklistFiltrado = filtrar<Checklist>(checklist, termoBusca, (c) => [c.item, c.categoria, c.tipo, c.responsavel_nome]);
-  const agendaFiltrada = filtrar<AgendaItem>(agenda, termoBusca, (a) => [a.titulo, a.categoria, a.responsavel, a.status]);
+  const producaoFiltrada = filtrar<AcaoProducao>(producao, termoBusca, (a) => [
+    a.titulo,
+    a.responsavel_nome,
+    a.status,
+    a.prioridade,
+    a.categoria,
+    a.descricao,
+  ]);
+  const fornecedoresFiltrados = filtrar<FornecedorEvento>(
+    fornecedoresEvento,
+    termoBusca,
+    (f) => [
+      f.fornecedor?.nome,
+      f.fornecedor?.telefone,
+      f.fornecedor?.email,
+      f.status,
+      f.fornecedor?.categoria,
+    ],
+  );
+  const contratacoesFiltradas = filtrar<Contratacao>(
+    contratacoes,
+    termoBusca,
+    (c) => [c.titulo, c.status, c.forma_pagamento],
+  );
+  const equipeFiltrada = filtrar<Equipe>(equipe, termoBusca, (e) => [
+    e.nome,
+    e.funcao,
+    e.telefone,
+    e.status,
+  ]);
+  const checklistFiltrado = filtrar<Checklist>(checklist, termoBusca, (c) => [
+    c.item,
+    c.categoria,
+    c.tipo,
+    c.responsavel_nome,
+  ]);
+  const agendaFiltrada = filtrar<AgendaItem>(agenda, termoBusca, (a) => [
+    a.titulo,
+    a.categoria,
+    a.responsavel,
+    a.status,
+  ]);
 
   async function trocarEvento(eventoId: string) {
     const evento = eventos.find((item) => item.id === eventoId) || null;
@@ -430,13 +793,72 @@ export default function OrganizacaoPage() {
       fornecedor_id: novaAcao.fornecedor_id || null,
       status: "a_fazer",
     });
-    await depoisSalvar(error, () => setNovaAcao({ titulo: "", categoria: "decoracao", responsavel_nome: "", data_limite: "", prioridade: "media", fornecedor_id: "", descricao: "" }));
+    await depoisSalvar(error, () =>
+      setNovaAcao({
+        titulo: "",
+        categoria: "decoracao",
+        responsavel_nome: "",
+        data_limite: "",
+        prioridade: "media",
+        fornecedor_id: "",
+        descricao: "",
+      }),
+    );
+  }
+
+  async function criarAcaoRapida(status: string) {
+    if (!eventoAtual || !tenantId) return;
+    const atual = novaAcaoRapida[status] || { titulo: "", categoria: "outros" };
+    const titulo = atual.titulo.trim();
+    if (!titulo) return;
+
+    setSalvando(true);
+    const { error } = await supabase.from("organizacao_producao").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      titulo,
+      descricao: null,
+      categoria: atual.categoria || "outros",
+      responsavel_nome: null,
+      data_limite: null,
+      prioridade: "media",
+      fornecedor_id: null,
+      status,
+    });
+
+    await depoisSalvar(error, () =>
+      setNovaAcaoRapida((prev) => ({
+        ...prev,
+        [status]: { titulo: "", categoria: atual.categoria || "outros" },
+      })),
+    );
+  }
+
+  async function atualizarAcaoCampo(
+    acao: AcaoProducao,
+    campo: "status" | "categoria" | "prioridade",
+    valor: string,
+  ) {
+    const payload: Record<string, string | null> = { [campo]: valor };
+    if (campo === "status")
+      payload.concluido_em =
+        valor === "concluido" ? new Date().toISOString() : null;
+
+    const { error } = await supabase
+      .from("organizacao_producao")
+      .update(payload)
+      .eq("id", acao.id);
+
+    await depoisSalvar(error);
   }
 
   async function alterarStatusAcao(acao: AcaoProducao, status: string) {
     const { error } = await supabase
       .from("organizacao_producao")
-      .update({ status, concluido_em: status === "concluido" ? new Date().toISOString() : null })
+      .update({
+        status,
+        concluido_em: status === "concluido" ? new Date().toISOString() : null,
+      })
       .eq("id", acao.id);
     await depoisSalvar(error);
   }
@@ -451,10 +873,16 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    const responsavel = window.prompt("Alterar responsável", acao.responsavel_nome || "");
+    const responsavel = window.prompt(
+      "Alterar responsável",
+      acao.responsavel_nome || "",
+    );
     if (responsavel === null) return;
 
-    const prazo = window.prompt("Alterar prazo no formato AAAA-MM-DD", acao.data_limite ? acao.data_limite.slice(0, 10) : "");
+    const prazo = window.prompt(
+      "Alterar prazo no formato AAAA-MM-DD",
+      acao.data_limite ? acao.data_limite.slice(0, 10) : "",
+    );
     if (prazo === null) return;
 
     const { error } = await supabase
@@ -473,7 +901,10 @@ export default function OrganizacaoPage() {
     const confirmar = window.confirm(`Excluir a ação "${acao.titulo}"?`);
     if (!confirmar) return;
 
-    const { error } = await supabase.from("organizacao_producao").delete().eq("id", acao.id);
+    const { error } = await supabase
+      .from("organizacao_producao")
+      .delete()
+      .eq("id", acao.id);
     await depoisSalvar(error);
   }
 
@@ -496,32 +927,55 @@ export default function OrganizacaoPage() {
       .single();
 
     if (fornecedorError || !fornecedor?.id) {
-      await depoisSalvar(fornecedorError || new Error("Fornecedor não criado."));
+      await depoisSalvar(
+        fornecedorError || new Error("Fornecedor não criado."),
+      );
       return;
     }
 
-    const { error } = await supabase.from("organizacao_fornecedores_evento").insert({
-      tenant_id: tenantId,
-      evento_id: eventoAtual.id,
-      fornecedor_id: fornecedor.id,
-      categoria_evento: novoFornecedor.categoria,
-      status: novoFornecedor.status,
-      valor_orcado: valorOuNull(novoFornecedor.valor_orcado),
-      valor_fechado: valorOuNull(novoFornecedor.valor_fechado),
-    });
+    const { error } = await supabase
+      .from("organizacao_fornecedores_evento")
+      .insert({
+        tenant_id: tenantId,
+        evento_id: eventoAtual.id,
+        fornecedor_id: fornecedor.id,
+        categoria_evento: novoFornecedor.categoria,
+        status: novoFornecedor.status,
+        valor_orcado: valorOuNull(novoFornecedor.valor_orcado),
+        valor_fechado: valorOuNull(novoFornecedor.valor_fechado),
+      });
 
-    await depoisSalvar(error, () => setNovoFornecedor({ nome: "", categoria: "buffet", telefone: "", email: "", responsavel_nome: "", valor_orcado: "", valor_fechado: "", status: "orcamento" }));
+    await depoisSalvar(error, () =>
+      setNovoFornecedor({
+        nome: "",
+        categoria: "buffet",
+        telefone: "",
+        email: "",
+        responsavel_nome: "",
+        valor_orcado: "",
+        valor_fechado: "",
+        status: "orcamento",
+      }),
+    );
   }
 
-  async function atualizarStatusFornecedor(item: FornecedorEvento, status: string) {
-    const { error } = await supabase.from("organizacao_fornecedores_evento").update({ status }).eq("id", item.id);
+  async function atualizarStatusFornecedor(
+    item: FornecedorEvento,
+    status: string,
+  ) {
+    const { error } = await supabase
+      .from("organizacao_fornecedores_evento")
+      .update({ status })
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
-
   async function editarFornecedor(item: FornecedorEvento) {
     const fornecedor = item.fornecedor;
-    const nome = window.prompt("Alterar nome do fornecedor", fornecedor?.nome || "");
+    const nome = window.prompt(
+      "Alterar nome do fornecedor",
+      fornecedor?.nome || "",
+    );
     if (nome === null) return;
 
     const nomeLimpo = nome.trim();
@@ -530,13 +984,19 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    const telefone = window.prompt("Alterar telefone", fornecedor?.telefone || "");
+    const telefone = window.prompt(
+      "Alterar telefone",
+      fornecedor?.telefone || "",
+    );
     if (telefone === null) return;
 
     const email = window.prompt("Alterar e-mail", fornecedor?.email || "");
     if (email === null) return;
 
-    const valor = window.prompt("Alterar valor fechado", item.valor_fechado ? String(item.valor_fechado) : "");
+    const valor = window.prompt(
+      "Alterar valor fechado",
+      item.valor_fechado ? String(item.valor_fechado) : "",
+    );
     if (valor === null) return;
 
     setSalvando(true);
@@ -565,7 +1025,9 @@ export default function OrganizacaoPage() {
   }
 
   async function abrirContratoFornecedor(item: FornecedorEvento) {
-    const contratacaoExistente = contratacoes.find((contratacao) => contratacao.fornecedor_evento_id === item.id);
+    const contratacaoExistente = contratacoes.find(
+      (contratacao) => contratacao.fornecedor_evento_id === item.id,
+    );
 
     if (contratacaoExistente) {
       setAba("planejamento");
@@ -573,7 +1035,9 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    const confirmar = window.confirm(`Criar uma contratação para "${item.fornecedor?.nome || "Fornecedor"}"?`);
+    const confirmar = window.confirm(
+      `Criar uma contratação para "${item.fornecedor?.nome || "Fornecedor"}"?`,
+    );
     if (!confirmar || !eventoAtual || !tenantId) return;
 
     setSalvando(true);
@@ -582,7 +1046,9 @@ export default function OrganizacaoPage() {
       evento_id: eventoAtual.id,
       fornecedor_evento_id: item.id,
       titulo: `Contrato - ${item.fornecedor?.nome || "Fornecedor"}`,
-      valor_contratado: valorOuZero(item.valor_fechado || item.valor_orcado || 0),
+      valor_contratado: valorOuZero(
+        item.valor_fechado || item.valor_orcado || 0,
+      ),
       valor_entrada: 0,
       valor_pago: 0,
       parcelas: 1,
@@ -597,7 +1063,9 @@ export default function OrganizacaoPage() {
   }
 
   async function abrirPagamentoFornecedor(item: FornecedorEvento) {
-    const contratacaoExistente = contratacoes.find((contratacao) => contratacao.fornecedor_evento_id === item.id);
+    const contratacaoExistente = contratacoes.find(
+      (contratacao) => contratacao.fornecedor_evento_id === item.id,
+    );
 
     if (contratacaoExistente) {
       setAba("planejamento");
@@ -609,10 +1077,15 @@ export default function OrganizacaoPage() {
   }
 
   async function excluirFornecedor(item: FornecedorEvento) {
-    const confirmar = window.confirm(`Remover "${item.fornecedor?.nome || "Fornecedor"}" deste evento?`);
+    const confirmar = window.confirm(
+      `Remover "${item.fornecedor?.nome || "Fornecedor"}" deste evento?`,
+    );
     if (!confirmar) return;
 
-    const { error } = await supabase.from("organizacao_fornecedores_evento").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("organizacao_fornecedores_evento")
+      .delete()
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
@@ -631,9 +1104,19 @@ export default function OrganizacaoPage() {
       data_vencimento: novaContratacao.data_vencimento || null,
       status: novaContratacao.status,
     });
-    await depoisSalvar(error, () => setNovaContratacao({ titulo: "", fornecedor_evento_id: "", valor_contratado: "", valor_entrada: "", valor_pago: "", parcelas: "1", data_vencimento: "", status: "pendente" }));
+    await depoisSalvar(error, () =>
+      setNovaContratacao({
+        titulo: "",
+        fornecedor_evento_id: "",
+        valor_contratado: "",
+        valor_entrada: "",
+        valor_pago: "",
+        parcelas: "1",
+        data_vencimento: "",
+        status: "pendente",
+      }),
+    );
   }
-
 
   async function editarContratacao(item: Contratacao) {
     const titulo = window.prompt("Alterar título da contratação", item.titulo);
@@ -645,18 +1128,32 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    const valorContratado = window.prompt("Alterar valor contratado", String(item.valor_contratado || ""));
+    const valorContratado = window.prompt(
+      "Alterar valor contratado",
+      String(item.valor_contratado || ""),
+    );
     if (valorContratado === null) return;
 
-    const valorPago = window.prompt("Alterar valor pago", String(item.valor_pago || ""));
+    const valorPago = window.prompt(
+      "Alterar valor pago",
+      String(item.valor_pago || ""),
+    );
     if (valorPago === null) return;
 
-    const vencimento = window.prompt("Alterar vencimento no formato AAAA-MM-DD", item.data_vencimento || "");
+    const vencimento = window.prompt(
+      "Alterar vencimento no formato AAAA-MM-DD",
+      item.data_vencimento || "",
+    );
     if (vencimento === null) return;
 
     const valorContratadoNumero = valorOuZero(valorContratado);
     const valorPagoNumero = valorOuZero(valorPago);
-    const status = valorPagoNumero >= valorContratadoNumero && valorContratadoNumero > 0 ? "pago" : valorPagoNumero > 0 ? "parcial" : item.status;
+    const status =
+      valorPagoNumero >= valorContratadoNumero && valorContratadoNumero > 0
+        ? "pago"
+        : valorPagoNumero > 0
+          ? "parcial"
+          : item.status;
 
     const { error } = await supabase
       .from("organizacao_contratacoes")
@@ -666,7 +1163,10 @@ export default function OrganizacaoPage() {
         valor_pago: valorPagoNumero,
         data_vencimento: vencimento.trim() || null,
         status,
-        data_pagamento: status === "pago" ? new Date().toISOString().slice(0, 10) : item.data_pagamento,
+        data_pagamento:
+          status === "pago"
+            ? new Date().toISOString().slice(0, 10)
+            : item.data_pagamento,
       })
       .eq("id", item.id);
 
@@ -690,7 +1190,10 @@ export default function OrganizacaoPage() {
   }
 
   async function anexarComprovanteContratacao(item: Contratacao) {
-    const comprovanteUrl = window.prompt("Informe a URL do comprovante", item.comprovante_url || "");
+    const comprovanteUrl = window.prompt(
+      "Informe a URL do comprovante",
+      item.comprovante_url || "",
+    );
     if (comprovanteUrl === null) return;
 
     const { error } = await supabase
@@ -705,12 +1208,21 @@ export default function OrganizacaoPage() {
     const confirmar = window.confirm(`Excluir a contratação "${item.titulo}"?`);
     if (!confirmar) return;
 
-    const { error } = await supabase.from("organizacao_contratacoes").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("organizacao_contratacoes")
+      .delete()
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
   async function criarEquipe() {
-    if (!eventoAtual || !tenantId || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()) return;
+    if (
+      !eventoAtual ||
+      !tenantId ||
+      !novoEquipe.nome.trim() ||
+      !novoEquipe.funcao.trim()
+    )
+      return;
     setSalvando(true);
     const { error } = await supabase.from("organizacao_equipe").insert({
       tenant_id: tenantId,
@@ -724,9 +1236,18 @@ export default function OrganizacaoPage() {
       contato_principal: novoEquipe.contato_principal,
       status: "confirmado",
     });
-    await depoisSalvar(error, () => setNovoEquipe({ nome: "", funcao: "", telefone: "", email: "", horario_inicio: "", horario_fim: "", contato_principal: false }));
+    await depoisSalvar(error, () =>
+      setNovoEquipe({
+        nome: "",
+        funcao: "",
+        telefone: "",
+        email: "",
+        horario_inicio: "",
+        horario_fim: "",
+        contato_principal: false,
+      }),
+    );
   }
-
 
   async function editarEquipe(item: Equipe) {
     const nome = window.prompt("Alterar nome", item.nome);
@@ -757,7 +1278,10 @@ export default function OrganizacaoPage() {
   }
 
   async function atualizarStatusEquipe(item: Equipe, status: string) {
-    const { error } = await supabase.from("organizacao_equipe").update({ status }).eq("id", item.id);
+    const { error } = await supabase
+      .from("organizacao_equipe")
+      .update({ status })
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
@@ -765,7 +1289,10 @@ export default function OrganizacaoPage() {
     const confirmar = window.confirm(`Excluir "${item.nome}" da equipe?`);
     if (!confirmar) return;
 
-    const { error } = await supabase.from("organizacao_equipe").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("organizacao_equipe")
+      .delete()
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
@@ -782,30 +1309,46 @@ export default function OrganizacaoPage() {
       obrigatorio: novoChecklist.obrigatorio,
       ordem: checklist.length + 1,
     });
-    await depoisSalvar(error, () => setNovoChecklist({ item: "", categoria: "geral", tipo: "dia_evento", responsavel_nome: "", obrigatorio: false }));
+    await depoisSalvar(error, () =>
+      setNovoChecklist({
+        item: "",
+        categoria: "geral",
+        tipo: "dia_evento",
+        responsavel_nome: "",
+        obrigatorio: false,
+      }),
+    );
   }
 
   async function alternarChecklist(item: Checklist) {
     const concluido = !item.concluido;
-    const { error } = await supabase.from("organizacao_checklist").update({ concluido, concluido_em: concluido ? new Date().toISOString() : null }).eq("id", item.id);
+    const { error } = await supabase
+      .from("organizacao_checklist")
+      .update({
+        concluido,
+        concluido_em: concluido ? new Date().toISOString() : null,
+      })
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
   async function usarChecklistPadrao() {
     if (!eventoAtual || !tenantId) return;
 
-    const itensExistentes = new Set(checklist.map((item) => item.item.trim().toLowerCase()));
-    const itensParaInserir = CHECKLIST_PADRAO_DIA
-      .filter((item) => !itensExistentes.has(item.item.trim().toLowerCase()))
-      .map((item, index) => ({
-        tenant_id: tenantId,
-        evento_id: eventoAtual.id,
-        item: item.item,
-        categoria: item.categoria,
-        tipo: item.tipo,
-        obrigatorio: item.obrigatorio,
-        ordem: checklist.length + index + 1,
-      }));
+    const itensExistentes = new Set(
+      checklist.map((item) => item.item.trim().toLowerCase()),
+    );
+    const itensParaInserir = CHECKLIST_PADRAO_DIA.filter(
+      (item) => !itensExistentes.has(item.item.trim().toLowerCase()),
+    ).map((item, index) => ({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      item: item.item,
+      categoria: item.categoria,
+      tipo: item.tipo,
+      obrigatorio: item.obrigatorio,
+      ordem: checklist.length + index + 1,
+    }));
 
     if (itensParaInserir.length === 0) {
       setErro("O checklist padrão já foi aplicado neste evento.");
@@ -813,7 +1356,9 @@ export default function OrganizacaoPage() {
     }
 
     setSalvando(true);
-    const { error } = await supabase.from("organizacao_checklist").insert(itensParaInserir);
+    const { error } = await supabase
+      .from("organizacao_checklist")
+      .insert(itensParaInserir);
     await depoisSalvar(error);
   }
 
@@ -827,7 +1372,10 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    const novaCategoria = window.prompt("Alterar categoria", item.categoria || "geral");
+    const novaCategoria = window.prompt(
+      "Alterar categoria",
+      item.categoria || "geral",
+    );
     if (novaCategoria === null) return;
 
     const { error } = await supabase
@@ -842,10 +1390,15 @@ export default function OrganizacaoPage() {
   }
 
   async function excluirChecklist(item: Checklist) {
-    const confirmar = window.confirm(`Excluir o item "${item.item}" do checklist?`);
+    const confirmar = window.confirm(
+      `Excluir o item "${item.item}" do checklist?`,
+    );
     if (!confirmar) return;
 
-    const { error } = await supabase.from("organizacao_checklist").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("organizacao_checklist")
+      .delete()
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
@@ -863,12 +1416,23 @@ export default function OrganizacaoPage() {
       descricao: limpar(novoAgenda.descricao),
       status: "pendente",
     });
-    await depoisSalvar(error, () => setNovoAgenda({ titulo: "", categoria: "cerimonial", data_inicio: "", data_fim: "", responsavel: "", descricao: "" }));
+    await depoisSalvar(error, () =>
+      setNovoAgenda({
+        titulo: "",
+        categoria: "cerimonial",
+        data_inicio: "",
+        data_fim: "",
+        responsavel: "",
+        descricao: "",
+      }),
+    );
   }
 
-
   async function editarAgenda(item: AgendaItem) {
-    const titulo = window.prompt("Alterar título do roteiro", item.titulo || "");
+    const titulo = window.prompt(
+      "Alterar título do roteiro",
+      item.titulo || "",
+    );
     if (titulo === null) return;
 
     const tituloLimpo = titulo.trim();
@@ -877,7 +1441,10 @@ export default function OrganizacaoPage() {
       return;
     }
 
-    const responsavel = window.prompt("Alterar responsável", item.responsavel || "");
+    const responsavel = window.prompt(
+      "Alterar responsável",
+      item.responsavel || "",
+    );
     if (responsavel === null) return;
 
     const { error } = await supabase
@@ -889,14 +1456,22 @@ export default function OrganizacaoPage() {
   }
 
   async function excluirAgenda(item: AgendaItem) {
-    const confirmar = window.confirm(`Excluir "${item.titulo || "Item do roteiro"}" do roteiro?`);
+    const confirmar = window.confirm(
+      `Excluir "${item.titulo || "Item do roteiro"}" do roteiro?`,
+    );
     if (!confirmar) return;
 
-    const { error } = await supabase.from("event_agenda_items").delete().eq("id", item.id);
+    const { error } = await supabase
+      .from("event_agenda_items")
+      .delete()
+      .eq("id", item.id);
     await depoisSalvar(error);
   }
 
-  async function depoisSalvar(error: { message?: string } | Error | null, limparFormulario?: () => void) {
+  async function depoisSalvar(
+    error: { message?: string } | Error | null,
+    limparFormulario?: () => void,
+  ) {
     if (error) {
       setErro(error.message || "Erro ao salvar.");
       setSalvando(false);
@@ -909,7 +1484,11 @@ export default function OrganizacaoPage() {
   }
 
   if (loading) {
-    return <div style={{ padding: 24, fontWeight: 800 }}>Carregando Organização...</div>;
+    return (
+      <div style={{ padding: 24, fontWeight: 800 }}>
+        Carregando Organização...
+      </div>
+    );
   }
 
   return (
@@ -920,14 +1499,22 @@ export default function OrganizacaoPage() {
         <div>
           <div className="org-eyebrow">OmniStage</div>
           <h1>Organização</h1>
-          <p>Planejamento, contratações, fornecedores e execução do evento em um só lugar.</p>
+          <p>
+            Planejamento, contratações, fornecedores e execução do evento em um
+            só lugar.
+          </p>
         </div>
 
         <div className="org-event-select">
           <label>Evento</label>
-          <select value={eventoAtual?.id || ""} onChange={(e) => trocarEvento(e.target.value)}>
+          <select
+            value={eventoAtual?.id || ""}
+            onChange={(e) => trocarEvento(e.target.value)}
+          >
             {eventos.map((evento) => (
-              <option key={evento.id} value={evento.id}>{evento.nome || "Evento sem nome"}</option>
+              <option key={evento.id} value={evento.id}>
+                {evento.nome || "Evento sem nome"}
+              </option>
             ))}
           </select>
         </div>
@@ -936,69 +1523,205 @@ export default function OrganizacaoPage() {
       {erro ? <div className="org-alert">{erro}</div> : null}
 
       {!eventoAtual ? (
-        <div className="org-empty">Nenhum evento encontrado para carregar a Organização.</div>
+        <div className="org-empty">
+          Nenhum evento encontrado para carregar a Organização.
+        </div>
       ) : (
         <>
           <section className="org-summary-card">
             <div>
-              <span className="org-badge">{eventoAtual.status || "Evento"}</span>
+              <span className="org-badge">
+                {eventoAtual.status || "Evento"}
+              </span>
               <h2>{eventoAtual.nome || "Evento sem nome"}</h2>
-              <p>{formatarDataEvento(eventoAtual)} · {eventoAtual.nome_local || eventoAtual.local || "Local não informado"}</p>
+              <p>
+                {formatarDataEvento(eventoAtual)} ·{" "}
+                {eventoAtual.nome_local ||
+                  eventoAtual.local ||
+                  "Local não informado"}
+              </p>
             </div>
             <div className="org-progress-box">
               <strong>{metricas.progresso}%</strong>
               <span>progresso geral</span>
-              <div className="org-progress"><i style={{ width: `${Math.min(metricas.progresso, 100)}%` }} /></div>
+              <div className="org-progress">
+                <i style={{ width: `${Math.min(metricas.progresso, 100)}%` }} />
+              </div>
             </div>
           </section>
 
           <section className="org-metrics-grid">
-            <Metric title="Dias restantes" value={metricas.diasRestantes ?? "--"} detail="até o evento" />
-            <Metric title="Produção" value={`${metricas.acoesConcluidas}/${metricas.acoesTotal}`} detail={`${metricas.acoesAtrasadas} atrasadas`} danger={metricas.acoesAtrasadas > 0} />
-            <Metric title="Fornecedores" value={`${metricas.fornecedoresContratados}/${metricas.fornecedoresTotal}`} detail="contratados/confirmados" />
-            <Metric title="Financeiro" value={formatarMoeda(metricas.saldoPendente)} detail="saldo pendente" danger={metricas.saldoPendente > 0} />
-            <Metric title="Equipe" value={metricas.equipeTotal} detail="pessoas na operação" />
-            <Metric title="Roteiro" value={metricas.roteiroTotal} detail="itens na timeline" />
+            <Metric
+              title="Dias restantes"
+              value={metricas.diasRestantes ?? "--"}
+              detail="até o evento"
+            />
+            <Metric
+              title="Produção"
+              value={`${metricas.acoesConcluidas}/${metricas.acoesTotal}`}
+              detail={`${metricas.acoesAtrasadas} atrasadas`}
+              danger={metricas.acoesAtrasadas > 0}
+            />
+            <Metric
+              title="Fornecedores"
+              value={`${metricas.fornecedoresContratados}/${metricas.fornecedoresTotal}`}
+              detail="contratados/confirmados"
+            />
+            <Metric
+              title="Financeiro"
+              value={formatarMoeda(metricas.saldoPendente)}
+              detail="saldo pendente"
+              danger={metricas.saldoPendente > 0}
+            />
+            <Metric
+              title="Equipe"
+              value={metricas.equipeTotal}
+              detail="pessoas na operação"
+            />
+            <Metric
+              title="Roteiro"
+              value={metricas.roteiroTotal}
+              detail="itens na timeline"
+            />
           </section>
 
           <div className="org-toolbar">
             <div className="org-tabs">
-              <button className={aba === "visao" ? "active" : ""} onClick={() => setAba("visao")}>Visão Geral</button>
-              <button className={aba === "planejamento" ? "active" : ""} onClick={() => setAba("planejamento")}>Planejamento</button>
-              <button className={aba === "execucao" ? "active" : ""} onClick={() => setAba("execucao")}>Execução</button>
-              <button className={aba === "pendencias" ? "active" : ""} onClick={() => setAba("pendencias")}>Pendências</button>
+              <button
+                className={aba === "visao" ? "active" : ""}
+                onClick={() => setAba("visao")}
+              >
+                Visão Geral
+              </button>
+              <button
+                className={aba === "planejamento" ? "active" : ""}
+                onClick={() => setAba("planejamento")}
+              >
+                Planejamento
+              </button>
+              <button
+                className={aba === "execucao" ? "active" : ""}
+                onClick={() => setAba("execucao")}
+              >
+                Execução
+              </button>
+              <button
+                className={aba === "pendencias" ? "active" : ""}
+                onClick={() => setAba("pendencias")}
+              >
+                Pendências
+              </button>
             </div>
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar na organização..." />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar na organização..."
+            />
           </div>
 
           {aba === "visao" && (
             <div className="org-grid-two">
-              <Panel title="Próximas ações" subtitle="Ações e roteiro mais próximos">
-                {[...producaoFiltrada.slice(0, 4).map((a) => ({ titulo: a.titulo, detalhe: `${labelStatus(a.status)} · ${formatarData(a.data_limite)}`, status: a.status })), ...agendaFiltrada.slice(0, 4).map((a) => ({ titulo: a.titulo || "Item do roteiro", detalhe: `${a.categoria || "Roteiro"} · ${formatarDataHora(a.data_inicio)}`, status: a.status || "pendente" }))].slice(0, 6).map((item, index) => <MiniRow key={index} title={item.titulo} detail={item.detalhe} status={item.status} />)}
+              <Panel
+                title="Próximas ações"
+                subtitle="Ações e roteiro mais próximos"
+              >
+                {[
+                  ...producaoFiltrada
+                    .slice(0, 4)
+                    .map((a) => ({
+                      titulo: a.titulo,
+                      detalhe: `${labelStatus(a.status)} · ${formatarData(a.data_limite)}`,
+                      status: a.status,
+                    })),
+                  ...agendaFiltrada
+                    .slice(0, 4)
+                    .map((a) => ({
+                      titulo: a.titulo || "Item do roteiro",
+                      detalhe: `${a.categoria || "Roteiro"} · ${formatarDataHora(a.data_inicio)}`,
+                      status: a.status || "pendente",
+                    })),
+                ]
+                  .slice(0, 6)
+                  .map((item, index) => (
+                    <MiniRow
+                      key={index}
+                      title={item.titulo}
+                      detail={item.detalhe}
+                      status={item.status}
+                    />
+                  ))}
               </Panel>
 
-              <Panel title="Pendências críticas" subtitle="Itens que exigem atenção">
-                {pendencias.length === 0 ? <Empty text="Nenhuma pendência crítica encontrada." /> : pendencias.slice(0, 6).map((item, index) => <MiniRow key={index} title={item.titulo} detail={`${item.tipo} · ${item.detalhe}`} status={item.criticidade} />)}
+              <Panel
+                title="Pendências críticas"
+                subtitle="Itens que exigem atenção"
+              >
+                {pendencias.length === 0 ? (
+                  <Empty text="Nenhuma pendência crítica encontrada." />
+                ) : (
+                  pendencias
+                    .slice(0, 6)
+                    .map((item, index) => (
+                      <MiniRow
+                        key={index}
+                        title={item.titulo}
+                        detail={`${item.tipo} · ${item.detalhe}`}
+                        status={item.criticidade}
+                      />
+                    ))
+                )}
               </Panel>
 
-              <Panel title="Financeiro do evento" subtitle="Contratado, pago e pendente">
+              <Panel
+                title="Financeiro do evento"
+                subtitle="Contratado, pago e pendente"
+              >
                 <div className="org-money-grid">
-                  <div><span>Contratado</span><strong>{formatarMoeda(metricas.valorContratado)}</strong></div>
-                  <div><span>Pago</span><strong>{formatarMoeda(metricas.valorPago)}</strong></div>
-                  <div><span>Pendente</span><strong>{formatarMoeda(metricas.saldoPendente)}</strong></div>
+                  <div>
+                    <span>Contratado</span>
+                    <strong>{formatarMoeda(metricas.valorContratado)}</strong>
+                  </div>
+                  <div>
+                    <span>Pago</span>
+                    <strong>{formatarMoeda(metricas.valorPago)}</strong>
+                  </div>
+                  <div>
+                    <span>Pendente</span>
+                    <strong>{formatarMoeda(metricas.saldoPendente)}</strong>
+                  </div>
                 </div>
               </Panel>
 
               <Panel title="Checklist" subtitle="Conclusão dos preparativos">
-                <div className="org-progress big"><i style={{ width: `${metricas.checklistTotal ? Math.round((metricas.checklistConcluido / metricas.checklistTotal) * 100) : 0}%` }} /></div>
-                <p className="org-muted">{metricas.checklistConcluido} de {metricas.checklistTotal} itens concluídos.</p>
+                <div className="org-progress big">
+                  <i
+                    style={{
+                      width: `${metricas.checklistTotal ? Math.round((metricas.checklistConcluido / metricas.checklistTotal) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <p className="org-muted">
+                  {metricas.checklistConcluido} de {metricas.checklistTotal}{" "}
+                  itens concluídos.
+                </p>
               </Panel>
             </div>
           )}
 
           {aba === "planejamento" && (
             <>
-              <SubTabs items={["producao", "fornecedores", "contratacoes", "financeiro"]} active={subPlanejamento} onChange={(value) => setSubPlanejamento(value as SubPlanejamento)} />
+              <SubTabs
+                items={[
+                  "producao",
+                  "fornecedores",
+                  "contratacoes",
+                  "financeiro",
+                ]}
+                active={subPlanejamento}
+                onChange={(value) =>
+                  setSubPlanejamento(value as SubPlanejamento)
+                }
+              />
               {subPlanejamento === "producao" && renderProducao()}
               {subPlanejamento === "fornecedores" && renderFornecedores()}
               {subPlanejamento === "contratacoes" && renderContratacoes(false)}
@@ -1008,7 +1731,11 @@ export default function OrganizacaoPage() {
 
           {aba === "execucao" && (
             <>
-              <SubTabs items={["roteiro", "equipe", "checklist"]} active={subExecucao} onChange={(value) => setSubExecucao(value as SubExecucao)} />
+              <SubTabs
+                items={["roteiro", "equipe", "checklist"]}
+                active={subExecucao}
+                onChange={(value) => setSubExecucao(value as SubExecucao)}
+              />
               {subExecucao === "roteiro" && renderRoteiro()}
               {subExecucao === "equipe" && renderEquipe()}
               {subExecucao === "checklist" && renderChecklist()}
@@ -1016,8 +1743,24 @@ export default function OrganizacaoPage() {
           )}
 
           {aba === "pendencias" && (
-            <Panel title="Central de Pendências" subtitle="Alertas automáticos de ações, contratos, fornecedores e checklist">
-              {pendencias.length === 0 ? <Empty text="Nenhuma pendência encontrada para este evento." /> : <div className="org-list">{pendencias.map((item, index) => <MiniRow key={index} title={item.titulo} detail={`${item.tipo} · ${item.detalhe}`} status={item.criticidade} />)}</div>}
+            <Panel
+              title="Central de Pendências"
+              subtitle="Alertas automáticos de ações, contratos, fornecedores e checklist"
+            >
+              {pendencias.length === 0 ? (
+                <Empty text="Nenhuma pendência encontrada para este evento." />
+              ) : (
+                <div className="org-list">
+                  {pendencias.map((item, index) => (
+                    <MiniRow
+                      key={index}
+                      title={item.titulo}
+                      detail={`${item.tipo} · ${item.detalhe}`}
+                      status={item.criticidade}
+                    />
+                  ))}
+                </div>
+              )}
             </Panel>
           )}
         </>
@@ -1026,76 +1769,260 @@ export default function OrganizacaoPage() {
   );
 
   function renderProducao() {
-    const fornecedorNome = (fornecedorId?: string | null) => fornecedoresEvento.find((item) => item.fornecedor_id === fornecedorId)?.fornecedor?.nome || "";
+    const fornecedorNome = (fornecedorId?: string | null) =>
+      fornecedoresEvento.find((item) => item.fornecedor_id === fornecedorId)
+        ?.fornecedor?.nome || "";
+
+    const acoesPorData = producaoFiltrada
+      .filter((acao) => acao.data_limite)
+      .sort((a, b) =>
+        String(a.data_limite).localeCompare(String(b.data_limite)),
+      );
+
+    const acoesSemData = producaoFiltrada.filter((acao) => !acao.data_limite);
 
     const renderCardProducao = (acao: AcaoProducao) => (
-      <div key={acao.id} className="org-item-card org-kanban-card">
-        <div className="org-item-main">
-          <span className={`org-pill ${acao.status}`}>{labelStatus(acao.status)}</span>
-          <h3>{acao.titulo}</h3>
-          <p>{labelCategoriaProducao(acao.categoria)} · {acao.responsavel_nome || "Sem responsável"} · prazo {formatarData(acao.data_limite)}</p>
-          <p className="org-muted">Prioridade: {labelStatus(acao.prioridade)}{acao.fornecedor_id ? ` · Fornecedor: ${fornecedorNome(acao.fornecedor_id)}` : ""}</p>
+      <div
+        key={acao.id}
+        className="org-trello-card"
+        onDoubleClick={() => setAcaoAberta(acao)}
+      >
+        <div className="org-card-tags">
+          <span className={`org-category-tag ${acao.categoria}`}>
+            {labelCategoriaProducao(acao.categoria)}
+          </span>
+          <span className={`org-priority-tag ${acao.prioridade}`}>
+            {labelStatus(acao.prioridade)}
+          </span>
         </div>
-        <div className="org-card-actions compact">
-          <select value={acao.status} onChange={(e) => alterarStatusAcao(acao, e.target.value)}>
-            {STATUS_PRODUCAO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-          <button type="button" onClick={() => alterarStatusAcao(acao, acao.status === "concluido" ? "a_fazer" : "concluido")}>{acao.status === "concluido" ? "↩️ Reabrir" : "✅ Concluir"}</button>
-          <button type="button" onClick={() => editarAcao(acao)}>✏️ Editar</button>
-          <button type="button" className="danger" onClick={() => excluirAcao(acao)}>🗑️ Excluir</button>
+
+        <button
+          type="button"
+          className="org-card-title-button"
+          onClick={() => setAcaoAberta(acao)}
+        >
+          {acao.titulo}
+        </button>
+
+        {(acao.responsavel_nome || acao.data_limite || acao.fornecedor_id) && (
+          <div className="org-card-meta">
+            {acao.responsavel_nome && <span>👤 {acao.responsavel_nome}</span>}
+            {acao.data_limite && (
+              <span
+                className={
+                  isAtrasada(acao.data_limite, acao.status) ? "danger" : ""
+                }
+              >
+                📅 {formatarData(acao.data_limite)}
+              </span>
+            )}
+            {acao.fornecedor_id && (
+              <span>🏢 {fornecedorNome(acao.fornecedor_id)}</span>
+            )}
+          </div>
+        )}
+
+        <div className="org-card-footer-actions">
+          <button type="button" onClick={() => setAcaoAberta(acao)}>
+            Abrir cartão
+          </button>
+          <button type="button" onClick={() => editarAcao(acao)}>
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              alterarStatusAcao(
+                acao,
+                acao.status === "concluido" ? "a_fazer" : "concluido",
+              )
+            }
+          >
+            {acao.status === "concluido" ? "Reabrir" : "Concluir"}
+          </button>
         </div>
       </div>
     );
 
-    const acoesPorData = producaoFiltrada
-      .filter((acao) => acao.data_limite)
-      .sort((a, b) => String(a.data_limite).localeCompare(String(b.data_limite)));
+    const renderAdicionarNoQuadro = (status: string) => {
+      const atual = novaAcaoRapida[status] || {
+        titulo: "",
+        categoria: "outros",
+      };
+      return (
+        <div className="org-quick-card">
+          <input
+            placeholder="Adicionar uma ação..."
+            value={atual.titulo}
+            onChange={(e) =>
+              setNovaAcaoRapida((prev) => ({
+                ...prev,
+                [status]: { ...atual, titulo: e.target.value },
+              }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") criarAcaoRapida(status);
+            }}
+          />
+          <select
+            value={atual.categoria || "outros"}
+            onChange={(e) =>
+              setNovaAcaoRapida((prev) => ({
+                ...prev,
+                [status]: { ...atual, categoria: e.target.value },
+              }))
+            }
+          >
+            {CATEGORIAS_PRODUCAO.map((categoria) => (
+              <option key={categoria.value} value={categoria.value}>
+                {categoria.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => criarAcaoRapida(status)}
+            disabled={salvando || !atual.titulo.trim()}
+          >
+            + Adicionar cartão
+          </button>
+        </div>
+      );
+    };
 
     return (
-      <Panel title="Produção" subtitle="Central de ações do evento com quadro, lista e calendário">
+      <Panel
+        title="Produção"
+        subtitle="Central estilo Trello para organizar ações, setores e prazos do evento"
+      >
         <div className="org-section-toolbar">
           <div>
             <strong>Central de produção</strong>
-            <span>Crie ações por setor e acompanhe o avanço geral da organização do evento.</span>
+            <span>
+              Crie cartões por setor, mova o status e acompanhe por quadro,
+              ações, calendário ou cronograma.
+            </span>
           </div>
           <div className="org-view-toggle">
-            <button type="button" className={visualizacaoProducao === "quadro" ? "active" : ""} onClick={() => setVisualizacaoProducao("quadro")}>Quadro</button>
-            <button type="button" className={visualizacaoProducao === "acoes" ? "active" : ""} onClick={() => setVisualizacaoProducao("acoes")}>Ações</button>
-            <button type="button" className={visualizacaoProducao === "calendario" ? "active" : ""} onClick={() => setVisualizacaoProducao("calendario")}>Calendário</button>
+            <button
+              type="button"
+              className={visualizacaoProducao === "quadro" ? "active" : ""}
+              onClick={() => setVisualizacaoProducao("quadro")}
+            >
+              Quadro
+            </button>
+            <button
+              type="button"
+              className={visualizacaoProducao === "acoes" ? "active" : ""}
+              onClick={() => setVisualizacaoProducao("acoes")}
+            >
+              Ações
+            </button>
+            <button
+              type="button"
+              className={visualizacaoProducao === "calendario" ? "active" : ""}
+              onClick={() => setVisualizacaoProducao("calendario")}
+            >
+              Calendário
+            </button>
+            <button
+              type="button"
+              className={visualizacaoProducao === "cronograma" ? "active" : ""}
+              onClick={() => setVisualizacaoProducao("cronograma")}
+            >
+              Cronograma
+            </button>
           </div>
         </div>
 
         <div className="org-form-grid producao">
-          <input placeholder="Título da ação" value={novaAcao.titulo} onChange={(e) => setNovaAcao({ ...novaAcao, titulo: e.target.value })} />
-          <select value={novaAcao.categoria} onChange={(e) => setNovaAcao({ ...novaAcao, categoria: e.target.value })}>
-            {CATEGORIAS_PRODUCAO.map((categoria) => <option key={categoria.value} value={categoria.value}>{categoria.label}</option>)}
+          <input
+            placeholder="Título da ação"
+            value={novaAcao.titulo}
+            onChange={(e) =>
+              setNovaAcao({ ...novaAcao, titulo: e.target.value })
+            }
+          />
+          <select
+            value={novaAcao.categoria}
+            onChange={(e) =>
+              setNovaAcao({ ...novaAcao, categoria: e.target.value })
+            }
+          >
+            {CATEGORIAS_PRODUCAO.map((categoria) => (
+              <option key={categoria.value} value={categoria.value}>
+                {categoria.label}
+              </option>
+            ))}
           </select>
-          <input placeholder="Responsável" value={novaAcao.responsavel_nome} onChange={(e) => setNovaAcao({ ...novaAcao, responsavel_nome: e.target.value })} />
-          <input type="date" value={novaAcao.data_limite} onChange={(e) => setNovaAcao({ ...novaAcao, data_limite: e.target.value })} />
-          <select value={novaAcao.prioridade} onChange={(e) => setNovaAcao({ ...novaAcao, prioridade: e.target.value })}><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select>
-          <select value={novaAcao.fornecedor_id} onChange={(e) => setNovaAcao({ ...novaAcao, fornecedor_id: e.target.value })}>
+          <input
+            placeholder="Responsável"
+            value={novaAcao.responsavel_nome}
+            onChange={(e) =>
+              setNovaAcao({ ...novaAcao, responsavel_nome: e.target.value })
+            }
+          />
+          <input
+            type="date"
+            value={novaAcao.data_limite}
+            onChange={(e) =>
+              setNovaAcao({ ...novaAcao, data_limite: e.target.value })
+            }
+          />
+          <select
+            value={novaAcao.prioridade}
+            onChange={(e) =>
+              setNovaAcao({ ...novaAcao, prioridade: e.target.value })
+            }
+          >
+            <option value="baixa">Baixa</option>
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+            <option value="urgente">Urgente</option>
+          </select>
+          <select
+            value={novaAcao.fornecedor_id}
+            onChange={(e) =>
+              setNovaAcao({ ...novaAcao, fornecedor_id: e.target.value })
+            }
+          >
             <option value="">Fornecedor opcional</option>
-            {fornecedoresEvento.map((item) => <option key={item.id} value={item.fornecedor_id}>{item.fornecedor?.nome || "Fornecedor"}</option>)}
+            {fornecedoresEvento.map((item) => (
+              <option key={item.id} value={item.fornecedor_id}>
+                {item.fornecedor?.nome || "Fornecedor"}
+              </option>
+            ))}
           </select>
-          <button onClick={criarAcao} disabled={salvando || !novaAcao.titulo.trim()}>Adicionar ação</button>
+          <button
+            onClick={criarAcao}
+            disabled={salvando || !novaAcao.titulo.trim()}
+          >
+            Adicionar ação
+          </button>
         </div>
 
         {visualizacaoProducao === "quadro" && (
-          <div className="org-kanban">
+          <div className="org-trello-board">
             {COLUNAS_PRODUCAO.map((coluna) => {
-              const itens = producaoFiltrada.filter((acao) => normalizarStatusProducao(acao.status) === coluna.value);
+              const itens = producaoFiltrada.filter(
+                (acao) =>
+                  normalizarStatusProducao(acao.status) === coluna.value,
+              );
               return (
-                <div key={coluna.value} className="org-kanban-column">
-                  <div className="org-kanban-head">
+                <div key={coluna.value} className="org-trello-column">
+                  <div className="org-trello-head">
                     <div>
                       <strong>{coluna.label}</strong>
                       <span>{coluna.description}</span>
                     </div>
                     <em>{itens.length}</em>
                   </div>
-                  <div className="org-kanban-list">
+                  <div className="org-trello-list">
                     {itens.map(renderCardProducao)}
-                    {itens.length === 0 && <Empty text="Nenhuma ação nesta etapa." />}
+                    {itens.length === 0 && (
+                      <Empty text="Nenhuma ação nesta etapa." />
+                    )}
+                    {renderAdicionarNoQuadro(coluna.value)}
                   </div>
                 </div>
               );
@@ -1104,9 +2031,56 @@ export default function OrganizacaoPage() {
         )}
 
         {visualizacaoProducao === "acoes" && (
-          <div className="org-card-list">
-            {producaoFiltrada.map(renderCardProducao)}
-            {producaoFiltrada.length === 0 && <Empty text="Nenhuma ação de produção encontrada." />}
+          <div className="org-actions-table-wrap">
+            <table className="org-actions-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Ação</th>
+                  <th>Categoria</th>
+                  <th>Responsável</th>
+                  <th>Prazo</th>
+                  <th>Prioridade</th>
+                  <th>Fornecedor</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {producaoFiltrada.map((acao) => (
+                  <tr key={acao.id}>
+                    <td>
+                      <span className={`org-pill ${acao.status}`}>
+                        {labelStatus(acao.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{acao.titulo}</strong>
+                    </td>
+                    <td>{labelCategoriaProducao(acao.categoria)}</td>
+                    <td>{acao.responsavel_nome || "-"}</td>
+                    <td
+                      className={
+                        isAtrasada(acao.data_limite, acao.status)
+                          ? "org-danger-text"
+                          : ""
+                      }
+                    >
+                      {formatarData(acao.data_limite)}
+                    </td>
+                    <td>{labelStatus(acao.prioridade)}</td>
+                    <td>{fornecedorNome(acao.fornecedor_id) || "-"}</td>
+                    <td>
+                      <button type="button" onClick={() => setAcaoAberta(acao)}>
+                        Abrir
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {producaoFiltrada.length === 0 && (
+              <Empty text="Nenhuma ação de produção encontrada." />
+            )}
           </div>
         )}
 
@@ -1114,15 +2088,225 @@ export default function OrganizacaoPage() {
           <div className="org-calendar-list">
             {acoesPorData.map((acao) => (
               <div key={acao.id} className="org-calendar-row">
-                <div className="org-calendar-date">{formatarData(acao.data_limite)}</div>
+                <div className="org-calendar-date">
+                  {formatarData(acao.data_limite)}
+                </div>
                 <div className="org-calendar-content">
                   <strong>{acao.titulo}</strong>
-                  <span>{labelCategoriaProducao(acao.categoria)} · {labelStatus(acao.status)} · {acao.responsavel_nome || "Sem responsável"}</span>
+                  <span>
+                    {labelCategoriaProducao(acao.categoria)} ·{" "}
+                    {labelStatus(acao.status)} ·{" "}
+                    {acao.responsavel_nome || "Sem responsável"}
+                  </span>
                 </div>
-                <button type="button" onClick={() => editarAcao(acao)}>Editar</button>
+                <button type="button" onClick={() => setAcaoAberta(acao)}>
+                  Abrir cartão
+                </button>
               </div>
             ))}
-            {acoesPorData.length === 0 && <Empty text="Nenhuma ação com prazo para exibir no calendário." />}
+            {acoesPorData.length === 0 && (
+              <Empty text="Nenhuma ação com prazo para exibir no calendário." />
+            )}
+          </div>
+        )}
+
+        {visualizacaoProducao === "cronograma" && (
+          <div className="org-timeline-view">
+            {acoesPorData.map((acao, index) => (
+              <div key={acao.id} className="org-timeline-item">
+                <div className="org-timeline-marker">
+                  <span>{index + 1}</span>
+                </div>
+                <div className="org-timeline-card">
+                  <div>
+                    <span className="org-timeline-date">
+                      {formatarData(acao.data_limite)}
+                    </span>
+                    <h3>{acao.titulo}</h3>
+                    <p>
+                      {labelCategoriaProducao(acao.categoria)} ·{" "}
+                      {labelStatus(acao.status)} ·{" "}
+                      {acao.responsavel_nome || "Sem responsável"}
+                    </p>
+                  </div>
+                  <div className="org-card-actions compact">
+                    <button type="button" onClick={() => setAcaoAberta(acao)}>
+                      Abrir cartão
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        alterarStatusAcao(
+                          acao,
+                          acao.status === "concluido" ? "a_fazer" : "concluido",
+                        )
+                      }
+                    >
+                      {acao.status === "concluido" ? "Reabrir" : "Concluir"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {acoesSemData.length > 0 && (
+              <div className="org-without-date">
+                <strong>Ações sem prazo</strong>
+                <span>
+                  {acoesSemData.length} ação(ões) ainda precisam de data para
+                  entrar no cronograma.
+                </span>
+              </div>
+            )}
+            {acoesPorData.length === 0 && (
+              <Empty text="Nenhuma ação com prazo para montar o cronograma." />
+            )}
+          </div>
+        )}
+
+        {acaoAberta && (
+          <div
+            className="org-modal-backdrop"
+            onClick={() => setAcaoAberta(null)}
+          >
+            <div
+              className="org-card-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="org-card-modal-main">
+                <button
+                  type="button"
+                  className="org-modal-close"
+                  onClick={() => setAcaoAberta(null)}
+                >
+                  ×
+                </button>
+                <span className={`org-category-tag ${acaoAberta.categoria}`}>
+                  {labelCategoriaProducao(acaoAberta.categoria)}
+                </span>
+                <h2>{acaoAberta.titulo}</h2>
+                <p className="org-muted">
+                  Na lista {labelStatus(acaoAberta.status)}
+                </p>
+
+                <div className="org-modal-fields">
+                  <label>
+                    Status
+                    <select
+                      value={acaoAberta.status}
+                      onChange={(e) =>
+                        atualizarAcaoCampo(acaoAberta, "status", e.target.value)
+                      }
+                    >
+                      {STATUS_PRODUCAO.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Categoria
+                    <select
+                      value={acaoAberta.categoria}
+                      onChange={(e) =>
+                        atualizarAcaoCampo(
+                          acaoAberta,
+                          "categoria",
+                          e.target.value,
+                        )
+                      }
+                    >
+                      {CATEGORIAS_PRODUCAO.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Prioridade
+                    <select
+                      value={acaoAberta.prioridade}
+                      onChange={(e) =>
+                        atualizarAcaoCampo(
+                          acaoAberta,
+                          "prioridade",
+                          e.target.value,
+                        )
+                      }
+                    >
+                      <option value="baixa">Baixa</option>
+                      <option value="media">Média</option>
+                      <option value="alta">Alta</option>
+                      <option value="urgente">Urgente</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="org-modal-section">
+                  <h3>Descrição</h3>
+                  <p>
+                    {acaoAberta.descricao ||
+                      acaoAberta.observacoes ||
+                      "Nenhuma descrição adicionada."}
+                  </p>
+                </div>
+
+                <div className="org-modal-section">
+                  <h3>Detalhes</h3>
+                  <p>
+                    Responsável:{" "}
+                    {acaoAberta.responsavel_nome || "Sem responsável"}
+                  </p>
+                  <p>Prazo: {formatarData(acaoAberta.data_limite)}</p>
+                  <p>
+                    Fornecedor:{" "}
+                    {fornecedorNome(acaoAberta.fornecedor_id) ||
+                      "Sem fornecedor vinculado"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="org-card-modal-sidebar">
+                <strong>Ações do cartão</strong>
+                <button type="button" onClick={() => editarAcao(acaoAberta)}>
+                  ✏️ Editar dados
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    alterarStatusAcao(
+                      acaoAberta,
+                      acaoAberta.status === "concluido"
+                        ? "a_fazer"
+                        : "concluido",
+                    )
+                  }
+                >
+                  {acaoAberta.status === "concluido"
+                    ? "↩️ Reabrir"
+                    : "✅ Concluir"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(acaoAberta.titulo);
+                  }}
+                >
+                  🔗 Copiar título
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => {
+                    excluirAcao(acaoAberta);
+                    setAcaoAberta(null);
+                  }}
+                >
+                  🗑️ Excluir cartão
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </Panel>
@@ -1131,29 +2315,123 @@ export default function OrganizacaoPage() {
 
   function renderFornecedores() {
     return (
-      <Panel title="Fornecedores" subtitle="Cadastro separado de contatos e convidados">
+      <Panel
+        title="Fornecedores"
+        subtitle="Cadastro separado de contatos e convidados"
+      >
         <div className="org-form-grid fornecedor">
-          <input placeholder="Nome do fornecedor" value={novoFornecedor.nome} onChange={(e) => setNovoFornecedor({ ...novoFornecedor, nome: e.target.value })} />
-          <select value={novoFornecedor.categoria} onChange={(e) => setNovoFornecedor({ ...novoFornecedor, categoria: e.target.value })}>{CATEGORIAS_FORNECEDOR.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>
-          <input placeholder="Telefone" value={novoFornecedor.telefone} onChange={(e) => setNovoFornecedor({ ...novoFornecedor, telefone: e.target.value })} />
-          <input placeholder="E-mail" value={novoFornecedor.email} onChange={(e) => setNovoFornecedor({ ...novoFornecedor, email: e.target.value })} />
-          <input placeholder="Valor fechado" value={novoFornecedor.valor_fechado} onChange={(e) => setNovoFornecedor({ ...novoFornecedor, valor_fechado: e.target.value })} />
-          <button onClick={criarFornecedor} disabled={salvando || !novoFornecedor.nome.trim()}>Adicionar</button>
+          <input
+            placeholder="Nome do fornecedor"
+            value={novoFornecedor.nome}
+            onChange={(e) =>
+              setNovoFornecedor({ ...novoFornecedor, nome: e.target.value })
+            }
+          />
+          <select
+            value={novoFornecedor.categoria}
+            onChange={(e) =>
+              setNovoFornecedor({
+                ...novoFornecedor,
+                categoria: e.target.value,
+              })
+            }
+          >
+            {CATEGORIAS_FORNECEDOR.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Telefone"
+            value={novoFornecedor.telefone}
+            onChange={(e) =>
+              setNovoFornecedor({ ...novoFornecedor, telefone: e.target.value })
+            }
+          />
+          <input
+            placeholder="E-mail"
+            value={novoFornecedor.email}
+            onChange={(e) =>
+              setNovoFornecedor({ ...novoFornecedor, email: e.target.value })
+            }
+          />
+          <input
+            placeholder="Valor fechado"
+            value={novoFornecedor.valor_fechado}
+            onChange={(e) =>
+              setNovoFornecedor({
+                ...novoFornecedor,
+                valor_fechado: e.target.value,
+              })
+            }
+          />
+          <button
+            onClick={criarFornecedor}
+            disabled={salvando || !novoFornecedor.nome.trim()}
+          >
+            Adicionar
+          </button>
         </div>
         <div className="org-card-list">
           {fornecedoresFiltrados.map((item) => (
             <div key={item.id} className="org-item-card">
-              <div className="org-item-main"><span className={`org-pill ${item.status}`}>{labelStatus(item.status)}</span><h3>{item.fornecedor?.nome || "Fornecedor"}</h3><p>{labelCategoria(item.fornecedor?.categoria || item.categoria_evento)} · {item.fornecedor?.telefone || "Sem telefone"} · {formatarMoeda(toNumber(item.valor_fechado || item.valor_orcado))}</p></div>
+              <div className="org-item-main">
+                <span className={`org-pill ${item.status}`}>
+                  {labelStatus(item.status)}
+                </span>
+                <h3>{item.fornecedor?.nome || "Fornecedor"}</h3>
+                <p>
+                  {labelCategoria(
+                    item.fornecedor?.categoria || item.categoria_evento,
+                  )}{" "}
+                  · {item.fornecedor?.telefone || "Sem telefone"} ·{" "}
+                  {formatarMoeda(
+                    toNumber(item.valor_fechado || item.valor_orcado),
+                  )}
+                </p>
+              </div>
               <div className="org-card-actions">
-                <select value={item.status} onChange={(e) => atualizarStatusFornecedor(item, e.target.value)}>{STATUS_FORNECEDOR.map((s) => <option key={s} value={s}>{labelStatus(s)}</option>)}</select>
-                <button type="button" onClick={() => editarFornecedor(item)}>✏️ Editar</button>
-                <button type="button" onClick={() => abrirContratoFornecedor(item)}>📄 Contrato</button>
-                <button type="button" onClick={() => abrirPagamentoFornecedor(item)}>💰 Pagamento</button>
-                <button type="button" className="danger" onClick={() => excluirFornecedor(item)}>🗑️ Excluir</button>
+                <select
+                  value={item.status}
+                  onChange={(e) =>
+                    atualizarStatusFornecedor(item, e.target.value)
+                  }
+                >
+                  {STATUS_FORNECEDOR.map((s) => (
+                    <option key={s} value={s}>
+                      {labelStatus(s)}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => editarFornecedor(item)}>
+                  ✏️ Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => abrirContratoFornecedor(item)}
+                >
+                  📄 Contrato
+                </button>
+                <button
+                  type="button"
+                  onClick={() => abrirPagamentoFornecedor(item)}
+                >
+                  💰 Pagamento
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => excluirFornecedor(item)}
+                >
+                  🗑️ Excluir
+                </button>
               </div>
             </div>
           ))}
-          {fornecedoresFiltrados.length === 0 && <Empty text="Nenhum fornecedor encontrado." />}
+          {fornecedoresFiltrados.length === 0 && (
+            <Empty text="Nenhum fornecedor encontrado." />
+          )}
         </div>
       </Panel>
     );
@@ -1161,31 +2439,135 @@ export default function OrganizacaoPage() {
 
   function renderContratacoes(financeiro: boolean) {
     return (
-      <Panel title={financeiro ? "Financeiro" : "Contratações"} subtitle="Contratos, vencimentos, pagamentos e saldo pendente">
+      <Panel
+        title={financeiro ? "Financeiro" : "Contratações"}
+        subtitle="Contratos, vencimentos, pagamentos e saldo pendente"
+      >
         {!financeiro && (
           <div className="org-form-grid contratacao">
-            <input placeholder="Título da contratação" value={novaContratacao.titulo} onChange={(e) => setNovaContratacao({ ...novaContratacao, titulo: e.target.value })} />
-            <select value={novaContratacao.fornecedor_evento_id} onChange={(e) => setNovaContratacao({ ...novaContratacao, fornecedor_evento_id: e.target.value })}><option value="">Sem fornecedor vinculado</option>{fornecedoresEvento.map((f) => <option key={f.id} value={f.id}>{f.fornecedor?.nome || "Fornecedor"}</option>)}</select>
-            <input placeholder="Valor contratado" value={novaContratacao.valor_contratado} onChange={(e) => setNovaContratacao({ ...novaContratacao, valor_contratado: e.target.value })} />
-            <input placeholder="Valor pago" value={novaContratacao.valor_pago} onChange={(e) => setNovaContratacao({ ...novaContratacao, valor_pago: e.target.value })} />
-            <input type="date" value={novaContratacao.data_vencimento} onChange={(e) => setNovaContratacao({ ...novaContratacao, data_vencimento: e.target.value })} />
-            <button onClick={criarContratacao} disabled={salvando || !novaContratacao.titulo.trim()}>Adicionar</button>
+            <input
+              placeholder="Título da contratação"
+              value={novaContratacao.titulo}
+              onChange={(e) =>
+                setNovaContratacao({
+                  ...novaContratacao,
+                  titulo: e.target.value,
+                })
+              }
+            />
+            <select
+              value={novaContratacao.fornecedor_evento_id}
+              onChange={(e) =>
+                setNovaContratacao({
+                  ...novaContratacao,
+                  fornecedor_evento_id: e.target.value,
+                })
+              }
+            >
+              <option value="">Sem fornecedor vinculado</option>
+              {fornecedoresEvento.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.fornecedor?.nome || "Fornecedor"}
+                </option>
+              ))}
+            </select>
+            <input
+              placeholder="Valor contratado"
+              value={novaContratacao.valor_contratado}
+              onChange={(e) =>
+                setNovaContratacao({
+                  ...novaContratacao,
+                  valor_contratado: e.target.value,
+                })
+              }
+            />
+            <input
+              placeholder="Valor pago"
+              value={novaContratacao.valor_pago}
+              onChange={(e) =>
+                setNovaContratacao({
+                  ...novaContratacao,
+                  valor_pago: e.target.value,
+                })
+              }
+            />
+            <input
+              type="date"
+              value={novaContratacao.data_vencimento}
+              onChange={(e) =>
+                setNovaContratacao({
+                  ...novaContratacao,
+                  data_vencimento: e.target.value,
+                })
+              }
+            />
+            <button
+              onClick={criarContratacao}
+              disabled={salvando || !novaContratacao.titulo.trim()}
+            >
+              Adicionar
+            </button>
           </div>
         )}
         <div className="org-card-list">
           {contratacoesFiltradas.map((item) => (
             <div key={item.id} className="org-item-card finance">
-              <div className="org-item-main"><span className={`org-pill ${item.status}`}>{labelStatus(item.status)}</span><h3>{item.titulo}</h3><p>Vencimento {formatarData(item.data_vencimento)} · {item.parcelas || 1} parcela(s)</p></div>
-              <div className="org-finance-values"><strong>{formatarMoeda(toNumber(item.valor_contratado))}</strong><span>Pago {formatarMoeda(toNumber(item.valor_pago))}</span><span>Pendente {formatarMoeda(toNumber(item.valor_pendente ?? toNumber(item.valor_contratado) - toNumber(item.valor_pago)))}</span></div>
+              <div className="org-item-main">
+                <span className={`org-pill ${item.status}`}>
+                  {labelStatus(item.status)}
+                </span>
+                <h3>{item.titulo}</h3>
+                <p>
+                  Vencimento {formatarData(item.data_vencimento)} ·{" "}
+                  {item.parcelas || 1} parcela(s)
+                </p>
+              </div>
+              <div className="org-finance-values">
+                <strong>
+                  {formatarMoeda(toNumber(item.valor_contratado))}
+                </strong>
+                <span>Pago {formatarMoeda(toNumber(item.valor_pago))}</span>
+                <span>
+                  Pendente{" "}
+                  {formatarMoeda(
+                    toNumber(
+                      item.valor_pendente ??
+                        toNumber(item.valor_contratado) -
+                          toNumber(item.valor_pago),
+                    ),
+                  )}
+                </span>
+              </div>
               <div className="org-card-actions compact">
-                <button type="button" onClick={() => editarContratacao(item)}>✏️ Editar</button>
-                <button type="button" onClick={() => marcarContratacaoPaga(item)} disabled={item.status === "pago"}>✅ Marcar pago</button>
-                <button type="button" onClick={() => anexarComprovanteContratacao(item)}>📎 Comprovante</button>
-                <button type="button" className="danger" onClick={() => excluirContratacao(item)}>🗑️ Excluir</button>
+                <button type="button" onClick={() => editarContratacao(item)}>
+                  ✏️ Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => marcarContratacaoPaga(item)}
+                  disabled={item.status === "pago"}
+                >
+                  ✅ Marcar pago
+                </button>
+                <button
+                  type="button"
+                  onClick={() => anexarComprovanteContratacao(item)}
+                >
+                  📎 Comprovante
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => excluirContratacao(item)}
+                >
+                  🗑️ Excluir
+                </button>
               </div>
             </div>
           ))}
-          {contratacoesFiltradas.length === 0 && <Empty text="Nenhuma contratação encontrada." />}
+          {contratacoesFiltradas.length === 0 && (
+            <Empty text="Nenhuma contratação encontrada." />
+          )}
         </div>
       </Panel>
     );
@@ -1193,19 +2575,79 @@ export default function OrganizacaoPage() {
 
   function renderRoteiro() {
     return (
-      <Panel title="Roteiro do Evento" subtitle="Timeline e cerimonial usando event_agenda_items">
+      <Panel
+        title="Roteiro do Evento"
+        subtitle="Timeline e cerimonial usando event_agenda_items"
+      >
         <div className="org-form-grid roteiro">
-          <input placeholder="Título" value={novoAgenda.titulo} onChange={(e) => setNovoAgenda({ ...novoAgenda, titulo: e.target.value })} />
-          <input type="datetime-local" value={novoAgenda.data_inicio} onChange={(e) => setNovoAgenda({ ...novoAgenda, data_inicio: e.target.value })} />
-          <input type="datetime-local" value={novoAgenda.data_fim} onChange={(e) => setNovoAgenda({ ...novoAgenda, data_fim: e.target.value })} />
-          <input placeholder="Responsável" value={novoAgenda.responsavel} onChange={(e) => setNovoAgenda({ ...novoAgenda, responsavel: e.target.value })} />
-          <button onClick={criarAgenda} disabled={salvando || !novoAgenda.titulo.trim()}>Adicionar</button>
+          <input
+            placeholder="Título"
+            value={novoAgenda.titulo}
+            onChange={(e) =>
+              setNovoAgenda({ ...novoAgenda, titulo: e.target.value })
+            }
+          />
+          <input
+            type="datetime-local"
+            value={novoAgenda.data_inicio}
+            onChange={(e) =>
+              setNovoAgenda({ ...novoAgenda, data_inicio: e.target.value })
+            }
+          />
+          <input
+            type="datetime-local"
+            value={novoAgenda.data_fim}
+            onChange={(e) =>
+              setNovoAgenda({ ...novoAgenda, data_fim: e.target.value })
+            }
+          />
+          <input
+            placeholder="Responsável"
+            value={novoAgenda.responsavel}
+            onChange={(e) =>
+              setNovoAgenda({ ...novoAgenda, responsavel: e.target.value })
+            }
+          />
+          <button
+            onClick={criarAgenda}
+            disabled={salvando || !novoAgenda.titulo.trim()}
+          >
+            Adicionar
+          </button>
         </div>
         <div className="org-timeline">
           {agendaFiltrada.map((item) => (
-            <div key={item.id} className="org-timeline-row"><div className="org-time"><strong>{hora(item.data_inicio)}</strong><span>{hora(item.data_fim)}</span></div><div className="org-dot" /><div className="org-timeline-content"><h3>{item.titulo || "Item do roteiro"}</h3><p>{item.categoria || "Roteiro"} · {item.responsavel || "Sem responsável"}</p>{item.descricao ? <small>{item.descricao}</small> : null}<div className="org-row-actions"><button type="button" onClick={() => editarAgenda(item)}>✏️ Editar</button><button type="button" className="danger" onClick={() => excluirAgenda(item)}>🗑️ Excluir</button></div></div></div>
+            <div key={item.id} className="org-timeline-row">
+              <div className="org-time">
+                <strong>{hora(item.data_inicio)}</strong>
+                <span>{hora(item.data_fim)}</span>
+              </div>
+              <div className="org-dot" />
+              <div className="org-timeline-content">
+                <h3>{item.titulo || "Item do roteiro"}</h3>
+                <p>
+                  {item.categoria || "Roteiro"} ·{" "}
+                  {item.responsavel || "Sem responsável"}
+                </p>
+                {item.descricao ? <small>{item.descricao}</small> : null}
+                <div className="org-row-actions">
+                  <button type="button" onClick={() => editarAgenda(item)}>
+                    ✏️ Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => excluirAgenda(item)}
+                  >
+                    🗑️ Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
-          {agendaFiltrada.length === 0 && <Empty text="Nenhum item de roteiro encontrado." />}
+          {agendaFiltrada.length === 0 && (
+            <Empty text="Nenhum item de roteiro encontrado." />
+          )}
         </div>
       </Panel>
     );
@@ -1215,15 +2657,104 @@ export default function OrganizacaoPage() {
     return (
       <Panel title="Equipe" subtitle="Equipe operacional do dia do evento">
         <div className="org-form-grid equipe">
-          <input placeholder="Nome" value={novoEquipe.nome} onChange={(e) => setNovoEquipe({ ...novoEquipe, nome: e.target.value })} />
-          <input placeholder="Função" value={novoEquipe.funcao} onChange={(e) => setNovoEquipe({ ...novoEquipe, funcao: e.target.value })} />
-          <input placeholder="Telefone" value={novoEquipe.telefone} onChange={(e) => setNovoEquipe({ ...novoEquipe, telefone: e.target.value })} />
-          <label className="org-check"><input type="checkbox" checked={novoEquipe.contato_principal} onChange={(e) => setNovoEquipe({ ...novoEquipe, contato_principal: e.target.checked })} /> Principal</label>
-          <button onClick={criarEquipe} disabled={salvando || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()}>Adicionar</button>
+          <input
+            placeholder="Nome"
+            value={novoEquipe.nome}
+            onChange={(e) =>
+              setNovoEquipe({ ...novoEquipe, nome: e.target.value })
+            }
+          />
+          <input
+            placeholder="Função"
+            value={novoEquipe.funcao}
+            onChange={(e) =>
+              setNovoEquipe({ ...novoEquipe, funcao: e.target.value })
+            }
+          />
+          <input
+            placeholder="Telefone"
+            value={novoEquipe.telefone}
+            onChange={(e) =>
+              setNovoEquipe({ ...novoEquipe, telefone: e.target.value })
+            }
+          />
+          <label className="org-check">
+            <input
+              type="checkbox"
+              checked={novoEquipe.contato_principal}
+              onChange={(e) =>
+                setNovoEquipe({
+                  ...novoEquipe,
+                  contato_principal: e.target.checked,
+                })
+              }
+            />{" "}
+            Principal
+          </label>
+          <button
+            onClick={criarEquipe}
+            disabled={
+              salvando || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()
+            }
+          >
+            Adicionar
+          </button>
         </div>
         <div className="org-card-list">
-          {equipeFiltrada.map((item) => <div key={item.id} className="org-item-card"><div className="org-item-main"><span className={`org-pill ${item.status}`}>{item.contato_principal ? "Principal" : labelStatus(item.status)}</span><h3>{item.nome}</h3><p>{item.funcao} · {item.telefone || "Sem telefone"}</p></div><span className="org-muted">{formatarDataHora(item.horario_inicio)}</span><div className="org-card-actions"><select value={item.status} onChange={(e) => atualizarStatusEquipe(item, e.target.value)}><option value="convidado">Convidado</option><option value="confirmado">Confirmado</option><option value="presente">Presente</option><option value="ausente">Ausente</option><option value="cancelado">Cancelado</option></select><button type="button" onClick={() => atualizarStatusEquipe(item, item.status === "presente" ? "confirmado" : "presente")}>{item.status === "presente" ? "↩️ Reabrir" : "✅ Confirmar"}</button><button type="button" onClick={() => editarEquipe(item)}>✏️ Editar</button><button type="button" className="danger" onClick={() => excluirEquipe(item)}>🗑️ Excluir</button></div></div>)}
-          {equipeFiltrada.length === 0 && <Empty text="Nenhum membro da equipe encontrado." />}
+          {equipeFiltrada.map((item) => (
+            <div key={item.id} className="org-item-card">
+              <div className="org-item-main">
+                <span className={`org-pill ${item.status}`}>
+                  {item.contato_principal
+                    ? "Principal"
+                    : labelStatus(item.status)}
+                </span>
+                <h3>{item.nome}</h3>
+                <p>
+                  {item.funcao} · {item.telefone || "Sem telefone"}
+                </p>
+              </div>
+              <span className="org-muted">
+                {formatarDataHora(item.horario_inicio)}
+              </span>
+              <div className="org-card-actions">
+                <select
+                  value={item.status}
+                  onChange={(e) => atualizarStatusEquipe(item, e.target.value)}
+                >
+                  <option value="convidado">Convidado</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="presente">Presente</option>
+                  <option value="ausente">Ausente</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    atualizarStatusEquipe(
+                      item,
+                      item.status === "presente" ? "confirmado" : "presente",
+                    )
+                  }
+                >
+                  {item.status === "presente" ? "↩️ Reabrir" : "✅ Confirmar"}
+                </button>
+                <button type="button" onClick={() => editarEquipe(item)}>
+                  ✏️ Editar
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => excluirEquipe(item)}
+                >
+                  🗑️ Excluir
+                </button>
+              </div>
+            </div>
+          ))}
+          {equipeFiltrada.length === 0 && (
+            <Empty text="Nenhum membro da equipe encontrado." />
+          )}
         </div>
       </Panel>
     );
@@ -1231,66 +2762,218 @@ export default function OrganizacaoPage() {
 
   function renderChecklist() {
     return (
-      <Panel title="Checklist do Dia" subtitle="Itens de montagem, cerimônia, operação e desmontagem">
+      <Panel
+        title="Checklist do Dia"
+        subtitle="Itens de montagem, cerimônia, operação e desmontagem"
+      >
         <div className="org-checklist-actions">
-          <button onClick={usarChecklistPadrao} disabled={salvando || !eventoAtual}>
-            {checklist.length === 0 ? "Usar checklist padrão" : "Adicionar itens padrão restantes"}
+          <button
+            onClick={usarChecklistPadrao}
+            disabled={salvando || !eventoAtual}
+          >
+            {checklist.length === 0
+              ? "Usar checklist padrão"
+              : "Adicionar itens padrão restantes"}
           </button>
           <span>{CHECKLIST_PADRAO_DIA.length} itens padrão disponíveis</span>
         </div>
 
         <div className="org-form-grid checklist">
-          <input placeholder="Item do checklist" value={novoChecklist.item} onChange={(e) => setNovoChecklist({ ...novoChecklist, item: e.target.value })} />
-          <input placeholder="Categoria" value={novoChecklist.categoria} onChange={(e) => setNovoChecklist({ ...novoChecklist, categoria: e.target.value })} />
-          <select value={novoChecklist.tipo} onChange={(e) => setNovoChecklist({ ...novoChecklist, tipo: e.target.value })}><option value="planejamento">Planejamento</option><option value="dia_evento">Dia do evento</option><option value="montagem">Montagem</option><option value="desmontagem">Desmontagem</option><option value="outro">Outro</option></select>
-          <label className="org-check"><input type="checkbox" checked={novoChecklist.obrigatorio} onChange={(e) => setNovoChecklist({ ...novoChecklist, obrigatorio: e.target.checked })} /> Obrigatório</label>
-          <button onClick={criarChecklist} disabled={salvando || !novoChecklist.item.trim()}>Adicionar</button>
+          <input
+            placeholder="Item do checklist"
+            value={novoChecklist.item}
+            onChange={(e) =>
+              setNovoChecklist({ ...novoChecklist, item: e.target.value })
+            }
+          />
+          <input
+            placeholder="Categoria"
+            value={novoChecklist.categoria}
+            onChange={(e) =>
+              setNovoChecklist({ ...novoChecklist, categoria: e.target.value })
+            }
+          />
+          <select
+            value={novoChecklist.tipo}
+            onChange={(e) =>
+              setNovoChecklist({ ...novoChecklist, tipo: e.target.value })
+            }
+          >
+            <option value="planejamento">Planejamento</option>
+            <option value="dia_evento">Dia do evento</option>
+            <option value="montagem">Montagem</option>
+            <option value="desmontagem">Desmontagem</option>
+            <option value="outro">Outro</option>
+          </select>
+          <label className="org-check">
+            <input
+              type="checkbox"
+              checked={novoChecklist.obrigatorio}
+              onChange={(e) =>
+                setNovoChecklist({
+                  ...novoChecklist,
+                  obrigatorio: e.target.checked,
+                })
+              }
+            />{" "}
+            Obrigatório
+          </label>
+          <button
+            onClick={criarChecklist}
+            disabled={salvando || !novoChecklist.item.trim()}
+          >
+            Adicionar
+          </button>
         </div>
         <div className="org-card-list">
           {checklistFiltrado.map((item) => (
-            <div key={item.id} className={`org-check-row ${item.concluido ? "done" : ""}`}>
-              <button className="org-check-toggle" onClick={() => alternarChecklist(item)} aria-label={item.concluido ? "Marcar como pendente" : "Marcar como concluído"}>{item.concluido ? "✓" : ""}</button>
+            <div
+              key={item.id}
+              className={`org-check-row ${item.concluido ? "done" : ""}`}
+            >
+              <button
+                className="org-check-toggle"
+                onClick={() => alternarChecklist(item)}
+                aria-label={
+                  item.concluido
+                    ? "Marcar como pendente"
+                    : "Marcar como concluído"
+                }
+              >
+                {item.concluido ? "✓" : ""}
+              </button>
               <div className="org-check-content">
                 <h3>{item.item}</h3>
-                <p>{item.categoria} · {labelStatus(item.tipo)} {item.obrigatorio ? "· obrigatório" : ""}</p>
+                <p>
+                  {item.categoria} · {labelStatus(item.tipo)}{" "}
+                  {item.obrigatorio ? "· obrigatório" : ""}
+                </p>
               </div>
               <div className="org-row-actions">
-                <button type="button" onClick={() => alternarChecklist(item)}>{item.concluido ? "↩️ Reabrir" : "✅ Concluir"}</button>
-                <button type="button" onClick={() => alterarChecklist(item)}>✏️ Editar</button>
-                <button type="button" className="danger" onClick={() => excluirChecklist(item)}>🗑️ Excluir</button>
+                <button type="button" onClick={() => alternarChecklist(item)}>
+                  {item.concluido ? "↩️ Reabrir" : "✅ Concluir"}
+                </button>
+                <button type="button" onClick={() => alterarChecklist(item)}>
+                  ✏️ Editar
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => excluirChecklist(item)}
+                >
+                  🗑️ Excluir
+                </button>
               </div>
             </div>
           ))}
-          {checklistFiltrado.length === 0 && <Empty text="Nenhum item de checklist encontrado. Use o checklist padrão ou adicione itens manualmente." />}
+          {checklistFiltrado.length === 0 && (
+            <Empty text="Nenhum item de checklist encontrado. Use o checklist padrão ou adicione itens manualmente." />
+          )}
         </div>
       </Panel>
     );
   }
 }
 
-function Metric({ title, value, detail, danger }: { title: string; value: string | number; detail: string; danger?: boolean }) {
-  return <div className={`org-metric ${danger ? "danger" : ""}`}><span>{title}</span><strong>{value}</strong><small>{detail}</small></div>;
+function Metric({
+  title,
+  value,
+  detail,
+  danger,
+}: {
+  title: string;
+  value: string | number;
+  detail: string;
+  danger?: boolean;
+}) {
+  return (
+    <div className={`org-metric ${danger ? "danger" : ""}`}>
+      <span>{title}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </div>
+  );
 }
 
-function Panel({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return <section className="org-panel"><div className="org-panel-head"><div><h2>{title}</h2>{subtitle ? <p>{subtitle}</p> : null}</div></div>{children}</section>;
+function Panel({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="org-panel">
+      <div className="org-panel-head">
+        <div>
+          <h2>{title}</h2>
+          {subtitle ? <p>{subtitle}</p> : null}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function SubTabs({ items, active, onChange }: { items: string[]; active: string; onChange: (value: string) => void }) {
-  return <div className="org-subtabs">{items.map((item) => <button key={item} className={active === item ? "active" : ""} onClick={() => onChange(item)}>{labelStatus(item)}</button>)}</div>;
+function SubTabs({
+  items,
+  active,
+  onChange,
+}: {
+  items: string[];
+  active: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="org-subtabs">
+      {items.map((item) => (
+        <button
+          key={item}
+          className={active === item ? "active" : ""}
+          onClick={() => onChange(item)}
+        >
+          {labelStatus(item)}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function MiniRow({ title, detail, status }: { title: string | null; detail: string; status: string }) {
-  return <div className="org-mini-row"><div><strong>{title || "Sem título"}</strong><span>{detail}</span></div><em className={`org-pill ${status}`}>{labelStatus(status)}</em></div>;
+function MiniRow({
+  title,
+  detail,
+  status,
+}: {
+  title: string | null;
+  detail: string;
+  status: string;
+}) {
+  return (
+    <div className="org-mini-row">
+      <div>
+        <strong>{title || "Sem título"}</strong>
+        <span>{detail}</span>
+      </div>
+      <em className={`org-pill ${status}`}>{labelStatus(status)}</em>
+    </div>
+  );
 }
 
 function Empty({ text }: { text: string }) {
   return <div className="org-empty-inline">{text}</div>;
 }
 
-function filtrar<T>(items: T[], termo: string, campos: (item: T) => Array<string | null | undefined>) {
+function filtrar<T>(
+  items: T[],
+  termo: string,
+  campos: (item: T) => Array<string | null | undefined>,
+) {
   if (!termo) return items;
-  return items.filter((item) => campos(item).some((campo) => (campo || "").toLowerCase().includes(termo)));
+  return items.filter((item) =>
+    campos(item).some((campo) => (campo || "").toLowerCase().includes(termo)),
+  );
 }
 
 function limpar(value: string | null | undefined) {
@@ -1327,7 +3010,10 @@ function datetimeOuNull(value: string) {
 }
 
 function formatarMoeda(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value || 0);
 }
 
 function formatarData(value: string | null | undefined) {
@@ -1341,14 +3027,24 @@ function formatarDataHora(value: string | null | undefined) {
   if (!value) return "sem horário";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "sem horário";
-  return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function hora(value: string | null | undefined) {
   if (!value) return "--:--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--:--";
-  return date.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function calcularDiasRestantes(evento: Evento | null) {
@@ -1364,19 +3060,29 @@ function calcularDiasRestantes(evento: Evento | null) {
 function formatarDataEvento(evento: Evento) {
   const data = evento.data_inicio || evento.data_evento;
   const dia = data ? formatarData(data) : "Data não informada";
-  const horaInicio = evento.hora_inicio ? String(evento.hora_inicio).slice(0, 5) : "";
+  const horaInicio = evento.hora_inicio
+    ? String(evento.hora_inicio).slice(0, 5)
+    : "";
   return horaInicio ? `${dia} às ${horaInicio}` : dia;
 }
 
 function normalizarStatusProducao(status: string | null | undefined) {
   if (status === "pendente") return "a_fazer";
   if (status === "atrasado") return "aguardando_terceiro";
-  if (status === "ideia" || status === "a_fazer" || status === "em_andamento" || status === "aguardando_terceiro" || status === "concluido") return status;
+  if (
+    status === "ideia" ||
+    status === "a_fazer" ||
+    status === "em_andamento" ||
+    status === "aguardando_terceiro" ||
+    status === "concluido"
+  )
+    return status;
   return "a_fazer";
 }
 
 function isAtrasada(dataLimite: string | null, status: string | null) {
-  if (!dataLimite || status === "concluido" || status === "cancelado") return false;
+  if (!dataLimite || status === "concluido" || status === "cancelado")
+    return false;
   const limite = new Date(dataLimite);
   limite.setHours(23, 59, 59, 999);
   return limite.getTime() < Date.now();
@@ -1388,7 +3094,10 @@ function labelCategoria(value: string | null | undefined) {
 }
 
 function labelCategoriaProducao(value?: string | null) {
-  return CATEGORIAS_PRODUCAO.find((categoria) => categoria.value === value)?.label || "⭐ Outros";
+  return (
+    CATEGORIAS_PRODUCAO.find((categoria) => categoria.value === value)?.label ||
+    "⭐ Outros"
+  );
 }
 
 function labelStatus(value: string | null | undefined) {
@@ -1552,12 +3261,75 @@ const styles = `
 .org-pill.a_fazer { background: #ede9fe; color: #5b21b6; }
 .org-pill.aguardando_terceiro { background: #ffedd5; color: #9a3412; }
 
+
+.org-trello-board { display: grid; grid-template-columns: repeat(5, minmax(280px, 1fr)); gap: 14px; align-items: stretch; overflow-x: auto; padding-bottom: 8px; }
+.org-trello-column { min-width: 280px; border-radius: 24px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; }
+.org-trello-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.org-trello-head strong { display: block; font-size: 16px; letter-spacing: -.02em; color: #0f172a; }
+.org-trello-head span { display: block; margin-top: 3px; color: #64748b; font-weight: 750; font-size: 12px; line-height: 1.35; }
+.org-trello-head em { min-width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #fff; color: #0f172a; font-weight: 950; font-style: normal; border: 1px solid #e2e8f0; }
+.org-trello-list { display: flex; flex-direction: column; gap: 10px; }
+.org-trello-card { border: 1px solid #dbe3ef; border-radius: 18px; background: #fff; padding: 12px; box-shadow: 0 8px 18px rgba(15,23,42,.06); }
+.org-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.org-category-tag, .org-priority-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 8px; font-weight: 900; font-size: 11px; background: #ede9fe; color: #5b21b6; }
+.org-priority-tag.alta, .org-priority-tag.urgente { background: #fee2e2; color: #991b1b; }
+.org-priority-tag.media { background: #fef3c7; color: #92400e; }
+.org-priority-tag.baixa { background: #dcfce7; color: #166534; }
+.org-card-title-button { width: 100%; text-align: left; border: 0; background: transparent; padding: 0; color: #0f172a; cursor: pointer; font-weight: 950; font-size: 15px; line-height: 1.25; }
+.org-card-title-button:hover { color: #6d28d9; }
+.org-card-meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; color: #64748b; font-weight: 800; font-size: 12px; }
+.org-card-meta .danger { color: #b91c1c; background: #fee2e2; border-radius: 999px; padding: 2px 6px; }
+.org-card-footer-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.org-card-footer-actions button, .org-quick-card button, .org-actions-table button { border: 1px solid #e2e8f0; background: #fff; border-radius: 999px; padding: 7px 9px; font-size: 12px; font-weight: 900; cursor: pointer; color: #334155; }
+.org-card-footer-actions button:hover, .org-quick-card button:hover, .org-actions-table button:hover { border-color: #7c3aed; color: #6d28d9; }
+.org-quick-card { border: 1px dashed #cbd5e1; border-radius: 18px; padding: 10px; background: rgba(255,255,255,.75); display: grid; gap: 8px; }
+.org-quick-card input, .org-quick-card select { width: 100%; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 12px; font-weight: 800; background: #fff; color: #0f172a; }
+.org-actions-table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 22px; background: #fff; }
+.org-actions-table { width: 100%; border-collapse: collapse; min-width: 980px; }
+.org-actions-table th, .org-actions-table td { text-align: left; padding: 14px; border-bottom: 1px solid #e2e8f0; color: #334155; font-weight: 750; }
+.org-actions-table th { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; background: #f8fafc; }
+.org-actions-table tr:last-child td { border-bottom: 0; }
+.org-danger-text { color: #b91c1c !important; font-weight: 950 !important; }
+.org-timeline-view { position: relative; display: flex; flex-direction: column; gap: 14px; padding-left: 20px; }
+.org-timeline-view:before { content: ""; position: absolute; left: 35px; top: 10px; bottom: 10px; width: 3px; border-radius: 999px; background: linear-gradient(180deg, #7c3aed, #14b8a6); }
+.org-timeline-item { position: relative; display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: stretch; }
+.org-timeline-marker { position: relative; z-index: 1; display: flex; justify-content: center; padding-top: 14px; }
+.org-timeline-marker span { width: 34px; height: 34px; border-radius: 999px; background: #fff; border: 3px solid #7c3aed; display: inline-flex; align-items: center; justify-content: center; font-weight: 950; color: #6d28d9; }
+.org-timeline-card { border: 1px solid #e2e8f0; border-radius: 22px; background: #fff; padding: 16px; display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; box-shadow: 0 10px 24px rgba(15,23,42,.05); }
+.org-timeline-card h3 { margin: 5px 0; color: #0f172a; }
+.org-timeline-card p { margin: 0; color: #64748b; font-weight: 800; }
+.org-timeline-date { color: #6d28d9; font-weight: 950; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.org-without-date { border: 1px dashed #cbd5e1; border-radius: 20px; padding: 14px 16px; background: #f8fafc; display: flex; flex-direction: column; gap: 3px; color: #64748b; font-weight: 800; }
+.org-without-date strong { color: #0f172a; }
+.org-modal-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.org-card-modal { width: min(1120px, 96vw); max-height: 90vh; overflow: auto; background: #f8fafc; border-radius: 26px; border: 1px solid #e2e8f0; box-shadow: 0 30px 80px rgba(15,23,42,.3); display: grid; grid-template-columns: 1fr 280px; }
+.org-card-modal-main { padding: 28px; position: relative; }
+.org-card-modal-main h2 { margin: 12px 0 4px; color: #0f172a; font-size: 30px; line-height: 1.1; }
+.org-modal-close { position: absolute; top: 18px; right: 18px; width: 38px; height: 38px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; font-size: 24px; }
+.org-modal-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
+.org-modal-fields label { display: flex; flex-direction: column; gap: 6px; color: #64748b; font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.org-modal-fields select { border: 1px solid #e2e8f0; border-radius: 14px; padding: 11px 12px; background: #fff; color: #0f172a; font-weight: 900; text-transform: none; letter-spacing: 0; }
+.org-modal-section { margin-top: 18px; padding: 16px; border-radius: 18px; background: #fff; border: 1px solid #e2e8f0; }
+.org-modal-section h3 { margin: 0 0 8px; color: #0f172a; }
+.org-modal-section p { margin: 4px 0; color: #475569; font-weight: 750; }
+.org-card-modal-sidebar { border-left: 1px solid #e2e8f0; padding: 24px; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+.org-card-modal-sidebar strong { color: #0f172a; font-size: 16px; margin-bottom: 6px; }
+.org-card-modal-sidebar button { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 14px; padding: 12px; text-align: left; font-weight: 900; cursor: pointer; color: #334155; }
+.org-card-modal-sidebar button:hover { border-color: #7c3aed; color: #6d28d9; }
+.org-card-modal-sidebar button.danger { color: #b91c1c; }
+
 @media (max-width: 1100px) { .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 760px) { .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+@media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 `;
 
 function styleToCss(style: React.CSSProperties) {
-  return Object.entries(style).map(([key, value]) => `${key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}:${value};`).join("");
+  return Object.entries(style)
+    .map(
+      ([key, value]) =>
+        `${key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}:${value};`,
+    )
+    .join("");
 }
+
 
 
