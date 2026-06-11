@@ -555,6 +555,17 @@ export default function OrganizacaoPage() {
   });
   const [modeloRoteiroPadrao, setModeloRoteiroPadrao] = useState("quinze_anos");
 
+
+  const checklistPorAgenda = useMemo(() => {
+    return checklist.reduce<Record<string, Checklist[]>>((acc, item) => {
+      const agendaItemId = item.agenda_item_id ? String(item.agenda_item_id) : "";
+      if (!agendaItemId) return acc;
+      if (!acc[agendaItemId]) acc[agendaItemId] = [];
+      acc[agendaItemId].push(item);
+      return acc;
+    }, {});
+  }, [checklist]);
+
   useEffect(() => {
     carregarTudo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2886,16 +2897,6 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
   }
 
-
-  const checklistPorAgenda = useMemo(() => {
-    return checklist.reduce<Record<string, Checklist[]>>((acc, item) => {
-      const agendaItemId = item.agenda_item_id ? String(item.agenda_item_id) : "";
-      if (!agendaItemId) return acc;
-      if (!acc[agendaItemId]) acc[agendaItemId] = [];
-      acc[agendaItemId].push(item);
-      return acc;
-    }, {});
-  }, [checklist]);
 
   async function criarChecklistRoteiro(itemAgenda: AgendaItem) {
     if (!eventoAtual || !tenantId) return;
