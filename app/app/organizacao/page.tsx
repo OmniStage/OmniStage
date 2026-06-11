@@ -468,6 +468,7 @@ export default function OrganizacaoPage() {
   const [fornecedoresEvento, setFornecedoresEvento] = useState<
     FornecedorEvento[]
   >([]);
+  const [fornecedoresCadastrados, setFornecedoresCadastrados] = useState<Fornecedor[]>([]);
   const [contratacoes, setContratacoes] = useState<Contratacao[]>([]);
   const [equipe, setEquipe] = useState<Equipe[]>([]);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
@@ -656,6 +657,7 @@ export default function OrganizacaoPage() {
       producaoRes,
       checklistRes,
       fornecedoresEventoRes,
+      fornecedoresCadastradosRes,
       contratacoesRes,
       equipeRes,
       agendaRes,
@@ -675,6 +677,11 @@ export default function OrganizacaoPage() {
         .select("*")
         .eq("evento_id", eventoId)
         .order("criado_em", { ascending: false }),
+      supabase
+        .from("organizacao_fornecedores")
+        .select("*")
+        .eq("tenant_id", evento.tenant_id)
+        .order("nome", { ascending: true }),
       supabase
         .from("organizacao_contratacoes")
         .select("*")
@@ -704,6 +711,11 @@ export default function OrganizacaoPage() {
       setErro(
         "Erro ao carregar fornecedores do evento: " +
           fornecedoresEventoRes.error.message,
+      );
+    if (fornecedoresCadastradosRes.error)
+      setErro(
+        "Erro ao carregar cadastro de fornecedores: " +
+          fornecedoresCadastradosRes.error.message,
       );
     if (contratacoesRes.error)
       setErro(
@@ -736,10 +748,15 @@ export default function OrganizacaoPage() {
 
     setProducao((producaoRes.data || []) as AcaoProducao[]);
     setChecklist((checklistRes.data || []) as Checklist[]);
+    const fornecedoresFixos = (fornecedoresCadastradosRes.data || []) as Fornecedor[];
+    setFornecedoresCadastrados(fornecedoresFixos);
     setFornecedoresEvento(
       vinculos.map((vinculo) => ({
         ...vinculo,
-        fornecedor: fornecedoresPorId[vinculo.fornecedor_id] || null,
+        fornecedor:
+          fornecedoresPorId[vinculo.fornecedor_id] ||
+          fornecedoresFixos.find((fornecedor) => fornecedor.id === vinculo.fornecedor_id) ||
+          null,
       })),
     );
     setContratacoes((contratacoesRes.data || []) as Contratacao[]);
@@ -895,6 +912,16 @@ export default function OrganizacaoPage() {
       f.fornecedor?.categoria,
     ],
   );
+
+  const fornecedoresParaSelecao = useMemo(() => {
+    return filtrar<Fornecedor>(fornecedoresCadastrados, termoBusca, (fornecedor) => [
+      fornecedor.nome,
+      fornecedor.responsavel_nome,
+      fornecedor.telefone,
+      fornecedor.email,
+      fornecedor.categoria,
+    ]);
+  }, [fornecedoresCadastrados, termoBusca]);
   const contratacoesFiltradas = filtrar<Contratacao>(
     contratacoes,
     termoBusca,
@@ -992,7 +1019,7 @@ export default function OrganizacaoPage() {
     setSalvando(true);
     const { error } = await supabase.from("organizacao_producao").insert({
       tenant_id: tenantId,
-      evento_id: eventoAtual.id,
+      evento_id: null,
       titulo,
       descricao: null,
       categoria: atual.categoria || "outros",
@@ -1292,6 +1319,49 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
   }
 
+  async function alternarFornecedorNoEvento(fornecedor: Fornecedor, selecionado: boolean) {
+    if (!eventoAtual || !tenantId) return;
+
+    setSalvando(true);
+
+    const vinculoAtual = fornecedoresEvento.find(
+      (item) => item.fornecedor_id === fornecedor.id && item.evento_id === eventoAtual.id,
+    );
+
+    if (!selecionado) {
+      if (!vinculoAtual) {
+        setSalvando(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("organizacao_fornecedores_evento")
+        .delete()
+        .eq("id", vinculoAtual.id);
+      await depoisSalvar(error);
+      return;
+    }
+
+    if (vinculoAtual) {
+      setSalvando(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("organizacao_fornecedores_evento")
+      .insert({
+        tenant_id: tenantId,
+        evento_id: eventoAtual.id,
+        fornecedor_id: fornecedor.id,
+        categoria_evento: fornecedor.categoria || "fornecedor",
+        status: "confirmado",
+        valor_orcado: null,
+        valor_fechado: null,
+      });
+
+    await depoisSalvar(error);
+  }
+
   async function atualizarStatusFornecedor(
     item: FornecedorEvento,
     status: string,
@@ -1546,17 +1616,11 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function criarEquipe() {
-    if (
-      !eventoAtual ||
-      !tenantId ||
-      !novoEquipe.nome.trim() ||
-      !novoEquipe.funcao.trim()
-    )
-      return;
+    if (!tenantId || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()) return;
     setSalvando(true);
     const { error } = await supabase.from("organizacao_equipe").insert({
       tenant_id: tenantId,
-      evento_id: eventoAtual.id,
+      evento_id: null,
       nome: novoEquipe.nome.trim(),
       funcao: novoEquipe.funcao.trim(),
       telefone: limpar(novoEquipe.telefone),
@@ -1576,7 +1640,6 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         horario_fim: "",
         contato_principal: false,
       });
-      setCadastroEquipeAberto(false);
       setMenuEquipeAberto(false);
     });
   }
@@ -1656,7 +1719,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     const { error } = await supabase.from("organizacao_equipe").insert({
       tenant_id: tenantId,
-      evento_id: eventoAtual.id,
+      evento_id: null,
       nome: item.nome,
       funcao: item.funcao,
       telefone: item.telefone,
@@ -4130,24 +4193,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         title="Adicionar Membro ao Evento"
         subtitle="Selecione membros da sua equipe para este evento."
       >
-        <div className="org-equipe-head-actions">
-          <div className="org-stepper">
-            <button
-              type="button"
-              className={etapaEquipe === 1 ? "active" : ""}
-              onClick={() => setEtapaEquipe(1)}
-            >
-              <strong>1</strong>
-              <span>Selecionar evento</span>
-            </button>
-            <button
-              type="button"
-              className={etapaEquipe === 2 ? "active" : ""}
-              onClick={() => setEtapaEquipe(2)}
-            >
-              <strong>2</strong>
-              <span>Selecionar membros e funções</span>
-            </button>
+        <div className="org-equipe-head-actions single">
+          <div className="org-equipe-title-note">
+            <strong>Equipe disponível para o evento</strong>
+            <span>Cadastre uma vez e marque quem vai trabalhar no evento selecionado.</span>
           </div>
 
           <div className="org-equipe-menu-wrap">
@@ -4159,7 +4208,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 setCadastroEquipeAberto(true);
               }}
             >
-              + Novos membros
+              + Gerenciar equipe
             </button>
           </div>
         </div>
@@ -4313,8 +4362,89 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           )}
         </div>
 
+        <div className="org-equipe-table fornecedores-selecao">
+          <div className="org-equipe-table-head fornecedor-head">
+            <span>Equipe dos fornecedores</span>
+            <span>Fornecedor</span>
+            <span>Categoria</span>
+            <span>Status no evento</span>
+            <span>Ações</span>
+          </div>
+
+          {fornecedoresParaSelecao.map((fornecedor) => {
+            const vinculo = fornecedoresEvento.find(
+              (item) =>
+                item.fornecedor_id === fornecedor.id &&
+                item.evento_id === eventoAtual?.id,
+            );
+            const selecionado = Boolean(vinculo);
+
+            return (
+              <div
+                key={fornecedor.id}
+                className={`org-equipe-table-row fornecedor-row ${selecionado ? "selected" : ""}`}
+              >
+                <div className="org-equipe-member-cell">
+                  <input
+                    type="checkbox"
+                    checked={selecionado}
+                    onChange={(e) =>
+                      alternarFornecedorNoEvento(fornecedor, e.target.checked)
+                    }
+                  />
+                  <div className="org-avatar">🏢</div>
+                  <div>
+                    <strong>{fornecedor.responsavel_nome || fornecedor.nome}</strong>
+                    <small>{fornecedor.telefone || "Sem telefone"}</small>
+                  </div>
+                </div>
+
+                <div className="org-equipe-event-cell">
+                  <strong>{fornecedor.nome}</strong>
+                  <small>{fornecedor.email || "Fornecedor cadastrado"}</small>
+                </div>
+
+                <span className="org-pill disponivel">
+                  {fornecedor.categoria || "Fornecedor"}
+                </span>
+
+                <span className={`org-pill ${selecionado ? vinculo?.status || "confirmado" : "disponivel"}`}>
+                  {selecionado ? labelStatus(vinculo?.status || "confirmado") : "Disponível"}
+                </span>
+
+                <div className="org-card-actions equipe-actions">
+                  <button
+                    type="button"
+                    onClick={() => editarFornecedor(vinculo || {
+                      id: "",
+                      tenant_id: tenantId,
+                      evento_id: eventoAtual?.id || "",
+                      fornecedor_id: fornecedor.id,
+                      categoria_evento: fornecedor.categoria,
+                      status: "confirmado",
+                      valor_orcado: null,
+                      valor_fechado: null,
+                      data_contratacao: null,
+                      data_confirmacao: null,
+                      observacoes: null,
+                      fornecedor,
+                    })}
+                    disabled={!selecionado}
+                  >
+                    ✏️ Editar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {fornecedoresParaSelecao.length === 0 && (
+            <Empty text="Nenhum fornecedor cadastrado. Use Gerenciar equipe para cadastrar fornecedores." />
+          )}
+        </div>
+
         <div className="org-equipe-info">
-          ℹ️ Os membros adicionados serão vinculados apenas a este evento.
+          ℹ️ Marque a equipe interna e os fornecedores que vão trabalhar neste evento.
         </div>
 
         <div className="org-equipe-footer">
@@ -4452,36 +4582,89 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               ) : (
               <div className="org-fornecedor-equipe-tab">
                 <div className="org-equipe-info fornecedor">
-                  ℹ️ Esta aba mostra a equipe dos fornecedores contratados neste evento. O cadastro principal do fornecedor continua em Contratações.
+                  ℹ️ Cadastre a equipe dos fornecedores uma vez. Depois marque, na tela principal, quais fornecedores trabalharão no evento selecionado.
+                </div>
+
+                <div className="org-form-grid fornecedor cadastro">
+                  <input
+                    placeholder="Nome do fornecedor"
+                    value={novoFornecedor.nome}
+                    onChange={(e) =>
+                      setNovoFornecedor({ ...novoFornecedor, nome: e.target.value })
+                    }
+                  />
+                  <input
+                    placeholder="Responsável / membro"
+                    value={novoFornecedor.responsavel_nome}
+                    onChange={(e) =>
+                      setNovoFornecedor({
+                        ...novoFornecedor,
+                        responsavel_nome: e.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    placeholder="Categoria"
+                    value={novoFornecedor.categoria}
+                    onChange={(e) =>
+                      setNovoFornecedor({
+                        ...novoFornecedor,
+                        categoria: e.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    placeholder="Telefone"
+                    value={novoFornecedor.telefone}
+                    onChange={(e) =>
+                      setNovoFornecedor({
+                        ...novoFornecedor,
+                        telefone: e.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={criarFornecedor}
+                    disabled={salvando || !novoFornecedor.nome.trim()}
+                  >
+                    + Novo fornecedor
+                  </button>
                 </div>
 
                 <div className="org-card-list">
-                  {fornecedoresEvento.map((item) => (
-                    <div
-                      key={item.id}
-                      className="org-item-card equipe-cadastro-card fornecedor-equipe-card"
-                    >
-                      <div className="org-item-main">
-                        <span className={`org-pill ${item.status || "orcamento"}`}>
-                          {labelStatus(item.status)}
-                        </span>
-                        <h3>{item.fornecedor?.responsavel_nome || item.fornecedor?.nome || "Fornecedor"}</h3>
-                        <p>
-                          {item.fornecedor?.nome || "Fornecedor sem nome"} · {item.categoria_evento || item.fornecedor?.categoria || "Sem categoria"}
-                        </p>
-                        <p>
-                          {item.fornecedor?.telefone || "Sem telefone"}
-                          {item.fornecedor?.email ? ` · ${item.fornecedor.email}` : ""}
-                        </p>
-                      </div>
-                      <div className="org-card-actions">
-                        <span className="org-pill disponivel">Fornecedor</span>
-                      </div>
-                    </div>
-                  ))}
+                  {fornecedoresCadastrados.map((fornecedor) => {
+                    const vinculado = fornecedoresEvento.some(
+                      (item) => item.fornecedor_id === fornecedor.id,
+                    );
 
-                  {fornecedoresEvento.length === 0 ? (
-                    <Empty text="Nenhum fornecedor vinculado a este evento." />
+                    return (
+                      <div
+                        key={fornecedor.id}
+                        className="org-item-card equipe-cadastro-card fornecedor-equipe-card"
+                      >
+                        <div className="org-item-main">
+                          <span className={`org-pill ${vinculado ? "confirmado" : "disponivel"}`}>
+                            {vinculado ? "No evento" : "Cadastrado"}
+                          </span>
+                          <h3>{fornecedor.responsavel_nome || fornecedor.nome}</h3>
+                          <p>
+                            {fornecedor.nome} · {fornecedor.categoria || "Sem categoria"}
+                          </p>
+                          <p>
+                            {fornecedor.telefone || "Sem telefone"}
+                            {fornecedor.email ? ` · ${fornecedor.email}` : ""}
+                          </p>
+                        </div>
+                        <div className="org-card-actions">
+                          <span className="org-pill disponivel">Fornecedor</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {fornecedoresCadastrados.length === 0 ? (
+                    <Empty text="Nenhum fornecedor cadastrado." />
                   ) : null}
                 </div>
               </div>
@@ -5191,7 +5374,21 @@ const styles = `
 .org-agenda-modal-actions button.danger { color: #b91c1c; background: #fff; border-color: rgba(185,28,28,.22); }
 .org-agenda-modal-actions button:disabled { opacity: .55; cursor: not-allowed; }
 
+.org-equipe-head-actions.single { align-items: center; }
+.org-equipe-title-note { flex: 1; display: flex; flex-direction: column; gap: 4px; color: #0f172a; font-weight: 900; }
+.org-equipe-title-note span { color: #64748b; font-size: 14px; font-weight: 700; }
+.org-equipe-table.fornecedores-selecao { margin-top: 18px; }
+.org-equipe-table-head.fornecedor-head, .org-equipe-table-row.fornecedor-row { grid-template-columns: 2fr 1.8fr 1.1fr 1.1fr 1fr; }
+.org-form-grid.fornecedor.cadastro { grid-template-columns: 1.3fr 1.2fr 1fr 1fr auto; margin: 16px 0; }
+
 @media (max-width: 760px) { .org-stepper { grid-template-columns: 1fr; gap: 10px; } .org-equipe-menu-wrap, .org-equipe-primary, .org-equipe-menu { width: 100%; } .org-equipe-menu { position: static; margin-top: 8px; } .org-form-grid.equipe.cadastro { grid-template-columns: 1fr; } .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields, .org-agenda-modal-grid { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+
+.org-equipe-head-actions.single { align-items: center; }
+.org-equipe-title-note { flex: 1; display: flex; flex-direction: column; gap: 4px; color: #0f172a; font-weight: 900; }
+.org-equipe-title-note span { color: #64748b; font-size: 14px; font-weight: 700; }
+.org-equipe-table.fornecedores-selecao { margin-top: 18px; }
+.org-equipe-table-head.fornecedor-head, .org-equipe-table-row.fornecedor-row { grid-template-columns: 2fr 1.8fr 1.1fr 1.1fr 1fr; }
+.org-form-grid.fornecedor.cadastro { grid-template-columns: 1.3fr 1.2fr 1fr 1fr auto; margin: 16px 0; }
 
 @media (max-width: 760px) { .org-contract-header, .org-service-card { display: grid; } .compact-values { text-align: left; } .org-inline-add-check { grid-template-columns: 1fr; } }
 `;
