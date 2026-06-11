@@ -492,15 +492,21 @@ export default function OrganizacaoPage() {
     fornecedor_id: "",
     descricao: "",
   });
-  const [quickAddAberto, setQuickAddAberto] = useState<Record<string, boolean>>({});
+  const [quickAddAberto, setQuickAddAberto] = useState<Record<string, boolean>>(
+    {},
+  );
 
   const [novaAcaoRapida, setNovaAcaoRapida] = useState<
     Record<string, { titulo: string; categoria: string }>
   >({});
   const [acaoAberta, setAcaoAberta] = useState<AcaoProducao | null>(null);
   const [acaoArrastadaId, setAcaoArrastadaId] = useState<string | null>(null);
-  const [novoChecklistCartao, setNovoChecklistCartao] = useState<Record<string, string>>({});
-  const [novoChecklistRoteiro, setNovoChecklistRoteiro] = useState<Record<string, string>>({});
+  const [novoChecklistCartao, setNovoChecklistCartao] = useState<
+    Record<string, string>
+  >({});
+  const [novoChecklistRoteiro, setNovoChecklistRoteiro] = useState<
+    Record<string, string>
+  >({});
   const [novoFornecedor, setNovoFornecedor] = useState({
     nome: "",
     categoria: "buffet",
@@ -530,6 +536,8 @@ export default function OrganizacaoPage() {
     horario_fim: "",
     contato_principal: false,
   });
+  const [menuEquipeAberto, setMenuEquipeAberto] = useState(false);
+  const [cadastroEquipeAberto, setCadastroEquipeAberto] = useState(false);
   const [novoChecklist, setNovoChecklist] = useState({
     item: "",
     categoria: "geral",
@@ -557,10 +565,11 @@ export default function OrganizacaoPage() {
   });
   const [modeloRoteiroPadrao, setModeloRoteiroPadrao] = useState("quinze_anos");
 
-
   const checklistPorAgenda = useMemo(() => {
     return checklist.reduce<Record<string, Checklist[]>>((acc, item) => {
-      const agendaItemId = item.agenda_item_id ? String(item.agenda_item_id) : "";
+      const agendaItemId = item.agenda_item_id
+        ? String(item.agenda_item_id)
+        : "";
       if (!agendaItemId) return acc;
       if (!acc[agendaItemId]) acc[agendaItemId] = [];
       acc[agendaItemId].push(item);
@@ -989,7 +998,9 @@ export default function OrganizacaoPage() {
     valor: string | null,
   ) {
     const valorTratado =
-      valor === null || String(valor).trim() === "" ? null : String(valor).trim();
+      valor === null || String(valor).trim() === ""
+        ? null
+        : String(valor).trim();
 
     const payload: Record<string, string | null> = { [campo]: valorTratado };
 
@@ -1004,7 +1015,9 @@ export default function OrganizacaoPage() {
       prev.map((item) => (item.id === acao.id ? { ...item, ...patch } : item)),
     );
     setAcaoAberta((prev) =>
-      prev && prev.id === acao.id ? ({ ...prev, ...patch } as AcaoProducao) : prev,
+      prev && prev.id === acao.id
+        ? ({ ...prev, ...patch } as AcaoProducao)
+        : prev,
     );
 
     const { error } = await supabase
@@ -1019,7 +1032,8 @@ export default function OrganizacaoPage() {
   }
 
   async function alterarStatusAcao(acao: AcaoProducao, status: string) {
-    const concluido_em = status === "concluido" ? new Date().toISOString() : null;
+    const concluido_em =
+      status === "concluido" ? new Date().toISOString() : null;
     setProducao((prev) =>
       prev.map((item) =>
         item.id === acao.id ? { ...item, status, concluido_em } : item,
@@ -1087,14 +1101,17 @@ export default function OrganizacaoPage() {
   }
 
   function abrirEdicaoData(acao: AcaoProducao) {
-    const input = document.getElementById(`org-card-date-${acao.id}`) as HTMLInputElement | null;
+    const input = document.getElementById(
+      `org-card-date-${acao.id}`,
+    ) as HTMLInputElement | null;
     input?.focus();
     (input as any)?.showPicker?.();
   }
 
-
   function abrirEdicaoEtiqueta(acao: AcaoProducao) {
-    const categorias = CATEGORIAS_PRODUCAO.map((c) => `${c.value} = ${c.label}`).join("\n");
+    const categorias = CATEGORIAS_PRODUCAO.map(
+      (c) => `${c.value} = ${c.label}`,
+    ).join("\n");
     const categoria = window.prompt(
       `Escolha a etiqueta/categoria:
 
@@ -1127,7 +1144,10 @@ ${categorias}`,
 
   function abrirVinculoFornecedor(acao: AcaoProducao) {
     const fornecedores = fornecedoresEvento
-      .map((item) => `${item.fornecedor_id} = ${item.fornecedor?.nome || "Fornecedor"}`)
+      .map(
+        (item) =>
+          `${item.fornecedor_id} = ${item.fornecedor?.nome || "Fornecedor"}`,
+      )
       .join("\n");
     const fornecedor = window.prompt(
       `Informe o ID do fornecedor para vincular ou deixe vazio para remover:
@@ -1518,7 +1538,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       contato_principal: novoEquipe.contato_principal,
       status: "confirmado",
     });
-    await depoisSalvar(error, () =>
+    await depoisSalvar(error, () => {
       setNovoEquipe({
         nome: "",
         funcao: "",
@@ -1527,8 +1547,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         horario_inicio: "",
         horario_fim: "",
         contato_principal: false,
-      }),
-    );
+      });
+      setCadastroEquipeAberto(false);
+      setMenuEquipeAberto(false);
+    });
   }
 
   async function editarEquipe(item: Equipe) {
@@ -1759,7 +1781,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     const itensParaInserir = modelo.items
-      .filter(([titulo]) => !titulosExistentes.has(String(titulo).trim().toLowerCase()))
+      .filter(
+        ([titulo]) =>
+          !titulosExistentes.has(String(titulo).trim().toLowerCase()),
+      )
       .map(([titulo, categoria, inicio, fim], index) => ({
         tenant_id: tenantId || null,
         evento_id: eventoAtual.id,
@@ -2041,20 +2066,16 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 subtitle="Ações e roteiro mais próximos"
               >
                 {[
-                  ...producaoFiltrada
-                    .slice(0, 4)
-                    .map((a) => ({
-                      titulo: a.titulo,
-                      detalhe: `${labelStatus(a.status)} · ${formatarData(a.data_limite)}`,
-                      status: a.status,
-                    })),
-                  ...agendaFiltrada
-                    .slice(0, 4)
-                    .map((a) => ({
-                      titulo: a.titulo || "Item do roteiro",
-                      detalhe: `${a.categoria || "Roteiro"} · ${formatarDataHora(a.data_inicio)}`,
-                      status: a.status || "pendente",
-                    })),
+                  ...producaoFiltrada.slice(0, 4).map((a) => ({
+                    titulo: a.titulo,
+                    detalhe: `${labelStatus(a.status)} · ${formatarData(a.data_limite)}`,
+                    status: a.status,
+                  })),
+                  ...agendaFiltrada.slice(0, 4).map((a) => ({
+                    titulo: a.titulo || "Item do roteiro",
+                    detalhe: `${a.categoria || "Roteiro"} · ${formatarDataHora(a.data_inicio)}`,
+                    status: a.status || "pendente",
+                  })),
                 ]
                   .slice(0, 6)
                   .map((item, index) => (
@@ -2172,7 +2193,9 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     const renderCardProducao = (acao: AcaoProducao) => {
       const checklistItens = checklistDoCartao(acao.id);
-      const checklistConcluidos = checklistItens.filter((item) => item.concluido).length;
+      const checklistConcluidos = checklistItens.filter(
+        (item) => item.concluido,
+      ).length;
 
       return (
         <div
@@ -2206,7 +2229,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             {acao.titulo}
           </button>
 
-          {(acao.responsavel_nome || acao.data_limite || acao.fornecedor_id || checklistItens.length > 0) && (
+          {(acao.responsavel_nome ||
+            acao.data_limite ||
+            acao.fornecedor_id ||
+            checklistItens.length > 0) && (
             <div className="org-card-meta">
               {acao.responsavel_nome && <span>👤 {acao.responsavel_nome}</span>}
               {acao.data_limite && (
@@ -2219,7 +2245,9 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 </span>
               )}
               {checklistItens.length > 0 && (
-                <span>☑️ {checklistConcluidos}/{checklistItens.length}</span>
+                <span>
+                  ☑️ {checklistConcluidos}/{checklistItens.length}
+                </span>
               )}
               {acao.fornecedor_id && (
                 <span>🏢 {fornecedorNome(acao.fornecedor_id)}</span>
@@ -2641,8 +2669,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                       return;
                     }
                     const tituloAtual =
-                      producao.find((item) => item.id === acaoAberta.id)?.titulo ||
-                      acaoAberta.titulo;
+                      producao.find((item) => item.id === acaoAberta.id)
+                        ?.titulo || acaoAberta.titulo;
                     if (titulo !== tituloAtual) {
                       atualizarAcaoCampo(acaoAberta, "titulo", titulo);
                     }
@@ -2713,7 +2741,11 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                     <input
                       id={`org-card-date-${acaoAberta.id}`}
                       type="date"
-                      value={acaoAberta.data_limite ? acaoAberta.data_limite.slice(0, 10) : ""}
+                      value={
+                        acaoAberta.data_limite
+                          ? acaoAberta.data_limite.slice(0, 10)
+                          : ""
+                      }
                       onChange={(e) =>
                         atualizarAcaoCampo(
                           acaoAberta,
@@ -2771,10 +2803,17 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                     placeholder="Adicione uma descrição mais detalhada..."
                     value={acaoAberta.descricao || ""}
                     onChange={(e) =>
-                      setAcaoAberta({ ...acaoAberta, descricao: e.target.value })
+                      setAcaoAberta({
+                        ...acaoAberta,
+                        descricao: e.target.value,
+                      })
                     }
                     onBlur={(e) =>
-                      atualizarAcaoCampo(acaoAberta, "descricao", e.target.value)
+                      atualizarAcaoCampo(
+                        acaoAberta,
+                        "descricao",
+                        e.target.value,
+                      )
                     }
                   />
                 </div>
@@ -2812,7 +2851,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                     <button
                       type="button"
                       onClick={() => criarChecklistCartao(acaoAberta)}
-                      disabled={salvando || !(novoChecklistCartao[acaoAberta.id] || "").trim()}
+                      disabled={
+                        salvando ||
+                        !(novoChecklistCartao[acaoAberta.id] || "").trim()
+                      }
                     >
                       Adicionar
                     </button>
@@ -2829,7 +2871,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                         <span className={item.concluido ? "done" : ""}>
                           {item.item}
                         </span>
-                        <button type="button" onClick={() => alterarChecklist(item)}>
+                        <button
+                          type="button"
+                          onClick={() => alterarChecklist(item)}
+                        >
                           Editar
                         </button>
                         <button
@@ -2850,10 +2895,16 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
               <div className="org-card-modal-sidebar">
                 <strong>Adicionar ao cartão</strong>
-                <button type="button" onClick={() => abrirEdicaoEtiqueta(acaoAberta)}>
+                <button
+                  type="button"
+                  onClick={() => abrirEdicaoEtiqueta(acaoAberta)}
+                >
                   🏷️ Etiquetas
                 </button>
-                <button type="button" onClick={() => abrirEdicaoData(acaoAberta)}>
+                <button
+                  type="button"
+                  onClick={() => abrirEdicaoData(acaoAberta)}
+                >
                   🕒 Datas
                 </button>
                 <button
@@ -2867,13 +2918,22 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 >
                   ☑️ Checklist
                 </button>
-                <button type="button" onClick={() => abrirEdicaoMembro(acaoAberta)}>
+                <button
+                  type="button"
+                  onClick={() => abrirEdicaoMembro(acaoAberta)}
+                >
                   👥 Membros
                 </button>
-                <button type="button" onClick={() => abrirVinculoFornecedor(acaoAberta)}>
+                <button
+                  type="button"
+                  onClick={() => abrirVinculoFornecedor(acaoAberta)}
+                >
                   🏢 Fornecedor
                 </button>
-                <button type="button" onClick={() => abrirEdicaoDescricao(acaoAberta)}>
+                <button
+                  type="button"
+                  onClick={() => abrirEdicaoDescricao(acaoAberta)}
+                >
                   📝 Descrição
                 </button>
 
@@ -2921,7 +2981,6 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       </Panel>
     );
   }
-
 
   async function criarChecklistRoteiro(itemAgenda: AgendaItem) {
     if (!eventoAtual || !tenantId) return;
@@ -3151,7 +3210,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                         fornecedorEvento.fornecedor?.categoria ||
                           fornecedorEvento.categoria_evento,
                       )}{" "}
-                      · {fornecedorEvento.fornecedor?.telefone || "Sem telefone"}
+                      ·{" "}
+                      {fornecedorEvento.fornecedor?.telefone || "Sem telefone"}
                     </p>
                   </div>
                   <div className="org-finance-values">
@@ -3165,7 +3225,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                   <select
                     value={fornecedorEvento.status}
                     onChange={(e) =>
-                      atualizarStatusFornecedor(fornecedorEvento, e.target.value)
+                      atualizarStatusFornecedor(
+                        fornecedorEvento,
+                        e.target.value,
+                      )
                     }
                   >
                     {STATUS_FORNECEDOR.map((s) => (
@@ -3174,7 +3237,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                       </option>
                     ))}
                   </select>
-                  <button type="button" onClick={() => editarFornecedor(fornecedorEvento)}>
+                  <button
+                    type="button"
+                    onClick={() => editarFornecedor(fornecedorEvento)}
+                  >
                     ✏️ Editar fornecedor
                   </button>
                   <button
@@ -3203,8 +3269,12 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                           </p>
                         </div>
                         <div className="org-finance-values compact-values">
-                          <strong>{formatarMoeda(toNumber(servico.valor_contratado))}</strong>
-                          <span>Pago {formatarMoeda(toNumber(servico.valor_pago))}</span>
+                          <strong>
+                            {formatarMoeda(toNumber(servico.valor_contratado))}
+                          </strong>
+                          <span>
+                            Pago {formatarMoeda(toNumber(servico.valor_pago))}
+                          </span>
                           <span>
                             Saldo{" "}
                             {formatarMoeda(
@@ -3217,7 +3287,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                           </span>
                         </div>
                         <div className="org-card-actions compact">
-                          <button type="button" onClick={() => editarContratacao(servico)}>
+                          <button
+                            type="button"
+                            onClick={() => editarContratacao(servico)}
+                          >
                             ✏️ Editar
                           </button>
                           <button
@@ -3229,7 +3302,9 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                           </button>
                           <button
                             type="button"
-                            onClick={() => anexarComprovanteContratacao(servico)}
+                            onClick={() =>
+                              anexarComprovanteContratacao(servico)
+                            }
                           >
                             📎 Comprovante
                           </button>
@@ -3272,11 +3347,18 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                       </p>
                     </div>
                     <div className="org-finance-values compact-values">
-                      <strong>{formatarMoeda(toNumber(servico.valor_contratado))}</strong>
-                      <span>Pago {formatarMoeda(toNumber(servico.valor_pago))}</span>
+                      <strong>
+                        {formatarMoeda(toNumber(servico.valor_contratado))}
+                      </strong>
+                      <span>
+                        Pago {formatarMoeda(toNumber(servico.valor_pago))}
+                      </span>
                     </div>
                     <div className="org-card-actions compact">
-                      <button type="button" onClick={() => editarContratacao(servico)}>
+                      <button
+                        type="button"
+                        onClick={() => editarContratacao(servico)}
+                      >
                         ✏️ Editar
                       </button>
                       <button
@@ -3300,9 +3382,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             </div>
           )}
 
-          {fornecedoresFiltrados.length === 0 && contratacoesSemFornecedor.length === 0 && (
-            <Empty text="Nenhuma contratação encontrada." />
-          )}
+          {fornecedoresFiltrados.length === 0 &&
+            contratacoesSemFornecedor.length === 0 && (
+              <Empty text="Nenhuma contratação encontrada." />
+            )}
         </div>
       </Panel>
     );
@@ -3579,7 +3662,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         <div className="org-template-actions">
           <div>
             <strong>Roteiro padrão</strong>
-            <span>Use um modelo inicial e ajuste horários, responsáveis e itens depois.</span>
+            <span>
+              Use um modelo inicial e ajuste horários, responsáveis e itens
+              depois.
+            </span>
           </div>
           <select
             value={modeloRoteiroPadrao}
@@ -3636,7 +3722,13 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           {agendaVisivel.map((item) => {
             const progresso = progressoChecklistAgenda(item);
             return (
-              <div key={item.id || `${item.titulo || "roteiro"}-${item.data_inicio || ""}`} className="org-timeline-row roteiro-com-checklist">
+              <div
+                key={
+                  item.id ||
+                  `${item.titulo || "roteiro"}-${item.data_inicio || ""}`
+                }
+                className="org-timeline-row roteiro-com-checklist"
+              >
                 <div className="org-time">
                   <strong>{hora(item.data_inicio)}</strong>
                   <span>{hora(item.data_fim)}</span>
@@ -3648,7 +3740,9 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                     {String(item.categoria || "Roteiro")} ·{" "}
                     {String(item.responsavel || "Sem responsável")}
                   </p>
-                  {item.descricao ? <small>{String(item.descricao)}</small> : null}
+                  {item.descricao ? (
+                    <small>{String(item.descricao)}</small>
+                  ) : null}
 
                   <div className="org-roteiro-checklist">
                     <div className="org-roteiro-checklist-head">
@@ -3665,7 +3759,9 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
                     <div className="org-roteiro-checklist-list">
                       {progresso.itens.length === 0 ? (
-                        <p className="org-muted">Nenhum checklist vinculado a este item do roteiro.</p>
+                        <p className="org-muted">
+                          Nenhum checklist vinculado a este item do roteiro.
+                        </p>
                       ) : (
                         progresso.itens.map((check) => (
                           <div
@@ -3676,12 +3772,19 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                               type="button"
                               className="org-check-toggle small"
                               onClick={() => alternarChecklist(check)}
-                              aria-label={check.concluido ? "Reabrir item" : "Concluir item"}
+                              aria-label={
+                                check.concluido
+                                  ? "Reabrir item"
+                                  : "Concluir item"
+                              }
                             >
                               {check.concluido ? "✓" : ""}
                             </button>
                             <span>{String(check.item || "")}</span>
-                            <button type="button" onClick={() => alterarChecklist(check)}>
+                            <button
+                              type="button"
+                              onClick={() => alterarChecklist(check)}
+                            >
                               ✏️
                             </button>
                             <button
@@ -3713,7 +3816,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                       <button
                         type="button"
                         onClick={() => criarChecklistRoteiro(item)}
-                        disabled={salvando || !(novoChecklistRoteiro[item.id] || "").trim()}
+                        disabled={
+                          salvando ||
+                          !(novoChecklistRoteiro[item.id] || "").trim()
+                        }
                       >
                         + Adicionar
                       </button>
@@ -3721,7 +3827,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                   </div>
 
                   <div className="org-row-actions">
-                    <button type="button" onClick={() => abrirEdicaoAgenda(item)}>
+                    <button
+                      type="button"
+                      onClick={() => abrirEdicaoAgenda(item)}
+                    >
                       ✏️ Editar
                     </button>
                     <button type="button" onClick={() => duplicarAgenda(item)}>
@@ -3745,10 +3854,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         </div>
 
         {agendaEditando && (
-          <div
-            className="org-modal-backdrop"
-            onClick={fecharEdicaoAgenda}
-          >
+          <div className="org-modal-backdrop" onClick={fecharEdicaoAgenda}>
             <div
               className="org-agenda-modal"
               onClick={(e) => e.stopPropagation()}
@@ -3928,90 +4034,142 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
   function renderEquipe() {
     return (
-      <Panel title="Equipe" subtitle="Equipe operacional do dia do evento">
-        <div className="org-form-grid equipe">
-          <input
-            placeholder="Nome"
-            value={novoEquipe.nome}
-            onChange={(e) =>
-              setNovoEquipe({ ...novoEquipe, nome: e.target.value })
-            }
-          />
-          <input
-            placeholder="Função"
-            value={novoEquipe.funcao}
-            onChange={(e) =>
-              setNovoEquipe({ ...novoEquipe, funcao: e.target.value })
-            }
-          />
-          <input
-            placeholder="Telefone"
-            value={novoEquipe.telefone}
-            onChange={(e) =>
-              setNovoEquipe({ ...novoEquipe, telefone: e.target.value })
-            }
-          />
-          <label className="org-check">
-            <input
-              type="checkbox"
-              checked={novoEquipe.contato_principal}
-              onChange={(e) =>
-                setNovoEquipe({
-                  ...novoEquipe,
-                  contato_principal: e.target.checked,
-                })
-              }
-            />{" "}
-            Principal
-          </label>
-          <button
-            onClick={criarEquipe}
-            disabled={
-              salvando || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()
-            }
-          >
-            Adicionar
-          </button>
-        </div>
-        <div className="org-card-list">
-          {equipeFiltrada.map((item) => (
-            <div key={item.id} className="org-item-card">
-              <div className="org-item-main">
-                <span className={`org-pill ${item.status}`}>
-                  {item.contato_principal
-                    ? "Principal"
-                    : labelStatus(item.status)}
-                </span>
-                <h3>{item.nome}</h3>
-                <p>
-                  {item.funcao} · {item.telefone || "Sem telefone"}
-                </p>
-              </div>
-              <span className="org-muted">
-                {formatarDataHora(item.horario_inicio)}
-              </span>
-              <div className="org-card-actions">
-                <select
-                  value={item.status}
-                  onChange={(e) => atualizarStatusEquipe(item, e.target.value)}
-                >
-                  <option value="convidado">Convidado</option>
-                  <option value="confirmado">Confirmado</option>
-                  <option value="presente">Presente</option>
-                  <option value="ausente">Ausente</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
+      <Panel
+        title="Adicionar Membro ao Evento"
+        subtitle="Selecione membros da sua equipe para este evento."
+      >
+        <div className="org-equipe-head-actions">
+          <div className="org-stepper">
+            <div className="active">
+              <strong>1</strong>
+              <span>Selecionar evento</span>
+            </div>
+            <div>
+              <strong>2</strong>
+              <span>Selecionar membros e funções</span>
+            </div>
+          </div>
+
+          <div className="org-equipe-menu-wrap">
+            <button
+              type="button"
+              className="org-equipe-primary"
+              onClick={() => setMenuEquipeAberto((aberto) => !aberto)}
+            >
+              + Novos membros ▾
+            </button>
+            {menuEquipeAberto ? (
+              <div className="org-equipe-menu">
                 <button
                   type="button"
-                  onClick={() =>
-                    atualizarStatusEquipe(
-                      item,
-                      item.status === "presente" ? "confirmado" : "presente",
-                    )
-                  }
+                  onClick={() => {
+                    setCadastroEquipeAberto(true);
+                    setMenuEquipeAberto(false);
+                  }}
                 >
-                  {item.status === "presente" ? "↩️ Reabrir" : "✅ Confirmar"}
+                  <strong>👤 Cadastrar novo membro</strong>
+                  <span>Crie um novo membro para a equipe.</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCadastroEquipeAberto(true);
+                    setMenuEquipeAberto(false);
+                  }}
+                >
+                  <strong>👥 Gerenciar equipe</strong>
+                  <span>Acesse os membros cadastrados.</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="org-equipe-event-row">
+          <label>Evento *</label>
+          <select
+            value={eventoAtual?.id || ""}
+            onChange={(e) => trocarEvento(e.target.value)}
+          >
+            {eventos.map((evento) => (
+              <option key={evento.id} value={evento.id}>
+                {evento.nome || "Evento sem nome"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="org-equipe-table">
+          <div className="org-equipe-table-head">
+            <span>Membro da equipe</span>
+            <span>Evento</span>
+            <span>Função no evento</span>
+            <span>Horário</span>
+            <span>Status</span>
+            <span>Ações</span>
+          </div>
+
+          {equipeFiltrada.map((item) => (
+            <div key={item.id} className="org-equipe-table-row">
+              <div className="org-equipe-member-cell">
+                <input type="checkbox" checked readOnly />
+                <div className="org-avatar">👤</div>
+                <div>
+                  {item.contato_principal ? (
+                    <span className="org-pill confirmado">Principal</span>
+                  ) : null}
+                  <strong>{item.nome}</strong>
+                  <small>{item.telefone || "Sem telefone"}</small>
+                </div>
+              </div>
+
+              <div className="org-equipe-event-cell">
+                <strong>{eventoAtual?.nome || "Evento sem nome"}</strong>
+                <small>
+                  {eventoAtual ? formatarDataEvento(eventoAtual) : ""}
+                </small>
+              </div>
+
+              <select
+                value={item.funcao}
+                onChange={async (e) => {
+                  const { error } = await supabase
+                    .from("organizacao_equipe")
+                    .update({ funcao: e.target.value })
+                    .eq("id", item.id);
+                  await depoisSalvar(error);
+                }}
+              >
+                <option value={item.funcao}>{item.funcao}</option>
+                <option value="Produtor">Produtor</option>
+                <option value="Atendimento">Atendimento</option>
+                <option value="Montador">Montador</option>
+                <option value="Cerimonial">Cerimonial</option>
+                <option value="Segurança">Segurança</option>
+                <option value="Recepção">Recepção</option>
+              </select>
+
+              <span className="org-equipe-time">
+                {item.horario_inicio || item.horario_fim
+                  ? `${hora(item.horario_inicio)} - ${hora(item.horario_fim)}`
+                  : "sem horário"}
+              </span>
+
+              <select
+                value={item.status}
+                onChange={(e) => atualizarStatusEquipe(item, e.target.value)}
+              >
+                <option value="convidado">Convidado</option>
+                <option value="confirmado">Confirmado</option>
+                <option value="presente">Presente</option>
+                <option value="ausente">Ausente</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+
+              <div className="org-card-actions equipe-actions">
+                <span className={`org-pill ${item.status}`}>
+                  {labelStatus(item.status)}
+                </span>
                 <button type="button" onClick={() => editarEquipe(item)}>
                   ✏️ Editar
                 </button>
@@ -4020,15 +4178,136 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                   className="danger"
                   onClick={() => excluirEquipe(item)}
                 >
-                  🗑️ Excluir
+                  🗑️
                 </button>
               </div>
             </div>
           ))}
+
           {equipeFiltrada.length === 0 && (
-            <Empty text="Nenhum membro da equipe encontrado." />
+            <Empty text="Nenhum membro vinculado a este evento." />
           )}
         </div>
+
+        <div className="org-equipe-info">
+          ℹ️ Os membros adicionados serão vinculados apenas a este evento.
+        </div>
+
+        <div className="org-equipe-footer">
+          <button type="button" className="secondary">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={salvando || equipeFiltrada.length === 0}
+          >
+            Adicionar ao evento
+          </button>
+        </div>
+
+        {cadastroEquipeAberto ? (
+          <div className="org-modal-backdrop">
+            <div className="org-equipe-modal">
+              <div className="org-agenda-modal-header">
+                <div>
+                  <h2>Cadastro da Equipe</h2>
+                  <p>
+                    Cadastre e gerencie os membros que fazem parte da equipe
+                    fixa.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="org-modal-close static"
+                  onClick={() => setCadastroEquipeAberto(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="org-form-grid equipe cadastro">
+                <input
+                  placeholder="Nome"
+                  value={novoEquipe.nome}
+                  onChange={(e) =>
+                    setNovoEquipe({ ...novoEquipe, nome: e.target.value })
+                  }
+                />
+                <input
+                  placeholder="Função"
+                  value={novoEquipe.funcao}
+                  onChange={(e) =>
+                    setNovoEquipe({ ...novoEquipe, funcao: e.target.value })
+                  }
+                />
+                <input
+                  placeholder="Telefone"
+                  value={novoEquipe.telefone}
+                  onChange={(e) =>
+                    setNovoEquipe({ ...novoEquipe, telefone: e.target.value })
+                  }
+                />
+                <label className="org-check">
+                  <input
+                    type="checkbox"
+                    checked={novoEquipe.contato_principal}
+                    onChange={(e) =>
+                      setNovoEquipe({
+                        ...novoEquipe,
+                        contato_principal: e.target.checked,
+                      })
+                    }
+                  />{" "}
+                  Principal
+                </label>
+                <button
+                  onClick={criarEquipe}
+                  disabled={
+                    salvando ||
+                    !novoEquipe.nome.trim() ||
+                    !novoEquipe.funcao.trim()
+                  }
+                >
+                  + Novo membro
+                </button>
+              </div>
+
+              <div className="org-card-list">
+                {equipeFiltrada.map((item) => (
+                  <div
+                    key={item.id}
+                    className="org-item-card equipe-cadastro-card"
+                  >
+                    <div className="org-item-main">
+                      <span className={`org-pill ${item.status}`}>
+                        {item.contato_principal
+                          ? "Principal"
+                          : labelStatus(item.status)}
+                      </span>
+                      <h3>{item.nome}</h3>
+                      <p>
+                        {item.funcao} · {item.telefone || "Sem telefone"}
+                      </p>
+                    </div>
+                    <div className="org-card-actions">
+                      <button type="button" onClick={() => editarEquipe(item)}>
+                        ✏️ Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => excluirEquipe(item)}
+                      >
+                        🗑️ Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </Panel>
     );
   }
@@ -4282,7 +4561,10 @@ function valorOuZero(value: string | number | null | undefined) {
 }
 
 function montarDataHoraDoEvento(evento: Evento, horario: string) {
-  const dataBase = (evento.data_inicio || evento.data_evento || "").slice(0, 10);
+  const dataBase = (evento.data_inicio || evento.data_evento || "").slice(
+    0,
+    10,
+  );
   if (!dataBase || !horario) return null;
 
   const [hora, minuto] = horario.split(":");
@@ -4661,7 +4943,45 @@ const styles = `
 .org-inline-add-check { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
 .org-inline-add-check input { min-width: 0; }
 
-@media (max-width: 1100px) { .org-template-actions { grid-template-columns: 1fr; } .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
+
+.org-equipe-head-actions { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 22px; }
+.org-stepper { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.org-stepper > div { display: flex; align-items: center; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 900; }
+.org-stepper > div.active { color: #6d28d9; border-color: #7c3aed; }
+.org-stepper strong { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; background: #fff; border: 1px solid #cbd5e1; color: #64748b; }
+.org-stepper .active strong { background: linear-gradient(135deg, #6d28d9, #8b5cf6); border-color: #6d28d9; color: #fff; }
+.org-equipe-menu-wrap { position: relative; flex: 0 0 auto; }
+.org-equipe-primary, .org-equipe-footer .primary { border: 0; border-radius: 14px; padding: 13px 18px; background: linear-gradient(135deg, #6d28d9, #8b5cf6); color: #fff; font-weight: 950; cursor: pointer; box-shadow: 0 12px 24px rgba(109,40,217,.22); }
+.org-equipe-menu { position: absolute; right: 0; top: calc(100% + 8px); width: 310px; z-index: 20; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 22px 45px rgba(15,23,42,.14); overflow: hidden; }
+.org-equipe-menu button { width: 100%; border: 0; background: #fff; padding: 16px 18px; text-align: left; cursor: pointer; display: grid; gap: 4px; }
+.org-equipe-menu button + button { border-top: 1px solid #f1f5f9; }
+.org-equipe-menu button:hover { background: #f8fafc; }
+.org-equipe-menu strong { color: #0f172a; font-size: 15px; }
+.org-equipe-menu span { color: #64748b; font-weight: 750; }
+.org-equipe-event-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: center; margin-bottom: 18px; }
+.org-equipe-event-row label { color: #475569; font-weight: 950; }
+.org-equipe-event-row select, .org-equipe-table select { width: 100%; border: 1px solid #dbe3ef; border-radius: 14px; padding: 12px 13px; background: #fff; color: #0f172a; font-weight: 800; outline: none; }
+.org-equipe-table { border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; background: #fff; }
+.org-equipe-table-head, .org-equipe-table-row { display: grid; grid-template-columns: 1.35fr 1.25fr .95fr .75fr .85fr 1.05fr; gap: 14px; align-items: center; padding: 14px 18px; }
+.org-equipe-table-head { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 950; text-transform: uppercase; letter-spacing: .05em; }
+.org-equipe-table-row + .org-equipe-table-row { border-top: 1px solid #e2e8f0; }
+.org-equipe-member-cell { display: grid; grid-template-columns: auto 44px 1fr; gap: 12px; align-items: center; min-width: 0; }
+.org-avatar { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: #ede9fe; color: #6d28d9; }
+.org-equipe-member-cell strong, .org-equipe-event-cell strong { display: block; color: #0f172a; font-size: 15px; }
+.org-equipe-member-cell small, .org-equipe-event-cell small { display: block; color: #64748b; font-weight: 750; margin-top: 2px; }
+.org-equipe-time { color: #475569; font-weight: 900; white-space: nowrap; }
+.org-card-actions.equipe-actions { justify-content: flex-start; }
+.org-card-actions.equipe-actions .danger { border-radius: 12px; padding-inline: 10px; }
+.org-equipe-info { margin-top: 14px; padding: 14px 16px; border: 1px solid #bfdbfe; border-radius: 14px; background: #eff6ff; color: #1d4ed8; font-weight: 800; }
+.org-equipe-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.org-equipe-footer button { border-radius: 14px; padding: 12px 18px; font-weight: 950; cursor: pointer; }
+.org-equipe-footer .secondary { border: 1px solid #e2e8f0; background: #fff; color: #475569; }
+.org-equipe-footer button:disabled { opacity: .55; cursor: not-allowed; }
+.org-equipe-modal { width: min(980px, 94vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 26px; border: 1px solid #e2e8f0; box-shadow: 0 30px 80px rgba(15,23,42,.3); padding: 28px; }
+.org-form-grid.equipe.cadastro { grid-template-columns: 1fr 1fr .85fr .65fr auto; padding: 16px; border: 1px solid #e2e8f0; border-radius: 18px; background: #f8fafc; }
+.equipe-cadastro-card { border-radius: 16px; }
+
+@media (max-width: 1100px) { .org-equipe-table-head { display: none; } .org-equipe-table-row { grid-template-columns: 1fr; align-items: stretch; } .org-equipe-head-actions, .org-equipe-event-row { grid-template-columns: 1fr; } .org-template-actions { grid-template-columns: 1fr; } .org-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr 1fr; } }
 .org-agenda-modal { width: min(860px, 94vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 26px; border: 1px solid #e2e8f0; box-shadow: 0 30px 80px rgba(15,23,42,.3); padding: 28px; }
 .org-agenda-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
 .org-agenda-modal-header h2 { margin: 4px 0 6px; color: #0f172a; font-size: 28px; line-height: 1.1; }
@@ -4680,7 +5000,7 @@ const styles = `
 .org-agenda-modal-actions button.danger { color: #b91c1c; background: #fff; border-color: rgba(185,28,28,.22); }
 .org-agenda-modal-actions button:disabled { opacity: .55; cursor: not-allowed; }
 
-@media (max-width: 760px) { .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields, .org-agenda-modal-grid { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
+@media (max-width: 760px) { .org-stepper { grid-template-columns: 1fr; gap: 10px; } .org-equipe-menu-wrap, .org-equipe-primary, .org-equipe-menu { width: 100%; } .org-equipe-menu { position: static; margin-top: 8px; } .org-form-grid.equipe.cadastro { grid-template-columns: 1fr; } .org-card-modal { grid-template-columns: 1fr; } .org-card-modal-sidebar { border-left: 0; border-top: 1px solid #e2e8f0; } .org-modal-fields, .org-agenda-modal-grid { grid-template-columns: 1fr; } .org-timeline-card { flex-direction: column; } .org-header, .org-summary-card, .org-toolbar, .org-item-card, .org-mini-row, .org-checklist-actions { flex-direction: column; align-items: stretch; } .org-event-select, .org-toolbar input { max-width: none; width: 100%; } .org-metrics-grid, .org-grid-two, .org-money-grid { grid-template-columns: 1fr; } .org-form-grid, .org-form-grid.five, .org-form-grid.fornecedor, .org-form-grid.contratacao, .org-form-grid.roteiro, .org-form-grid.equipe, .org-form-grid.checklist, .org-form-grid.producao { grid-template-columns: 1fr; } .org-check-row { align-items: flex-start; } .org-row-actions, .org-card-actions { width: 100%; justify-content: flex-end; } .org-item-card select { max-width: none; } .org-finance-values { align-items: flex-start; } }
 
 @media (max-width: 760px) { .org-contract-header, .org-service-card { display: grid; } .compact-values { text-align: left; } .org-inline-add-check { grid-template-columns: 1fr; } }
 `;
