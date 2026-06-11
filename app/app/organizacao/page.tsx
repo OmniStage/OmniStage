@@ -492,6 +492,8 @@ export default function OrganizacaoPage() {
     fornecedor_id: "",
     descricao: "",
   });
+  const [quickAddAberto, setQuickAddAberto] = useState<Record<string, boolean>>({});
+
   const [novaAcaoRapida, setNovaAcaoRapida] = useState<
     Record<string, { titulo: string; categoria: string }>
   >({});
@@ -2253,10 +2255,26 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         titulo: "",
         categoria: "outros",
       };
+
+      if (!quickAddAberto[status]) {
+        return (
+          <div className="org-quick-card">
+            <button
+              type="button"
+              onClick={() =>
+                setQuickAddAberto((prev) => ({ ...prev, [status]: true }))
+              }
+            >
+              + Adicionar cartão
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div className="org-quick-card">
           <input
-            placeholder="Adicionar uma ação..."
+            placeholder="Título da ação..."
             value={atual.titulo}
             onChange={(e) =>
               setNovaAcaoRapida((prev) => ({
@@ -2264,9 +2282,6 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 [status]: { ...atual, titulo: e.target.value },
               }))
             }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") criarAcaoRapida(status);
-            }}
           />
           <select
             value={atual.categoria || "outros"}
@@ -2283,13 +2298,23 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            onClick={() => criarAcaoRapida(status)}
-            disabled={salvando || !atual.titulo.trim()}
-          >
-            + Adicionar cartão
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => criarAcaoRapida(status)}
+              disabled={salvando || !atual.titulo.trim()}
+            >
+              Salvar cartão
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setQuickAddAberto((prev) => ({ ...prev, [status]: false }))
+              }
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       );
     };
