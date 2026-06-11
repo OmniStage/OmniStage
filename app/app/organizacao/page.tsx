@@ -538,6 +538,7 @@ export default function OrganizacaoPage() {
   });
   const [menuEquipeAberto, setMenuEquipeAberto] = useState(false);
   const [cadastroEquipeAberto, setCadastroEquipeAberto] = useState(false);
+  const [abaCadastroEquipe, setAbaCadastroEquipe] = useState<"interna" | "fornecedores">("interna");
   const [etapaEquipe, setEtapaEquipe] = useState<1 | 2>(1);
   const [novoChecklist, setNovoChecklist] = useState({
     item: "",
@@ -4153,7 +4154,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             <button
               type="button"
               className="org-equipe-primary"
-              onClick={() => setCadastroEquipeAberto(true)}
+              onClick={() => {
+                setAbaCadastroEquipe("interna");
+                setCadastroEquipeAberto(true);
+              }}
             >
               + Novos membros
             </button>
@@ -4346,6 +4350,25 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 </button>
               </div>
 
+              <div className="org-equipe-modal-tabs">
+                <button
+                  type="button"
+                  className={abaCadastroEquipe === "interna" ? "active" : ""}
+                  onClick={() => setAbaCadastroEquipe("interna")}
+                >
+                  Equipe interna
+                </button>
+                <button
+                  type="button"
+                  className={abaCadastroEquipe === "fornecedores" ? "active" : ""}
+                  onClick={() => setAbaCadastroEquipe("fornecedores")}
+                >
+                  Equipe dos fornecedores
+                </button>
+              </div>
+
+              {abaCadastroEquipe === "interna" ? (
+              <>
               <div className="org-form-grid equipe cadastro">
                 <input
                   placeholder="Nome"
@@ -4425,6 +4448,44 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                   </div>
                 ))}
               </div>
+              </>
+              ) : (
+              <div className="org-fornecedor-equipe-tab">
+                <div className="org-equipe-info fornecedor">
+                  ℹ️ Esta aba mostra a equipe dos fornecedores contratados neste evento. O cadastro principal do fornecedor continua em Contratações.
+                </div>
+
+                <div className="org-card-list">
+                  {fornecedoresEvento.map((item) => (
+                    <div
+                      key={item.id}
+                      className="org-item-card equipe-cadastro-card fornecedor-equipe-card"
+                    >
+                      <div className="org-item-main">
+                        <span className={`org-pill ${item.status || "orcamento"}`}>
+                          {labelStatus(item.status)}
+                        </span>
+                        <h3>{item.fornecedor?.responsavel_nome || item.fornecedor?.nome || "Fornecedor"}</h3>
+                        <p>
+                          {item.fornecedor?.nome || "Fornecedor sem nome"} · {item.categoria_evento || item.fornecedor?.categoria || "Sem categoria"}
+                        </p>
+                        <p>
+                          {item.fornecedor?.telefone || "Sem telefone"}
+                          {item.fornecedor?.email ? ` · ${item.fornecedor.email}` : ""}
+                        </p>
+                      </div>
+                      <div className="org-card-actions">
+                        <span className="org-pill disponivel">Fornecedor</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {fornecedoresEvento.length === 0 ? (
+                    <Empty text="Nenhum fornecedor vinculado a este evento." />
+                  ) : null}
+                </div>
+              </div>
+              )}
             </div>
           </div>
         ) : null}
@@ -5103,6 +5164,11 @@ const styles = `
 .org-equipe-footer .secondary { border: 1px solid #e2e8f0; background: #fff; color: #475569; }
 .org-equipe-footer button:disabled { opacity: .55; cursor: not-allowed; }
 .org-equipe-modal { width: min(980px, 94vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 26px; border: 1px solid #e2e8f0; box-shadow: 0 30px 80px rgba(15,23,42,.3); padding: 28px; }
+.org-equipe-modal-tabs { display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+.org-equipe-modal-tabs button { border: 1px solid #e2e8f0; background: #fff; color: #64748b; border-radius: 999px; padding: 10px 16px; font-weight: 950; cursor: pointer; }
+.org-equipe-modal-tabs button.active { background: linear-gradient(135deg, #6d28d9, #8b5cf6); border-color: #6d28d9; color: #fff; box-shadow: 0 10px 20px rgba(109,40,217,.18); }
+.org-equipe-info.fornecedor { margin-top: 0; margin-bottom: 14px; }
+.fornecedor-equipe-card .org-item-main p + p { margin-top: 4px; }
 .org-form-grid.equipe.cadastro { grid-template-columns: 1fr 1fr .85fr .65fr auto; padding: 16px; border: 1px solid #e2e8f0; border-radius: 18px; background: #f8fafc; }
 .equipe-cadastro-card { border-radius: 16px; }
 
@@ -5138,3 +5204,4 @@ function styleToCss(style: React.CSSProperties) {
     )
     .join("");
 }
+
