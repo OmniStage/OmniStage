@@ -32,7 +32,7 @@ type Evento = {
 type AcaoProducao = {
   id: string;
   tenant_id: string;
-  evento_id: string;
+  evento_id: string | null;
   titulo: string;
   descricao: string | null;
   categoria: string;
@@ -538,6 +538,7 @@ export default function OrganizacaoPage() {
   });
   const [menuEquipeAberto, setMenuEquipeAberto] = useState(false);
   const [cadastroEquipeAberto, setCadastroEquipeAberto] = useState(false);
+  const [etapaEquipe, setEtapaEquipe] = useState<1 | 2>(1);
   const [novoChecklist, setNovoChecklist] = useState({
     item: "",
     categoria: "geral",
@@ -681,7 +682,7 @@ export default function OrganizacaoPage() {
       supabase
         .from("organizacao_equipe")
         .select("*")
-        .eq("evento_id", eventoId)
+        .eq("tenant_id", evento.tenant_id)
         .order("contato_principal", { ascending: false }),
       supabase
         .from("event_agenda_items")
@@ -898,12 +899,38 @@ export default function OrganizacaoPage() {
     termoBusca,
     (c) => [c.titulo, c.status, c.forma_pagamento],
   );
-  const equipeFiltrada = filtrar<Equipe>(equipe, termoBusca, (e) => [
-    e.nome,
-    e.funcao,
-    e.telefone,
-    e.status,
-  ]);
+  const chaveEquipe = (item: Pick<Equipe, "nome" | "telefone">) => {
+    const telefone = (item.telefone || "").replace(/\D/g, "");
+    return telefone || item.nome.trim().toLowerCase();
+  };
+
+  const equipeParaSelecao = useMemo(() => {
+    const porChave = new Map<string, Equipe>();
+
+    equipe.forEach((item) => {
+      const chave = chaveEquipe(item);
+      const atual = porChave.get(chave);
+      const itemDoEventoAtual = item.evento_id === eventoAtual?.id;
+      const atualDoEventoAtual = atual?.evento_id === eventoAtual?.id;
+
+      if (!atual || (itemDoEventoAtual && !atualDoEventoAtual)) {
+        porChave.set(chave, item);
+      }
+    });
+
+    return filtrar<Equipe>(Array.from(porChave.values()), termoBusca, (e) => [
+      e.nome,
+      e.funcao,
+      e.telefone,
+      e.status,
+    ]);
+  }, [equipe, eventoAtual?.id, termoBusca]);
+
+  const equipeDoEvento = equipeParaSelecao.filter(
+    (item) => item.evento_id === eventoAtual?.id,
+  );
+
+  const equipeFiltrada = equipeDoEvento;
   const checklistFiltrado = filtrar<Checklist>(checklist, termoBusca, (c) => [
     c.item,
     c.categoria,
@@ -932,7 +959,7 @@ export default function OrganizacaoPage() {
     setSalvando(true);
     const { error } = await supabase.from("organizacao_producao").insert({
       tenant_id: tenantId,
-      evento_id: eventoAtual.id,
+      evento_id: null,
       titulo: novaAcao.titulo.trim(),
       descricao: limpar(novaAcao.descricao),
       categoria: novaAcao.categoria,
@@ -1596,6 +1623,70 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     const { error } = await supabase
       .from("organizacao_equipe")
       .delete()
+      .eq("id", item.id);
+    await depoisSalvar(error);
+  }
+
+  async function alternarMembroNoEvento(item: Equipe, selecionado: boolean) {
+    if (!eventoAtual || !tenantId) return;
+
+    setSalvando(true);
+
+    if (!selecionado) {
+      const { error } = await supabase
+        .from("organizacao_equipe")
+        .delete()
+        .eq("id", item.id)
+        .eq("evento_id", eventoAtual.id);
+      await depoisSalvar(error);
+      return;
+    }
+
+    const jaVinculado = equipe.some(
+      (pessoa) =>
+        pessoa.evento_id === eventoAtual.id &&
+        chaveEquipe(pessoa) === chaveEquipe(item),
+    );
+
+    if (jaVinculado) {
+      setSalvando(false);
+      return;
+    }
+
+    const { error } = await supabase.from("organizacao_equipe").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      nome: item.nome,
+      funcao: item.funcao,
+      telefone: item.telefone,
+      email: item.email,
+      horario_inicio: item.horario_inicio,
+      horario_fim: item.horario_fim,
+      contato_principal: item.contato_principal,
+      status: "convidado",
+    });
+
+    await depoisSalvar(error);
+  }
+
+  async function atualizarCampoEquipe(
+    item: Equipe,
+    campo: "funcao" | "status" | "horario_inicio" | "horario_fim",
+    valor: string,
+  ) {
+    let valorNormalizado: string | null = valor || null;
+
+    if ((campo === "horario_inicio" || campo === "horario_fim") && valor) {
+      const dataBase =
+        eventoAtual?.data_inicio ||
+        eventoAtual?.data_evento ||
+        new Date().toISOString().slice(0, 10);
+      valorNormalizado = datetimeOuNull(`${dataBase}T${valor}:00`);
+    }
+
+    const { error } = await supabase
+      .from("organizacao_equipe")
+      .update({ [campo]: valorNormalizado })
       .eq("id", item.id);
     await depoisSalvar(error);
   }
@@ -4040,48 +4131,32 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       >
         <div className="org-equipe-head-actions">
           <div className="org-stepper">
-            <div className="active">
+            <button
+              type="button"
+              className={etapaEquipe === 1 ? "active" : ""}
+              onClick={() => setEtapaEquipe(1)}
+            >
               <strong>1</strong>
               <span>Selecionar evento</span>
-            </div>
-            <div>
+            </button>
+            <button
+              type="button"
+              className={etapaEquipe === 2 ? "active" : ""}
+              onClick={() => setEtapaEquipe(2)}
+            >
               <strong>2</strong>
               <span>Selecionar membros e funções</span>
-            </div>
+            </button>
           </div>
 
           <div className="org-equipe-menu-wrap">
             <button
               type="button"
               className="org-equipe-primary"
-              onClick={() => setMenuEquipeAberto((aberto) => !aberto)}
+              onClick={() => setCadastroEquipeAberto(true)}
             >
-              + Novos membros ▾
+              + Novos membros
             </button>
-            {menuEquipeAberto ? (
-              <div className="org-equipe-menu">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCadastroEquipeAberto(true);
-                    setMenuEquipeAberto(false);
-                  }}
-                >
-                  <strong>👤 Cadastrar novo membro</strong>
-                  <span>Crie um novo membro para a equipe.</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCadastroEquipeAberto(true);
-                    setMenuEquipeAberto(false);
-                  }}
-                >
-                  <strong>👥 Gerenciar equipe</strong>
-                  <span>Acesse os membros cadastrados.</span>
-                </button>
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -4109,82 +4184,127 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             <span>Ações</span>
           </div>
 
-          {equipeFiltrada.map((item) => (
-            <div key={item.id} className="org-equipe-table-row">
-              <div className="org-equipe-member-cell">
-                <input type="checkbox" checked readOnly />
-                <div className="org-avatar">👤</div>
-                <div>
-                  {item.contato_principal ? (
-                    <span className="org-pill confirmado">Principal</span>
-                  ) : null}
-                  <strong>{item.nome}</strong>
-                  <small>{item.telefone || "Sem telefone"}</small>
+          {equipeParaSelecao.map((item) => {
+            const selecionado = item.evento_id === eventoAtual?.id;
+            return (
+              <div
+                key={item.id}
+                className={`org-equipe-table-row ${selecionado ? "selected" : ""}`}
+              >
+                <div className="org-equipe-member-cell">
+                  <input
+                    type="checkbox"
+                    checked={selecionado}
+                    onChange={(e) =>
+                      alternarMembroNoEvento(item, e.target.checked)
+                    }
+                  />
+                  <div className="org-avatar">👤</div>
+                  <div>
+                    {item.contato_principal ? (
+                      <span className="org-pill confirmado">Principal</span>
+                    ) : null}
+                    <strong>{item.nome}</strong>
+                    <small>{item.telefone || "Sem telefone"}</small>
+                  </div>
+                </div>
+
+                <div className="org-equipe-event-cell">
+                  <strong>
+                    {selecionado
+                      ? eventoAtual?.nome || "Evento sem nome"
+                      : "Disponível"}
+                  </strong>
+                  <small>
+                    {selecionado && eventoAtual
+                      ? formatarDataEvento(eventoAtual)
+                      : "Selecione para este evento"}
+                  </small>
+                </div>
+
+                <select
+                  value={item.funcao}
+                  disabled={!selecionado}
+                  onChange={(e) =>
+                    atualizarCampoEquipe(item, "funcao", e.target.value)
+                  }
+                >
+                  <option value={item.funcao}>{item.funcao}</option>
+                  <option value="Produtor">Produtor</option>
+                  <option value="Atendimento">Atendimento</option>
+                  <option value="Montador">Montador</option>
+                  <option value="Cerimonial">Cerimonial</option>
+                  <option value="Segurança">Segurança</option>
+                  <option value="Recepção">Recepção</option>
+                </select>
+
+                <div className="org-equipe-time-inputs">
+                  <input
+                    type="time"
+                    value={
+                      hora(item.horario_inicio) === "--:--"
+                        ? ""
+                        : hora(item.horario_inicio)
+                    }
+                    disabled={!selecionado}
+                    onChange={(e) =>
+                      atualizarCampoEquipe(
+                        item,
+                        "horario_inicio",
+                        e.target.value,
+                      )
+                    }
+                  />
+                  <span>até</span>
+                  <input
+                    type="time"
+                    value={
+                      hora(item.horario_fim) === "--:--"
+                        ? ""
+                        : hora(item.horario_fim)
+                    }
+                    disabled={!selecionado}
+                    onChange={(e) =>
+                      atualizarCampoEquipe(item, "horario_fim", e.target.value)
+                    }
+                  />
+                </div>
+
+                <select
+                  value={selecionado ? item.status : "disponivel"}
+                  disabled={!selecionado}
+                  onChange={(e) => atualizarStatusEquipe(item, e.target.value)}
+                >
+                  <option value="disponivel">Disponível</option>
+                  <option value="convidado">Convidado</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="presente">Presente</option>
+                  <option value="ausente">Ausente</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+
+                <div className="org-card-actions equipe-actions">
+                  <span
+                    className={`org-pill ${selecionado ? item.status : "disponivel"}`}
+                  >
+                    {selecionado ? labelStatus(item.status) : "Disponível"}
+                  </span>
+                  <button type="button" onClick={() => editarEquipe(item)}>
+                    ✏️ Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => excluirEquipe(item)}
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
+            );
+          })}
 
-              <div className="org-equipe-event-cell">
-                <strong>{eventoAtual?.nome || "Evento sem nome"}</strong>
-                <small>
-                  {eventoAtual ? formatarDataEvento(eventoAtual) : ""}
-                </small>
-              </div>
-
-              <select
-                value={item.funcao}
-                onChange={async (e) => {
-                  const { error } = await supabase
-                    .from("organizacao_equipe")
-                    .update({ funcao: e.target.value })
-                    .eq("id", item.id);
-                  await depoisSalvar(error);
-                }}
-              >
-                <option value={item.funcao}>{item.funcao}</option>
-                <option value="Produtor">Produtor</option>
-                <option value="Atendimento">Atendimento</option>
-                <option value="Montador">Montador</option>
-                <option value="Cerimonial">Cerimonial</option>
-                <option value="Segurança">Segurança</option>
-                <option value="Recepção">Recepção</option>
-              </select>
-
-              <span className="org-equipe-time">
-                {item.horario_inicio || item.horario_fim
-                  ? `${hora(item.horario_inicio)} - ${hora(item.horario_fim)}`
-                  : "sem horário"}
-              </span>
-
-              <select
-                value={item.status}
-                onChange={(e) => atualizarStatusEquipe(item, e.target.value)}
-              >
-                <option value="convidado">Convidado</option>
-                <option value="confirmado">Confirmado</option>
-                <option value="presente">Presente</option>
-                <option value="ausente">Ausente</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-
-              <div className="org-card-actions equipe-actions">
-                <span className={`org-pill ${item.status}`}>
-                  {labelStatus(item.status)}
-                </span>
-                <button type="button" onClick={() => editarEquipe(item)}>
-                  ✏️ Editar
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() => excluirEquipe(item)}
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {equipeFiltrada.length === 0 && (
+          {equipeParaSelecao.length === 0 && (
             <Empty text="Nenhum membro vinculado a este evento." />
           )}
         </div>
@@ -4200,7 +4320,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           <button
             type="button"
             className="primary"
-            disabled={salvando || equipeFiltrada.length === 0}
+            disabled={salvando || equipeDoEvento.length === 0}
           >
             Adicionar ao evento
           </button>
@@ -4274,7 +4394,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               </div>
 
               <div className="org-card-list">
-                {equipeFiltrada.map((item) => (
+                {equipeParaSelecao.map((item) => (
                   <div
                     key={item.id}
                     className="org-item-card equipe-cadastro-card"
@@ -4946,8 +5066,9 @@ const styles = `
 
 .org-equipe-head-actions { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 22px; }
 .org-stepper { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
-.org-stepper > div { display: flex; align-items: center; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 900; }
-.org-stepper > div.active { color: #6d28d9; border-color: #7c3aed; }
+.org-stepper > button { appearance: none; background: transparent; cursor: pointer; text-align: left; }
+.org-stepper > div, .org-stepper > button { display: flex; align-items: center; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 900; }
+.org-stepper > div.active, .org-stepper > button.active { color: #6d28d9; border-color: #7c3aed; }
 .org-stepper strong { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; background: #fff; border: 1px solid #cbd5e1; color: #64748b; }
 .org-stepper .active strong { background: linear-gradient(135deg, #6d28d9, #8b5cf6); border-color: #6d28d9; color: #fff; }
 .org-equipe-menu-wrap { position: relative; flex: 0 0 auto; }
@@ -4970,6 +5091,10 @@ const styles = `
 .org-equipe-member-cell strong, .org-equipe-event-cell strong { display: block; color: #0f172a; font-size: 15px; }
 .org-equipe-member-cell small, .org-equipe-event-cell small { display: block; color: #64748b; font-weight: 750; margin-top: 2px; }
 .org-equipe-time { color: #475569; font-weight: 900; white-space: nowrap; }
+.org-equipe-time-inputs { display: flex; align-items: center; gap: 8px; color: #64748b; font-weight: 900; }
+.org-equipe-time-inputs input { width: 92px; border: 1px solid #dbe3ef; border-radius: 14px; padding: 10px 10px; background: #fff; color: #0f172a; font-weight: 900; }
+.org-equipe-time-inputs input:disabled, .org-equipe-table-row select:disabled { opacity: .55; background: #f8fafc; }
+.org-pill.disponivel { background: #dbeafe; color: #2563eb; }
 .org-card-actions.equipe-actions { justify-content: flex-start; }
 .org-card-actions.equipe-actions .danger { border-radius: 12px; padding-inline: 10px; }
 .org-equipe-info { margin-top: 14px; padding: 14px 16px; border: 1px solid #bfdbfe; border-radius: 14px; background: #eff6ff; color: #1d4ed8; font-weight: 800; }
