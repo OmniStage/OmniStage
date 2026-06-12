@@ -6,7 +6,8 @@ import { supabase } from "@/lib/supabase";
 type AbaOrganizacao =
   | "visao"
   | "equipe"
-  | "contratacoes"
+  | "fornecedores"
+  | "servicos"
   | "producao"
   | "roteiro"
   | "pendencias";
@@ -89,6 +90,8 @@ type Fornecedor = {
   endereco: string | null;
   site: string | null;
   instagram: string | null;
+  pix: string | null;
+  conta_corrente: string | null;
   observacoes: string | null;
   ativo: boolean;
 };
@@ -508,14 +511,20 @@ export default function OrganizacaoPage() {
   const [novoChecklistRoteiro, setNovoChecklistRoteiro] = useState<
     Record<string, string>
   >({});
+  const [fornecedorFormAberto, setFornecedorFormAberto] = useState(false);
+  const [fornecedorEditandoId, setFornecedorEditandoId] = useState<string | null>(null);
   const [novoFornecedor, setNovoFornecedor] = useState({
     nome: "",
     categoria: "buffet",
+    responsavel_nome: "",
     telefone: "",
     email: "",
-    responsavel_nome: "",
-    valor_orcado: "",
-    valor_fechado: "",
+    documento: "",
+    endereco: "",
+    instagram: "",
+    pix: "",
+    conta_corrente: "",
+    observacoes: "",
     status: "orcamento",
   });
   const [novaContratacao, setNovaContratacao] = useState({
@@ -1282,6 +1291,12 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
         email: limpar(novoFornecedor.email),
         responsavel_nome: limpar(novoFornecedor.responsavel_nome),
+        documento: limpar(novoFornecedor.documento),
+        endereco: limpar(novoFornecedor.endereco),
+        instagram: limpar(novoFornecedor.instagram),
+        pix: limpar(novoFornecedor.pix),
+        conta_corrente: limpar(novoFornecedor.conta_corrente),
+        observacoes: limpar(novoFornecedor.observacoes),
       })
       .select("id")
       .single();
@@ -1301,19 +1316,21 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         fornecedor_id: fornecedor.id,
         categoria_evento: novoFornecedor.categoria,
         status: novoFornecedor.status,
-        valor_orcado: valorOuNull(novoFornecedor.valor_orcado),
-        valor_fechado: valorOuNull(novoFornecedor.valor_fechado),
       });
 
     await depoisSalvar(error, () =>
       setNovoFornecedor({
         nome: "",
         categoria: "buffet",
+        responsavel_nome: "",
         telefone: "",
         email: "",
-        responsavel_nome: "",
-        valor_orcado: "",
-        valor_fechado: "",
+        documento: "",
+        endereco: "",
+        instagram: "",
+        pix: "",
+        conta_corrente: "",
+        observacoes: "",
         status: "orcamento",
       }),
     );
@@ -1373,58 +1390,58 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     await depoisSalvar(error);
   }
 
-  async function editarFornecedor(item: FornecedorEvento) {
-    const fornecedor = item.fornecedor;
-    const nome = window.prompt(
-      "Alterar nome do fornecedor",
-      fornecedor?.nome || "",
-    );
-    if (nome === null) return;
+  function abrirEdicaoFornecedor(item: FornecedorEvento) {
+    const f = item.fornecedor;
+    setNovoFornecedor({
+      nome: f?.nome || "",
+      categoria: f?.categoria || "buffet",
+      responsavel_nome: f?.responsavel_nome || "",
+      telefone: f?.telefone || "",
+      email: f?.email || "",
+      documento: f?.documento || "",
+      endereco: f?.endereco || "",
+      instagram: f?.instagram || "",
+      pix: (f as any)?.pix || "",
+      conta_corrente: (f as any)?.conta_corrente || "",
+      observacoes: f?.observacoes || "",
+      status: item.status || "orcamento",
+    });
+    setFornecedorEditandoId(item.id);
+    setFornecedorFormAberto(true);
+  }
 
-    const nomeLimpo = nome.trim();
-    if (!nomeLimpo) {
-      setErro("O nome do fornecedor não pode ficar vazio.");
-      return;
-    }
-
-    const telefone = window.prompt(
-      "Alterar telefone",
-      fornecedor?.telefone || "",
-    );
-    if (telefone === null) return;
-
-    const email = window.prompt("Alterar e-mail", fornecedor?.email || "");
-    if (email === null) return;
-
-    const valor = window.prompt(
-      "Alterar valor fechado",
-      item.valor_fechado ? String(item.valor_fechado) : "",
-    );
-    if (valor === null) return;
-
+  async function salvarEdicaoFornecedor() {
+    const item = fornecedoresEvento.find((f) => f.id === fornecedorEditandoId);
+    if (!item || !novoFornecedor.nome.trim()) return;
     setSalvando(true);
 
-    const { error: fornecedorError } = await supabase
+    const { error } = await supabase
       .from("organizacao_fornecedores")
       .update({
-        nome: nomeLimpo,
-        telefone: limpar(telefone),
-        telefone_normalizado: normalizarTelefone(telefone),
-        email: limpar(email),
+        nome: novoFornecedor.nome.trim(),
+        categoria: novoFornecedor.categoria,
+        responsavel_nome: limpar(novoFornecedor.responsavel_nome),
+        telefone: limpar(novoFornecedor.telefone),
+        telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
+        email: limpar(novoFornecedor.email),
+        documento: limpar(novoFornecedor.documento),
+        endereco: limpar(novoFornecedor.endereco),
+        instagram: limpar(novoFornecedor.instagram),
+        pix: limpar(novoFornecedor.pix),
+        conta_corrente: limpar(novoFornecedor.conta_corrente),
+        observacoes: limpar(novoFornecedor.observacoes),
       })
       .eq("id", item.fornecedor_id);
 
-    if (fornecedorError) {
-      await depoisSalvar(fornecedorError);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("organizacao_fornecedores_evento")
-      .update({ valor_fechado: valorOuNull(valor) })
-      .eq("id", item.id);
-
-    await depoisSalvar(error);
+    await depoisSalvar(error, () => {
+      setFornecedorEditandoId(null);
+      setFornecedorFormAberto(false);
+      setNovoFornecedor({
+        nome: "", categoria: "buffet", responsavel_nome: "", telefone: "",
+        email: "", documento: "", endereco: "", instagram: "", pix: "",
+        conta_corrente: "", observacoes: "", status: "orcamento",
+      });
+    });
   }
 
   async function abrirContratoFornecedor(item: FornecedorEvento) {
@@ -1433,7 +1450,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("contratacoes");
+      setAba("servicos");
       return;
     }
 
@@ -1459,7 +1476,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     await depoisSalvar(error);
     if (!error) {
-      setAba("contratacoes");
+      setAba("servicos");
     }
   }
 
@@ -1469,7 +1486,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     );
 
     if (contratacaoExistente) {
-      setAba("contratacoes");
+      setAba("servicos");
       return;
     }
 
@@ -2183,10 +2200,16 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 Equipe
               </button>
               <button
-                className={aba === "contratacoes" ? "active" : ""}
-                onClick={() => setAba("contratacoes")}
+                className={aba === "fornecedores" ? "active" : ""}
+                onClick={() => setAba("fornecedores")}
               >
-                Contratações
+                Fornecedores
+              </button>
+              <button
+                className={aba === "servicos" ? "active" : ""}
+                onClick={() => setAba("servicos")}
+              >
+                Serviços Contratados
               </button>
               <button
                 className={aba === "producao" ? "active" : ""}
@@ -2300,7 +2323,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           )}
 
           {aba === "equipe" && renderEquipe()}
-          {aba === "contratacoes" && renderContratacoesUnificadas()}
+          {aba === "fornecedores" && renderFornecedores()}
+          {aba === "servicos" && renderContratacoes(false)}
           {aba === "producao" && renderProducao()}
           {aba === "roteiro" && renderRoteiro()}
 
@@ -3251,16 +3275,6 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               setNovoFornecedor({ ...novoFornecedor, email: e.target.value })
             }
           />
-          <input
-            placeholder="Valor fechado"
-            value={novoFornecedor.valor_fechado}
-            onChange={(e) =>
-              setNovoFornecedor({
-                ...novoFornecedor,
-                valor_fechado: e.target.value,
-              })
-            }
-          />
           <button
             onClick={criarFornecedor}
             disabled={salvando || !novoFornecedor.nome.trim()}
@@ -3394,7 +3408,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                   </select>
                   <button
                     type="button"
-                    onClick={() => editarFornecedor(fornecedorEvento)}
+                    onClick={() => { setAba("fornecedores"); abrirEdicaoFornecedor(fornecedorEvento); }}
                   >
                     ✏️ Editar fornecedor
                   </button>
@@ -3547,123 +3561,142 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   function renderFornecedores() {
+    const F = novoFornecedor;
+    const set = (campo: string, valor: string) =>
+      setNovoFornecedor((prev) => ({ ...prev, [campo]: valor }));
+    const editando = fornecedorEditandoId !== null;
+
+    function fecharForm() {
+      setFornecedorFormAberto(false);
+      setFornecedorEditandoId(null);
+      setNovoFornecedor({
+        nome: "", categoria: "buffet", responsavel_nome: "", telefone: "",
+        email: "", documento: "", endereco: "", instagram: "", pix: "",
+        conta_corrente: "", observacoes: "", status: "orcamento",
+      });
+    }
+
     return (
       <Panel
         title="Fornecedores"
-        subtitle="Cadastro separado de contatos e convidados"
+        subtitle="Cadastro completo de fornecedores vinculados ao evento"
       >
-        <div className="org-form-grid fornecedor">
-          <input
-            placeholder="Nome do fornecedor"
-            value={novoFornecedor.nome}
-            onChange={(e) =>
-              setNovoFornecedor({ ...novoFornecedor, nome: e.target.value })
-            }
-          />
-          <select
-            value={novoFornecedor.categoria}
-            onChange={(e) =>
-              setNovoFornecedor({
-                ...novoFornecedor,
-                categoria: e.target.value,
-              })
-            }
-          >
-            {CATEGORIAS_FORNECEDOR.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder="Telefone"
-            value={novoFornecedor.telefone}
-            onChange={(e) =>
-              setNovoFornecedor({ ...novoFornecedor, telefone: e.target.value })
-            }
-          />
-          <input
-            placeholder="E-mail"
-            value={novoFornecedor.email}
-            onChange={(e) =>
-              setNovoFornecedor({ ...novoFornecedor, email: e.target.value })
-            }
-          />
-          <input
-            placeholder="Valor fechado"
-            value={novoFornecedor.valor_fechado}
-            onChange={(e) =>
-              setNovoFornecedor({
-                ...novoFornecedor,
-                valor_fechado: e.target.value,
-              })
-            }
-          />
+        {/* Botão abrir formulário */}
+        {!fornecedorFormAberto && (
           <button
-            onClick={criarFornecedor}
-            disabled={salvando || !novoFornecedor.nome.trim()}
+            onClick={() => { setFornecedorFormAberto(true); setFornecedorEditandoId(null); }}
+            style={{ marginBottom: 20, background: "#6d28d9", color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontWeight: 900, cursor: "pointer" }}
           >
-            Adicionar
+            + Novo fornecedor
           </button>
-        </div>
-        <div className="org-card-list">
-          {fornecedoresFiltrados.map((item) => (
-            <div key={item.id} className="org-item-card">
-              <div className="org-item-main">
-                <span className={`org-pill ${item.status}`}>
-                  {labelStatus(item.status)}
-                </span>
-                <h3>{item.fornecedor?.nome || "Fornecedor"}</h3>
-                <p>
-                  {labelCategoria(
-                    item.fornecedor?.categoria || item.categoria_evento,
-                  )}{" "}
-                  · {item.fornecedor?.telefone || "Sem telefone"} ·{" "}
-                  {formatarMoeda(
-                    toNumber(item.valor_fechado || item.valor_orcado),
-                  )}
-                </p>
-              </div>
-              <div className="org-card-actions">
-                <select
-                  value={item.status}
-                  onChange={(e) =>
-                    atualizarStatusFornecedor(item, e.target.value)
-                  }
-                >
-                  {STATUS_FORNECEDOR.map((s) => (
-                    <option key={s} value={s}>
-                      {labelStatus(s)}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" onClick={() => editarFornecedor(item)}>
-                  ✏️ Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => abrirContratoFornecedor(item)}
-                >
-                  📄 Contrato
-                </button>
-                <button
-                  type="button"
-                  onClick={() => abrirPagamentoFornecedor(item)}
-                >
-                  💰 Pagamento
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() => excluirFornecedor(item)}
-                >
-                  🗑️ Excluir
-                </button>
-              </div>
+        )}
+
+        {/* Formulário colapsável */}
+        {fornecedorFormAberto && (
+          <div style={{ border: "1px solid var(--line)", borderRadius: 18, padding: 20, marginBottom: 24, background: "rgba(109,40,217,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span className="org-eyebrow">{editando ? "Editar fornecedor" : "Novo fornecedor"}</span>
+              <button onClick={fecharForm} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }}>✕</button>
             </div>
-          ))}
+
+            {/* Linha 1: identificação */}
+            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
+              <input placeholder="Nome do fornecedor *" value={F.nome} onChange={(e) => set("nome", e.target.value)} />
+              <select value={F.categoria} onChange={(e) => set("categoria", e.target.value)}>
+                {CATEGORIAS_FORNECEDOR.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+              <input placeholder="Responsável / contato" value={F.responsavel_nome} onChange={(e) => set("responsavel_nome", e.target.value)} />
+            </div>
+
+            {/* Linha 2: contato */}
+            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
+              <input placeholder="Telefone / WhatsApp" value={F.telefone} onChange={(e) => set("telefone", e.target.value)} />
+              <input placeholder="E-mail" value={F.email} onChange={(e) => set("email", e.target.value)} />
+              <input placeholder="Instagram (ex: @nome)" value={F.instagram} onChange={(e) => set("instagram", e.target.value)} />
+            </div>
+
+            {/* Linha 3: documentos e endereço */}
+            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
+              <input placeholder="CPF ou CNPJ" value={F.documento} onChange={(e) => set("documento", e.target.value)} />
+              <input placeholder="Endereço completo" value={F.endereco} onChange={(e) => set("endereco", e.target.value)} style={{ gridColumn: "span 2" }} />
+            </div>
+
+            {/* Linha 4: pagamento */}
+            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
+              <input placeholder="Chave PIX" value={F.pix} onChange={(e) => set("pix", e.target.value)} />
+              <input placeholder="Conta corrente (banco / agência / conta)" value={F.conta_corrente} onChange={(e) => set("conta_corrente", e.target.value)} style={{ gridColumn: "span 2" }} />
+            </div>
+
+            {/* Linha 5: observações + botões */}
+            <div className="org-form-grid fornecedor">
+              <input placeholder="Observações" value={F.observacoes} onChange={(e) => set("observacoes", e.target.value)} style={{ gridColumn: "span 3" }} />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+              <button
+                onClick={editando ? salvarEdicaoFornecedor : criarFornecedor}
+                disabled={salvando || !F.nome.trim()}
+                style={{ background: "#6d28d9", color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontWeight: 900, cursor: "pointer" }}
+              >
+                {editando ? "Salvar alterações" : "Adicionar fornecedor"}
+              </button>
+              <button onClick={fecharForm} style={{ background: "none", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 20px", fontWeight: 800, cursor: "pointer", color: "var(--muted)" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Lista */}
+        <div className="org-card-list">
+          {fornecedoresFiltrados.map((item) => {
+            const f = item.fornecedor;
+            return (
+              <div key={item.id} className="org-item-card">
+                <div className="org-item-main">
+                  <span className={`org-pill ${item.status}`}>
+                    {labelStatus(item.status)}
+                  </span>
+                  <h3>{f?.nome || "Fornecedor"}</h3>
+                  <p>
+                    {labelCategoria(f?.categoria || item.categoria_evento)}
+                    {f?.responsavel_nome ? ` · ${f.responsavel_nome}` : ""}
+                    {f?.telefone ? ` · ${f.telefone}` : ""}
+                    {f?.email ? ` · ${f.email}` : ""}
+                  </p>
+                  {f?.instagram && <p>📸 {f.instagram}</p>}
+                  {f?.documento && <p>📄 {f.documento}</p>}
+                  {f?.endereco && <p>📍 {f.endereco}</p>}
+                  {(f as any)?.pix && <p>💠 PIX: {(f as any).pix}</p>}
+                  {(f as any)?.conta_corrente && <p>🏦 {(f as any).conta_corrente}</p>}
+                  {f?.observacoes && <p style={{ fontStyle: "italic", color: "var(--muted)" }}>{f.observacoes}</p>}
+                </div>
+                <div className="org-card-actions">
+                  <select
+                    value={item.status}
+                    onChange={(e) => atualizarStatusFornecedor(item, e.target.value)}
+                  >
+                    {STATUS_FORNECEDOR.map((s) => (
+                      <option key={s} value={s}>{labelStatus(s)}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => abrirEdicaoFornecedor(item)}>
+                    ✏️ Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => excluirFornecedor(item)}
+                  >
+                    🗑️ Excluir
+                  </button>
+                </div>
+              </div>
+            );
+          })}
           {fornecedoresFiltrados.length === 0 && (
-            <Empty text="Nenhum fornecedor encontrado." />
+            <Empty text="Nenhum fornecedor cadastrado para este evento." />
           )}
         </div>
       </Panel>
@@ -4415,21 +4448,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 <div className="org-card-actions equipe-actions">
                   <button
                     type="button"
-                    onClick={() => editarFornecedor(vinculo || {
-                      id: "",
-                      tenant_id: tenantId,
-                      evento_id: eventoAtual?.id || "",
-                      fornecedor_id: fornecedor.id,
-                      categoria_evento: fornecedor.categoria,
-                      status: "confirmado",
-                      valor_orcado: null,
-                      valor_fechado: null,
-                      data_contratacao: null,
-                      data_confirmacao: null,
-                      observacoes: null,
-                      fornecedor,
-                    })}
-                    disabled={!selecionado}
+                    onClick={() => vinculo && abrirEdicaoFornecedor(vinculo)}
+                    disabled={!selecionado || !vinculo}
                   >
                     ✏️ Editar
                   </button>

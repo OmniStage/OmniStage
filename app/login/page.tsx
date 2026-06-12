@@ -154,7 +154,7 @@ export default function LoginPage() {
 
     if (error) {
       console.error("Erro ao buscar profile:", error);
-      router.replace("/app/dashboard");
+      router.replace("/app");
       return;
     }
 
@@ -179,7 +179,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/app/dashboard");
+    router.replace("/app");
     router.refresh();
   }
 
@@ -218,7 +218,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/app/dashboard");
+    router.replace("/app");
     router.refresh();
   }
 

@@ -33,6 +33,7 @@ export default function AppLayout({
   );
 
   const menu = [
+    { name: "Início", href: "/app" },
     { name: "Dashboard", href: "/app/dashboard" },
     { name: "Eventos", href: "/app/eventos" },
     { name: "Calendário", href: "/app/calendario" },
@@ -503,7 +504,9 @@ export default function AppLayout({
 
         <nav className="omni-nav">
           {menu.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active = item.href === "/app"
+            ? pathname === "/app"
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
               <Link
