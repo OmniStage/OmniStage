@@ -927,7 +927,7 @@ export default function ListaPresentesEventoPage() {
         </div>
 
         <div className="actions">
-          <button onClick={() => router.push("/app/eventos")} className="secondary">
+          <button onClick={() => router.push(`/app/presentes/${eventId}/lista`)} className="secondary">
             Voltar
           </button>
 

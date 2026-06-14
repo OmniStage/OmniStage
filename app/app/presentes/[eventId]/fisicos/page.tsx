@@ -206,6 +206,7 @@ export default async function PresentesFisicosPage({
     .eq("evento_id", eventId)
     .eq("tipo_presente", "presente_fisico")
     .eq("status", "ativo")
+    .neq("origem", "antes_evento")
     .order("created_at", { ascending: false });
 
   const presentes = presentesData || [];
