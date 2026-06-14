@@ -9,6 +9,9 @@ type Evento = {
   nome: string | null;
   status: string | null;
   tenant_id: string | null;
+  data_evento: string | null;
+  cidade: string | null;
+  categoria_evento: string | null;
 };
 
 export default function CheckinPage() {
@@ -51,7 +54,7 @@ export default function CheckinPage() {
 
     const { data, error } = await supabase
       .from("eventos")
-      .select("id, nome, status, tenant_id")
+      .select("id, nome, status, tenant_id, data_evento, cidade, categoria_evento")
       .eq("tenant_id", member.tenant_id)
       .order("created_at", { ascending: false });
 
@@ -150,50 +153,69 @@ export default function CheckinPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 16 }}>
-        {eventos.map((evento) => (
-          <Link
-            key={evento.id}
-            href={`/app/eventos/${evento.id}/checkin`}
-            style={{
-              display: "block",
-              padding: 20,
-              borderRadius: 18,
-              border: "1px solid var(--line)",
-              background: "var(--card)",
-              textDecoration: "none",
-              color: "var(--text)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>
-                  {evento.nome || "Evento sem nome"}
-                </h2>
+      <div style={{ display: "grid", gap: 14 }}>
+        {eventos.map((evento) => {
+          const dataFormatada = evento.data_evento
+            ? new Date(evento.data_evento + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+            : null;
+          const statusColor = evento.status === "ativo" ? { bg: "#dcfce7", color: "#166534" }
+            : evento.status === "encerrado" ? { bg: "#f1f5f9", color: "#475569" }
+            : { bg: "#fef3c7", color: "#92400e" };
 
-                <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}>
-                  ID: {evento.id}
-                  {evento.status && ` • ${evento.status}`}
+          return (
+            <Link
+              key={evento.id}
+              href={`/app/eventos/${evento.id}/checkin`}
+              style={{ display: "block", textDecoration: "none", color: "var(--text)" }}
+            >
+              <div style={{
+                padding: "20px 24px",
+                borderRadius: 22,
+                border: "1px solid var(--line)",
+                background: "var(--card)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 16,
+                transition: "box-shadow .18s, transform .18s",
+              }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 32px rgba(109,40,217,.12)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.transform = "none"; }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={{ margin: 0, fontSize: 22, fontWeight: 950, letterSpacing: "-.03em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {evento.nome || "Evento sem nome"}
+                  </h2>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                    {evento.categoria_evento && (
+                      <span style={{ background: "#ede9fe", color: "#6d28d9", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                        {evento.categoria_evento}
+                      </span>
+                    )}
+                    {dataFormatada && (
+                      <span style={{ background: "#f1f5f9", color: "#475569", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                        {dataFormatada}
+                      </span>
+                    )}
+                    {evento.cidade && (
+                      <span style={{ background: "#f1f5f9", color: "#475569", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                        {evento.cidade}
+                      </span>
+                    )}
+                    {evento.status && (
+                      <span style={{ background: statusColor.bg, color: statusColor.color, borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                        {evento.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0, background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "#fff", padding: "12px 20px", borderRadius: 14, fontWeight: 950, fontSize: 14 }}>
+                  Abrir
                 </div>
               </div>
-
-              <div
-                style={{
-                  alignSelf: "center",
-                  background: "#6d28d9",
-                  color: "#fff",
-                  padding: "10px 16px",
-                  borderRadius: 12,
-                  fontWeight: 900,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Abrir
-              </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
