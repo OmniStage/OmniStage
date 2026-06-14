@@ -954,7 +954,7 @@ export default function RecebidosAntesPage() {
                         <input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
                           onChange={(e) => setNfCardFile(e.target.files?.[0] || null)} />
                       </label>
-                      <button className="nf-pop-cam" onClick={abrirCameraNfModal}>📷 Usar câmera</button>
+                      <button type="button" className="nf-pop-cam" onClick={() => abrirCameraNfModal("environment")}>📷 Usar câmera</button>
                     </>
                   )}
                   <canvas ref={canvasNfModalRef} style={{ display: "none" }} />
