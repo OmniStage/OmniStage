@@ -3201,7 +3201,7 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
         "--card-bg": "#0f172a",
         "--section-bg": "#020617",
         "--soft-bg": "#111827",
-        "--text": "var(--card)",
+        "--text": "#f1f5f9",
         "--text-secondary": "#cbd5e1",
         "--muted": "#94a3b8",
         "--border": "#334155",

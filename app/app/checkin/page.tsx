@@ -209,7 +209,7 @@ export default function CheckinPage() {
                     )}
                   </div>
                 </div>
-                <div style={{ flexShrink: 0, background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "var(--card)", padding: "12px 20px", borderRadius: 14, fontWeight: 950, fontSize: 14 }}>
+                <div style={{ flexShrink: 0, background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "#fff", padding: "12px 20px", borderRadius: 14, fontWeight: 950, fontSize: 14 }}>
                   Abrir
                 </div>
               </div>

@@ -3585,7 +3585,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         {!fornecedorFormAberto && (
           <button
             onClick={() => { setFornecedorFormAberto(true); setFornecedorEditandoId(null); }}
-            style={{ marginBottom: 20, background: "#6d28d9", color: "var(--card)", border: "none", borderRadius: 12, padding: "10px 20px", fontWeight: 900, cursor: "pointer" }}
+            style={{ marginBottom: 20, background: "#6d28d9", color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontWeight: 900, cursor: "pointer" }}
           >
             + Novo fornecedor
           </button>
@@ -3637,7 +3637,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               <button
                 onClick={editando ? salvarEdicaoFornecedor : criarFornecedor}
                 disabled={salvando || !F.nome.trim()}
-                style={{ background: "#6d28d9", color: "var(--card)", border: "none", borderRadius: 12, padding: "10px 24px", fontWeight: 900, cursor: "pointer" }}
+                style={{ background: "#6d28d9", color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontWeight: 900, cursor: "pointer" }}
               >
                 {editando ? "Salvar alterações" : "Adicionar fornecedor"}
               </button>

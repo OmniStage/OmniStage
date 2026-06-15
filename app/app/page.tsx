@@ -373,7 +373,7 @@ export default function AppHome() {
               })}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={salvarPersonalizacao} style={{ flex: 1, background: "#6d28d9", color: "var(--card)", border: "none", borderRadius: 13, padding: "13px", fontWeight: 900, cursor: "pointer", fontSize: 15 }}>
+              <button onClick={salvarPersonalizacao} style={{ flex: 1, background: "#6d28d9", color: "#fff", border: "none", borderRadius: 13, padding: "13px", fontWeight: 900, cursor: "pointer", fontSize: 15 }}>
                 Salvar
               </button>
               <button onClick={() => setPersonalizando(false)} style={{ flex: 1, background: "none", border: "1px solid var(--line)", borderRadius: 13, padding: "13px", fontWeight: 800, cursor: "pointer", color: "var(--muted)", fontSize: 15 }}>
@@ -543,7 +543,7 @@ const tituloStyle: React.CSSProperties = {
   margin: "0 0 6px", fontSize: 28, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.03em",
 };
 const btnPrimaryStyle: React.CSSProperties = {
-  display: "inline-block", background: "#6d28d9", color: "var(--card)",
+  display: "inline-block", background: "#6d28d9", color: "#fff",
   padding: "12px 20px", borderRadius: 13, fontWeight: 900, textDecoration: "none",
   border: "none", cursor: "pointer", fontSize: 14, whiteSpace: "nowrap",
 };
