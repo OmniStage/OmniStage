@@ -1297,18 +1297,17 @@ const listStyle: React.CSSProperties = {
 };
 
 const groupCardStyle: React.CSSProperties = {
-  border: "1px solid rgba(226,232,240,0.92)",
+  border: "1px solid var(--line)",
   borderRadius: 20,
   overflow: "hidden",
-  background: "rgba(255,255,255,0.78)",
-  boxShadow: "0 10px 30px rgba(15,23,42,0.045)",
+  background: "var(--card)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
-  background:
-    "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
+  background: "var(--card)",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
@@ -1371,13 +1370,13 @@ const groupBodyStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 10,
-  borderTop: "1px solid rgba(226,232,240,0.72)",
+  borderTop: "1px solid var(--line)",
 };
 
 const guestCardStyle: React.CSSProperties = {
-  border: "1px solid rgba(226,232,240,0.9)",
+  border: "1px solid var(--line)",
   borderRadius: 16,
-  background: "rgba(255,255,255,0.72)",
+  background: "var(--card-strong)",
   overflow: "hidden",
   padding: 15,
   display: "flex",
@@ -1520,8 +1519,8 @@ const activeAbsentButtonStyle: React.CSSProperties = {
 
 const cancelConfirmButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "#fff7ed",
-  color: "#9a3412",
+  background: "var(--yellow-soft)",
+  color: "var(--yellow)",
   borderColor: "rgba(234,88,12,0.28)",
 };
 

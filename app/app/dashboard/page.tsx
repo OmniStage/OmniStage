@@ -500,13 +500,13 @@ export default function DashboardPage() {
           transform: translateY(-2px) !important;
           box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
           border-color: rgba(109, 40, 217, 0.22) !important;
-          background: #f8fafc !important;
+          background: var(--card-strong) !important;
         }
 
         .omni-group-card:active {
           transform: translateY(0) scale(0.996) !important;
           box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06) !important;
-          background: #f1f5f9 !important;
+          background: var(--card-strong) !important;
         }
 
         .omni-group-header {
@@ -516,11 +516,11 @@ export default function DashboardPage() {
         }
 
         .omni-group-card:hover .omni-group-header {
-          background: #f1f5f9 !important;
+          background: var(--card-strong) !important;
         }
 
         .omni-group-card:active .omni-group-header {
-          background: #e2e8f0 !important;
+          background: var(--line) !important;
         }
 
         .omni-group-body {
@@ -543,12 +543,12 @@ export default function DashboardPage() {
           transform: translateY(-1px) !important;
           box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07) !important;
           border-color: rgba(148,163,184,0.3) !important;
-          background: #f9fafb !important;
+          background: var(--card-strong) !important;
         }
 
         .omni-guest-card:active {
           transform: scale(0.996) !important;
-          background: #f1f5f9 !important;
+          background: var(--card-strong) !important;
         }
 
         .omni-chevron {
@@ -1344,7 +1344,7 @@ const liveStatusStyle: React.CSSProperties = {
   gap: 8,
   padding: "10px 12px",
   borderRadius: 999,
-  background: "rgba(255,255,255,0.78)",
+  background: "var(--card)",
   border: "1px solid var(--line)",
   color: "var(--text)",
   fontSize: 13,
@@ -1622,10 +1622,10 @@ const listStyle: React.CSSProperties = {
 };
 
 const groupCardStyle: React.CSSProperties = {
-  border: "1px solid rgba(226,232,240,0.92)",
+  border: "1px solid var(--line)",
   borderRadius: 20,
   overflow: "hidden",
-  background: "rgba(255,255,255,0.78)",
+  background: "var(--card)",
   backdropFilter: "blur(12px)",
   boxShadow: "0 10px 30px rgba(15,23,42,0.045)",
   transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
@@ -1634,7 +1634,7 @@ const groupCardStyle: React.CSSProperties = {
 const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
+  background: "var(--card)",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
@@ -1707,14 +1707,14 @@ const groupBodyStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 10,
-  borderTop: "1px solid rgba(226,232,240,0.72)",
+  borderTop: "1px solid var(--line)",
   overflow: "hidden",
 };
 
 const guestCardStyle: React.CSSProperties = {
-  border: "1px solid rgba(226,232,240,0.9)",
+  border: "1px solid var(--line)",
   borderRadius: 16,
-  background: "rgba(255,255,255,0.72)",
+  background: "var(--card-strong)",
   overflow: "hidden",
   boxShadow: "0 4px 18px rgba(15,23,42,0.035)",
 };

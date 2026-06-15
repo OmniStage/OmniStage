@@ -1621,7 +1621,23 @@ ${eventoAtual?.nome || "OmniStage"}`);
     updateTheme();
     media.addEventListener("change", updateTheme);
 
-    return () => media.removeEventListener("change", updateTheme);
+    // Sync with global html[data-theme] set by the sidebar
+    const syncGlobalTheme = () => {
+      const htmlTheme = document.documentElement.getAttribute("data-theme");
+      if (htmlTheme === "dark") setThemeMode("dark");
+      else if (htmlTheme === "light") setThemeMode("light");
+      else setThemeMode("auto");
+    };
+
+    syncGlobalTheme();
+
+    const observer = new MutationObserver(syncGlobalTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    return () => {
+      media.removeEventListener("change", updateTheme);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -2959,7 +2975,7 @@ function getRsvpStyle(status: string | null): CSSProperties {
   if (status === "nao") {
     return {
       ...statusStyle,
-      background: "#fee2e2",
+      background: "var(--red-soft)",
       color: "#b91c1c",
     };
   }
@@ -3028,7 +3044,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "nao_necessario") {
     return {
       ...statusStyle,
-      background: "#ecfccb",
+      background: "var(--green-soft)",
       color: "#3f6212",
     };
   }
@@ -3036,7 +3052,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "erro") {
     return {
       ...statusStyle,
-      background: "#fee2e2",
+      background: "var(--red-soft)",
       color: "#b91c1c",
     };
   }
@@ -3257,7 +3273,7 @@ const nucleosVinculadosConviteHeaderStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 4,
-  color: "#334155",
+  color: "var(--text)",
 };
 
 const nucleosVinculadosConviteListStyle: CSSProperties = {
@@ -3267,7 +3283,7 @@ const nucleosVinculadosConviteListStyle: CSSProperties = {
 };
 
 const nucleoVinculadoConviteCardStyle: CSSProperties = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--line)",
   borderRadius: 22,
   padding: 22,
   background: "#f9fafb",
@@ -3300,12 +3316,12 @@ const compactNucleoToggleStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 10,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--line)",
   borderRadius: 999,
   padding: "10px 14px",
-  background: "#ffffff",
+  background: "var(--card)",
   fontWeight: 800,
-  color: "#374151",
+  color: "var(--text)",
 };
 
 const nucleoSelecionadoConviteStyle: CSSProperties = {
@@ -3838,7 +3854,7 @@ const importBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "5px 9px",
   borderRadius: 999,
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   color: "#7c3aed",
   fontSize: 11,
   fontWeight: 900,
@@ -3874,7 +3890,7 @@ const giftStatusBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "7px 11px",
   borderRadius: 999,
-  background: "#ecfdf5",
+  background: "var(--green-soft)",
   color: "#047857",
   fontSize: 12,
   fontWeight: 950,
@@ -4082,8 +4098,8 @@ const sendConfirmModalStyle: CSSProperties = {
   width: "min(520px, 100%)",
   borderRadius: 26,
   padding: 24,
-  background: "#ffffff",
-  border: "1px solid rgba(226,232,240,0.95)",
+  background: "var(--card)",
+  border: "1px solid var(--line)",
   boxShadow: "0 28px 90px rgba(15,23,42,0.26)",
   display: "flex",
   flexDirection: "column",
@@ -4100,14 +4116,14 @@ const sendConfirmEyebrowStyle: CSSProperties = {
 
 const sendConfirmTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 24,
   fontWeight: 950,
 };
 
 const sendConfirmTextStyle: CSSProperties = {
   margin: 0,
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 15,
   lineHeight: 1.5,
   fontWeight: 700,
@@ -4122,9 +4138,9 @@ const sendConfirmActionsStyle: CSSProperties = {
 };
 
 const sendCancelButtonStyle: CSSProperties = {
-  border: "1px solid rgba(148,163,184,0.5)",
-  background: "#ffffff",
-  color: "#334155",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
   padding: "12px 15px",
   borderRadius: 999,
   fontWeight: 950,
@@ -4158,8 +4174,8 @@ const deleteConfirmModalStyle: CSSProperties = {
   width: "min(480px, 100%)",
   borderRadius: 28,
   padding: 24,
-  background: "#ffffff",
-  border: "1px solid rgba(226,232,240,0.95)",
+  background: "var(--card)",
+  border: "1px solid var(--line)",
   boxShadow: "0 30px 90px rgba(15,23,42,0.30)",
   display: "flex",
   flexDirection: "column",
@@ -4172,7 +4188,7 @@ const deleteConfirmIconStyle: CSSProperties = {
   borderRadius: 16,
   display: "grid",
   placeItems: "center",
-  background: "#fee2e2",
+  background: "var(--red-soft)",
   color: "#dc2626",
   fontWeight: 950,
   fontSize: 22,
@@ -4188,7 +4204,7 @@ const deleteConfirmEyebrowStyle: CSSProperties = {
 
 const deleteConfirmTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 24,
   fontWeight: 950,
   letterSpacing: "-0.03em",
@@ -4196,7 +4212,7 @@ const deleteConfirmTitleStyle: CSSProperties = {
 
 const deleteConfirmTextStyle: CSSProperties = {
   margin: 0,
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 15,
   lineHeight: 1.5,
   fontWeight: 700,
@@ -4211,9 +4227,9 @@ const deleteConfirmActionsStyle: CSSProperties = {
 };
 
 const deleteCancelButtonStyle: CSSProperties = {
-  border: "1px solid rgba(148,163,184,0.5)",
-  background: "#ffffff",
-  color: "#334155",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
   padding: "12px 16px",
   borderRadius: 999,
   fontWeight: 950,

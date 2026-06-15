@@ -457,10 +457,10 @@ const ROTEIROS_PADRAO = [
 ];
 
 const cardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.92)",
-  border: "1px solid rgba(226,232,240,0.95)",
-  borderRadius: 24,
-  boxShadow: "0 18px 45px rgba(15,23,42,0.06)",
+  background: "var(--card)",
+  border: "1px solid var(--line)",
+  borderRadius: "24px",
+  boxShadow: "var(--shadow-card)",
 };
 
 export default function OrganizacaoPage() {
@@ -5114,16 +5114,16 @@ function labelStatus(value: string | null | undefined) {
 
 const styles = `
 .organizacao-page { display: flex; flex-direction: column; gap: 22px; color: var(--text); }
-.org-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.org-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 28px 32px; box-shadow: 0 18px 45px rgba(15,23,42,0.07); }
 .org-eyebrow { color: #6d28d9; font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
 .org-header h1 { margin: 4px 0 6px; font-size: clamp(30px, 5vw, 48px); line-height: 1; letter-spacing: -.06em; }
 .org-header p { margin: 0; color: var(--muted); font-weight: 600; max-width: 720px; }
-.org-event-select { min-width: 280px; padding: 14px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 14px 35px rgba(15,23,42,.05); }
+.org-event-select { min-width: 280px; padding: 14px; border-radius: 16px; background: var(--card-strong); border: 1px solid var(--line); }
 .org-event-select label { display: block; font-size: 12px; font-weight: 900; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
 .org-event-select select, .org-toolbar input, .org-form-grid input, .org-form-grid select, .org-item-card select { width: 100%; border: 1px solid #dbe3ef; border-radius: 14px; padding: 12px 13px; background: var(--card); color: var(--text); font-weight: 700; outline: none; }
 .org-alert { padding: 14px 16px; border-radius: 18px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-weight: 800; }
 .org-empty, .org-empty-inline { padding: 22px; border-radius: 20px; border: 1px dashed #cbd5e1; color: var(--muted); font-weight: 800; background: var(--card-strong); text-align: center; }
-.org-summary-card { ${styleToCss(cardStyle)} display: flex; justify-content: space-between; gap: 18px; padding: 24px; align-items: center; }
+.org-summary-card { ${styleToCss(cardStyle)} box-shadow: 0 18px 45px rgba(15,23,42,0.08); display: flex; justify-content: space-between; gap: 18px; padding: 24px; align-items: center; }
 .org-summary-card h2 { margin: 10px 0 6px; font-size: 28px; letter-spacing: -.04em; }
 .org-summary-card p { margin: 0; color: var(--muted); font-weight: 700; }
 .org-badge, .org-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 900; background: #ede9fe; color: #5b21b6; text-transform: uppercase; letter-spacing: .04em; font-style: normal; }
@@ -5134,7 +5134,7 @@ const styles = `
 .org-progress.big { height: 14px; }
 .org-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6d28d9, #10b981); }
 .org-metrics-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
-.org-metric { ${styleToCss(cardStyle)} padding: 18px; min-height: 120px; display: flex; flex-direction: column; justify-content: space-between; }
+.org-metric { ${styleToCss(cardStyle)} box-shadow: 0 10px 28px rgba(15,23,42,0.07); padding: 18px; min-height: 120px; display: flex; flex-direction: column; justify-content: space-between; }
 .org-metric span { color: var(--muted); font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
 .org-metric strong { font-size: 28px; letter-spacing: -.05em; }
 .org-metric small { color: var(--muted); font-weight: 700; }
@@ -5147,7 +5147,7 @@ const styles = `
 .org-form-grid button:disabled { opacity: .55; cursor: not-allowed; }
 .org-subtabs { margin: -4px 0 0; }
 .org-grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.org-panel { ${styleToCss(cardStyle)} padding: 20px; }
+.org-panel { ${styleToCss(cardStyle)} box-shadow: 0 10px 28px rgba(15,23,42,0.07); padding: 20px; }
 .org-panel-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .org-panel h2 { margin: 0; font-size: 22px; letter-spacing: -.04em; }
 .org-panel p { margin: 4px 0 0; color: var(--muted); font-weight: 700; }

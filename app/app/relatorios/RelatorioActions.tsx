@@ -171,11 +171,11 @@ export default function RelatorioActions(props: RelatorioActionsProps) {
       className="relatorios-actions"
       style={{
         marginBottom: 34,
-        background: "#fff",
-        border: "1px solid #e2e8f0",
+        background: "var(--card)",
+        border: "1px solid var(--line)",
         borderRadius: 28,
         padding: 22,
-        boxShadow: "0 18px 42px rgba(15,23,42,.05)",
+        boxShadow: "var(--shadow-card)",
       }}
     >
       <div
@@ -204,7 +204,7 @@ export default function RelatorioActions(props: RelatorioActionsProps) {
           <h2
             style={{
               margin: "8px 0 0",
-              color: "#0f172a",
+              color: "var(--text)",
               fontSize: 24,
               lineHeight: 1.05,
               letterSpacing: "-.04em",
@@ -221,8 +221,8 @@ export default function RelatorioActions(props: RelatorioActionsProps) {
             width: 86,
             height: 86,
             borderRadius: 18,
-            border: "1px solid #e2e8f0",
-            background: "#fff",
+            border: "1px solid var(--line)",
+            background: "var(--card)",
             padding: 8,
           }}
         />
