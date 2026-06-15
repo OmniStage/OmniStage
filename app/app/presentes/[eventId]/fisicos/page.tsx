@@ -1078,7 +1078,7 @@ const styles = `
   }
 
   .nf-action:hover {
-    background: #dbeafe;
+    background: var(--primary-soft);
   }
 
   .nf-link {
@@ -1132,7 +1132,7 @@ const styles = `
     min-height: 42px;
     border-radius: 14px;
     border: 1px solid rgba(187, 247, 208, .95);
-    background: #ecfdf5;
+    background: var(--green-soft);
     color: #047857;
     display: flex;
     align-items: center;
@@ -1227,12 +1227,12 @@ const styles = `
   }
 
   .compact-action-nf:hover {
-    background: #dbeafe;
+    background: var(--primary-soft);
   }
 
   .compact-action-view-nf {
     border: 1px solid rgba(187, 247, 208, .95);
-    background: #ecfdf5;
+    background: var(--green-soft);
     color: #047857;
     text-decoration: none;
   }
@@ -1248,7 +1248,7 @@ const styles = `
   }
 
   .compact-action-remove-nf:hover {
-    background: #fef3c7;
+    background: var(--yellow-soft);
   }
 
   .compact-action-danger {

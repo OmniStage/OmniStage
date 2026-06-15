@@ -361,7 +361,7 @@ function statusStyle(status: string): CSSProperties {
   if (valor.includes("pend") || valor.includes("rascunho")) {
     return { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" };
   }
-  return { background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0" };
+  return { background: "var(--green-soft)", color: "#047857", border: "1px solid #a7f3d0" };
 }
 
 export default function CalendarioPage() {

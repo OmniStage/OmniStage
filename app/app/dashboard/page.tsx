@@ -1383,7 +1383,7 @@ const liveToggleStyle: React.CSSProperties = {
 
 const liveToggleActiveStyle: React.CSSProperties = {
   ...liveToggleStyle,
-  background: "#dcfce7",
+  background: "var(--green-soft)",
   color: "#166534",
   border: "1px solid rgba(22,163,74,0.22)",
 };
@@ -1507,7 +1507,7 @@ const miniStatsStyle: React.CSSProperties = {
 const statusPillStyle: React.CSSProperties = {
   padding: "7px 11px",
   borderRadius: 999,
-  background: "#dcfce7",
+  background: "var(--green-soft)",
   color: "#16a34a",
   fontSize: 12,
   fontWeight: 900,
@@ -1824,7 +1824,7 @@ const quickActionsStyle: React.CSSProperties = {
 
 const actionButtonStyle: React.CSSProperties = {
   border: "1px solid rgba(109,40,217,0.24)",
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   color: "#6d28d9",
   padding: "10px 13px",
   borderRadius: 999,

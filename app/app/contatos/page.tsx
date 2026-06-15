@@ -3479,7 +3479,7 @@ const tabStyle: CSSProperties = {
 const tabActiveStyle: CSSProperties = {
   ...tabStyle,
   border: "1px solid rgba(124,58,237,0.24)",
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   color: "#6d28d9",
 };
 
@@ -3602,7 +3602,7 @@ const filterPillStyle: CSSProperties = {
 
 const filterPillActiveStyle: CSSProperties = {
   ...filterPillStyle,
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   border: "1px solid rgba(124,58,237,0.28)",
   color: "#6d28d9",
 };
@@ -3750,7 +3750,7 @@ const avatarStyle: CSSProperties = {
   width: 44,
   height: 44,
   borderRadius: 16,
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   color: "#6d28d9",
   fontWeight: 950,
   display: "grid",
@@ -3760,7 +3760,7 @@ const avatarStyle: CSSProperties = {
 
 const nucleoIconStyle: CSSProperties = {
   ...avatarStyle,
-  background: "#ecfdf5",
+  background: "var(--green-soft)",
   color: "#047857",
 };
 

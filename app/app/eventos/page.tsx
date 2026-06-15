@@ -653,7 +653,7 @@ export default function AppEventosPage() {
         .soft { background: var(--card-strong); border: none; }
 
         .danger {
-          background: #fee2e2;
+          background: var(--red-soft);
           color: #991b1b;
           padding: 11px 14px;
         }
@@ -891,9 +891,9 @@ export default function AppEventosPage() {
           margin-left: 8px;
         }
 
-        .badge.active { background: #dcfce7; color: #166534; }
-        .badge.blocked { background: #fee2e2; color: #991b1b; }
-        .badge.pending { background: #fef3c7; color: #92400e; }
+        .badge.active { background: var(--green-soft); color: #166534; }
+        .badge.blocked { background: var(--red-soft); color: #991b1b; }
+        .badge.pending { background: var(--yellow-soft); color: #92400e; }
         .badge.neutral { background: #e2e8f0; color: var(--muted); }
 
         .empty {

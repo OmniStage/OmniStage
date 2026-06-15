@@ -2951,7 +2951,7 @@ function getRsvpStyle(status: string | null): CSSProperties {
   if (status === "confirmado") {
     return {
       ...statusStyle,
-      background: "#dcfce7",
+      background: "var(--green-soft)",
       color: "#15803d",
     };
   }
@@ -2959,14 +2959,14 @@ function getRsvpStyle(status: string | null): CSSProperties {
   if (status === "nao") {
     return {
       ...statusStyle,
-      background: "#fee2e2",
+      background: "var(--red-soft)",
       color: "#b91c1c",
     };
   }
 
   return {
     ...statusStyle,
-    background: "#fef3c7",
+    background: "var(--yellow-soft)",
     color: "var(--accent)",
   };
 }
@@ -2985,7 +2985,7 @@ function getCheckinStyle(status: string | null): CSSProperties {
   if (status === "entrou") {
     return {
       ...statusStyle,
-      background: "#dcfce7",
+      background: "var(--green-soft)",
       color: "#166534",
       fontWeight: 900,
     };
@@ -3012,7 +3012,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "enviado") {
     return {
       ...statusStyle,
-      background: "#dbeafe",
+      background: "var(--primary-soft)",
       color: "#1d4ed8",
     };
   }
@@ -3020,7 +3020,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "enviado_manual") {
     return {
       ...statusStyle,
-      background: "#dcfce7",
+      background: "var(--green-soft)",
       color: "#166534",
     };
   }
@@ -3036,7 +3036,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "erro") {
     return {
       ...statusStyle,
-      background: "#fee2e2",
+      background: "var(--red-soft)",
       color: "#b91c1c",
     };
   }
@@ -3838,7 +3838,7 @@ const importBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "5px 9px",
   borderRadius: 999,
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   color: "#7c3aed",
   fontSize: 11,
   fontWeight: 900,
@@ -3874,7 +3874,7 @@ const giftStatusBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "7px 11px",
   borderRadius: 999,
-  background: "#ecfdf5",
+  background: "var(--green-soft)",
   color: "#047857",
   fontSize: 12,
   fontWeight: 950,
@@ -3914,7 +3914,7 @@ const giftDetailsBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "5px 9px",
   borderRadius: 999,
-  background: "#dcfce7",
+  background: "var(--green-soft)",
   color: "#047857",
   fontSize: 11,
   fontWeight: 950,
@@ -4034,7 +4034,7 @@ const envioOrigemCardStyle: CSSProperties = {
   width: "fit-content",
   padding: "7px 11px",
   borderRadius: 999,
-  background: "#dcfce7",
+  background: "var(--green-soft)",
   color: "#166534",
   fontSize: 11,
   fontWeight: 900,
@@ -4172,7 +4172,7 @@ const deleteConfirmIconStyle: CSSProperties = {
   borderRadius: 16,
   display: "grid",
   placeItems: "center",
-  background: "#fee2e2",
+  background: "var(--red-soft)",
   color: "#dc2626",
   fontWeight: 950,
   fontSize: 22,
