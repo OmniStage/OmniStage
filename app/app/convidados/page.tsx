@@ -3197,33 +3197,33 @@ function NucleoConviteSelector({
 function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
   return isDark
     ? {
-        "--page-bg": "linear-gradient(135deg, #020617 0%, #0f172a 100%)",
-        "--card-bg": "#0f172a",
-        "--section-bg": "#020617",
-        "--soft-bg": "#111827",
-        "--text": "#f1f5f9",
+        "--page-bg": "var(--bg)",
+        "--card-bg": "var(--card)",
+        "--section-bg": "var(--card)",
+        "--soft-bg": "var(--card-strong)",
+        "--text": "var(--text)",
         "--text-secondary": "#cbd5e1",
-        "--muted": "#94a3b8",
-        "--border": "#334155",
-        "--border-strong": "#475569",
-        "--accent": "#a78bfa",
+        "--muted": "var(--muted)",
+        "--border": "var(--line)",
+        "--border-strong": "rgba(255,255,255,0.14)",
+        "--accent": "var(--primary)",
         "--accent-strong": "#c4b5fd",
         "--accent-border": "rgba(167,139,250,0.35)",
-        "--group-soft": "rgba(124,58,237,0.12)",
+        "--group-soft": "var(--primary-soft)",
         "--primary-bg": "linear-gradient(135deg, #7c3aed, #5b21b6)",
         "--primary-shadow": "0 12px 32px rgba(124,58,237,0.28)",
       }
     : {
-        "--page-bg": "var(--card-strong)",
+        "--page-bg": "var(--bg)",
         "--card-bg": "var(--card)",
         "--section-bg": "var(--card)",
         "--soft-bg": "var(--card-strong)",
-        "--text": "#0f172a",
+        "--text": "var(--text)",
         "--text-secondary": "#374151",
-        "--muted": "#6b7280",
-        "--border": "#e5e7eb",
+        "--muted": "var(--muted)",
+        "--border": "var(--line)",
         "--border-strong": "#d1d5db",
-        "--accent": "#7c3aed",
+        "--accent": "var(--primary)",
         "--accent-strong": "#5b21b6",
         "--accent-border": "rgba(124,58,237,0.28)",
         "--group-soft": "var(--primary-soft)",
@@ -3267,7 +3267,7 @@ const nucleosVinculadosConviteListStyle: CSSProperties = {
 };
 
 const nucleoVinculadoConviteCardStyle: CSSProperties = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border)",
   borderRadius: 22,
   padding: 22,
   background: "var(--card-strong)",
@@ -3280,7 +3280,7 @@ const nucleoVinculadoConviteCardStyle: CSSProperties = {
 
 const nucleoVinculadoConviteCardActiveStyle: CSSProperties = {
   borderColor: "#c4b5fd",
-  background: "#faf5ff",
+  background: "var(--primary-soft)",
 };
 
 const nucleoVinculadoConviteSubTextStyle: CSSProperties = {
@@ -3300,7 +3300,7 @@ const compactNucleoToggleStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 10,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border)",
   borderRadius: 999,
   padding: "10px 14px",
   background: "var(--card)",
