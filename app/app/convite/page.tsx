@@ -66,7 +66,7 @@ function normalizarBlock(raw: any): VisualBlock {
     height: toNumber(raw.height, 60),
     font_size: toNumber(raw.font_size, 24),
     font_family: raw.font_family || "Inter",
-    color: raw.color || "#ffffff",
+    color: raw.color || "var(--card)",
     background: raw.background || null,
     border_radius: toNumber(raw.border_radius, 0),
     z_index: toNumber(raw.z_index, 1),
@@ -785,7 +785,7 @@ const sectionStyle: CSSProperties = {
   padding: 28,
   borderRadius: 30,
   border: "1px solid #e2e8f0",
-  background: "#ffffff",
+  background: "var(--card)",
   boxShadow: "0 14px 45px rgba(15,23,42,0.07)",
 };
 
@@ -857,7 +857,7 @@ const selectStyle: CSSProperties = {
   minHeight: 52,
   padding: "0 16px",
   borderRadius: 16,
-  background: "#ffffff",
+  background: "var(--card)",
   color: "#0f172a",
   border: "1px solid #cbd5e1",
   fontSize: 15,
@@ -870,7 +870,7 @@ const filterSelectStyle: CSSProperties = {
   minHeight: 48,
   padding: "0 16px",
   borderRadius: 999,
-  background: "#ffffff",
+  background: "var(--card)",
   color: "#0f172a",
   border: "1px solid #cbd5e1",
   fontSize: 14,
@@ -890,7 +890,7 @@ const templateCardStyle: CSSProperties = {
   borderRadius: 28,
   padding: 16,
   cursor: "pointer",
-  background: "#ffffff",
+  background: "var(--card)",
   color: "#0f172a",
   alignContent: "start",
   transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
@@ -915,7 +915,7 @@ const visualBadgeStyle: CSSProperties = {
   marginTop: 10,
   padding: "7px 10px",
   borderRadius: 999,
-  background: "#dcfce7",
+  background: "var(--green-soft)",
   color: "#15803d",
   fontSize: 12,
   fontWeight: 900,
@@ -926,7 +926,7 @@ const htmlBadgeStyle: CSSProperties = {
   marginTop: 10,
   padding: "7px 10px",
   borderRadius: 999,
-  background: "#ede9fe",
+  background: "var(--primary-soft)",
   color: "#6d28d9",
   fontSize: 12,
   fontWeight: 900,
@@ -938,14 +938,14 @@ const templateThumbStyle: CSSProperties = {
   objectFit: "cover",
   borderRadius: 22,
   border: "1px solid #e2e8f0",
-  background: "#f8fafc",
+  background: "var(--card-strong)",
 };
 
 const templateThumbFrameStyle: CSSProperties = {
   width: 430,
   height: 920,
   border: 0,
-  background: "#ffffff",
+  background: "var(--card)",
   pointerEvents: "none",
   position: "absolute",
   left: "50%",
@@ -973,7 +973,7 @@ const templateThumbEmptyStyle: CSSProperties = {
   display: "grid",
   placeItems: "center",
   color: "#64748b",
-  background: "#f8fafc",
+  background: "var(--card-strong)",
   fontWeight: 900,
 };
 
@@ -983,7 +983,7 @@ const emptyStyle: CSSProperties = {
   borderRadius: 18,
   border: "1px dashed #cbd5e1",
   color: "#64748b",
-  background: "#f8fafc",
+  background: "var(--card-strong)",
   fontWeight: 800,
 };
 
@@ -995,7 +995,7 @@ const previewFrameStyle: CSSProperties = {
   margin: "22px auto 0",
   borderRadius: 34,
   border: "1px solid #e2e8f0",
-  background: "#ffffff",
+  background: "var(--card)",
   boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
 };
 
@@ -1008,7 +1008,7 @@ const previewImageStyle: CSSProperties = {
   objectFit: "contain",
   borderRadius: 34,
   border: "1px solid #e2e8f0",
-  background: "#ffffff",
+  background: "var(--card)",
   boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
 };
 
@@ -1031,7 +1031,7 @@ const buttonStyle: CSSProperties = {
   borderRadius: 18,
   background: "linear-gradient(135deg,#7c3aed,#6d28d9)",
   border: "none",
-  color: "#ffffff",
+  color: "var(--card)",
   fontSize: 15,
   fontWeight: 950,
   cursor: "pointer",
@@ -1043,7 +1043,7 @@ const ghostButtonStyle: CSSProperties = {
   borderRadius: 16,
   background: "#7c3aed",
   border: "none",
-  color: "#ffffff",
+  color: "var(--card)",
   fontSize: 14,
   fontWeight: 950,
   cursor: "pointer",

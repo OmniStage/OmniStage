@@ -3390,7 +3390,7 @@ const toastIconStyle: CSSProperties = {
   height: 34,
   borderRadius: 999,
   background: "#16a34a",
-  color: "#ffffff",
+  color: "var(--card)",
   display: "grid",
   placeItems: "center",
   fontSize: 18,
@@ -3631,7 +3631,7 @@ const viewToggleButtonStyle: CSSProperties = {
 const viewToggleActiveStyle: CSSProperties = {
   ...viewToggleButtonStyle,
   background: "#0f172a",
-  color: "#ffffff",
+  color: "var(--card)",
 };
 
 const textareaStyle: CSSProperties = {
@@ -3647,7 +3647,7 @@ const buttonStyle: CSSProperties = {
   borderRadius: 999,
   background: "#43a500",
   border: "none",
-  color: "#ffffff",
+  color: "var(--card)",
   fontSize: 15,
   fontWeight: 950,
   cursor: "pointer",

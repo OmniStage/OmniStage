@@ -142,7 +142,7 @@ export default function ConfigEnvioPage() {
 //
 
 const pageStyle: React.CSSProperties = {
-  background: "#f1f5f9",
+  background: "var(--card-strong)",
   minHeight: "100vh",
   padding: 30,
 };
@@ -159,7 +159,7 @@ const titleStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--card)",
   padding: 20,
   borderRadius: 16,
   marginBottom: 20,
@@ -182,13 +182,13 @@ const btn: React.CSSProperties = {
   borderRadius: 10,
   border: "1px solid #ccc",
   cursor: "pointer",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
 };
 
 const activeBtn: React.CSSProperties = {
   ...btn,
   background: "#2563eb",
-  color: "#fff",
+  color: "var(--card)",
   border: "none",
 };
 
@@ -214,7 +214,7 @@ const primaryBtn: React.CSSProperties = {
   marginTop: 10,
   padding: "12px 16px",
   background: "#16a34a",
-  color: "#fff",
+  color: "var(--card)",
   border: "none",
   borderRadius: 10,
   cursor: "pointer",
@@ -225,7 +225,7 @@ const saveBtn: React.CSSProperties = {
   width: "100%",
   padding: "14px",
   background: "#111827",
-  color: "#fff",
+  color: "var(--card)",
   borderRadius: 12,
   fontWeight: 800,
   cursor: "pointer",

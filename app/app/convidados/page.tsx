@@ -3201,7 +3201,7 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
         "--card-bg": "#0f172a",
         "--section-bg": "#020617",
         "--soft-bg": "#111827",
-        "--text": "#ffffff",
+        "--text": "var(--card)",
         "--text-secondary": "#cbd5e1",
         "--muted": "#94a3b8",
         "--border": "#334155",
@@ -3214,10 +3214,10 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
         "--primary-shadow": "0 12px 32px rgba(124,58,237,0.28)",
       }
     : {
-        "--page-bg": "#f3f4f6",
-        "--card-bg": "#ffffff",
-        "--section-bg": "#ffffff",
-        "--soft-bg": "#f9fafb",
+        "--page-bg": "var(--card-strong)",
+        "--card-bg": "var(--card)",
+        "--section-bg": "var(--card)",
+        "--soft-bg": "var(--card-strong)",
         "--text": "#0f172a",
         "--text-secondary": "#374151",
         "--muted": "#6b7280",
@@ -3226,7 +3226,7 @@ function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
         "--accent": "#7c3aed",
         "--accent-strong": "#5b21b6",
         "--accent-border": "rgba(124,58,237,0.28)",
-        "--group-soft": "#f5f3ff",
+        "--group-soft": "var(--primary-soft)",
         "--primary-bg": "#43a500",
         "--primary-shadow": "0 8px 22px rgba(67,165,0,0.22)",
       };
@@ -3564,7 +3564,7 @@ const buttonStyle: CSSProperties = {
   borderRadius: 999,
   background: "var(--primary-bg)",
   border: "none",
-  color: "#ffffff",
+  color: "var(--card)",
   fontSize: 15,
   fontWeight: 900,
   cursor: "pointer",
@@ -3732,7 +3732,7 @@ const smallButtonStyle: CSSProperties = {
   borderRadius: 999,
   background: "var(--accent)",
   border: "none",
-  color: "#ffffff",
+  color: "var(--card)",
   fontWeight: 800,
   cursor: "pointer",
 };
@@ -4134,7 +4134,7 @@ const sendCancelButtonStyle: CSSProperties = {
 const sendConfirmButtonStyle: CSSProperties = {
   border: "none",
   background: "#16a34a",
-  color: "#ffffff",
+  color: "var(--card)",
   padding: "12px 16px",
   borderRadius: 999,
   fontWeight: 950,
@@ -4223,7 +4223,7 @@ const deleteCancelButtonStyle: CSSProperties = {
 const deleteConfirmButtonStyle: CSSProperties = {
   border: "none",
   background: "#dc2626",
-  color: "#ffffff",
+  color: "var(--card)",
   padding: "12px 16px",
   borderRadius: 999,
   fontWeight: 950,

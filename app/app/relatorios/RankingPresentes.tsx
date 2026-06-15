@@ -36,17 +36,17 @@ function RankingCard({
 
   const colors = {
     purple: {
-      first: "#fef3c7",
+      first: "var(--yellow-soft)",
       second: "#e2e8f0",
       third: "#fed7aa",
-      other: "#ede9fe",
+      other: "var(--primary-soft)",
       text: "#6d28d9",
     },
     green: {
-      first: "#dcfce7",
-      second: "#dbeafe",
-      third: "#fef3c7",
-      other: "#ede9fe",
+      first: "var(--green-soft)",
+      second: "var(--primary-soft)",
+      third: "var(--yellow-soft)",
+      other: "var(--primary-soft)",
       text: "#166534",
     },
   }[accent];
@@ -54,7 +54,7 @@ function RankingCard({
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--card)",
         border: "1px solid #e2e8f0",
         borderRadius: 30,
         padding: 28,
@@ -110,7 +110,7 @@ function RankingCard({
             width: 42,
             height: 42,
             borderRadius: 999,
-            background: "#f8fafc",
+            background: "var(--card-strong)",
             border: "1px solid #e2e8f0",
             color: "#0f172a",
             display: "flex",
@@ -139,7 +139,7 @@ function RankingCard({
                 alignItems: "center",
                 padding: "14px 16px",
                 borderRadius: 18,
-                background: "#f8fafc",
+                background: "var(--card-strong)",
                 border: "1px solid #e2e8f0",
               }}
             >
@@ -224,7 +224,7 @@ function RankingCard({
             style={{
               padding: 18,
               borderRadius: 18,
-              background: "#f8fafc",
+              background: "var(--card-strong)",
               border: "1px solid #e2e8f0",
               color: "#64748b",
               fontSize: 14,

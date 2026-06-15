@@ -253,7 +253,7 @@ const pageStyle: React.CSSProperties = {
   padding: 42,
   background:
     "radial-gradient(circle at top left, rgba(124,58,237,0.28), transparent 30%), linear-gradient(135deg, #020617, #0f172a)",
-  color: "#fff",
+  color: "var(--card)",
   fontFamily: "Arial, Helvetica, sans-serif",
 };
 

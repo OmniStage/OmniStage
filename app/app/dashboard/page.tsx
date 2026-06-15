@@ -334,7 +334,7 @@ export default function DashboardPage() {
       value: stats.total,
       detail: "Base completa do evento",
       color: "#6d28d9",
-      bg: "#ede9fe",
+      bg: "var(--primary-soft)",
     },
     {
       label: "Crianças",
@@ -355,7 +355,7 @@ export default function DashboardPage() {
       value: stats.contatosPrincipais,
       detail: "Pessoas que representam o grupo",
       color: "#7c3aed",
-      bg: "#ede9fe",
+      bg: "var(--primary-soft)",
     },
     {
       label: "Recebem convite",
@@ -369,35 +369,35 @@ export default function DashboardPage() {
       value: stats.confirmados,
       detail: `${percentualConfirmados}% da lista`,
       color: "#16a34a",
-      bg: "#dcfce7",
+      bg: "var(--green-soft)",
     },
     {
       label: "Pendentes",
       value: stats.pendentes,
       detail: "Aguardando resposta",
       color: "#f59e0b",
-      bg: "#fef3c7",
+      bg: "var(--yellow-soft)",
     },
     {
       label: "Ausência confirmada",
       value: stats.ausentes,
       detail: `${percentualAusentes}% da lista`,
       color: "#dc2626",
-      bg: "#fee2e2",
+      bg: "var(--red-soft)",
     },
     {
       label: "Entradas",
       value: stats.entradas,
       detail: `${percentualEntradas}% dos confirmados`,
       color: "#2563eb",
-      bg: "#dbeafe",
+      bg: "var(--primary-soft)",
     },
     {
       label: "No-show atual",
       value: stats.restantes,
       detail: "Confirmados que ainda não entraram",
       color: "#7c3aed",
-      bg: "#ede9fe",
+      bg: "var(--primary-soft)",
     },
     {
       label: "Presença real",
@@ -1249,7 +1249,7 @@ function badgeStyle(color: string): React.CSSProperties {
     padding: "6px 10px",
     borderRadius: 999,
     background: color,
-    color: "#fff",
+    color: "var(--card)",
     fontSize: 11,
     fontWeight: 900,
     whiteSpace: "nowrap",
@@ -1311,7 +1311,7 @@ const subtitleStyle: React.CSSProperties = {
 const refreshButtonStyle: React.CSSProperties = {
   border: "none",
   background: "#6d28d9",
-  color: "#fff",
+  color: "var(--card)",
   padding: "13px 18px",
   borderRadius: 14,
   fontWeight: 800,
@@ -1543,7 +1543,7 @@ const viewToggleButtonStyle: React.CSSProperties = {
 const viewToggleActiveButtonStyle: React.CSSProperties = {
   ...viewToggleButtonStyle,
   background: "#6d28d9",
-  color: "#fff",
+  color: "var(--card)",
 };
 
 const tabsStyle: React.CSSProperties = {
@@ -1566,7 +1566,7 @@ const tabStyle: React.CSSProperties = {
 const tabActiveStyle: React.CSSProperties = {
   ...tabStyle,
   background: "#6d28d9",
-  color: "#fff",
+  color: "var(--card)",
   border: "1px solid #6d28d9",
 };
 
@@ -1634,7 +1634,7 @@ const groupCardStyle: React.CSSProperties = {
 const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
-  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
+  background: "linear-gradient(180deg, var(--card), rgba(248,250,252,0.84))",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",

@@ -1274,7 +1274,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 border: 0,
                 borderRadius: 999,
                 background: "#6d28d9",
-                color: "#fff",
+                color: "var(--card)",
                 padding: "0 24px",
                 fontSize: 15,
                 fontWeight: 900,
@@ -1414,8 +1414,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           >
             {[
               { value: totalConvidados, label: "Convidados", icon: "👥", color: "#6d28d9", soft: "#f3e8ff" },
-              { value: confirmados, label: "Confirmados", icon: "✓", color: "#16a34a", soft: "#dcfce7" },
-              { value: entradasConfirmados, label: "Entradas confirmadas", icon: "↪", color: "#2563eb", soft: "#dbeafe" },
+              { value: confirmados, label: "Confirmados", icon: "✓", color: "#16a34a", soft: "var(--green-soft)" },
+              { value: entradasConfirmados, label: "Entradas confirmadas", icon: "↪", color: "#2563eb", soft: "var(--primary-soft)" },
               { value: restantes, label: "No-show", icon: "×", color: "#ea580c", soft: "#ffedd5" },
             ].map((item, index) => (
               <div
@@ -2084,9 +2084,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               }}
             >
               {[
-                { value: totalConvidados, label: "Total convidados", hint: "base geral do evento", color: "var(--text)", soft: "#f8fafc" },
-                { value: adultos, label: "Adultos", hint: `${taxaAdultos}% da lista`, color: "var(--text)", soft: "#f8fafc" },
-                { value: criancas, label: "Crianças", hint: `${taxaCriancas}% da lista`, color: "#6d28d9", soft: "#f5f3ff" },
+                { value: totalConvidados, label: "Total convidados", hint: "base geral do evento", color: "var(--text)", soft: "var(--card-strong)" },
+                { value: adultos, label: "Adultos", hint: `${taxaAdultos}% da lista`, color: "var(--text)", soft: "var(--card-strong)" },
+                { value: criancas, label: "Crianças", hint: `${taxaCriancas}% da lista`, color: "#6d28d9", soft: "var(--primary-soft)" },
                 { value: criancasDesacompanhadas, label: "Crianças desacompanhadas", hint: "via responsável", color: "#db2777", soft: "#fdf2f8" },
               ].map((item) => (
                 <div
@@ -2418,7 +2418,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             title="Pico de entrada"
             subtitle="Movimento por horário"
             color="#16a34a"
-            soft="#dcfce7"
+            soft="var(--green-soft)"
           >
             <div style={{ gridColumn: "1 / -1" }}>
               <strong
@@ -2588,7 +2588,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         alignItems: "center",
                         padding: "10px 12px",
                         borderRadius: 14,
-                        background: isPico ? "#dcfce7" : "#f8fafc",
+                        background: isPico ? "var(--green-soft)" : "var(--card-strong)",
                         border: isPico ? "1px solid #86efac" : "1px solid #e2e8f0",
                       }}
                     >
@@ -2783,7 +2783,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   display: "inline-flex",
                   alignItems: "center",
                   borderRadius: 999,
-                  background: taxaNoShow <= 10 ? "#dcfce7" : taxaNoShow <= 18 ? "#fef3c7" : "#fee2e2",
+                  background: taxaNoShow <= 10 ? "var(--green-soft)" : taxaNoShow <= 18 ? "var(--yellow-soft)" : "var(--red-soft)",
                   color: taxaNoShow <= 10 ? "#166534" : taxaNoShow <= 18 ? "#92400e" : "#991b1b",
                   padding: "10px 14px",
                   fontSize: 13,
@@ -2805,12 +2805,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               }}
             >
               {[
-                { value: noShow, label: "ausências", hint: "confirmados sem entrada", color: "#ea580c", soft: "#fff7ed" },
+                { value: noShow, label: "ausências", hint: "confirmados sem entrada", color: "#ea580c", soft: "var(--yellow-soft)" },
                 { value: `${taxaNoShow}%`, label: "no-show", hint: `${taxaPresenca}% presença efetiva`, color: "#9a3412", soft: "#ffedd5" },
-                { value: adultosPendentesEntrada, label: "adultos", hint: `${taxaNoShowAdultos}% dos adultos confirmados`, color: "var(--text)", soft: "#f8fafc" },
+                { value: adultosPendentesEntrada, label: "adultos", hint: `${taxaNoShowAdultos}% dos adultos confirmados`, color: "var(--text)", soft: "var(--card-strong)" },
                 { value: criancasPendentesEntrada, label: "crianças", hint: `${taxaNoShowCriancas}% das crianças confirmadas`, color: "#db2777", soft: "#fdf2f8" },
-                { value: gruposNoShow, label: "grupos/famílias", hint: "impactados no ranking", color: "#6d28d9", soft: "#f5f3ff" },
-                { value: contatosPrincipaisNoShow, label: "contatos principais", hint: "responsáveis ausentes", color: "var(--text)", soft: "#f8fafc" },
+                { value: gruposNoShow, label: "grupos/famílias", hint: "impactados no ranking", color: "#6d28d9", soft: "var(--primary-soft)" },
+                { value: contatosPrincipaisNoShow, label: "contatos principais", hint: "responsáveis ausentes", color: "var(--text)", soft: "var(--card-strong)" },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -3075,7 +3075,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               width: 42,
                               height: 42,
                               borderRadius: 999,
-                              background: index === 0 ? "#ffedd5" : "#fef3c7",
+                              background: index === 0 ? "#ffedd5" : "var(--yellow-soft)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -3168,7 +3168,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               width: 42,
                               height: 42,
                               borderRadius: 999,
-                              background: position === 3 ? "#fed7aa" : "#ede9fe",
+                              background: position === 3 ? "#fed7aa" : "var(--primary-soft)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -3312,7 +3312,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             title="Envios"
             subtitle="Performance operacional dos disparos"
             color="#2563eb"
-            soft="#dbeafe"
+            soft="var(--primary-soft)"
           >
             <Metric value={enviosRegistrados} label="envios registrados" />
             <Metric value={enviosSucesso} label="sucesso" />
@@ -3467,10 +3467,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             borderRadius: 999,
                             background:
                               index === 0
-                                ? "#fef3c7"
+                                ? "var(--yellow-soft)"
                                 : index === 1
                                   ? "#e2e8f0"
-                                  : "#ede9fe",
+                                  : "var(--primary-soft)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -3577,7 +3577,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             width: 42,
                             height: 42,
                             borderRadius: 999,
-                            background: position === 3 ? "#fed7aa" : "#ede9fe",
+                            background: position === 3 ? "#fed7aa" : "var(--primary-soft)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -3742,10 +3742,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             borderRadius: 999,
                             background:
                               index === 0
-                                ? "#dcfce7"
+                                ? "var(--green-soft)"
                                 : index === 1
-                                  ? "#dbeafe"
-                                  : "#ede9fe",
+                                  ? "var(--primary-soft)"
+                                  : "var(--primary-soft)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -3852,7 +3852,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             width: 42,
                             height: 42,
                             borderRadius: 999,
-                            background: position === 3 ? "#fef3c7" : "#ede9fe",
+                            background: position === 3 ? "var(--yellow-soft)" : "var(--primary-soft)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",

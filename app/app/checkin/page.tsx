@@ -158,9 +158,9 @@ export default function CheckinPage() {
           const dataFormatada = evento.data_evento
             ? new Date(evento.data_evento + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
             : null;
-          const statusColor = evento.status === "ativo" ? { bg: "#dcfce7", color: "#166534" }
-            : evento.status === "encerrado" ? { bg: "#f1f5f9", color: "var(--muted)" }
-            : { bg: "#fef3c7", color: "#92400e" };
+          const statusColor = evento.status === "ativo" ? { bg: "var(--green-soft)", color: "#166534" }
+            : evento.status === "encerrado" ? { bg: "var(--card-strong)", color: "var(--muted)" }
+            : { bg: "var(--yellow-soft)", color: "#92400e" };
 
           return (
             <Link
@@ -188,7 +188,7 @@ export default function CheckinPage() {
                   </h2>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                     {evento.categoria_evento && (
-                      <span style={{ background: "#ede9fe", color: "#6d28d9", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                      <span style={{ background: "var(--primary-soft)", color: "#6d28d9", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
                         {evento.categoria_evento}
                       </span>
                     )}
@@ -209,7 +209,7 @@ export default function CheckinPage() {
                     )}
                   </div>
                 </div>
-                <div style={{ flexShrink: 0, background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "#fff", padding: "12px 20px", borderRadius: 14, fontWeight: 950, fontSize: 14 }}>
+                <div style={{ flexShrink: 0, background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "var(--card)", padding: "12px 20px", borderRadius: 14, fontWeight: 950, fontSize: 14 }}>
                   Abrir
                 </div>
               </div>

@@ -249,33 +249,33 @@ export default function AppHome() {
   function renderCard(id: CardId) {
     switch (id) {
       case "eventos_ativos":
-        return <StatCard key={id} label="Eventos ativos" value={ativos.length} color="#6d28d9" bg="#ede9fe" />;
+        return <StatCard key={id} label="Eventos ativos" value={ativos.length} color="#6d28d9" bg="var(--primary-soft)" />;
       case "total_convidados":
         return <StatCard key={id} label="Total convidados" value={convidados.length} color="#0f766e" bg="#ccfbf1" />;
       case "confirmados":
-        return <StatCard key={id} label="Confirmados" value={confirmados} color="#16a34a" bg="#dcfce7" />;
+        return <StatCard key={id} label="Confirmados" value={confirmados} color="#16a34a" bg="var(--green-soft)" />;
       case "pendentes":
-        return <StatCard key={id} label="Pendentes" value={pendentes} color="#f59e0b" bg="#fef3c7" />;
+        return <StatCard key={id} label="Pendentes" value={pendentes} color="#f59e0b" bg="var(--yellow-soft)" />;
       case "checkins":
-        return <StatCard key={id} label="Check-ins" value={checkins} color="#2563eb" bg="#dbeafe" />;
+        return <StatCard key={id} label="Check-ins" value={checkins} color="#2563eb" bg="var(--primary-soft)" />;
       case "realizados":
-        return <StatCard key={id} label="Realizados" value={realizados.length} color="#64748b" bg="#f1f5f9" detail="eventos já ocorridos" />;
+        return <StatCard key={id} label="Realizados" value={realizados.length} color="#64748b" bg="var(--card-strong)" detail="eventos já ocorridos" />;
       case "a_realizar":
         return <StatCard key={id} label="A realizar" value={aRealizar.length} color="#0891b2" bg="#e0f2fe" detail="eventos futuros" />;
       case "rsvp_medio":
         return <StatCard key={id} label="RSVP médio" value={`${rsvpMedio}%`} color="#7c3aed" bg="#f3e8ff" detail="confirmados / convidados" />;
       case "recusados":
-        return <StatCard key={id} label="Recusados" value={recusados} color="#dc2626" bg="#fee2e2" detail="disseram que não virão" />;
+        return <StatCard key={id} label="Recusados" value={recusados} color="#dc2626" bg="var(--red-soft)" detail="disseram que não virão" />;
       case "taxa_checkin":
         return <StatCard key={id} label="Taxa de check-in" value={`${taxaCheckin}%`} color="#0891b2" bg="#e0f2fe" detail="dos confirmados já entraram" />;
       case "eventos_ano":
-        return <StatCard key={id} label="Eventos este ano" value={eventosAno} color="#64748b" bg="#f1f5f9" detail={`em ${anoAtual}`} />;
+        return <StatCard key={id} label="Eventos este ano" value={eventosAno} color="#64748b" bg="var(--card-strong)" detail={`em ${anoAtual}`} />;
       case "fornecedores":
         return <StatCard key={id} label="Fornecedores" value={extraStats.fornecedoresConfirmados} color="#0d9488" bg="#ccfbf1" detail="contratos fechados" />;
       case "financeiro":
         return (
           <div key={id} style={cardBoxStyle}>
-            <div style={{ width: 30, height: 30, borderRadius: 9, background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, fontSize: 14, color: "#d97706" }}>●</div>
+            <div style={{ width: 30, height: 30, borderRadius: 9, background: "var(--yellow-soft)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, fontSize: 14, color: "#d97706" }}>●</div>
             <strong style={{ display: "block", fontSize: 22, fontWeight: 900, color: "#d97706", lineHeight: 1, marginBottom: 4 }}>
               {extraStats.valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </strong>
@@ -284,7 +284,7 @@ export default function AppHome() {
           </div>
         );
       case "tarefas":
-        return <StatCard key={id} label="Tarefas abertas" value={extraStats.tarefasAbertas} color="#7c3aed" bg="#ede9fe" detail="ações de produção em andamento" />;
+        return <StatCard key={id} label="Tarefas abertas" value={extraStats.tarefasAbertas} color="#7c3aed" bg="var(--primary-soft)" detail="ações de produção em andamento" />;
       case "proximo_evento":
         return (
           <div key={id} style={cardBoxStyle}>
@@ -373,7 +373,7 @@ export default function AppHome() {
               })}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={salvarPersonalizacao} style={{ flex: 1, background: "#6d28d9", color: "#fff", border: "none", borderRadius: 13, padding: "13px", fontWeight: 900, cursor: "pointer", fontSize: 15 }}>
+              <button onClick={salvarPersonalizacao} style={{ flex: 1, background: "#6d28d9", color: "var(--card)", border: "none", borderRadius: 13, padding: "13px", fontWeight: 900, cursor: "pointer", fontSize: 15 }}>
                 Salvar
               </button>
               <button onClick={() => setPersonalizando(false)} style={{ flex: 1, background: "none", border: "1px solid var(--line)", borderRadius: 13, padding: "13px", fontWeight: 800, cursor: "pointer", color: "var(--muted)", fontSize: 15 }}>
@@ -435,11 +435,11 @@ export default function AppHome() {
 
               let badgeLabel = "";
               let badgeColor = "#6d28d9";
-              let badgeBg    = "#ede9fe";
-              if (passou)       { badgeLabel = "Realizado";        badgeColor = "#64748b"; badgeBg = "#f1f5f9"; }
-              else if (ehHoje)  { badgeLabel = "Hoje!";            badgeColor = "#16a34a"; badgeBg = "#dcfce7"; }
-              else if (dias !== null && dias <= 7)  { badgeLabel = `${dias}d`;  badgeColor = "#d97706"; badgeBg = "#fef3c7"; }
-              else if (dias !== null)               { badgeLabel = `${dias}d`;  badgeColor = "#6d28d9"; badgeBg = "#ede9fe"; }
+              let badgeBg    = "var(--primary-soft)";
+              if (passou)       { badgeLabel = "Realizado";        badgeColor = "#64748b"; badgeBg = "var(--card-strong)"; }
+              else if (ehHoje)  { badgeLabel = "Hoje!";            badgeColor = "#16a34a"; badgeBg = "var(--green-soft)"; }
+              else if (dias !== null && dias <= 7)  { badgeLabel = `${dias}d`;  badgeColor = "#d97706"; badgeBg = "var(--yellow-soft)"; }
+              else if (dias !== null)               { badgeLabel = `${dias}d`;  badgeColor = "#6d28d9"; badgeBg = "var(--primary-soft)"; }
 
               return (
                 <Link key={ev.id} href={`/app/dashboard?eventoId=${ev.id}`} style={eventoCardStyle}>
@@ -543,7 +543,7 @@ const tituloStyle: React.CSSProperties = {
   margin: "0 0 6px", fontSize: 28, fontWeight: 900, color: "var(--text)", letterSpacing: "-0.03em",
 };
 const btnPrimaryStyle: React.CSSProperties = {
-  display: "inline-block", background: "#6d28d9", color: "#fff",
+  display: "inline-block", background: "#6d28d9", color: "var(--card)",
   padding: "12px 20px", borderRadius: 13, fontWeight: 900, textDecoration: "none",
   border: "none", cursor: "pointer", fontSize: 14, whiteSpace: "nowrap",
 };

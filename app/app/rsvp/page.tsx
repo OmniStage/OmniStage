@@ -1068,7 +1068,7 @@ const subtitleStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = {
   border: "none",
   background: "#6d28d9",
-  color: "#fff",
+  color: "var(--card)",
   padding: "13px 18px",
   borderRadius: 14,
   fontWeight: 900,
@@ -1211,7 +1211,7 @@ const viewToggleButtonStyle: React.CSSProperties = {
 const viewToggleActiveButtonStyle: React.CSSProperties = {
   ...viewToggleButtonStyle,
   background: "#6d28d9",
-  color: "#fff",
+  color: "var(--card)",
 };
 
 const tabsStyle: React.CSSProperties = {
@@ -1234,7 +1234,7 @@ const tabStyle: React.CSSProperties = {
 const tabActiveStyle: React.CSSProperties = {
   ...tabStyle,
   background: "#6d28d9",
-  color: "#fff",
+  color: "var(--card)",
   border: "1px solid #6d28d9",
 };
 
@@ -1308,7 +1308,7 @@ const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
+    "linear-gradient(180deg, var(--card), rgba(248,250,252,0.84))",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
@@ -1489,7 +1489,7 @@ const lockedConfirmedStyle: React.CSSProperties = {
 const activeConfirmButtonStyle: React.CSSProperties = {
   ...confirmButtonStyle,
   background: "#16a34a",
-  color: "#fff",
+  color: "var(--card)",
 };
 
 const pendingButtonStyle: React.CSSProperties = {
@@ -1515,7 +1515,7 @@ const absentButtonStyle: React.CSSProperties = {
 const activeAbsentButtonStyle: React.CSSProperties = {
   ...absentButtonStyle,
   background: "#dc2626",
-  color: "#fff",
+  color: "var(--card)",
 };
 
 const cancelConfirmButtonStyle: React.CSSProperties = {
@@ -1537,7 +1537,7 @@ const statusConfirmadoStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 999,
   background: "#16a34a",
-  color: "#fff",
+  color: "var(--card)",
   fontSize: 11,
   fontWeight: 900,
 };
@@ -1555,7 +1555,7 @@ const statusAusenteStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 999,
   background: "#dc2626",
-  color: "#fff",
+  color: "var(--card)",
   fontSize: 11,
   fontWeight: 900,
 };
