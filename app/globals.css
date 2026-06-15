@@ -216,6 +216,75 @@ p {
 }
 
 /* =========================
+   DARK MODE — OVERRIDES GLOBAIS
+   Corrige elementos com cores hardcoded nos componentes
+   ========================= */
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: var(--muted) !important;
+}
+
+/* Cards e divs com fundo branco explícito */
+html[data-theme="dark"] [style*="background: #fff"],
+html[data-theme="dark"] [style*="background:#fff"],
+html[data-theme="dark"] [style*="background: white"],
+html[data-theme="dark"] [style*="background-color: #fff"],
+html[data-theme="dark"] [style*="background-color: white"] {
+  background: var(--card) !important;
+}
+
+html[data-theme="dark"] [style*="background: #f8fafc"],
+html[data-theme="dark"] [style*="background:#f8fafc"],
+html[data-theme="dark"] [style*="background: #f1f5f9"],
+html[data-theme="dark"] [style*="background:#f1f5f9"] {
+  background: var(--card-strong) !important;
+}
+
+/* Textos escuros hardcoded */
+html[data-theme="dark"] [style*="color: #0f172a"],
+html[data-theme="dark"] [style*="color:#0f172a"],
+html[data-theme="dark"] [style*="color: #1e293b"],
+html[data-theme="dark"] [style*="color:#1e293b"],
+html[data-theme="dark"] [style*="color: #334155"],
+html[data-theme="dark"] [style*="color:#334155"] {
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] [style*="color: #475569"],
+html[data-theme="dark"] [style*="color:#475569"],
+html[data-theme="dark"] [style*="color: #64748b"],
+html[data-theme="dark"] [style*="color:#64748b"] {
+  color: var(--muted) !important;
+}
+
+/* Bordas claras */
+html[data-theme="dark"] [style*="border: 1px solid rgba(226,232,240"],
+html[data-theme="dark"] [style*="border:1px solid rgba(226,232,240"],
+html[data-theme="dark"] [style*="border-color: #e2e8f0"],
+html[data-theme="dark"] [style*="border-color:#e2e8f0"] {
+  border-color: var(--line) !important;
+}
+
+/* Botões brancos */
+html[data-theme="dark"] button[style*="background: #fff"],
+html[data-theme="dark"] button[style*="background:#fff"],
+html[data-theme="dark"] a[style*="background: #fff"],
+html[data-theme="dark"] a[style*="background:#fff"] {
+  background: var(--card-strong) !important;
+  color: var(--text) !important;
+}
+
+/* =========================
    RESPONSIVO
    ========================= */
 
