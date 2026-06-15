@@ -278,13 +278,13 @@ export default function AppLayout({
         .omni-nav {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 2px;
           flex: 1;
         }
 
         .omni-nav-link {
           display: block;
-          padding: 13px 16px;
+          padding: 9px 16px;
           border-radius: 14px;
           text-decoration: none;
           color: var(--muted);
