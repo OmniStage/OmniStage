@@ -1480,7 +1480,7 @@ const primaryButtonStyle: CSSProperties = {
 const secondaryDarkButtonStyle: CSSProperties = {
   border: "1px solid rgba(255,255,255,0.28)",
   borderRadius: 16,
-  background: "rgba(255,255,255,0.08)",
+  background: "var(--card)",
   color: "#fff",
   fontWeight: 900,
   padding: "13px 18px",

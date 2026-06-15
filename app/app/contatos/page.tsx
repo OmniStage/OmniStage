@@ -3379,7 +3379,7 @@ const toastCardStyle: CSSProperties = {
   padding: "14px 16px",
   borderRadius: 20,
   border: "1px solid rgba(16,185,129,0.18)",
-  background: "rgba(255,255,255,0.96)",
+  background: "var(--card)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.18)",
   backdropFilter: "blur(14px)",
   WebkitBackdropFilter: "blur(14px)",

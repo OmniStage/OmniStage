@@ -457,7 +457,7 @@ const ROTEIROS_PADRAO = [
 ];
 
 const cardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.92)",
+  background: "var(--card)",
   border: "1px solid var(--line)",
   borderRadius: 24,
   boxShadow: "0 18px 45px rgba(15,23,42,0.06)",
@@ -5257,7 +5257,7 @@ const styles = `
 .org-card-footer-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .org-card-footer-actions button, .org-quick-card button, .org-actions-table button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 9px; font-size: 12px; font-weight: 900; cursor: pointer; color: var(--text); }
 .org-card-footer-actions button:hover, .org-quick-card button:hover, .org-actions-table button:hover { border-color: #7c3aed; color: #6d28d9; }
-.org-quick-card { border: 1px dashed #cbd5e1; border-radius: 18px; padding: 10px; background: rgba(255,255,255,.75); display: grid; gap: 8px; }
+.org-quick-card { border: 1px dashed #cbd5e1; border-radius: 18px; padding: 10px; background: var(--card-strong); display: grid; gap: 8px; }
 .org-quick-card input, .org-quick-card select { width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-weight: 800; background: var(--card); color: var(--text); }
 .org-actions-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 22px; background: var(--card); }
 .org-actions-table { width: 100%; border-collapse: collapse; min-width: 980px; }
@@ -5309,7 +5309,7 @@ const styles = `
 .org-section-title h3 { margin: 4px 0 0; font-size: 16px; color: var(--text); }
 .contratacoes-resumo { margin-bottom: 18px; }
 .org-contract-groups { display: grid; gap: 16px; margin-top: 20px; }
-.org-contract-group { border: 1px solid rgba(226,232,240,0.95); border-radius: 20px; background: rgba(255,255,255,0.86); padding: 16px; }
+.org-contract-group { border: 1px solid rgba(226,232,240,0.95); border-radius: 20px; background: var(--card); padding: 16px; }
 .org-contract-header, .org-service-card { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
 .org-contract-header h3, .org-service-card h4 { margin: 8px 0 4px; color: var(--text); }
 .org-service-list { display: grid; gap: 12px; margin-top: 14px; }

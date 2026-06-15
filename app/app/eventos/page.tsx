@@ -720,7 +720,7 @@ export default function AppEventosPage() {
           margin-top: 20px;
           padding: 24px;
           border-radius: 26px;
-          background: rgba(255,255,255,.92);
+          background: var(--card);
           border: 1px solid var(--line);
           box-shadow: 0 18px 48px rgba(15,23,42,.06);
         }

@@ -1344,7 +1344,7 @@ const liveStatusStyle: React.CSSProperties = {
   gap: 8,
   padding: "10px 12px",
   borderRadius: 999,
-  background: "rgba(255,255,255,0.78)",
+  background: "var(--card)",
   border: "1px solid var(--line)",
   color: "var(--text)",
   fontSize: 13,
@@ -1625,7 +1625,7 @@ const groupCardStyle: React.CSSProperties = {
   border: "1px solid rgba(226,232,240,0.92)",
   borderRadius: 20,
   overflow: "hidden",
-  background: "rgba(255,255,255,0.78)",
+  background: "var(--card)",
   backdropFilter: "blur(12px)",
   boxShadow: "0 10px 30px rgba(15,23,42,0.045)",
   transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
@@ -1714,7 +1714,7 @@ const groupBodyStyle: React.CSSProperties = {
 const guestCardStyle: React.CSSProperties = {
   border: "1px solid rgba(226,232,240,0.9)",
   borderRadius: 16,
-  background: "rgba(255,255,255,0.72)",
+  background: "var(--card)",
   overflow: "hidden",
   boxShadow: "0 4px 18px rgba(15,23,42,0.035)",
 };
