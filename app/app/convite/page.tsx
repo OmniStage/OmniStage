@@ -747,7 +747,7 @@ const heroStyle: CSSProperties = {
   padding: 34,
   borderRadius: 34,
   border: "1px solid #e2e8f0",
-  background: "linear-gradient(135deg,#ffffff,#f8fafc)",
+  background: "var(--card)",
   boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
   display: "flex",
   justifyContent: "space-between",
@@ -960,7 +960,7 @@ const templateThumbFrameWrapStyle: CSSProperties = {
   height: 390,
   borderRadius: 22,
   border: "1px solid #e2e8f0",
-  background: "linear-gradient(135deg,#f8fafc,#eef2ff)",
+  background: "var(--card-strong)",
   overflow: "hidden",
   position: "relative",
 };

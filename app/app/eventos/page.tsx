@@ -688,7 +688,7 @@ export default function AppEventosPage() {
           background:
             radial-gradient(circle at 10% 0%, rgba(124,58,237,.08), transparent 34%),
             radial-gradient(circle at 95% 8%, rgba(34,197,94,.08), transparent 30%),
-            linear-gradient(180deg,#ffffff,#f8fafc);
+            var(--card);
           animation: formIn .28s cubic-bezier(.16,1,.3,1) both;
         }
 

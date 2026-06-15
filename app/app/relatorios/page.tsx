@@ -1594,7 +1594,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 borderRadius: 26,
                 padding: 26,
                 background:
-                  "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 48%, #f3e8ff 100%)",
+                  "var(--primary-soft)",
                 border: "1px solid #ede9fe",
                 boxShadow: "inset 0 1px 0 rgba(255,255,255,.7)",
               }}
@@ -2153,7 +2153,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <div
                 style={{
                   borderRadius: 28,
-                  background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+                  background: "var(--card-strong)",
                   border: "1px solid var(--line)",
                   padding: 22,
                 }}
@@ -2245,7 +2245,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <div
                 style={{
                   borderRadius: 28,
-                  background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)",
+                  background: "var(--card-strong)",
                   border: "1px solid var(--line)",
                   padding: 22,
                 }}
@@ -2674,7 +2674,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               style={{
                 gridColumn: "1 / -1",
                 borderRadius: 20,
-                background: "linear-gradient(135deg, #f8fafc 0%, #f5f3ff 100%)",
+                background: "var(--card-strong)",
                 border: "1px solid var(--line)",
                 padding: 18,
               }}
@@ -2720,7 +2720,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             className="relatorios-noshow-intelligence"
             style={{
               gridColumn: "1 / -1",
-              background: "linear-gradient(135deg, #fff7ed 0%, #ffffff 48%, #f8fafc 100%)",
+              background: "var(--card-strong)",
               border: "1px solid #fed7aa",
               borderRadius: 34,
               padding: 32,

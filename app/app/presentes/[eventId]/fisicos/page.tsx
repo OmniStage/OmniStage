@@ -942,7 +942,7 @@ const styles = `
     margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(221, 214, 254, .95);
-    background: linear-gradient(180deg, rgba(250, 245, 255, .78), rgba(255, 255, 255, .96));
+    background: var(--card);
     padding: 14px;
   }
 
@@ -1007,7 +1007,7 @@ const styles = `
     margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(191, 219, 254, .95);
-    background: linear-gradient(180deg, rgba(239, 246, 255, .92), rgba(255, 255, 255, .98));
+    background: var(--card);
     padding: 14px;
   }
 

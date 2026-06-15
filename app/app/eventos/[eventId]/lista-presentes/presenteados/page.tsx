@@ -424,7 +424,7 @@ export default function PresentesRecebidosPage() {
           border-radius: 20px;
           border: 1px solid var(--line);
           object-fit: cover;
-          background: linear-gradient(135deg,#f1f5f9,#fff);
+          background: var(--card-strong);
         }
 
         .gift-placeholder {
@@ -432,7 +432,7 @@ export default function PresentesRecebidosPage() {
           height: 112px;
           border-radius: 20px;
           border: 1px solid var(--line);
-          background: linear-gradient(135deg,#f1f5f9,#fff);
+          background: var(--card-strong);
           display: flex;
           align-items: center;
           justify-content: center;

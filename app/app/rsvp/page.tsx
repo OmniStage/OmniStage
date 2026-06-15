@@ -1308,7 +1308,7 @@ const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
   background:
-    "linear-gradient(180deg, var(--card), rgba(248,250,252,0.84))",
+    "var(--card)",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
