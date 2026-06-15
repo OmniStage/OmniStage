@@ -247,8 +247,8 @@ export default function PresentesRecebidosPage() {
         .metric,
         .panel,
         .gift-row {
-          background: #fff;
-          border: 1px solid rgba(226,232,240,.95);
+          background: var(--card);
+          border: 1px solid var(--line);
           box-shadow: 0 24px 70px rgba(15,23,42,.08);
         }
 
@@ -278,7 +278,7 @@ export default function PresentesRecebidosPage() {
 
         .title {
           margin: 0;
-          color: #0f172a;
+          color: var(--text);
           font-size: 44px;
           line-height: 1;
           font-weight: 950;
@@ -287,7 +287,7 @@ export default function PresentesRecebidosPage() {
 
         .subtitle {
           margin: 13px 0 0;
-          color: #64748b;
+          color: var(--muted);
           font-size: 16px;
           line-height: 1.6;
           max-width: 760px;
@@ -332,8 +332,8 @@ export default function PresentesRecebidosPage() {
         }
 
         .secondary {
-          background: #fff;
-          color: #0f172a;
+          background: var(--card);
+          color: var(--text);
           border: 1px solid rgba(203,213,225,.95);
         }
 
@@ -361,7 +361,7 @@ export default function PresentesRecebidosPage() {
 
         .metric-label {
           margin: 0;
-          color: #64748b;
+          color: var(--muted);
           font-size: 12px;
           font-weight: 900;
         }
@@ -369,7 +369,7 @@ export default function PresentesRecebidosPage() {
         .metric-value {
           display: block;
           margin-top: 8px;
-          color: #0f172a;
+          color: var(--text);
           font-size: 30px;
           font-weight: 950;
         }
@@ -391,8 +391,8 @@ export default function PresentesRecebidosPage() {
           padding: 15px 16px;
           border-radius: 17px;
           border: 1px solid rgba(203,213,225,.95);
-          background: #fff;
-          color: #0f172a;
+          background: var(--card);
+          color: var(--text);
           outline: none;
           font-size: 14px;
           font-weight: 800;
@@ -422,7 +422,7 @@ export default function PresentesRecebidosPage() {
           width: 112px;
           height: 112px;
           border-radius: 20px;
-          border: 1px solid rgba(226,232,240,.95);
+          border: 1px solid var(--line);
           object-fit: cover;
           background: linear-gradient(135deg,#f1f5f9,#fff);
         }
@@ -431,7 +431,7 @@ export default function PresentesRecebidosPage() {
           width: 112px;
           height: 112px;
           border-radius: 20px;
-          border: 1px solid rgba(226,232,240,.95);
+          border: 1px solid var(--line);
           background: linear-gradient(135deg,#f1f5f9,#fff);
           display: flex;
           align-items: center;
@@ -452,7 +452,7 @@ export default function PresentesRecebidosPage() {
 
         .gift-title {
           margin: 0;
-          color: #0f172a;
+          color: var(--text);
           font-size: 22px;
           font-weight: 950;
           letter-spacing: -.035em;
@@ -460,7 +460,7 @@ export default function PresentesRecebidosPage() {
 
         .presenter {
           margin-top: 6px;
-          color: #334155;
+          color: var(--text);
           font-weight: 900;
           line-height: 1.5;
         }
@@ -482,15 +482,15 @@ export default function PresentesRecebidosPage() {
         .badge-purple { background: #ede9fe; color: #6d28d9; }
         .badge-green { background: #dcfce7; color: #166534; }
         .badge-yellow { background: #fef3c7; color: #92400e; }
-        .badge-gray { background: #f1f5f9; color: #475569; }
+        .badge-gray { background: var(--card-strong); color: var(--muted); }
 
         .message {
           margin-top: 12px;
-          color: #64748b;
+          color: var(--muted);
           line-height: 1.55;
           font-weight: 750;
-          background: #f8fafc;
-          border: 1px solid rgba(226,232,240,.95);
+          background: var(--card-strong);
+          border: 1px solid var(--line);
           border-radius: 18px;
           padding: 12px 14px;
         }
@@ -503,11 +503,11 @@ export default function PresentesRecebidosPage() {
         }
 
         .empty {
-          background: #fff;
+          background: var(--card);
           border: 1px dashed rgba(148,163,184,.45);
           border-radius: 26px;
           padding: 40px;
-          color: #64748b;
+          color: var(--muted);
           font-weight: 800;
           text-align: center;
         }

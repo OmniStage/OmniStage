@@ -1,0 +1,125 @@
+{
+  "pages": {
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/page.js"
+    ],
+    "/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/layout.css",
+      "static/chunks/app/layout.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/login/page.js"
+    ],
+    "/app/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/page.js"
+    ],
+    "/app/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/layout.js"
+    ],
+    "/app/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/dashboard/page.js"
+    ],
+    "/app/relatorios/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/relatorios/page.js"
+    ],
+    "/app/presentes/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/presentes/page.js"
+    ],
+    "/app/presentes/[eventId]/fisicos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/presentes/[eventId]/fisicos/page.js"
+    ],
+    "/app/presentes/[eventId]/presenteados/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/presentes/[eventId]/presenteados/page.js"
+    ],
+    "/app/presentes/[eventId]/lista/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/presentes/[eventId]/lista/page.js"
+    ],
+    "/app/rsvp/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/rsvp/page.js"
+    ],
+    "/app/convite/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/convite/page.js"
+    ],
+    "/lista-presentes/[eventId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/lista-presentes/[eventId]/page.js"
+    ],
+    "/app/eventos/[eventId]/lista-presentes/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/eventos/[eventId]/lista-presentes/page.js"
+    ],
+    "/app/eventos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/eventos/page.js"
+    ],
+    "/app/eventos/[eventId]/lista-presentes/presenteados/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/eventos/[eventId]/lista-presentes/presenteados/page.js"
+    ],
+    "/app/convidados/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/convidados/page.js"
+    ],
+    "/app/checkin/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/checkin/page.js"
+    ],
+    "/app/eventos/[eventId]/checkin/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/eventos/[eventId]/checkin/page.js"
+    ],
+    "/app/organizacao/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/organizacao/page.js"
+    ],
+    "/app/contatos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/contatos/page.js"
+    ],
+    "/app/calendario/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/calendario/page.js"
+    ],
+    "/app/envios/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/app/envios/page.js"
+    ]
+  }
+}

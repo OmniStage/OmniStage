@@ -657,7 +657,7 @@ const styles = `
       radial-gradient(circle at 8% 0%, rgba(124, 58, 237, .10), transparent 34%),
       radial-gradient(circle at 92% 0%, rgba(16, 185, 129, .09), transparent 30%),
       #f8fafc;
-    color: #0f172a;
+    color: var(--text);
     padding: 32px;
   }
 
@@ -701,7 +701,7 @@ const styles = `
 
   .hero-card h1 {
     margin: 0;
-    color: #0f172a;
+    color: var(--text);
     font-size: clamp(38px, 5vw, 64px);
     line-height: .95;
     font-weight: 950;
@@ -711,7 +711,7 @@ const styles = `
   .hero-card p {
     margin: 18px 0 0;
     max-width: 760px;
-    color: #64748b;
+    color: var(--muted);
     font-size: 17px;
     line-height: 1.65;
     font-weight: 750;
@@ -722,9 +722,9 @@ const styles = `
     margin-top: 22px;
     align-items: center;
     border-radius: 999px;
-    background: #fff;
+    background: var(--card);
     border: 1px solid rgba(226, 232, 240, .95);
-    color: #334155;
+    color: var(--text);
     padding: 10px 14px;
     font-size: 13px;
     font-weight: 900;
@@ -737,8 +737,8 @@ const styles = `
     padding: 0 18px;
     border-radius: 16px;
     border: 1px solid rgba(203, 213, 225, .95);
-    background: #fff;
-    color: #0f172a;
+    background: var(--card);
+    color: var(--text);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -751,7 +751,7 @@ const styles = `
 
   .secondary-action:hover {
     transform: translateY(-1px);
-    background: #f8fafc;
+    background: var(--card-strong);
   }
 
   .metrics-grid {
@@ -763,14 +763,14 @@ const styles = `
   .metric-card {
     border: 1px solid rgba(226, 232, 240, .95);
     border-radius: 26px;
-    background: #fff;
+    background: var(--card);
     padding: 20px;
     box-shadow: 0 20px 60px rgba(15, 23, 42, .06);
   }
 
   .metric-card span {
     display: block;
-    color: #64748b;
+    color: var(--muted);
     font-size: 12px;
     font-weight: 950;
     text-transform: uppercase;
@@ -780,7 +780,7 @@ const styles = `
   .metric-card strong {
     display: block;
     margin-top: 8px;
-    color: #0f172a;
+    color: var(--text);
     font-size: 34px;
     line-height: 1;
     font-weight: 950;
@@ -797,14 +797,14 @@ const styles = `
     overflow: hidden;
     border-radius: 32px;
     border: 1px solid rgba(226, 232, 240, .95);
-    background: #fff;
+    background: var(--card);
     box-shadow: 0 24px 70px rgba(15, 23, 42, .08);
   }
 
   .photo-wrap {
     position: relative;
     aspect-ratio: 4 / 3;
-    background: #f1f5f9;
+    background: var(--card-strong);
     overflow: hidden;
   }
 
@@ -849,7 +849,7 @@ const styles = `
 
   .ia-badge-empty {
     background: rgba(241, 245, 249, .95);
-    color: #475569;
+    color: var(--muted);
     border: 1px solid rgba(226, 232, 240, .95);
   }
 
@@ -878,7 +878,7 @@ const styles = `
 
   .gift-head h2 {
     margin: 0;
-    color: #0f172a;
+    color: var(--text);
     font-size: 22px;
     line-height: 1.1;
     font-weight: 950;
@@ -887,7 +887,7 @@ const styles = `
 
   .gift-head p {
     margin: 7px 0 0;
-    color: #64748b;
+    color: var(--muted);
     font-size: 13px;
     line-height: 1.35;
     font-weight: 850;
@@ -916,14 +916,14 @@ const styles = `
 
   .info-box {
     border-radius: 18px;
-    background: #f8fafc;
+    background: var(--card-strong);
     border: 1px solid rgba(226, 232, 240, .85);
     padding: 14px;
   }
 
   .info-box span {
     display: block;
-    color: #64748b;
+    color: var(--muted);
     font-size: 11px;
     font-weight: 950;
     text-transform: uppercase;
@@ -933,7 +933,7 @@ const styles = `
   .info-box strong {
     display: block;
     margin-top: 5px;
-    color: #0f172a;
+    color: var(--text);
     font-size: 15px;
     font-weight: 950;
   }
@@ -958,7 +958,7 @@ const styles = `
   }
 
   .edit-grid label span {
-    color: #64748b;
+    color: var(--muted);
     font-size: 11px;
     font-weight: 950;
     text-transform: uppercase;
@@ -971,8 +971,8 @@ const styles = `
     min-height: 42px;
     border: 1px solid rgba(203, 213, 225, .95);
     border-radius: 14px;
-    background: #fff;
-    color: #0f172a;
+    background: var(--card);
+    color: var(--text);
     padding: 0 12px;
     font-size: 14px;
     font-weight: 850;
@@ -1028,7 +1028,7 @@ const styles = `
     min-height: 138px;
     border: 1px dashed rgba(147, 197, 253, .95);
     border-radius: 18px;
-    background: #fff;
+    background: var(--card);
     color: #1e3a8a;
     padding: 16px;
     display: grid;
@@ -1050,7 +1050,7 @@ const styles = `
   }
 
   .nf-single-upload small {
-    color: #64748b;
+    color: var(--muted);
     font-size: 12px;
     font-weight: 800;
     line-height: 1.45;
@@ -1106,7 +1106,7 @@ const styles = `
     overflow: hidden;
     border-radius: 20px;
     border: 1px solid rgba(191, 219, 254, .95);
-    background: #f8fafc;
+    background: var(--card-strong);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1118,14 +1118,14 @@ const styles = `
     max-height: 58vh;
     display: block;
     object-fit: contain;
-    background: #fff;
+    background: var(--card);
   }
 
   .nf-preview-frame {
     width: 100%;
     height: 58vh;
     border: 0;
-    background: #fff;
+    background: var(--card);
   }
 
   .nf-open-link {
@@ -1267,9 +1267,9 @@ const styles = `
     overflow-y: auto;
     border: 1px solid rgba(226, 232, 240, .95);
     border-radius: 28px;
-    background: #fff;
+    background: var(--card);
     padding: 18px;
-    color: #0f172a;
+    color: var(--text);
     box-shadow: 0 30px 90px rgba(15, 23, 42, .28);
   }
 
@@ -1293,7 +1293,7 @@ const styles = `
 
   .popover-header span {
     display: block;
-    color: #64748b;
+    color: var(--muted);
     font-size: 11px;
     font-weight: 950;
     text-transform: uppercase;
@@ -1303,7 +1303,7 @@ const styles = `
   .popover-header strong {
     display: block;
     margin-top: 5px;
-    color: #0f172a;
+    color: var(--text);
     font-size: 18px;
     font-weight: 950;
   }
@@ -1313,8 +1313,8 @@ const styles = `
     min-height: 36px;
     border: 1px solid rgba(203, 213, 225, .95);
     border-radius: 12px;
-    background: #fff;
-    color: #475569;
+    background: var(--card);
+    color: var(--muted);
     padding: 0 12px;
     font-size: 12px;
     font-weight: 950;
@@ -1340,8 +1340,8 @@ const styles = `
     min-height: 42px;
     border: 1px solid rgba(203, 213, 225, .95);
     border-radius: 14px;
-    background: #fff;
-    color: #334155;
+    background: var(--card);
+    color: var(--text);
     font-size: 13px;
     font-weight: 950;
     cursor: pointer;
@@ -1349,7 +1349,7 @@ const styles = `
   }
 
   .modal-secondary-action:hover {
-    background: #f8fafc;
+    background: var(--card-strong);
   }
 
   .danger-confirm-box {
@@ -1381,13 +1381,13 @@ const styles = `
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    color: #64748b;
+    color: var(--muted);
     font-size: 13px;
     font-weight: 800;
   }
 
   .gift-meta-row strong {
-    color: #0f172a;
+    color: var(--text);
     font-weight: 950;
     text-align: right;
   }
@@ -1395,7 +1395,7 @@ const styles = `
   .empty-state {
     border-radius: 32px;
     border: 1px dashed rgba(148, 163, 184, .45);
-    background: #fff;
+    background: var(--card);
     padding: 56px 24px;
     text-align: center;
     box-shadow: 0 20px 60px rgba(15, 23, 42, .05);
@@ -1403,7 +1403,7 @@ const styles = `
 
   .empty-state strong {
     display: block;
-    color: #0f172a;
+    color: var(--text);
     font-size: 18px;
     font-weight: 950;
   }
@@ -1411,7 +1411,7 @@ const styles = `
   .empty-state p {
     margin: 8px auto 0;
     max-width: 520px;
-    color: #64748b;
+    color: var(--muted);
     line-height: 1.55;
     font-weight: 750;
   }

@@ -244,7 +244,7 @@ export default function ListaPresentesPage() {
             radial-gradient(circle at top left, rgba(124,58,237,.10), transparent 34%),
             radial-gradient(circle at top right, rgba(16,185,129,.08), transparent 28%),
             #ffffff;
-          border: 1px solid rgba(226,232,240,.95);
+          border: 1px solid var(--line);
           border-radius: 30px;
           padding: 34px;
           box-shadow: 0 28px 80px rgba(15,23,42,.07);
@@ -262,7 +262,7 @@ export default function ListaPresentesPage() {
 
         .title {
           margin: 0;
-          color: #0f172a;
+          color: var(--text);
           font-size: 44px;
           line-height: 1;
           font-weight: 950;
@@ -271,15 +271,15 @@ export default function ListaPresentesPage() {
 
         .subtitle {
           margin-top: 14px;
-          color: #64748b;
+          color: var(--muted);
           font-size: 17px;
           line-height: 1.65;
           max-width: 900px;
         }
 
         .search-box {
-          background: #fff;
-          border: 1px solid rgba(226,232,240,.95);
+          background: var(--card);
+          border: 1px solid var(--line);
           border-radius: 24px;
           padding: 16px 20px;
           box-shadow: 0 14px 40px rgba(15,23,42,.05);
@@ -290,7 +290,7 @@ export default function ListaPresentesPage() {
           border: none;
           outline: none;
           background: transparent;
-          color: #0f172a;
+          color: var(--text);
           font-size: 18px;
           font-weight: 850;
         }
@@ -306,8 +306,8 @@ export default function ListaPresentesPage() {
         }
 
         .event-card {
-          background: #fff;
-          border: 1px solid rgba(226,232,240,.95);
+          background: var(--card);
+          border: 1px solid var(--line);
           border-radius: 28px;
           padding: 24px;
           box-shadow: 0 20px 60px rgba(15,23,42,.06);
@@ -318,7 +318,7 @@ export default function ListaPresentesPage() {
 
         .event-name {
           margin: 0;
-          color: #0f172a;
+          color: var(--text);
           font-size: 30px;
           line-height: 1.05;
           font-weight: 950;
@@ -355,11 +355,11 @@ export default function ListaPresentesPage() {
 
         .neutral {
           background: #e2e8f0;
-          color: #475569;
+          color: var(--muted);
         }
 
         .info {
-          color: #475569;
+          color: var(--muted);
           line-height: 1.7;
           font-weight: 750;
         }
@@ -371,14 +371,14 @@ export default function ListaPresentesPage() {
         }
 
         .gift-summary-card {
-          border: 1px solid rgba(226,232,240,.95);
-          background: #f8fafc;
+          border: 1px solid var(--line);
+          background: var(--card-strong);
           border-radius: 20px;
           padding: 14px;
         }
 
         .gift-summary-label {
-          color: #64748b;
+          color: var(--muted);
           font-size: 12px;
           font-weight: 900;
           text-transform: uppercase;
@@ -387,7 +387,7 @@ export default function ListaPresentesPage() {
 
         .gift-summary-value {
           margin-top: 6px;
-          color: #0f172a;
+          color: var(--text);
           font-size: 24px;
           line-height: 1;
           font-weight: 950;
@@ -396,7 +396,7 @@ export default function ListaPresentesPage() {
 
         .gift-summary-caption {
           margin-top: 6px;
-          color: #64748b;
+          color: var(--muted);
           font-size: 12px;
           font-weight: 750;
         }
@@ -410,9 +410,9 @@ export default function ListaPresentesPage() {
         .module-pill {
           border-radius: 999px;
           padding: 9px 12px;
-          background: #f8fafc;
-          border: 1px solid rgba(226,232,240,.95);
-          color: #334155;
+          background: var(--card-strong);
+          border: 1px solid var(--line);
+          color: var(--text);
           font-size: 12px;
           font-weight: 900;
         }
@@ -451,9 +451,9 @@ export default function ListaPresentesPage() {
         }
 
         .secondary {
-          background: #fff;
-          color: #0f172a;
-          border: 1px solid rgba(226,232,240,.95);
+          background: var(--card);
+          color: var(--text);
+          border: 1px solid var(--line);
           padding: 13px 16px;
         }
 
@@ -464,11 +464,11 @@ export default function ListaPresentesPage() {
         }
 
         .empty {
-          background: #fff;
+          background: var(--card);
           border: 1px dashed rgba(148,163,184,.45);
           border-radius: 28px;
           padding: 40px;
-          color: #64748b;
+          color: var(--muted);
           font-weight: 800;
           text-align: center;
         }
@@ -478,7 +478,7 @@ export default function ListaPresentesPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #0f172a;
+          color: var(--text);
           font-weight: 900;
           font-size: 18px;
         }

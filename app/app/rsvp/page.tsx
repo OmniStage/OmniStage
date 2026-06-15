@@ -481,7 +481,7 @@ export default function RsvpPage() {
           transform: translateY(-2px);
           box-shadow: 0 18px 42px rgba(15,23,42,0.07);
           border-color: rgba(109,40,217,0.2);
-          background: #f8fafc;
+          background: var(--card-strong);
         }
 
         .rsvp-action:active {

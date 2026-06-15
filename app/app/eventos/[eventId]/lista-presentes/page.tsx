@@ -474,8 +474,8 @@ export default function ListaPresentesEventoPage() {
         }
 
         .hero, .panel, .metric, .gift-card {
-          background: #fff;
-          border: 1px solid rgba(226,232,240,.95);
+          background: var(--card);
+          border: 1px solid var(--line);
           box-shadow: 0 24px 70px rgba(15,23,42,.08);
         }
 
@@ -505,13 +505,13 @@ export default function ListaPresentesEventoPage() {
           margin: 8px 0;
           font-size: 38px;
           font-weight: 950;
-          color: #0f172a;
+          color: var(--text);
           letter-spacing: -.05em;
         }
 
         .subtitle {
           margin: 0;
-          color: #64748b;
+          color: var(--muted);
           font-size: 16px;
           line-height: 1.5;
           max-width: 820px;
@@ -544,8 +544,8 @@ export default function ListaPresentesEventoPage() {
         }
 
         .secondary {
-          background: #fff;
-          color: #0f172a;
+          background: var(--card);
+          color: var(--text);
           padding: 13px 18px;
           border: 1px solid rgba(203,213,225,.95);
         }
@@ -586,7 +586,7 @@ export default function ListaPresentesEventoPage() {
 
         .metric-label {
           margin: 0;
-          color: #64748b;
+          color: var(--muted);
           font-size: 12px;
           font-weight: 900;
         }
@@ -594,7 +594,7 @@ export default function ListaPresentesEventoPage() {
         .metric-value {
           display: block;
           margin-top: 8px;
-          color: #0f172a;
+          color: var(--text);
           font-size: 30px;
           font-weight: 950;
         }
@@ -620,7 +620,7 @@ export default function ListaPresentesEventoPage() {
 
         .panel-title {
           margin: 0;
-          color: #0f172a;
+          color: var(--text);
           font-size: 24px;
           font-weight: 950;
           letter-spacing: -.035em;
@@ -628,7 +628,7 @@ export default function ListaPresentesEventoPage() {
 
         .panel-desc {
           margin: 7px 0 0;
-          color: #64748b;
+          color: var(--muted);
           line-height: 1.5;
           font-weight: 750;
         }
@@ -643,7 +643,7 @@ export default function ListaPresentesEventoPage() {
 
         .field-label {
           display: block;
-          color: #334155;
+          color: var(--text);
           font-size: 14px;
           font-weight: 950;
           margin-bottom: 8px;
@@ -651,7 +651,7 @@ export default function ListaPresentesEventoPage() {
 
         .field-help {
           margin-top: 8px;
-          color: #64748b;
+          color: var(--muted);
           font-size: 12px;
           line-height: 1.4;
           font-weight: 750;
@@ -659,10 +659,10 @@ export default function ListaPresentesEventoPage() {
 
         .image-preview-box {
           margin-top: 12px;
-          border: 1px solid rgba(226,232,240,.95);
+          border: 1px solid var(--line);
           border-radius: 18px;
           overflow: hidden;
-          background: #f8fafc;
+          background: var(--card-strong);
         }
 
         .image-preview-box img {
@@ -670,7 +670,7 @@ export default function ListaPresentesEventoPage() {
           max-height: 260px;
           object-fit: cover;
           display: block;
-          background: #f1f5f9;
+          background: var(--card-strong);
         }
 
         .image-preview-box a {
@@ -693,8 +693,8 @@ export default function ListaPresentesEventoPage() {
           margin-top: 12px;
           padding: 13px 14px;
           border-radius: 16px;
-          border: 1px solid rgba(226,232,240,.95);
-          background: #f8fafc;
+          border: 1px solid var(--line);
+          background: var(--card-strong);
           display: flex;
           justify-content: space-between;
           gap: 12px;
@@ -703,7 +703,7 @@ export default function ListaPresentesEventoPage() {
         }
 
         .product-link-preview span {
-          color: #64748b;
+          color: var(--muted);
           font-size: 12px;
           font-weight: 800;
           word-break: break-all;
@@ -735,10 +735,10 @@ export default function ListaPresentesEventoPage() {
         .message-preview {
           margin-top: 12px;
           border-radius: 18px;
-          border: 1px solid rgba(226,232,240,.95);
-          background: #f8fafc;
+          border: 1px solid var(--line);
+          background: var(--card-strong);
           padding: 16px;
-          color: #334155;
+          color: var(--text);
           line-height: 1.55;
           font-size: 14px;
           font-weight: 750;
@@ -747,7 +747,7 @@ export default function ListaPresentesEventoPage() {
 
         .message-preview-title {
           display: block;
-          color: #0f172a;
+          color: var(--text);
           font-size: 13px;
           font-weight: 950;
           margin-bottom: 8px;
@@ -758,8 +758,8 @@ export default function ListaPresentesEventoPage() {
           padding: 15px 16px;
           border-radius: 17px;
           border: 1px solid rgba(203,213,225,.95);
-          background: #fff;
-          color: #0f172a;
+          background: var(--card);
+          color: var(--text);
           outline: none;
           font-size: 14px;
           font-weight: 800;
@@ -791,7 +791,7 @@ export default function ListaPresentesEventoPage() {
           background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(255,255,255,.95));
           border: 1px solid rgba(124,58,237,.16);
           cursor: pointer;
-          color: #0f172a;
+          color: var(--text);
           font-weight: 950;
         }
 
@@ -804,7 +804,7 @@ export default function ListaPresentesEventoPage() {
 
         .toggle-card span {
           display: block;
-          color: #64748b;
+          color: var(--muted);
           margin-top: 4px;
           font-size: 12px;
           line-height: 1.35;
@@ -835,20 +835,20 @@ export default function ListaPresentesEventoPage() {
           height: 150px;
           border-radius: 18px;
           background: linear-gradient(135deg,#f1f5f9,#fff);
-          border: 1px solid rgba(226,232,240,.95);
+          border: 1px solid var(--line);
           object-fit: cover;
         }
 
         .gift-title {
           margin: 0;
-          color: #0f172a;
+          color: var(--text);
           font-size: 18px;
           font-weight: 950;
         }
 
         .gift-desc {
           margin: 0;
-          color: #64748b;
+          color: var(--muted);
           line-height: 1.45;
           font-size: 14px;
         }
@@ -882,7 +882,7 @@ export default function ListaPresentesEventoPage() {
           padding: 24px;
           border-radius: 20px;
           border: 1px dashed rgba(148,163,184,.5);
-          color: #64748b;
+          color: var(--muted);
           background: linear-gradient(180deg,#fff,#f8fafc);
         }
 
