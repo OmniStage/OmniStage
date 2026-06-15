@@ -942,7 +942,7 @@ const styles = `
     margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(221, 214, 254, .95);
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(250, 245, 255, .78), rgba(255, 255, 255, .96));
     padding: 14px;
   }
 
@@ -1007,7 +1007,7 @@ const styles = `
     margin-top: 0;
     border-radius: 20px;
     border: 1px solid rgba(191, 219, 254, .95);
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(239, 246, 255, .92), rgba(255, 255, 255, .98));
     padding: 14px;
   }
 
@@ -1078,7 +1078,7 @@ const styles = `
   }
 
   .nf-action:hover {
-    background: var(--primary-soft);
+    background: #dbeafe;
   }
 
   .nf-link {
@@ -1132,7 +1132,7 @@ const styles = `
     min-height: 42px;
     border-radius: 14px;
     border: 1px solid rgba(187, 247, 208, .95);
-    background: var(--green-soft);
+    background: #ecfdf5;
     color: #047857;
     display: flex;
     align-items: center;
@@ -1227,12 +1227,12 @@ const styles = `
   }
 
   .compact-action-nf:hover {
-    background: var(--primary-soft);
+    background: #dbeafe;
   }
 
   .compact-action-view-nf {
     border: 1px solid rgba(187, 247, 208, .95);
-    background: var(--green-soft);
+    background: #ecfdf5;
     color: #047857;
     text-decoration: none;
   }
@@ -1248,7 +1248,7 @@ const styles = `
   }
 
   .compact-action-remove-nf:hover {
-    background: var(--yellow-soft);
+    background: #fef3c7;
   }
 
   .compact-action-danger {

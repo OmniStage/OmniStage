@@ -334,7 +334,7 @@ export default function DashboardPage() {
       value: stats.total,
       detail: "Base completa do evento",
       color: "#6d28d9",
-      bg: "var(--primary-soft)",
+      bg: "#ede9fe",
     },
     {
       label: "Crianças",
@@ -355,7 +355,7 @@ export default function DashboardPage() {
       value: stats.contatosPrincipais,
       detail: "Pessoas que representam o grupo",
       color: "#7c3aed",
-      bg: "var(--primary-soft)",
+      bg: "#ede9fe",
     },
     {
       label: "Recebem convite",
@@ -369,35 +369,35 @@ export default function DashboardPage() {
       value: stats.confirmados,
       detail: `${percentualConfirmados}% da lista`,
       color: "#16a34a",
-      bg: "var(--green-soft)",
+      bg: "#dcfce7",
     },
     {
       label: "Pendentes",
       value: stats.pendentes,
       detail: "Aguardando resposta",
       color: "#f59e0b",
-      bg: "var(--yellow-soft)",
+      bg: "#fef3c7",
     },
     {
       label: "Ausência confirmada",
       value: stats.ausentes,
       detail: `${percentualAusentes}% da lista`,
       color: "#dc2626",
-      bg: "var(--red-soft)",
+      bg: "#fee2e2",
     },
     {
       label: "Entradas",
       value: stats.entradas,
       detail: `${percentualEntradas}% dos confirmados`,
       color: "#2563eb",
-      bg: "var(--primary-soft)",
+      bg: "#dbeafe",
     },
     {
       label: "No-show atual",
       value: stats.restantes,
       detail: "Confirmados que ainda não entraram",
       color: "#7c3aed",
-      bg: "var(--primary-soft)",
+      bg: "#ede9fe",
     },
     {
       label: "Presença real",
@@ -410,7 +410,7 @@ export default function DashboardPage() {
       label: "Total para buffet",
       value: stats.confirmados,
       detail: "Base operacional: confirmados",
-      color: "var(--text)",
+      color: "#0f172a",
       bg: "#e2e8f0",
     },
   ];
@@ -1249,7 +1249,7 @@ function badgeStyle(color: string): React.CSSProperties {
     padding: "6px 10px",
     borderRadius: 999,
     background: color,
-    color: "var(--card)",
+    color: "#fff",
     fontSize: 11,
     fontWeight: 900,
     whiteSpace: "nowrap",
@@ -1311,7 +1311,7 @@ const subtitleStyle: React.CSSProperties = {
 const refreshButtonStyle: React.CSSProperties = {
   border: "none",
   background: "#6d28d9",
-  color: "var(--card)",
+  color: "#fff",
   padding: "13px 18px",
   borderRadius: 14,
   fontWeight: 800,
@@ -1344,7 +1344,7 @@ const liveStatusStyle: React.CSSProperties = {
   gap: 8,
   padding: "10px 12px",
   borderRadius: 999,
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.78)",
   border: "1px solid var(--line)",
   color: "var(--text)",
   fontSize: 13,
@@ -1383,7 +1383,7 @@ const liveToggleStyle: React.CSSProperties = {
 
 const liveToggleActiveStyle: React.CSSProperties = {
   ...liveToggleStyle,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#166534",
   border: "1px solid rgba(22,163,74,0.22)",
 };
@@ -1507,7 +1507,7 @@ const miniStatsStyle: React.CSSProperties = {
 const statusPillStyle: React.CSSProperties = {
   padding: "7px 11px",
   borderRadius: 999,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#16a34a",
   fontSize: 12,
   fontWeight: 900,
@@ -1543,7 +1543,7 @@ const viewToggleButtonStyle: React.CSSProperties = {
 const viewToggleActiveButtonStyle: React.CSSProperties = {
   ...viewToggleButtonStyle,
   background: "#6d28d9",
-  color: "var(--card)",
+  color: "#fff",
 };
 
 const tabsStyle: React.CSSProperties = {
@@ -1566,7 +1566,7 @@ const tabStyle: React.CSSProperties = {
 const tabActiveStyle: React.CSSProperties = {
   ...tabStyle,
   background: "#6d28d9",
-  color: "var(--card)",
+  color: "#fff",
   border: "1px solid #6d28d9",
 };
 
@@ -1625,7 +1625,7 @@ const groupCardStyle: React.CSSProperties = {
   border: "1px solid rgba(226,232,240,0.92)",
   borderRadius: 20,
   overflow: "hidden",
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.78)",
   backdropFilter: "blur(12px)",
   boxShadow: "0 10px 30px rgba(15,23,42,0.045)",
   transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
@@ -1634,7 +1634,7 @@ const groupCardStyle: React.CSSProperties = {
 const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
-  background: "var(--card)",
+  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
@@ -1674,7 +1674,7 @@ const groupSubtitleStyle: React.CSSProperties = {
 
 const groupContactStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "var(--muted)",
+  color: "#64748b",
   fontSize: 12,
   fontWeight: 750,
 };
@@ -1714,7 +1714,7 @@ const groupBodyStyle: React.CSSProperties = {
 const guestCardStyle: React.CSSProperties = {
   border: "1px solid rgba(226,232,240,0.9)",
   borderRadius: 16,
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.72)",
   overflow: "hidden",
   boxShadow: "0 4px 18px rgba(15,23,42,0.035)",
 };
@@ -1824,7 +1824,7 @@ const quickActionsStyle: React.CSSProperties = {
 
 const actionButtonStyle: React.CSSProperties = {
   border: "1px solid rgba(109,40,217,0.24)",
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   color: "#6d28d9",
   padding: "10px 13px",
   borderRadius: 999,

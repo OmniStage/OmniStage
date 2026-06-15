@@ -29,50 +29,27 @@
 
 /* DARK */
 html[data-theme="dark"] {
-  --bg: #0d0f1a;
-  --card: #161928;
-  --card-strong: #1e2235;
-  --sidebar: rgba(18, 21, 36, 0.92);
-  --line: rgba(255, 255, 255, 0.08);
+  --bg: #070812;
+  --card: #0f172a;
+  --card-strong: #111827;
+  --line: rgba(255, 255, 255, 0.12);
 
-  --text: #f1f5f9;
-  --muted: #8b9ab3;
+  --text: #f8fafc;
+  --muted: #94a3b8;
 
   --primary: #a78bfa;
   --primary-strong: #8b5cf6;
-  --primary-soft: rgba(167, 139, 250, 0.15);
+  --primary-soft: rgba(167, 139, 250, 0.16);
 
-  --green: #34d399;
-  --green-soft: rgba(52, 211, 153, 0.14);
-  --red: #f87171;
-  --red-soft: rgba(248, 113, 113, 0.14);
-  --yellow: #fbbf24;
-  --yellow-soft: rgba(251, 191, 36, 0.14);
+  --green: #43d17a;
+  --green-soft: rgba(67, 209, 122, 0.14);
+  --red: #ff5a6f;
+  --red-soft: rgba(255, 90, 111, 0.14);
+  --yellow: #f59e0b;
+  --yellow-soft: rgba(245, 158, 11, 0.16);
 
-  --shadow-soft: 0 1px 3px rgba(0,0,0,0.4);
-  --shadow-card: 0 10px 28px rgba(0,0,0,0.3);
-}
-
-/* Light sidebar var */
-html[data-theme="light"] {
-  --sidebar: rgba(255, 255, 255, 0.88);
-}
-
-/* =========================
-   DARK MODE — HERO SECTIONS
-   Captura hero/banner sections que usam gradientes claros
-   ========================= */
-html[data-theme="dark"] .omni-main > div > section:first-child,
-html[data-theme="dark"] .omni-main > div > div:first-child > section {
-  background: var(--card) !important;
-}
-
-/* Força elementos com background claro detectável */
-html[data-theme="dark"] [style*="background: linear-gradient(135deg, #fff"],
-html[data-theme="dark"] [style*="background: linear-gradient(135deg, #f9"],
-html[data-theme="dark"] [style*="background: linear-gradient(to right, #fff"],
-html[data-theme="dark"] [style*="background: linear-gradient(180deg, #fff"] {
-  background: var(--card) !important;
+  --shadow-soft: none;
+  --shadow-card: none;
 }
 
 /* =========================
@@ -230,56 +207,6 @@ h2 {
 
 p {
   color: var(--muted);
-}
-
-/* =========================
-   DARK MODE — OVERRIDES GLOBAIS
-   ========================= */
-
-html[data-theme="dark"] input,
-html[data-theme="dark"] textarea,
-html[data-theme="dark"] select {
-  background: var(--card) !important;
-  color: var(--text) !important;
-  border-color: var(--line) !important;
-  color-scheme: dark;
-}
-
-html[data-theme="dark"] input::placeholder,
-html[data-theme="dark"] textarea::placeholder {
-  color: var(--muted) !important;
-}
-
-/* Classes geradas por CSS-in-JS (style tags nos componentes) */
-/* Usamos uma injeção de variáveis que sobrescreve via cascade */
-html[data-theme="dark"] .omni-main * {
-  --white-override: var(--card);
-  --light-override: var(--card-strong);
-}
-
-/* Força cards/divs comuns a usarem a variável do tema */
-html[data-theme="dark"] .omni-main article,
-html[data-theme="dark"] .omni-main section:not([class*="hero"]):not([class*="lp-hero"]) {
-  color: var(--text);
-}
-
-/* Inputs e selects dentro do main */
-html[data-theme="dark"] .omni-main input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
-html[data-theme="dark"] .omni-main textarea,
-html[data-theme="dark"] .omni-main select {
-  background: var(--card-strong) !important;
-  color: var(--text) !important;
-  border-color: var(--line) !important;
-}
-
-/* Injeta CSS custom props nas style tags — hack para classes hardcoded */
-html[data-theme="dark"] {
-  /* Cores que aparecem hardcoded em classes geradas */
-  --hc-white: var(--card);
-  --hc-light: var(--card-strong);
-  --hc-text: var(--text);
-  --hc-muted: var(--muted);
-  --hc-line: var(--line);
 }
 
 /* =========================

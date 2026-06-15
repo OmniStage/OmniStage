@@ -583,8 +583,8 @@ export default function AppEventosPage() {
         .app-events-page { display: flex; flex-direction: column; gap: 22px; }
 
         .hero, .panel, .event-card, .event-form-panel {
-          background: var(--card);
-          border: 1px solid var(--line);
+          background: #fff;
+          border: 1px solid rgba(226,232,240,.95);
           box-shadow: 0 24px 70px rgba(15,23,42,.08);
         }
 
@@ -610,13 +610,13 @@ export default function AppEventosPage() {
           margin: 8px 0;
           font-size: 36px;
           font-weight: 950;
-          color: var(--text);
+          color: #0f172a;
           letter-spacing: -.05em;
         }
 
         .subtitle {
           margin: 0;
-          color: var(--muted);
+          color: #64748b;
           font-size: 16px;
           line-height: 1.45;
         }
@@ -644,23 +644,23 @@ export default function AppEventosPage() {
         }
 
         .secondary {
-          background: var(--card);
-          color: var(--text);
+          background: #fff;
+          color: #0f172a;
           padding: 13px 18px;
           border: 1px solid rgba(203,213,225,.95);
         }
 
-        .soft { background: var(--card-strong); border: none; }
+        .soft { background: #f1f5f9; border: none; }
 
         .danger {
-          background: var(--red-soft);
+          background: #fee2e2;
           color: #991b1b;
           padding: 11px 14px;
         }
 
         .ghost {
-          background: var(--card);
-          color: var(--text);
+          background: #fff;
+          color: #0f172a;
           padding: 13px 18px;
           border: 1px solid rgba(203,213,225,.95);
         }
@@ -679,7 +679,7 @@ export default function AppEventosPage() {
           margin: 0;
           font-size: 22px;
           font-weight: 950;
-          color: var(--text);
+          color: #0f172a;
         }
 
         .event-form-panel {
@@ -688,7 +688,7 @@ export default function AppEventosPage() {
           background:
             radial-gradient(circle at 10% 0%, rgba(124,58,237,.08), transparent 34%),
             radial-gradient(circle at 95% 8%, rgba(34,197,94,.08), transparent 30%),
-            var(--card);
+            linear-gradient(180deg,#ffffff,#f8fafc);
           animation: formIn .28s cubic-bezier(.16,1,.3,1) both;
         }
 
@@ -702,7 +702,7 @@ export default function AppEventosPage() {
 
         .form-title {
           margin: 0;
-          color: var(--text);
+          color: #0f172a;
           font-size: 34px;
           font-weight: 950;
           letter-spacing: -.05em;
@@ -710,7 +710,7 @@ export default function AppEventosPage() {
 
         .form-subtitle {
           margin: 8px 0 0;
-          color: var(--muted);
+          color: #64748b;
           font-size: 16px;
           font-weight: 750;
           line-height: 1.45;
@@ -720,8 +720,8 @@ export default function AppEventosPage() {
           margin-top: 20px;
           padding: 24px;
           border-radius: 26px;
-          background: var(--card);
-          border: 1px solid var(--line);
+          background: rgba(255,255,255,.92);
+          border: 1px solid rgba(226,232,240,.95);
           box-shadow: 0 18px 48px rgba(15,23,42,.06);
         }
 
@@ -731,7 +731,7 @@ export default function AppEventosPage() {
           margin: 0 0 6px;
           font-size: 24px;
           font-weight: 950;
-          color: var(--text);
+          color: #0f172a;
           letter-spacing: -.035em;
         }
 
@@ -747,7 +747,7 @@ export default function AppEventosPage() {
 
         .section-desc {
           margin: 14px 0 22px;
-          color: var(--muted);
+          color: #64748b;
           font-size: 15px;
           font-weight: 750;
         }
@@ -768,7 +768,7 @@ export default function AppEventosPage() {
 
         .field-label {
           display: block;
-          color: var(--text);
+          color: #334155;
           font-size: 17px;
           font-weight: 950;
           margin-bottom: 10px;
@@ -781,8 +781,8 @@ export default function AppEventosPage() {
           padding: 17px 18px;
           border-radius: 18px;
           border: 1px solid rgba(203,213,225,.95);
-          background: var(--card);
-          color: var(--text);
+          background: #fff;
+          color: #0f172a;
           outline: none;
           font-size: 15px;
           font-weight: 800;
@@ -802,7 +802,7 @@ export default function AppEventosPage() {
 
         .field-help {
           margin-top: 8px;
-          color: var(--muted);
+          color: #64748b;
           font-size: 13px;
           font-weight: 750;
         }
@@ -817,8 +817,8 @@ export default function AppEventosPage() {
         .map-card {
           overflow: hidden;
           border-radius: 22px;
-          border: 1px solid var(--line);
-          background: var(--card-strong);
+          border: 1px solid rgba(226,232,240,.95);
+          background: #f8fafc;
         }
 
         .map-preview {
@@ -838,7 +838,7 @@ export default function AppEventosPage() {
         }
 
         .map-url {
-          color: var(--muted);
+          color: #64748b;
           font-size: 12px;
           font-weight: 750;
           word-break: break-all;
@@ -876,9 +876,9 @@ export default function AppEventosPage() {
           border-color: rgba(124,58,237,.22);
         }
 
-        .item-title { color: var(--text); font-size: 17px; font-weight: 950; }
-        .item-meta { color: var(--text); font-size: 14px; font-weight: 850; margin-top: 4px; }
-        .small-line { color: var(--muted); font-size: 12px; margin-top: 6px; }
+        .item-title { color: #0f172a; font-size: 17px; font-weight: 950; }
+        .item-meta { color: #334155; font-size: 14px; font-weight: 850; margin-top: 4px; }
+        .small-line { color: #64748b; font-size: 12px; margin-top: 6px; }
 
         .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -891,24 +891,24 @@ export default function AppEventosPage() {
           margin-left: 8px;
         }
 
-        .badge.active { background: var(--green-soft); color: #166534; }
-        .badge.blocked { background: var(--red-soft); color: #991b1b; }
-        .badge.pending { background: var(--yellow-soft); color: #92400e; }
-        .badge.neutral { background: #e2e8f0; color: var(--muted); }
+        .badge.active { background: #dcfce7; color: #166534; }
+        .badge.blocked { background: #fee2e2; color: #991b1b; }
+        .badge.pending { background: #fef3c7; color: #92400e; }
+        .badge.neutral { background: #e2e8f0; color: #475569; }
 
         .empty {
           padding: 24px;
           border-radius: 20px;
           border: 1px dashed rgba(148,163,184,.5);
-          color: var(--muted);
-          background: var(--card);
+          color: #64748b;
+          background: linear-gradient(180deg,#fff,#f8fafc);
         }
 
         .check-row {
           display: flex;
           align-items: center;
           gap: 10px;
-          color: var(--text);
+          color: #334155;
           font-weight: 850;
           margin-top: 4px;
         }
@@ -921,7 +921,7 @@ export default function AppEventosPage() {
 
         .upload-box {
           border: 1px dashed rgba(148,163,184,.7);
-          background: var(--card-strong);
+          background: #f8fafc;
           border-radius: 22px;
           padding: 16px;
         }
@@ -930,8 +930,8 @@ export default function AppEventosPage() {
           margin-top: 12px;
           border-radius: 16px;
           overflow: hidden;
-          background: var(--card);
-          border: 1px solid var(--line);
+          background: #fff;
+          border: 1px solid rgba(226,232,240,.9);
         }
 
         .upload-preview img {
@@ -944,7 +944,7 @@ export default function AppEventosPage() {
         .url-line {
           margin-top: 8px;
           font-size: 11px;
-          color: var(--muted);
+          color: #64748b;
           word-break: break-all;
         }
 
@@ -962,8 +962,8 @@ export default function AppEventosPage() {
           padding: 16px;
           border-radius: 20px;
           border: 1px solid rgba(203,213,225,.95);
-          background: var(--card);
-          color: var(--text);
+          background: #ffffff;
+          color: #334155;
           font-weight: 850;
         }
 
@@ -976,7 +976,7 @@ export default function AppEventosPage() {
 
         .visual-toggle-card strong {
           display: block;
-          color: var(--text);
+          color: #0f172a;
           font-size: 14px;
           font-weight: 950;
         }
@@ -984,7 +984,7 @@ export default function AppEventosPage() {
         .visual-toggle-card span {
           display: block;
           margin-top: 4px;
-          color: var(--muted);
+          color: #64748b;
           font-size: 12px;
           line-height: 1.45;
         }

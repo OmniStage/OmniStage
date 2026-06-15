@@ -519,28 +519,28 @@ export default function RsvpPage() {
           value={stats.total}
           detail="Convidados cadastrados"
           color="#6d28d9"
-          bg="var(--primary-soft)"
+          bg="#ede9fe"
         />
         <MetricCard
           label="Confirmados"
           value={stats.confirmados}
           detail={`${percent(stats.confirmados, stats.total)}% da lista`}
           color="#16a34a"
-          bg="var(--green-soft)"
+          bg="#dcfce7"
         />
         <MetricCard
           label="Pendentes"
           value={stats.pendentes}
           detail="Aguardando resposta"
           color="#f59e0b"
-          bg="var(--yellow-soft)"
+          bg="#fef3c7"
         />
         <MetricCard
           label="Ausência confirmada"
           value={stats.ausentes}
           detail={`${percent(stats.ausentes, stats.total)}% da lista`}
           color="#dc2626"
-          bg="var(--red-soft)"
+          bg="#fee2e2"
         />
       </section>
 
@@ -1068,7 +1068,7 @@ const subtitleStyle: React.CSSProperties = {
 const primaryButtonStyle: React.CSSProperties = {
   border: "none",
   background: "#6d28d9",
-  color: "var(--card)",
+  color: "#fff",
   padding: "13px 18px",
   borderRadius: 14,
   fontWeight: 900,
@@ -1211,7 +1211,7 @@ const viewToggleButtonStyle: React.CSSProperties = {
 const viewToggleActiveButtonStyle: React.CSSProperties = {
   ...viewToggleButtonStyle,
   background: "#6d28d9",
-  color: "var(--card)",
+  color: "#fff",
 };
 
 const tabsStyle: React.CSSProperties = {
@@ -1234,7 +1234,7 @@ const tabStyle: React.CSSProperties = {
 const tabActiveStyle: React.CSSProperties = {
   ...tabStyle,
   background: "#6d28d9",
-  color: "var(--card)",
+  color: "#fff",
   border: "1px solid #6d28d9",
 };
 
@@ -1300,7 +1300,7 @@ const groupCardStyle: React.CSSProperties = {
   border: "1px solid rgba(226,232,240,0.92)",
   borderRadius: 20,
   overflow: "hidden",
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.78)",
   boxShadow: "0 10px 30px rgba(15,23,42,0.045)",
 };
 
@@ -1308,7 +1308,7 @@ const groupHeaderStyle: React.CSSProperties = {
   width: "100%",
   border: "none",
   background:
-    "var(--card)",
+    "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.84))",
   padding: "15px 18px",
   display: "flex",
   justifyContent: "space-between",
@@ -1338,7 +1338,7 @@ const groupNamesStyle: React.CSSProperties = {
 
 const groupContactStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "var(--muted)",
+  color: "#64748b",
   fontSize: 12,
   fontWeight: 750,
 };
@@ -1377,7 +1377,7 @@ const groupBodyStyle: React.CSSProperties = {
 const guestCardStyle: React.CSSProperties = {
   border: "1px solid rgba(226,232,240,0.9)",
   borderRadius: 16,
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.72)",
   overflow: "hidden",
   padding: 15,
   display: "flex",
@@ -1424,7 +1424,7 @@ const miniInfoStyle: React.CSSProperties = {
 const checkinEnteredBadgeStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 999,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#166534",
   fontSize: 12,
   fontWeight: 900,
@@ -1465,14 +1465,14 @@ const baseActionButtonStyle: React.CSSProperties = {
 
 const confirmButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#166534",
   borderColor: "rgba(22,163,74,0.25)",
 };
 
 const entryWithoutRsvpButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   color: "#6d28d9",
   borderColor: "rgba(109,40,217,0.28)",
 };
@@ -1480,7 +1480,7 @@ const entryWithoutRsvpButtonStyle: React.CSSProperties = {
 const lockedConfirmedStyle: React.CSSProperties = {
   padding: "9px 12px",
   borderRadius: 999,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#166534",
   fontSize: 13,
   fontWeight: 900,
@@ -1489,12 +1489,12 @@ const lockedConfirmedStyle: React.CSSProperties = {
 const activeConfirmButtonStyle: React.CSSProperties = {
   ...confirmButtonStyle,
   background: "#16a34a",
-  color: "var(--card)",
+  color: "#fff",
 };
 
 const pendingButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "var(--yellow-soft)",
+  background: "#fef3c7",
   color: "#92400e",
   borderColor: "rgba(245,158,11,0.28)",
 };
@@ -1507,7 +1507,7 @@ const activePendingButtonStyle: React.CSSProperties = {
 
 const absentButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "var(--red-soft)",
+  background: "#fee2e2",
   color: "#991b1b",
   borderColor: "rgba(220,38,38,0.24)",
 };
@@ -1515,19 +1515,19 @@ const absentButtonStyle: React.CSSProperties = {
 const activeAbsentButtonStyle: React.CSSProperties = {
   ...absentButtonStyle,
   background: "#dc2626",
-  color: "var(--card)",
+  color: "#fff",
 };
 
 const cancelConfirmButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "var(--yellow-soft)",
+  background: "#fff7ed",
   color: "#9a3412",
   borderColor: "rgba(234,88,12,0.28)",
 };
 
 const linkButtonStyle: React.CSSProperties = {
   ...baseActionButtonStyle,
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   color: "#6d28d9",
   borderColor: "rgba(109,40,217,0.24)",
   textDecoration: "none",
@@ -1537,7 +1537,7 @@ const statusConfirmadoStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 999,
   background: "#16a34a",
-  color: "var(--card)",
+  color: "#fff",
   fontSize: 11,
   fontWeight: 900,
 };
@@ -1555,7 +1555,7 @@ const statusAusenteStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 999,
   background: "#dc2626",
-  color: "var(--card)",
+  color: "#fff",
   fontSize: 11,
   fontWeight: 900,
 };

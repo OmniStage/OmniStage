@@ -172,7 +172,7 @@ export default function AppLayout({
           position: fixed;
           inset: 0 auto 0 0;
           width: 300px;
-          background: var(--sidebar, rgba(255,255,255,0.88));
+          background: rgba(255,255,255,0.86);
           border-right: 1px solid var(--line);
           padding: 22px;
           z-index: 40;
@@ -187,7 +187,10 @@ export default function AppLayout({
           min-height: 100vh;
           margin-left: 300px;
           padding: 40px;
-          background: var(--bg);
+          background:
+            radial-gradient(circle at 10% 0%, rgba(109,40,217,0.025), transparent 34%),
+            radial-gradient(circle at 90% 0%, rgba(16,185,129,0.022), transparent 34%),
+            #f8fafc;
         }
 
         .omni-brand {
@@ -337,7 +340,7 @@ export default function AppLayout({
             justify-content: space-between;
             gap: 12px;
             padding: 12px 16px;
-            background: var(--sidebar, rgba(255,255,255,0.88));
+            background: rgba(255,255,255,0.86);
             border-bottom: 1px solid var(--line);
             backdrop-filter: blur(18px);
           }
@@ -397,7 +400,9 @@ export default function AppLayout({
             margin-left: 0;
             padding: 16px;
             min-height: calc(100vh - 64px);
-            background: var(--bg);
+            background:
+              radial-gradient(circle at 10% 0%, rgba(109,40,217,0.018), transparent 32%),
+              #f8fafc;
           }
 
           .omni-main > * {

@@ -424,7 +424,7 @@ export default function PresentesRecebidosPage() {
           border-radius: 20px;
           border: 1px solid var(--line);
           object-fit: cover;
-          background: var(--card-strong);
+          background: linear-gradient(135deg,#f1f5f9,#fff);
         }
 
         .gift-placeholder {
@@ -432,7 +432,7 @@ export default function PresentesRecebidosPage() {
           height: 112px;
           border-radius: 20px;
           border: 1px solid var(--line);
-          background: var(--card-strong);
+          background: linear-gradient(135deg,#f1f5f9,#fff);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -723,6 +723,6 @@ const loadingStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "var(--text)",
+  color: "#0f172a",
   fontWeight: 900,
 };

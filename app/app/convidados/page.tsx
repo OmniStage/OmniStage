@@ -2951,7 +2951,7 @@ function getRsvpStyle(status: string | null): CSSProperties {
   if (status === "confirmado") {
     return {
       ...statusStyle,
-      background: "var(--green-soft)",
+      background: "#dcfce7",
       color: "#15803d",
     };
   }
@@ -2959,14 +2959,14 @@ function getRsvpStyle(status: string | null): CSSProperties {
   if (status === "nao") {
     return {
       ...statusStyle,
-      background: "var(--red-soft)",
+      background: "#fee2e2",
       color: "#b91c1c",
     };
   }
 
   return {
     ...statusStyle,
-    background: "var(--yellow-soft)",
+    background: "#fef3c7",
     color: "var(--accent)",
   };
 }
@@ -2985,7 +2985,7 @@ function getCheckinStyle(status: string | null): CSSProperties {
   if (status === "entrou") {
     return {
       ...statusStyle,
-      background: "var(--green-soft)",
+      background: "#dcfce7",
       color: "#166534",
       fontWeight: 900,
     };
@@ -3012,7 +3012,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "enviado") {
     return {
       ...statusStyle,
-      background: "var(--primary-soft)",
+      background: "#dbeafe",
       color: "#1d4ed8",
     };
   }
@@ -3020,7 +3020,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "enviado_manual") {
     return {
       ...statusStyle,
-      background: "var(--green-soft)",
+      background: "#dcfce7",
       color: "#166534",
     };
   }
@@ -3036,7 +3036,7 @@ function getEnvioStyle(status: string | null): CSSProperties {
   if (status === "erro") {
     return {
       ...statusStyle,
-      background: "var(--red-soft)",
+      background: "#fee2e2",
       color: "#b91c1c",
     };
   }
@@ -3197,36 +3197,36 @@ function NucleoConviteSelector({
 function getThemeVars(isDark: boolean): CSSProperties & Record<string, string> {
   return isDark
     ? {
-        "--page-bg": "var(--bg)",
-        "--card-bg": "var(--card)",
-        "--section-bg": "var(--card)",
-        "--soft-bg": "var(--card-strong)",
-        "--text": "var(--text)",
+        "--page-bg": "linear-gradient(135deg, #020617 0%, #0f172a 100%)",
+        "--card-bg": "#0f172a",
+        "--section-bg": "#020617",
+        "--soft-bg": "#111827",
+        "--text": "#ffffff",
         "--text-secondary": "#cbd5e1",
-        "--muted": "var(--muted)",
-        "--border": "var(--line)",
-        "--border-strong": "rgba(255,255,255,0.14)",
-        "--accent": "var(--primary)",
+        "--muted": "#94a3b8",
+        "--border": "#334155",
+        "--border-strong": "#475569",
+        "--accent": "#a78bfa",
         "--accent-strong": "#c4b5fd",
         "--accent-border": "rgba(167,139,250,0.35)",
-        "--group-soft": "var(--primary-soft)",
+        "--group-soft": "rgba(124,58,237,0.12)",
         "--primary-bg": "linear-gradient(135deg, #7c3aed, #5b21b6)",
         "--primary-shadow": "0 12px 32px rgba(124,58,237,0.28)",
       }
     : {
-        "--page-bg": "var(--bg)",
-        "--card-bg": "var(--card)",
-        "--section-bg": "var(--card)",
-        "--soft-bg": "var(--card-strong)",
-        "--text": "var(--text)",
+        "--page-bg": "#f3f4f6",
+        "--card-bg": "#ffffff",
+        "--section-bg": "#ffffff",
+        "--soft-bg": "#f9fafb",
+        "--text": "#0f172a",
         "--text-secondary": "#374151",
-        "--muted": "var(--muted)",
-        "--border": "var(--line)",
+        "--muted": "#6b7280",
+        "--border": "#e5e7eb",
         "--border-strong": "#d1d5db",
-        "--accent": "var(--primary)",
+        "--accent": "#7c3aed",
         "--accent-strong": "#5b21b6",
         "--accent-border": "rgba(124,58,237,0.28)",
-        "--group-soft": "var(--primary-soft)",
+        "--group-soft": "#f5f3ff",
         "--primary-bg": "#43a500",
         "--primary-shadow": "0 8px 22px rgba(67,165,0,0.22)",
       };
@@ -3257,7 +3257,7 @@ const nucleosVinculadosConviteHeaderStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 4,
-  color: "var(--text)",
+  color: "#334155",
 };
 
 const nucleosVinculadosConviteListStyle: CSSProperties = {
@@ -3267,10 +3267,10 @@ const nucleosVinculadosConviteListStyle: CSSProperties = {
 };
 
 const nucleoVinculadoConviteCardStyle: CSSProperties = {
-  border: "1px solid var(--border)",
+  border: "1px solid #e5e7eb",
   borderRadius: 22,
   padding: 22,
-  background: "var(--card-strong)",
+  background: "#f9fafb",
   display: "flex",
   justifyContent: "space-between",
   gap: 18,
@@ -3280,7 +3280,7 @@ const nucleoVinculadoConviteCardStyle: CSSProperties = {
 
 const nucleoVinculadoConviteCardActiveStyle: CSSProperties = {
   borderColor: "#c4b5fd",
-  background: "var(--primary-soft)",
+  background: "#faf5ff",
 };
 
 const nucleoVinculadoConviteSubTextStyle: CSSProperties = {
@@ -3300,10 +3300,10 @@ const compactNucleoToggleStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 10,
-  border: "1px solid var(--border)",
+  border: "1px solid #e5e7eb",
   borderRadius: 999,
   padding: "10px 14px",
-  background: "var(--card)",
+  background: "#ffffff",
   fontWeight: 800,
   color: "#374151",
 };
@@ -3564,7 +3564,7 @@ const buttonStyle: CSSProperties = {
   borderRadius: 999,
   background: "var(--primary-bg)",
   border: "none",
-  color: "var(--card)",
+  color: "#ffffff",
   fontSize: 15,
   fontWeight: 900,
   cursor: "pointer",
@@ -3732,7 +3732,7 @@ const smallButtonStyle: CSSProperties = {
   borderRadius: 999,
   background: "var(--accent)",
   border: "none",
-  color: "var(--card)",
+  color: "#ffffff",
   fontWeight: 800,
   cursor: "pointer",
 };
@@ -3838,7 +3838,7 @@ const importBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "5px 9px",
   borderRadius: 999,
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   color: "#7c3aed",
   fontSize: 11,
   fontWeight: 900,
@@ -3874,7 +3874,7 @@ const giftStatusBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "7px 11px",
   borderRadius: 999,
-  background: "var(--green-soft)",
+  background: "#ecfdf5",
   color: "#047857",
   fontSize: 12,
   fontWeight: 950,
@@ -3914,7 +3914,7 @@ const giftDetailsBadgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "5px 9px",
   borderRadius: 999,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#047857",
   fontSize: 11,
   fontWeight: 950,
@@ -4034,7 +4034,7 @@ const envioOrigemCardStyle: CSSProperties = {
   width: "fit-content",
   padding: "7px 11px",
   borderRadius: 999,
-  background: "var(--green-soft)",
+  background: "#dcfce7",
   color: "#166534",
   fontSize: 11,
   fontWeight: 900,
@@ -4082,8 +4082,8 @@ const sendConfirmModalStyle: CSSProperties = {
   width: "min(520px, 100%)",
   borderRadius: 26,
   padding: 24,
-  background: "var(--card)",
-  border: "1px solid var(--line)",
+  background: "#ffffff",
+  border: "1px solid rgba(226,232,240,0.95)",
   boxShadow: "0 28px 90px rgba(15,23,42,0.26)",
   display: "flex",
   flexDirection: "column",
@@ -4100,14 +4100,14 @@ const sendConfirmEyebrowStyle: CSSProperties = {
 
 const sendConfirmTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 24,
   fontWeight: 950,
 };
 
 const sendConfirmTextStyle: CSSProperties = {
   margin: 0,
-  color: "var(--muted)",
+  color: "#64748b",
   fontSize: 15,
   lineHeight: 1.5,
   fontWeight: 700,
@@ -4123,8 +4123,8 @@ const sendConfirmActionsStyle: CSSProperties = {
 
 const sendCancelButtonStyle: CSSProperties = {
   border: "1px solid rgba(148,163,184,0.5)",
-  background: "var(--card)",
-  color: "var(--text)",
+  background: "#ffffff",
+  color: "#334155",
   padding: "12px 15px",
   borderRadius: 999,
   fontWeight: 950,
@@ -4134,7 +4134,7 @@ const sendCancelButtonStyle: CSSProperties = {
 const sendConfirmButtonStyle: CSSProperties = {
   border: "none",
   background: "#16a34a",
-  color: "var(--card)",
+  color: "#ffffff",
   padding: "12px 16px",
   borderRadius: 999,
   fontWeight: 950,
@@ -4158,8 +4158,8 @@ const deleteConfirmModalStyle: CSSProperties = {
   width: "min(480px, 100%)",
   borderRadius: 28,
   padding: 24,
-  background: "var(--card)",
-  border: "1px solid var(--line)",
+  background: "#ffffff",
+  border: "1px solid rgba(226,232,240,0.95)",
   boxShadow: "0 30px 90px rgba(15,23,42,0.30)",
   display: "flex",
   flexDirection: "column",
@@ -4172,7 +4172,7 @@ const deleteConfirmIconStyle: CSSProperties = {
   borderRadius: 16,
   display: "grid",
   placeItems: "center",
-  background: "var(--red-soft)",
+  background: "#fee2e2",
   color: "#dc2626",
   fontWeight: 950,
   fontSize: 22,
@@ -4188,7 +4188,7 @@ const deleteConfirmEyebrowStyle: CSSProperties = {
 
 const deleteConfirmTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 24,
   fontWeight: 950,
   letterSpacing: "-0.03em",
@@ -4196,7 +4196,7 @@ const deleteConfirmTitleStyle: CSSProperties = {
 
 const deleteConfirmTextStyle: CSSProperties = {
   margin: 0,
-  color: "var(--muted)",
+  color: "#64748b",
   fontSize: 15,
   lineHeight: 1.5,
   fontWeight: 700,
@@ -4212,8 +4212,8 @@ const deleteConfirmActionsStyle: CSSProperties = {
 
 const deleteCancelButtonStyle: CSSProperties = {
   border: "1px solid rgba(148,163,184,0.5)",
-  background: "var(--card)",
-  color: "var(--text)",
+  background: "#ffffff",
+  color: "#334155",
   padding: "12px 16px",
   borderRadius: 999,
   fontWeight: 950,
@@ -4223,7 +4223,7 @@ const deleteCancelButtonStyle: CSSProperties = {
 const deleteConfirmButtonStyle: CSSProperties = {
   border: "none",
   background: "#dc2626",
-  color: "var(--card)",
+  color: "#ffffff",
   padding: "12px 16px",
   borderRadius: 999,
   fontWeight: 950,

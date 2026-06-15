@@ -114,15 +114,15 @@ const CATEGORIA_LABEL: Record<string, string> = {
 };
 
 const CATEGORIA_COR: Record<string, { bg: string; color: string; border: string }> = {
-  evento: { bg: "var(--primary-soft)", color: "#6d28d9", border: "#ddd6fe" },
-  campanha: { bg: "var(--green-soft)", color: "#047857", border: "#a7f3d0" },
-  timeline: { bg: "var(--primary-soft)", color: "#4338ca", border: "#c7d2fe" },
+  evento: { bg: "#f5f3ff", color: "#6d28d9", border: "#ddd6fe" },
+  campanha: { bg: "#ecfdf5", color: "#047857", border: "#a7f3d0" },
+  timeline: { bg: "#eef2ff", color: "#4338ca", border: "#c7d2fe" },
   operacional: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
   tarefa: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
-  fornecedor: { bg: "var(--yellow-soft)", color: "#c2410c", border: "#fed7aa" },
-  cerimonial: { bg: "var(--yellow-soft)", color: "#c2410c", border: "#fed7aa" },
-  rsvp: { bg: "var(--yellow-soft)", color: "#b45309", border: "#fde68a" },
-  checkin: { bg: "var(--primary-soft)", color: "#4338ca", border: "#c7d2fe" },
+  fornecedor: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+  cerimonial: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+  rsvp: { bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+  checkin: { bg: "#eef2ff", color: "#4338ca", border: "#c7d2fe" },
   pos_evento: { bg: "#fdf2f8", color: "#be185d", border: "#fbcfe8" },
 };
 
@@ -353,15 +353,15 @@ function categoriaStyle(categoria: string): CSSProperties {
 function statusStyle(status: string): CSSProperties {
   const valor = normalizarTexto(status);
   if (valor.includes("final") || valor.includes("concl") || valor.includes("encerr")) {
-    return { background: "var(--card-strong)", color: "var(--muted)", border: "1px solid var(--line)" };
+    return { background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0" };
   }
   if (valor.includes("cancel") || valor.includes("erro") || valor.includes("inativo")) {
-    return { background: "var(--red-soft)", color: "#be123c", border: "1px solid #fecdd3" };
+    return { background: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3" };
   }
   if (valor.includes("pend") || valor.includes("rascunho")) {
-    return { background: "var(--yellow-soft)", color: "#b45309", border: "1px solid #fde68a" };
+    return { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" };
   }
-  return { background: "var(--green-soft)", color: "#047857", border: "1px solid #a7f3d0" };
+  return { background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0" };
 }
 
 export default function CalendarioPage() {
@@ -1433,8 +1433,8 @@ const responsiveCss = `
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "32px",
-  background: "var(--card-strong)",
-  color: "var(--text)",
+  background: "#f8fafc",
+  color: "#0f172a",
   fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
@@ -1443,11 +1443,11 @@ const loadingCardStyle: CSSProperties = {
   margin: "0 auto",
   padding: 32,
   borderRadius: 28,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e2e8f0",
+  background: "#fff",
   display: "grid",
   gap: 8,
-  color: "var(--muted)",
+  color: "#475569",
 };
 
 const heroStyle: CSSProperties = {
@@ -1455,21 +1455,21 @@ const heroStyle: CSSProperties = {
   margin: "0 auto 22px",
   padding: 32,
   borderRadius: 28,
-  background: "var(--card)",
-  color: "var(--text)",
-  border: "1px solid var(--line)",
+  background: "#fff",
+  color: "#0f172a",
+  border: "1px solid #e2e8f0",
   boxShadow: "0 18px 45px rgba(15,23,42,0.06)",
 };
 
 const heroActionsStyle: CSSProperties = { display: "none" };
 const eyebrowStyle: CSSProperties = { fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#6d28d9" };
-const titleStyle: CSSProperties = { margin: "12px 0 10px", fontSize: 34, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.035em", color: "var(--text)" };
-const subtitleStyle: CSSProperties = { margin: 0, maxWidth: 920, color: "var(--muted)", fontSize: 15, lineHeight: 1.65, fontWeight: 600 };
+const titleStyle: CSSProperties = { margin: "12px 0 10px", fontSize: 34, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.035em", color: "#0f172a" };
+const subtitleStyle: CSSProperties = { margin: 0, maxWidth: 920, color: "#64748b", fontSize: 15, lineHeight: 1.65, fontWeight: 600 };
 
 const primaryButtonStyle: CSSProperties = {
   border: "none",
   borderRadius: 16,
-  background: "var(--card)",
+  background: "#fff",
   color: "#6d28d9",
   fontWeight: 900,
   padding: "13px 18px",
@@ -1478,10 +1478,10 @@ const primaryButtonStyle: CSSProperties = {
 };
 
 const secondaryDarkButtonStyle: CSSProperties = {
-  border: "1px solid var(--card)",
+  border: "1px solid rgba(255,255,255,0.28)",
   borderRadius: 16,
-  background: "var(--card)",
-  color: "var(--card)",
+  background: "rgba(255,255,255,0.08)",
+  color: "#fff",
   fontWeight: 900,
   padding: "13px 18px",
   cursor: "pointer",
@@ -1492,8 +1492,8 @@ const eventSelectorPanelStyle: CSSProperties = {
   margin: "0 auto 18px",
   padding: 20,
   borderRadius: 26,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e2e8f0",
+  background: "#fff",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -1506,15 +1506,15 @@ const eventSelectStyle: CSSProperties = {
   minHeight: 46,
   borderRadius: 16,
   border: "1px solid #cbd5e1",
-  background: "var(--card)",
-  color: "var(--text)",
+  background: "#fff",
+  color: "#0f172a",
   fontWeight: 800,
   padding: "0 14px",
 };
 
-const fieldLabelStyle: CSSProperties = { display: "block", marginBottom: 4, color: "var(--muted)", fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" };
-const panelTextStyle: CSSProperties = { margin: 0, color: "var(--muted)", fontSize: 14, lineHeight: 1.55, fontWeight: 600 };
-const panelTitleStyle: CSSProperties = { margin: "4px 0", fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--text)" };
+const fieldLabelStyle: CSSProperties = { display: "block", marginBottom: 4, color: "#475569", fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" };
+const panelTextStyle: CSSProperties = { margin: 0, color: "#64748b", fontSize: 14, lineHeight: 1.55, fontWeight: 600 };
+const panelTitleStyle: CSSProperties = { margin: "4px 0", fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "#0f172a" };
 const sectionKickerStyle: CSSProperties = { color: "#6d28d9", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em" };
 
 const statsGridStyle: CSSProperties = {
@@ -1525,9 +1525,9 @@ const statsGridStyle: CSSProperties = {
   gap: 14,
 };
 
-const metricCardStyle: CSSProperties = { padding: 20, borderRadius: 24, border: "1px solid var(--line)", background: "var(--card)", display: "grid", gap: 5 };
-const metricLabelStyle: CSSProperties = { color: "var(--muted)", fontWeight: 800, fontSize: 13 };
-const metricValueStyle: CSSProperties = { color: "var(--text)", fontSize: 30, fontWeight: 800, letterSpacing: "-0.035em" };
+const metricCardStyle: CSSProperties = { padding: 20, borderRadius: 24, border: "1px solid #e2e8f0", background: "#fff", display: "grid", gap: 5 };
+const metricLabelStyle: CSSProperties = { color: "#64748b", fontWeight: 800, fontSize: 13 };
+const metricValueStyle: CSSProperties = { color: "#0f172a", fontSize: 30, fontWeight: 800, letterSpacing: "-0.035em" };
 const metricDetailStyle: CSSProperties = { color: "#94a3b8", fontSize: 12, fontWeight: 700 };
 
 const overviewGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", display: "grid", gridTemplateColumns: "1fr", gap: 18 };
@@ -1535,26 +1535,26 @@ const mainGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto", display
 const sideColumnStyle: CSSProperties = { display: "grid", gap: 18 };
 
 const alertsGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 };
-const alertCardHighStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fecdd3", background: "var(--red-soft)", display: "grid", gap: 5 };
-const alertCardMediumStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fde68a", background: "var(--yellow-soft)", display: "grid", gap: 5 };
-const alertTitleStyle: CSSProperties = { color: "var(--text)", fontSize: 14, fontWeight: 800 };
-const alertTextStyle: CSSProperties = { color: "var(--muted)", fontSize: 13, fontWeight: 600, lineHeight: 1.45 };
-const legendStyle: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", margin: "0 0 16px", padding: "12px 14px", borderRadius: 18, border: "1px solid var(--line)", background: "var(--card-strong)" };
-const legendItemStyle: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, color: "var(--muted)", fontSize: 12, fontWeight: 700 };
+const alertCardHighStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fecdd3", background: "#fff1f2", display: "grid", gap: 5 };
+const alertCardMediumStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fde68a", background: "#fffbeb", display: "grid", gap: 5 };
+const alertTitleStyle: CSSProperties = { color: "#0f172a", fontSize: 14, fontWeight: 800 };
+const alertTextStyle: CSSProperties = { color: "#64748b", fontSize: 13, fontWeight: 600, lineHeight: 1.45 };
+const legendStyle: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", margin: "0 0 16px", padding: "12px 14px", borderRadius: 18, border: "1px solid #e2e8f0", background: "#f8fafc" };
+const legendItemStyle: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, color: "#475569", fontSize: 12, fontWeight: 700 };
 const legendDotStyle: CSSProperties = { width: 10, height: 10, borderRadius: 999, display: "inline-block" };
 
 
-const panelStyle: CSSProperties = { padding: 22, borderRadius: 28, border: "1px solid var(--line)", background: "var(--card)", boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
+const panelStyle: CSSProperties = { padding: 22, borderRadius: 28, border: "1px solid #e2e8f0", background: "#fff", boxShadow: "0 10px 30px rgba(15,23,42,0.04)" };
 const calendarPanelStyle: CSSProperties = { ...panelStyle, minWidth: 0 };
 const panelHeaderStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 16 };
-const counterStyle: CSSProperties = { display: "inline-flex", minWidth: 34, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 999, background: "var(--primary-soft)", color: "#6d28d9", fontWeight: 950, fontSize: 12 };
+const counterStyle: CSSProperties = { display: "inline-flex", minWidth: 34, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 999, background: "#f5f3ff", color: "#6d28d9", fontWeight: 950, fontSize: 12 };
 
 const miniGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 18 };
-const miniCardStyle: CSSProperties = { padding: 16, borderRadius: 20, background: "var(--card-strong)", border: "1px solid var(--line)", display: "grid", gap: 5 };
-const miniCardCompactStyle: CSSProperties = { padding: 12, borderRadius: 16, background: "var(--card-strong)", border: "1px solid var(--line)", display: "grid", gap: 4 };
-const miniLabelStyle: CSSProperties = { color: "var(--muted)", fontSize: 11, fontWeight: 950, letterSpacing: "0.08em", textTransform: "uppercase" };
-const miniValueStyle: CSSProperties = { color: "var(--text)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.025em" };
-const miniValueCompactStyle: CSSProperties = { color: "var(--text)", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" };
+const miniCardStyle: CSSProperties = { padding: 16, borderRadius: 20, background: "#f8fafc", border: "1px solid #e2e8f0", display: "grid", gap: 5 };
+const miniCardCompactStyle: CSSProperties = { padding: 12, borderRadius: 16, background: "#f8fafc", border: "1px solid #e2e8f0", display: "grid", gap: 4 };
+const miniLabelStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 950, letterSpacing: "0.08em", textTransform: "uppercase" };
+const miniValueStyle: CSSProperties = { color: "#0f172a", fontSize: 24, fontWeight: 800, letterSpacing: "-0.025em" };
+const miniValueCompactStyle: CSSProperties = { color: "#0f172a", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" };
 const eventInfoGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 14 };
 
 const agendaHeaderActionsStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" };
@@ -1562,69 +1562,69 @@ const smallPrimaryButtonStyle: CSSProperties = { minHeight: 34, padding: "0 12px
 
 const quickActionsStyle: CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 };
 const primaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, background: "#6d28d9", color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 13 };
-const secondaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", textDecoration: "none", fontWeight: 800, fontSize: 13 };
+const secondaryLinkStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "0 16px", borderRadius: 15, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", textDecoration: "none", fontWeight: 800, fontSize: 13 };
 
 const listStackStyle: CSSProperties = { display: "grid", gap: 10 };
 const timelineStackStyle: CSSProperties = { display: "grid", gap: 0 };
-const itemRowStyle: CSSProperties = { width: "100%", border: "1px solid var(--line)", background: "var(--card)", borderRadius: 22, padding: 14, textAlign: "left", cursor: "pointer" };
+const itemRowStyle: CSSProperties = { width: "100%", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 22, padding: 14, textAlign: "left", cursor: "pointer" };
 const itemRowTopStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" };
-const itemTitleStyle: CSSProperties = { display: "block", color: "var(--text)", fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
-const itemTitleCompactStyle: CSSProperties = { display: "block", color: "var(--text)", fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
-const itemDateStyle: CSSProperties = { display: "block", marginTop: 4, color: "var(--muted)", fontSize: 12, fontWeight: 700 };
+const itemTitleStyle: CSSProperties = { display: "block", color: "#0f172a", fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const itemTitleCompactStyle: CSSProperties = { display: "block", color: "#0f172a", fontWeight: 800, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const itemDateStyle: CSSProperties = { display: "block", marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 700 };
 const itemDescStyle: CSSProperties = { display: "block", marginTop: 4, color: "#94a3b8", fontSize: 12, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const badgeStyle: CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 999, padding: "5px 10px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" };
 
 const calendarActionsStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 8 };
-const iconButtonStyle: CSSProperties = { width: 40, height: 40, borderRadius: 14, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontSize: 24, fontWeight: 900, cursor: "pointer" };
-const ghostButtonStyle: CSSProperties = { minHeight: 40, padding: "0 14px", borderRadius: 14, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontWeight: 900, cursor: "pointer" };
+const iconButtonStyle: CSSProperties = { width: 40, height: 40, borderRadius: 14, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontSize: 24, fontWeight: 900, cursor: "pointer" };
+const ghostButtonStyle: CSSProperties = { minHeight: 40, padding: "0 14px", borderRadius: 14, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontWeight: 900, cursor: "pointer" };
 
 const filtersRowStyle: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 10, marginBottom: 16 };
-const searchInputStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 14px", fontWeight: 700, color: "var(--text)" };
-const filterSelectStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 12px", fontWeight: 800, color: "var(--text)", background: "var(--card)" };
-const segmentedStyle: CSSProperties = { display: "flex", border: "1px solid var(--line)", borderRadius: 16, padding: 4, background: "var(--card-strong)" };
-const segmentStyle: CSSProperties = { minHeight: 34, padding: "0 12px", border: "none", borderRadius: 12, background: "transparent", color: "var(--muted)", fontWeight: 900, cursor: "pointer" };
+const searchInputStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 14px", fontWeight: 700, color: "#0f172a" };
+const filterSelectStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 12px", fontWeight: 800, color: "#0f172a", background: "#fff" };
+const segmentedStyle: CSSProperties = { display: "flex", border: "1px solid #e2e8f0", borderRadius: 16, padding: 4, background: "#f8fafc" };
+const segmentStyle: CSSProperties = { minHeight: 34, padding: "0 12px", border: "none", borderRadius: 12, background: "transparent", color: "#64748b", fontWeight: 900, cursor: "pointer" };
 const segmentActiveStyle: CSSProperties = { ...segmentStyle, background: "#6d28d9", color: "#fff" };
 
-const calendarWrapperStyle: CSSProperties = { border: "1px solid var(--line)", borderRadius: 24, overflow: "hidden", background: "var(--card)" };
-const weekHeaderStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", background: "var(--card-strong)", borderBottom: "1px solid #e2e8f0" };
-const weekDayStyle: CSSProperties = { padding: "12px 8px", textAlign: "center", fontSize: 12, fontWeight: 950, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" };
+const calendarWrapperStyle: CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 24, overflow: "hidden", background: "#fff" };
+const weekHeaderStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" };
+const weekDayStyle: CSSProperties = { padding: "12px 8px", textAlign: "center", fontSize: 12, fontWeight: 950, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" };
 const calendarGridStyle: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" };
-const dayCellStyle: CSSProperties = { minHeight: 138, borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: 8, background: "var(--card)", overflow: "hidden" };
+const dayCellStyle: CSSProperties = { minHeight: 138, borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: 8, background: "#fff", overflow: "hidden" };
 const dayTopStyle: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 };
-const dayNumberStyle: CSSProperties = { display: "inline-flex", width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 999, color: "var(--muted)", fontSize: 12, fontWeight: 900 };
+const dayNumberStyle: CSSProperties = { display: "inline-flex", width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 999, color: "#475569", fontSize: 12, fontWeight: 900 };
 const todayNumberStyle: CSSProperties = { ...dayNumberStyle, background: "#6d28d9", color: "#fff" };
 const dayEventsStyle: CSSProperties = { display: "grid", gap: 5 };
 const dayEventStyle: CSSProperties = { width: "100%", borderRadius: 10, padding: "7px 8px", fontSize: 11, fontWeight: 800, cursor: "pointer", overflow: "hidden", textAlign: "left", display: "grid", gap: 2, lineHeight: 1.2 };
 const dayEventTitleStyle: CSSProperties = { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 900 };
 const dayEventTimeStyle: CSSProperties = { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700, opacity: 0.86 };
-const moreEventsStyle: CSSProperties = { color: "var(--muted)", fontSize: 11, fontWeight: 900, paddingLeft: 6 };
+const moreEventsStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 900, paddingLeft: 6 };
 const listModeStyle: CSSProperties = { display: "grid", gap: 10 };
 
 const timelineButtonStyle: CSSProperties = { display: "grid", gridTemplateColumns: "20px minmax(0, 1fr)", gap: 10, width: "100%", border: "none", background: "transparent", padding: 0, textAlign: "left", cursor: "pointer" };
 const timelineLineColStyle: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 8 };
 const timelineDotStyle: CSSProperties = { width: 11, height: 11, borderRadius: 999, background: "#6d28d9", boxShadow: "0 0 0 4px #ede9fe" };
 const timelineLineStyle: CSSProperties = { width: 2, minHeight: 42, flex: 1, background: "#e2e8f0", marginTop: 8 };
-const timelineContentStyle: CSSProperties = { padding: 13, borderRadius: 20, border: "1px solid var(--line)", background: "var(--card-strong)", marginBottom: 10, minWidth: 0 };
+const timelineContentStyle: CSSProperties = { padding: 13, borderRadius: 20, border: "1px solid #e2e8f0", background: "#f8fafc", marginBottom: 10, minWidth: 0 };
 const timelineDateStyle: CSSProperties = { display: "block", marginBottom: 4, color: "#6d28d9", fontSize: 11, fontWeight: 950, textTransform: "uppercase", letterSpacing: "0.08em" };
 
-const emptyStateStyle: CSSProperties = { border: "1px dashed #cbd5e1", background: "var(--card-strong)", borderRadius: 22, padding: 18, display: "grid", gap: 5, textAlign: "center", color: "var(--muted)", fontSize: 13, fontWeight: 700 };
-const simpleRowButtonStyle: CSSProperties = { width: "100%", border: "1px solid var(--line)", background: "var(--card)", borderRadius: 18, padding: 12, textAlign: "left", fontWeight: 850, color: "var(--text)", cursor: "pointer" };
-const errorBoxStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", border: "1px solid #fecdd3", background: "var(--red-soft)", color: "#be123c", borderRadius: 20, padding: 16, fontWeight: 800 };
+const emptyStateStyle: CSSProperties = { border: "1px dashed #cbd5e1", background: "#f8fafc", borderRadius: 22, padding: 18, display: "grid", gap: 5, textAlign: "center", color: "#64748b", fontSize: 13, fontWeight: 700 };
+const simpleRowButtonStyle: CSSProperties = { width: "100%", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 18, padding: 12, textAlign: "left", fontWeight: 850, color: "#334155", cursor: "pointer" };
+const errorBoxStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", border: "1px solid #fecdd3", background: "#fff1f2", color: "#be123c", borderRadius: 20, padding: 16, fontWeight: 800 };
 
 const modalBackdropStyle: CSSProperties = { position: "fixed", inset: 0, zIndex: 60, background: "rgba(15,23,42,0.58)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, backdropFilter: "blur(6px)" };
-const modalStyle: CSSProperties = { width: "min(760px, 100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 30, background: "var(--card)", boxShadow: "0 30px 90px rgba(15,23,42,0.34)" };
+const modalStyle: CSSProperties = { width: "min(760px, 100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 30, background: "#fff", boxShadow: "0 30px 90px rgba(15,23,42,0.34)" };
 const modalHeaderStyle: CSSProperties = { padding: 24, borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" };
 const modalTitleStyle: CSSProperties = { margin: "12px 0 4px", fontSize: 26, fontWeight: 950, letterSpacing: "-0.04em" };
-const closeButtonStyle: CSSProperties = { width: 42, height: 42, borderRadius: 999, border: "none", background: "var(--card-strong)", color: "var(--text)", fontSize: 24, fontWeight: 900, cursor: "pointer" };
+const closeButtonStyle: CSSProperties = { width: 42, height: 42, borderRadius: 999, border: "none", background: "#f1f5f9", color: "#334155", fontSize: 24, fontWeight: 900, cursor: "pointer" };
 const detailGridStyle: CSSProperties = { padding: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 };
-const detailBoxStyle: CSSProperties = { background: "var(--card-strong)", border: "1px solid var(--line)", borderRadius: 20, padding: 16, minWidth: 0 };
-const detailValueStyle: CSSProperties = { display: "block", marginTop: 6, color: "var(--text)", fontSize: 15, fontWeight: 900, overflowWrap: "anywhere" };
+const detailBoxStyle: CSSProperties = { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 20, padding: 16, minWidth: 0 };
+const detailValueStyle: CSSProperties = { display: "block", marginTop: 6, color: "#0f172a", fontSize: 15, fontWeight: 900, overflowWrap: "anywhere" };
 const modalFooterStyle: CSSProperties = { borderTop: "1px solid #e2e8f0", padding: 24, display: "flex", flexWrap: "wrap", gap: 10 };
 
 const formGridStyle: CSSProperties = { padding: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 };
 const formFieldStyle: CSSProperties = { display: "grid", gap: 7 };
-const formLabelStyle: CSSProperties = { color: "var(--muted)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" };
-const formInputStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 13px", color: "var(--text)", fontSize: 14, fontWeight: 650, background: "var(--card)" };
+const formLabelStyle: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" };
+const formInputStyle: CSSProperties = { minHeight: 44, borderRadius: 15, border: "1px solid #cbd5e1", padding: "0 13px", color: "#0f172a", fontSize: 14, fontWeight: 650, background: "#fff" };
 const formTextareaStyle: CSSProperties = { ...formInputStyle, minHeight: 94, padding: 13, resize: "vertical", fontFamily: "inherit" };
 const primaryActionButtonStyle: CSSProperties = { minHeight: 44, padding: "0 18px", borderRadius: 15, border: "none", background: "#6d28d9", color: "#fff", fontWeight: 800, cursor: "pointer" };
-const secondaryActionButtonStyle: CSSProperties = { minHeight: 44, padding: "0 18px", borderRadius: 15, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontWeight: 800, cursor: "pointer" };
+const secondaryActionButtonStyle: CSSProperties = { minHeight: 44, padding: "0 18px", borderRadius: 15, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontWeight: 800, cursor: "pointer" };

@@ -788,7 +788,7 @@ export default function ListaPresentesEventoPage() {
           align-items: flex-start;
           padding: 16px;
           border-radius: 20px;
-          background: var(--primary-soft);
+          background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(255,255,255,.95));
           border: 1px solid rgba(124,58,237,.16);
           cursor: pointer;
           color: var(--text);
@@ -834,7 +834,7 @@ export default function ListaPresentesEventoPage() {
           width: 100%;
           height: 150px;
           border-radius: 18px;
-          background: var(--card-strong);
+          background: linear-gradient(135deg,#f1f5f9,#fff);
           border: 1px solid var(--line);
           object-fit: cover;
         }
@@ -883,7 +883,7 @@ export default function ListaPresentesEventoPage() {
           border-radius: 20px;
           border: 1px dashed rgba(148,163,184,.5);
           color: var(--muted);
-          background: var(--card);
+          background: linear-gradient(180deg,#fff,#f8fafc);
         }
 
         .toast {
@@ -1451,6 +1451,6 @@ const loadingStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "var(--text)",
+  color: "#0f172a",
   fontWeight: 900,
 };

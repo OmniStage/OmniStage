@@ -248,8 +248,8 @@ function BigProgressCard({
   return (
     <div
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
+        background: "#fff",
+        border: "1px solid #e2e8f0",
         borderRadius: 30,
         padding: 34,
         boxShadow: "0 18px 42px rgba(15,23,42,.06)",
@@ -267,7 +267,7 @@ function BigProgressCard({
           <h2
             style={{
               margin: 0,
-              color: "var(--text)",
+              color: "#0f172a",
               fontSize: 34,
               lineHeight: 1,
               letterSpacing: "-.05em",
@@ -280,7 +280,7 @@ function BigProgressCard({
           <p
             style={{
               margin: "12px 0 0",
-              color: "var(--muted)",
+              color: "#64748b",
               fontSize: 20,
               lineHeight: 1.3,
             }}
@@ -338,7 +338,7 @@ function BigProgressCard({
             marginTop: 28,
             borderTop: "1px solid #e2e8f0",
             paddingTop: 18,
-            color: "var(--text)",
+            color: "#0f172a",
             fontSize: 15,
             fontWeight: 800,
           }}
@@ -365,7 +365,7 @@ function Metric({
       <strong
         style={{
           display: "block",
-          color: "var(--muted)",
+          color: "#64748b",
           fontSize: isDateTime ? 18 : 22,
           lineHeight: isDateTime ? 1.16 : 1,
           fontWeight: 900,
@@ -379,7 +379,7 @@ function Metric({
         style={{
           display: "block",
           marginTop: 6,
-          color: "var(--muted)",
+          color: "#64748b",
           fontSize: 15,
           lineHeight: 1.2,
           fontWeight: 800,
@@ -407,8 +407,8 @@ function DetailCard({
   return (
     <div
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
+        background: "#fff",
+        border: "1px solid #e2e8f0",
         borderRadius: 30,
         padding: 30,
         boxShadow: "0 18px 42px rgba(15,23,42,.05)",
@@ -439,7 +439,7 @@ function DetailCard({
       <h3
         style={{
           margin: 0,
-          color: "var(--text)",
+          color: "#0f172a",
           fontSize: 26,
           letterSpacing: "-.04em",
           fontWeight: 900,
@@ -451,7 +451,7 @@ function DetailCard({
       <p
         style={{
           margin: "8px 0 24px",
-          color: "var(--muted)",
+          color: "#64748b",
           fontSize: 16,
         }}
       >
@@ -1182,8 +1182,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
         <section
           className="relatorios-header"
           style={{
-            background: "var(--card)",
-            border: "1px solid var(--line)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
             borderRadius: 30,
             padding: 36,
             boxShadow: "0 20px 50px rgba(15,23,42,.06)",
@@ -1211,7 +1211,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <h1
               style={{
                 margin: "14px 0 8px",
-                color: "var(--text)",
+                color: "#0f172a",
                 fontSize: "clamp(42px,6vw,64px)",
                 lineHeight: 1,
                 letterSpacing: "-.06em",
@@ -1224,7 +1224,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <p
               style={{
                 margin: 0,
-                color: "var(--muted)",
+                color: "#64748b",
                 fontSize: 18,
               }}
             >
@@ -1248,10 +1248,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               style={{
                 height: 52,
                 borderRadius: 999,
-                border: "1px solid var(--line)",
-                background: "var(--card)",
+                border: "1px solid #e2e8f0",
+                background: "#fff",
                 padding: "0 18px",
-                color: "var(--text)",
+                color: "#0f172a",
                 fontWeight: 800,
                 fontSize: 15,
                 minWidth: 240,
@@ -1274,7 +1274,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 border: 0,
                 borderRadius: 999,
                 background: "#6d28d9",
-                color: "var(--card)",
+                color: "#fff",
                 padding: "0 24px",
                 fontSize: 15,
                 fontWeight: 900,
@@ -1305,12 +1305,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           className="relatorios-resultado"
           style={{
             marginBottom: 34,
-            background: "var(--card)",
-            border: "1px solid var(--line)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
             borderRadius: 34,
             padding: 34,
             boxShadow: "0 20px 50px rgba(15,23,42,.06)",
-            color: "var(--text)",
+            color: "#0f172a",
             overflow: "hidden",
           }}
         >
@@ -1353,7 +1353,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <h2
                   style={{
                     margin: 0,
-                    color: "var(--text)",
+                    color: "#0f172a",
                     fontSize: "clamp(30px, 3vw, 40px)",
                     lineHeight: 1,
                     letterSpacing: "-.05em",
@@ -1366,7 +1366,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <p
                   style={{
                     margin: "8px 0 0",
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 17,
                     lineHeight: 1.35,
                     fontWeight: 700,
@@ -1384,18 +1384,18 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 gap: 10,
                 minHeight: 52,
                 borderRadius: 16,
-                border: "1px solid var(--line)",
-                background: "var(--card)",
+                border: "1px solid #e2e8f0",
+                background: "#fff",
                 padding: "0 18px",
-                color: "var(--text)",
+                color: "#0f172a",
                 fontSize: 15,
                 fontWeight: 850,
                 boxShadow: "0 10px 24px rgba(15,23,42,.04)",
               }}
             >
-              <span style={{ color: "var(--muted)", fontSize: 18 }}>▣</span>
+              <span style={{ color: "#475569", fontSize: 18 }}>▣</span>
               Todo o evento
-              <span style={{ color: "var(--muted)", fontSize: 14 }}>⌄</span>
+              <span style={{ color: "#475569", fontSize: 14 }}>⌄</span>
             </div>
           </div>
 
@@ -1405,17 +1405,17 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               display: "grid",
               gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
               gap: 0,
-              border: "1px solid var(--line)",
+              border: "1px solid #e2e8f0",
               borderRadius: 26,
               padding: "30px 22px",
-              background: "var(--card)",
+              background: "#fff",
               marginBottom: 26,
             }}
           >
             {[
               { value: totalConvidados, label: "Convidados", icon: "👥", color: "#6d28d9", soft: "#f3e8ff" },
-              { value: confirmados, label: "Confirmados", icon: "✓", color: "#16a34a", soft: "var(--green-soft)" },
-              { value: entradasConfirmados, label: "Entradas confirmadas", icon: "↪", color: "#2563eb", soft: "var(--primary-soft)" },
+              { value: confirmados, label: "Confirmados", icon: "✓", color: "#16a34a", soft: "#dcfce7" },
+              { value: entradasConfirmados, label: "Entradas confirmadas", icon: "↪", color: "#2563eb", soft: "#dbeafe" },
               { value: restantes, label: "No-show", icon: "×", color: "#ea580c", soft: "#ffedd5" },
             ].map((item, index) => (
               <div
@@ -1450,7 +1450,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <strong
                     style={{
                       display: "block",
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 42,
                       lineHeight: 1,
                       letterSpacing: "-.06em",
@@ -1464,7 +1464,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 8,
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 17,
                       lineHeight: 1.15,
                       fontWeight: 750,
@@ -1491,10 +1491,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 display: "grid",
                 gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                 gap: 0,
-                border: "1px solid var(--line)",
+                border: "1px solid #e2e8f0",
                 borderRadius: 26,
                 padding: "26px 20px",
-                background: "var(--card)",
+                background: "#fff",
               }}
             >
               {[
@@ -1545,7 +1545,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 12,
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 15,
                       lineHeight: 1.2,
                       fontWeight: 900,
@@ -1577,7 +1577,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 13,
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 13,
                       lineHeight: 1.25,
                       fontWeight: 750,
@@ -1594,7 +1594,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 borderRadius: 26,
                 padding: 26,
                 background:
-                  "var(--primary-soft)",
+                  "linear-gradient(135deg, #f5f3ff 0%, #faf5ff 48%, #f3e8ff 100%)",
                 border: "1px solid #ede9fe",
                 boxShadow: "inset 0 1px 0 rgba(255,255,255,.7)",
               }}
@@ -1602,7 +1602,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <span
                 style={{
                   display: "block",
-                  color: "var(--text)",
+                  color: "#0f172a",
                   fontSize: 16,
                   fontWeight: 900,
                   lineHeight: 1.2,
@@ -1638,7 +1638,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     alignItems: "center",
                     gap: 7,
                     borderRadius: 999,
-                    background: "var(--green-soft)",
+                    background: "#dcfce7",
                     color: "#15803d",
                     padding: "8px 13px",
                     fontSize: 13,
@@ -1673,7 +1673,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 style={{
                   display: "block",
                   marginTop: 14,
-                  color: "var(--muted)",
+                  color: "#64748b",
                   fontSize: 14,
                   lineHeight: 1.3,
                   fontWeight: 750,
@@ -1692,9 +1692,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               justifyContent: "space-between",
               gap: 18,
               flexWrap: "wrap",
-              border: "1px solid var(--line)",
+              border: "1px solid #e2e8f0",
               borderRadius: 24,
-              background: "var(--card)",
+              background: "#fff",
               padding: 22,
             }}
           >
@@ -1726,7 +1726,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <strong
                   style={{
                     display: "block",
-                    color: "var(--text)",
+                    color: "#0f172a",
                     fontSize: 18,
                     lineHeight: 1.15,
                     fontWeight: 950,
@@ -1739,7 +1739,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   style={{
                     display: "block",
                     marginTop: 7,
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 14,
                     lineHeight: 1.35,
                     fontWeight: 750,
@@ -1764,10 +1764,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   alignItems: "center",
                   gap: 8,
                   borderRadius: 999,
-                  background: "var(--card)",
-                  border: "1px solid var(--line)",
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
                   padding: "10px 14px",
-                  color: "var(--text)",
+                  color: "#0f172a",
                   fontSize: 13,
                   fontWeight: 900,
                 }}
@@ -1782,8 +1782,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   alignItems: "center",
                   gap: 8,
                   borderRadius: 999,
-                  background: "var(--card)",
-                  border: "1px solid var(--line)",
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
                   padding: "10px 14px",
                   color: "#4c1d95",
                   fontSize: 13,
@@ -1807,8 +1807,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             className="relatorios-composicao-card"
             style={{
               gridColumn: "1 / -1",
-              background: "var(--card)",
-              border: "1px solid var(--line)",
+              background: "#fff",
+              border: "1px solid #e2e8f0",
               borderRadius: 34,
               padding: 34,
               boxShadow: "0 18px 42px rgba(15,23,42,.05)",
@@ -1830,7 +1830,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     width: 62,
                     height: 62,
                     borderRadius: 22,
-                    background: "var(--primary-soft)",
+                    background: "#ede9fe",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1863,7 +1863,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <h3
                   style={{
                     margin: "10px 0 0",
-                    color: "var(--text)",
+                    color: "#0f172a",
                     fontSize: "clamp(34px, 4vw, 50px)",
                     lineHeight: 0.96,
                     letterSpacing: "-.07em",
@@ -1876,7 +1876,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <p
                   style={{
                     margin: "16px 0 0",
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 18,
                     lineHeight: 1.45,
                     maxWidth: 680,
@@ -1904,10 +1904,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         display: "inline-flex",
                         alignItems: "center",
                         borderRadius: 999,
-                        background: "var(--card-strong)",
-                        border: "1px solid var(--line)",
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
                         padding: "9px 13px",
-                        color: "var(--muted)",
+                        color: "#64748b",
                         fontSize: 13,
                         fontWeight: 900,
                         whiteSpace: "nowrap",
@@ -1923,9 +1923,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 style={{
                   borderRadius: 30,
                   padding: 24,
-                  background: "var(--card)",
-                  color: "var(--text)",
-                  border: "1px solid var(--line)",
+                  background: "#fff",
+                  color: "#0f172a",
+                  border: "1px solid #e2e8f0",
                   boxShadow: "0 18px 42px rgba(15,23,42,.06)",
                   position: "relative",
                   overflow: "hidden",
@@ -1951,7 +1951,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <span
                     style={{
                       display: "block",
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 12,
                       fontWeight: 950,
                       letterSpacing: ".12em",
@@ -1965,7 +1965,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 14,
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 42,
                       lineHeight: .9,
                       letterSpacing: "-.07em",
@@ -1979,7 +1979,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 10,
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 14,
                       fontWeight: 800,
                     }}
@@ -2026,7 +2026,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <strong
                         style={{
                           display: "block",
-                          color: "var(--text)",
+                          color: "#0f172a",
                           fontSize: 22,
                           fontWeight: 950,
                         }}
@@ -2037,7 +2037,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           display: "block",
                           marginTop: 3,
-                          color: "var(--muted)",
+                          color: "#64748b",
                           fontSize: 12,
                           fontWeight: 800,
                         }}
@@ -2050,7 +2050,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <strong
                         style={{
                           display: "block",
-                          color: "var(--text)",
+                          color: "#0f172a",
                           fontSize: 22,
                           fontWeight: 950,
                         }}
@@ -2061,7 +2061,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           display: "block",
                           marginTop: 3,
-                          color: "var(--muted)",
+                          color: "#64748b",
                           fontSize: 12,
                           fontWeight: 800,
                         }}
@@ -2084,9 +2084,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               }}
             >
               {[
-                { value: totalConvidados, label: "Total convidados", hint: "base geral do evento", color: "var(--text)", soft: "var(--card-strong)" },
-                { value: adultos, label: "Adultos", hint: `${taxaAdultos}% da lista`, color: "var(--text)", soft: "var(--card-strong)" },
-                { value: criancas, label: "Crianças", hint: `${taxaCriancas}% da lista`, color: "#6d28d9", soft: "var(--primary-soft)" },
+                { value: totalConvidados, label: "Total convidados", hint: "base geral do evento", color: "#0f172a", soft: "#f8fafc" },
+                { value: adultos, label: "Adultos", hint: `${taxaAdultos}% da lista`, color: "#334155", soft: "#f8fafc" },
+                { value: criancas, label: "Crianças", hint: `${taxaCriancas}% da lista`, color: "#6d28d9", soft: "#f5f3ff" },
                 { value: criancasDesacompanhadas, label: "Crianças desacompanhadas", hint: "via responsável", color: "#db2777", soft: "#fdf2f8" },
               ].map((item) => (
                 <div
@@ -2094,7 +2094,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   style={{
                     borderRadius: 24,
                     background: item.soft,
-                    border: "1px solid var(--line)",
+                    border: "1px solid #e2e8f0",
                     padding: 20,
                     minHeight: 134,
                   }}
@@ -2116,7 +2116,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 12,
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 15,
                       lineHeight: 1.2,
                       fontWeight: 900,
@@ -2129,7 +2129,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 6,
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 12,
                       lineHeight: 1.25,
                       fontWeight: 800,
@@ -2153,8 +2153,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <div
                 style={{
                   borderRadius: 28,
-                  background: "var(--card-strong)",
-                  border: "1px solid var(--line)",
+                  background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+                  border: "1px solid #e2e8f0",
                   padding: 22,
                 }}
               >
@@ -2170,7 +2170,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <strong
                     style={{
                       display: "block",
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 20,
                       lineHeight: 1.05,
                       letterSpacing: "-.04em",
@@ -2183,10 +2183,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <span
                     style={{
                       borderRadius: 999,
-                      background: "var(--card)",
-                      border: "1px solid var(--line)",
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
                       padding: "7px 10px",
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 12,
                       fontWeight: 900,
                       whiteSpace: "nowrap",
@@ -2216,7 +2216,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <strong
                         style={{
                           display: "block",
-                          color: "var(--muted)",
+                          color: "#64748b",
                           fontSize: 24,
                           lineHeight: 1,
                           fontWeight: 950,
@@ -2229,7 +2229,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           display: "block",
                           marginTop: 6,
-                          color: "var(--muted)",
+                          color: "#64748b",
                           fontSize: 12,
                           lineHeight: 1.25,
                           fontWeight: 850,
@@ -2245,8 +2245,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <div
                 style={{
                   borderRadius: 28,
-                  background: "var(--card-strong)",
-                  border: "1px solid var(--line)",
+                  background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)",
+                  border: "1px solid #e2e8f0",
                   padding: 22,
                 }}
               >
@@ -2262,7 +2262,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <strong
                     style={{
                       display: "block",
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 20,
                       lineHeight: 1.05,
                       letterSpacing: "-.04em",
@@ -2275,7 +2275,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   <span
                     style={{
                       borderRadius: 999,
-                      background: "var(--card)",
+                      background: "#fff",
                       border: "1px solid #dcfce7",
                       padding: "7px 10px",
                       color: "#166534",
@@ -2306,7 +2306,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <strong
                         style={{
                           display: "block",
-                          color: "var(--muted)",
+                          color: "#64748b",
                           fontSize: 24,
                           lineHeight: 1,
                           fontWeight: 950,
@@ -2319,7 +2319,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           display: "block",
                           marginTop: 6,
-                          color: "var(--muted)",
+                          color: "#64748b",
                           fontSize: 12,
                           lineHeight: 1.25,
                           fontWeight: 850,
@@ -2418,13 +2418,13 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             title="Pico de entrada"
             subtitle="Movimento por horário"
             color="#16a34a"
-            soft="var(--green-soft)"
+            soft="#dcfce7"
           >
             <div style={{ gridColumn: "1 / -1" }}>
               <strong
                 style={{
                   display: "block",
-                  color: "var(--text)",
+                  color: "#0f172a",
                   fontSize: 24,
                   lineHeight: 1.12,
                   fontWeight: 900,
@@ -2441,7 +2441,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   gap: 8,
                   borderRadius: 999,
                   padding: "8px 12px",
-                  background: "var(--green-soft)",
+                  background: "#dcfce7",
                   color: "#166534",
                   fontSize: 13,
                   fontWeight: 900,
@@ -2470,7 +2470,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <span
                   style={{
                     display: "block",
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 13,
                     fontWeight: 850,
                   }}
@@ -2496,7 +2496,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   style={{
                     display: "block",
                     marginTop: 7,
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 12,
                     fontWeight: 800,
                   }}
@@ -2516,7 +2516,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <span
                   style={{
                     display: "block",
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 13,
                     fontWeight: 850,
                   }}
@@ -2542,7 +2542,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   style={{
                     display: "block",
                     marginTop: 7,
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 12,
                     fontWeight: 800,
                   }}
@@ -2560,7 +2560,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   gap: 12,
                   alignItems: "center",
                   padding: "0 12px",
-                  color: "var(--muted)",
+                  color: "#64748b",
                   fontSize: 12,
                   fontWeight: 900,
                 }}
@@ -2588,7 +2588,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         alignItems: "center",
                         padding: "10px 12px",
                         borderRadius: 14,
-                        background: isPico ? "var(--green-soft)" : "var(--card-strong)",
+                        background: isPico ? "#dcfce7" : "#f8fafc",
                         border: isPico ? "1px solid #86efac" : "1px solid #e2e8f0",
                       }}
                     >
@@ -2658,9 +2658,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   style={{
                     padding: 14,
                     borderRadius: 14,
-                    background: "var(--card-strong)",
-                    border: "1px solid var(--line)",
-                    color: "var(--muted)",
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    color: "#64748b",
                     fontSize: 13,
                     fontWeight: 800,
                   }}
@@ -2674,15 +2674,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               style={{
                 gridColumn: "1 / -1",
                 borderRadius: 20,
-                background: "var(--card-strong)",
-                border: "1px solid var(--line)",
+                background: "linear-gradient(135deg, #f8fafc 0%, #f5f3ff 100%)",
+                border: "1px solid #e2e8f0",
                 padding: 18,
               }}
             >
               <strong
                 style={{
                   display: "block",
-                  color: "var(--text)",
+                  color: "#0f172a",
                   fontSize: 16,
                   lineHeight: 1.15,
                   fontWeight: 950,
@@ -2695,7 +2695,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 style={{
                   display: "block",
                   marginTop: 7,
-                  color: "var(--muted)",
+                  color: "#64748b",
                   fontSize: 13,
                   lineHeight: 1.35,
                   fontWeight: 800,
@@ -2720,7 +2720,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             className="relatorios-noshow-intelligence"
             style={{
               gridColumn: "1 / -1",
-              background: "var(--card-strong)",
+              background: "linear-gradient(135deg, #fff7ed 0%, #ffffff 48%, #f8fafc 100%)",
               border: "1px solid #fed7aa",
               borderRadius: 34,
               padding: 32,
@@ -2755,7 +2755,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <h2
                   style={{
                     margin: "10px 0 0",
-                    color: "var(--text)",
+                    color: "#0f172a",
                     fontSize: "clamp(34px, 4vw, 52px)",
                     lineHeight: .96,
                     letterSpacing: "-.07em",
@@ -2768,7 +2768,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 <p
                   style={{
                     margin: "14px 0 0",
-                    color: "var(--muted)",
+                    color: "#64748b",
                     fontSize: 17,
                     lineHeight: 1.45,
                     maxWidth: 760,
@@ -2783,7 +2783,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   display: "inline-flex",
                   alignItems: "center",
                   borderRadius: 999,
-                  background: taxaNoShow <= 10 ? "var(--green-soft)" : taxaNoShow <= 18 ? "var(--yellow-soft)" : "var(--red-soft)",
+                  background: taxaNoShow <= 10 ? "#dcfce7" : taxaNoShow <= 18 ? "#fef3c7" : "#fee2e2",
                   color: taxaNoShow <= 10 ? "#166534" : taxaNoShow <= 18 ? "#92400e" : "#991b1b",
                   padding: "10px 14px",
                   fontSize: 13,
@@ -2805,19 +2805,19 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               }}
             >
               {[
-                { value: noShow, label: "ausências", hint: "confirmados sem entrada", color: "#ea580c", soft: "var(--yellow-soft)" },
+                { value: noShow, label: "ausências", hint: "confirmados sem entrada", color: "#ea580c", soft: "#fff7ed" },
                 { value: `${taxaNoShow}%`, label: "no-show", hint: `${taxaPresenca}% presença efetiva`, color: "#9a3412", soft: "#ffedd5" },
-                { value: adultosPendentesEntrada, label: "adultos", hint: `${taxaNoShowAdultos}% dos adultos confirmados`, color: "var(--text)", soft: "var(--card-strong)" },
+                { value: adultosPendentesEntrada, label: "adultos", hint: `${taxaNoShowAdultos}% dos adultos confirmados`, color: "#334155", soft: "#f8fafc" },
                 { value: criancasPendentesEntrada, label: "crianças", hint: `${taxaNoShowCriancas}% das crianças confirmadas`, color: "#db2777", soft: "#fdf2f8" },
-                { value: gruposNoShow, label: "grupos/famílias", hint: "impactados no ranking", color: "#6d28d9", soft: "var(--primary-soft)" },
-                { value: contatosPrincipaisNoShow, label: "contatos principais", hint: "responsáveis ausentes", color: "var(--text)", soft: "var(--card-strong)" },
+                { value: gruposNoShow, label: "grupos/famílias", hint: "impactados no ranking", color: "#6d28d9", soft: "#f5f3ff" },
+                { value: contatosPrincipaisNoShow, label: "contatos principais", hint: "responsáveis ausentes", color: "#0f172a", soft: "#f8fafc" },
               ].map((item) => (
                 <div
                   key={item.label}
                   style={{
                     borderRadius: 24,
                     background: item.soft,
-                    border: "1px solid var(--line)",
+                    border: "1px solid #e2e8f0",
                     padding: 18,
                     minHeight: 128,
                   }}
@@ -2839,7 +2839,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 10,
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 14,
                       lineHeight: 1.2,
                       fontWeight: 900,
@@ -2852,7 +2852,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     style={{
                       display: "block",
                       marginTop: 6,
-                      color: "var(--muted)",
+                      color: "#64748b",
                       fontSize: 12,
                       lineHeight: 1.25,
                       fontWeight: 800,
@@ -2876,15 +2876,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <div
                 style={{
                   borderRadius: 28,
-                  background: "var(--card)",
-                  border: "1px solid var(--line)",
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
                   padding: 24,
                 }}
               >
                 <h3
                   style={{
                     margin: 0,
-                    color: "var(--text)",
+                    color: "#0f172a",
                     fontSize: 24,
                     lineHeight: 1,
                     letterSpacing: "-.04em",
@@ -2909,10 +2909,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           marginBottom: 8,
                         }}
                       >
-                        <span style={{ color: "var(--muted)", fontSize: 13, fontWeight: 900 }}>
+                        <span style={{ color: "#64748b", fontSize: 13, fontWeight: 900 }}>
                           {item.label}
                         </span>
-                        <strong style={{ color: "var(--text)", fontSize: 13, fontWeight: 950 }}>
+                        <strong style={{ color: "#0f172a", fontSize: 13, fontWeight: 950 }}>
                           {item.value}
                         </strong>
                       </div>
@@ -2953,10 +2953,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     { value: noShowVip, label: "VIPs ausentes" },
                   ].map((item) => (
                     <div key={item.label}>
-                      <strong style={{ display: "block", color: "var(--muted)", fontSize: 24, fontWeight: 950 }}>
+                      <strong style={{ display: "block", color: "#64748b", fontSize: 24, fontWeight: 950 }}>
                         {item.value}
                       </strong>
-                      <span style={{ display: "block", marginTop: 5, color: "var(--muted)", fontSize: 12, fontWeight: 850 }}>
+                      <span style={{ display: "block", marginTop: 5, color: "#64748b", fontSize: 12, fontWeight: 850 }}>
                         {item.label}
                       </span>
                     </div>
@@ -2974,7 +2974,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         alignItems: "center",
                       }}
                     >
-                      <span style={{ color: "var(--muted)", fontSize: 12, fontWeight: 900 }}>
+                      <span style={{ color: "#64748b", fontSize: 12, fontWeight: 900 }}>
                         {item.label}
                       </span>
                       <div style={{ height: 9, borderRadius: 999, background: "#e2e8f0", overflow: "hidden" }}>
@@ -2987,7 +2987,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           }}
                         />
                       </div>
-                      <strong style={{ textAlign: "right", color: "var(--text)", fontSize: 13, fontWeight: 950 }}>
+                      <strong style={{ textAlign: "right", color: "#0f172a", fontSize: 13, fontWeight: 950 }}>
                         {item.total}
                       </strong>
                     </div>
@@ -2998,8 +2998,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               <details
                 className="relatorios-ranking-card"
                 style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--line)",
+                  background: "#fff",
+                  border: "1px solid #e2e8f0",
                   borderRadius: 28,
                   padding: 24,
                   boxShadow: "0 14px 30px rgba(15,23,42,.04)",
@@ -3018,7 +3018,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       <h3
                         style={{
                           margin: 0,
-                          color: "var(--text)",
+                          color: "#0f172a",
                           fontSize: 24,
                           lineHeight: 1,
                           letterSpacing: "-.04em",
@@ -3027,7 +3027,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       >
                         Ranking de no-show
                       </h3>
-                      <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 14, fontWeight: 750 }}>
+                      <p style={{ margin: "8px 0 0", color: "#64748b", fontSize: 14, fontWeight: 750 }}>
                         Top famílias/grupos ausentes
                       </p>
                     </div>
@@ -3039,9 +3039,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         width: 40,
                         height: 40,
                         borderRadius: 999,
-                        background: "var(--card-strong)",
-                        border: "1px solid var(--line)",
-                        color: "var(--text)",
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#0f172a",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -3066,8 +3066,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             alignItems: "center",
                             padding: "14px 16px",
                             borderRadius: 18,
-                            background: "var(--card-strong)",
-                            border: "1px solid var(--line)",
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
                           }}
                         >
                           <div
@@ -3075,7 +3075,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               width: 42,
                               height: 42,
                               borderRadius: 999,
-                              background: index === 0 ? "#ffedd5" : "var(--yellow-soft)",
+                              background: index === 0 ? "#ffedd5" : "#fef3c7",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -3087,10 +3087,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           </div>
 
                           <div>
-                            <strong style={{ display: "block", color: "var(--text)", fontSize: 14, lineHeight: 1.25, fontWeight: 950 }}>
+                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, lineHeight: 1.25, fontWeight: 950 }}>
                               {item.nome}
                             </strong>
-                            <small style={{ display: "block", marginTop: 4, color: "var(--muted)", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
+                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
                               {item.adultos} adulto(s) · {item.criancas} criança(s) · {item.principais} principal(is)
                             </small>
                             <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
@@ -3104,15 +3104,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                                     gap: 10,
                                     padding: "8px 10px",
                                     borderRadius: 12,
-                                    background: "var(--card)",
-                                    border: "1px solid var(--line)",
-                                    color: "var(--text)",
+                                    background: "#fff",
+                                    border: "1px solid #e2e8f0",
+                                    color: "#334155",
                                     fontSize: 12,
                                     fontWeight: 850,
                                   }}
                                 >
                                   <span>{convidado?.nome || convidado || "Convidado"}</span>
-                                  <span style={{ color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap" }}>
+                                  <span style={{ color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" }}>
                                     {convidado?.tipo || ""}
                                   </span>
                                 </div>
@@ -3130,9 +3130,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                         style={{
                           padding: 18,
                           borderRadius: 18,
-                          background: "var(--card-strong)",
-                          border: "1px solid var(--line)",
-                          color: "var(--muted)",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          color: "#64748b",
                           fontSize: 14,
                           fontWeight: 800,
                         }}
@@ -3159,8 +3159,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             alignItems: "center",
                             padding: "14px 16px",
                             borderRadius: 18,
-                            background: "var(--card-strong)",
-                            border: "1px solid var(--line)",
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
                           }}
                         >
                           <div
@@ -3168,11 +3168,11 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               width: 42,
                               height: 42,
                               borderRadius: 999,
-                              background: position === 3 ? "#fed7aa" : "var(--primary-soft)",
+                              background: position === 3 ? "#fed7aa" : "#ede9fe",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              color: "var(--text)",
+                              color: "#0f172a",
                               fontWeight: 950,
                             }}
                           >
@@ -3180,10 +3180,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           </div>
 
                           <div>
-                            <strong style={{ display: "block", color: "var(--text)", fontSize: 14, lineHeight: 1.25, fontWeight: 950 }}>
+                            <strong style={{ display: "block", color: "#0f172a", fontSize: 14, lineHeight: 1.25, fontWeight: 950 }}>
                               {item.nome}
                             </strong>
-                            <small style={{ display: "block", marginTop: 4, color: "var(--muted)", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
+                            <small style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>
                               {item.adultos} adulto(s) · {item.criancas} criança(s) · {item.principais} principal(is)
                             </small>
                             <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
@@ -3197,15 +3197,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                                     gap: 10,
                                     padding: "8px 10px",
                                     borderRadius: 12,
-                                    background: "var(--card)",
-                                    border: "1px solid var(--line)",
-                                    color: "var(--text)",
+                                    background: "#fff",
+                                    border: "1px solid #e2e8f0",
+                                    color: "#334155",
                                     fontSize: 12,
                                     fontWeight: 850,
                                   }}
                                 >
                                   <span>{convidado?.nome || convidado || "Convidado"}</span>
-                                  <span style={{ color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap" }}>
+                                  <span style={{ color: "#64748b", fontWeight: 800, whiteSpace: "nowrap" }}>
                                     {convidado?.tipo || ""}
                                   </span>
                                 </div>
@@ -3242,15 +3242,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                   key={item.title}
                   style={{
                     borderRadius: 22,
-                    background: "var(--card)",
-                    border: "1px solid var(--line)",
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
                     padding: 18,
                   }}
                 >
-                  <strong style={{ display: "block", color: "var(--text)", fontSize: 14, fontWeight: 950 }}>
+                  <strong style={{ display: "block", color: "#0f172a", fontSize: 14, fontWeight: 950 }}>
                     {item.title}
                   </strong>
-                  <span style={{ display: "block", marginTop: 7, color: "var(--muted)", fontSize: 13, lineHeight: 1.35, fontWeight: 800 }}>
+                  <span style={{ display: "block", marginTop: 7, color: "#64748b", fontSize: 13, lineHeight: 1.35, fontWeight: 800 }}>
                     {item.text}
                   </span>
                 </div>
@@ -3261,15 +3261,15 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               style={{
                 marginTop: 18,
                 borderRadius: 24,
-                background: "var(--card-strong)",
-                border: "1px solid var(--line)",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
                 padding: 20,
               }}
             >
               <strong
                 style={{
                   display: "block",
-                  color: "var(--text)",
+                  color: "#0f172a",
                   fontSize: 18,
                   lineHeight: 1,
                   letterSpacing: "-.03em",
@@ -3292,10 +3292,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     key={item}
                     style={{
                       borderRadius: 18,
-                      background: "var(--card)",
-                      border: "1px solid var(--line)",
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
                       padding: 14,
-                      color: "var(--text)",
+                      color: "#0f172a",
                       fontSize: 13,
                       lineHeight: 1.35,
                       fontWeight: 850,
@@ -3312,7 +3312,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             title="Envios"
             subtitle="Performance operacional dos disparos"
             color="#2563eb"
-            soft="var(--primary-soft)"
+            soft="#dbeafe"
           >
             <Metric value={enviosRegistrados} label="envios registrados" />
             <Metric value={enviosSucesso} label="sucesso" />
@@ -3374,8 +3374,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <details
               className="relatorios-ranking-card"
               style={{
-                background: "var(--card)",
-                border: "1px solid var(--line)",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
                 borderRadius: 30,
                 padding: 28,
                 boxShadow: "0 18px 42px rgba(15,23,42,.06)",
@@ -3399,7 +3399,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     <h3
                       style={{
                         margin: 0,
-                        color: "var(--text)",
+                        color: "#0f172a",
                         fontSize: 26,
                         lineHeight: 1,
                         letterSpacing: "-.04em",
@@ -3412,7 +3412,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     <p
                       style={{
                         margin: "9px 0 0",
-                        color: "var(--muted)",
+                        color: "#64748b",
                         fontSize: 15,
                         lineHeight: 1.35,
                         fontWeight: 700,
@@ -3429,9 +3429,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       width: 42,
                       height: 42,
                       borderRadius: 999,
-                      background: "var(--card-strong)",
-                      border: "1px solid var(--line)",
-                      color: "var(--text)",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#0f172a",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -3456,8 +3456,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           alignItems: "center",
                           padding: "14px 16px",
                           borderRadius: 18,
-                          background: "var(--card-strong)",
-                          border: "1px solid var(--line)",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
                         <div
@@ -3467,14 +3467,14 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             borderRadius: 999,
                             background:
                               index === 0
-                                ? "var(--yellow-soft)"
+                                ? "#fef3c7"
                                 : index === 1
                                   ? "#e2e8f0"
-                                  : "var(--primary-soft)",
+                                  : "#ede9fe",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "var(--text)",
+                            color: "#0f172a",
                             fontWeight: 900,
                           }}
                         >
@@ -3485,7 +3485,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           <strong
                             style={{
                               display: "block",
-                              color: "var(--text)",
+                              color: "#0f172a",
                               fontSize: 14,
                               lineHeight: 1.25,
                               fontWeight: 900,
@@ -3499,7 +3499,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               style={{
                                 display: "block",
                                 marginTop: 4,
-                                color: "var(--muted)",
+                                color: "#64748b",
                                 fontSize: 12,
                                 lineHeight: 1.3,
                                 fontWeight: 800,
@@ -3513,7 +3513,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             style={{
                               display: "block",
                               marginTop: 4,
-                              color: "var(--muted)",
+                              color: "#64748b",
                               fontSize: 12,
                               fontWeight: 800,
                             }}
@@ -3539,9 +3539,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       style={{
                         padding: 18,
                         borderRadius: 18,
-                        background: "var(--card-strong)",
-                        border: "1px solid var(--line)",
-                        color: "var(--muted)",
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#64748b",
                         fontSize: 14,
                         fontWeight: 800,
                       }}
@@ -3568,8 +3568,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           alignItems: "center",
                           padding: "14px 16px",
                           borderRadius: 18,
-                          background: "var(--card-strong)",
-                          border: "1px solid var(--line)",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
                         <div
@@ -3577,11 +3577,11 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             width: 42,
                             height: 42,
                             borderRadius: 999,
-                            background: position === 3 ? "#fed7aa" : "var(--primary-soft)",
+                            background: position === 3 ? "#fed7aa" : "#ede9fe",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "var(--text)",
+                            color: "#0f172a",
                             fontWeight: 900,
                           }}
                         >
@@ -3592,7 +3592,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           <strong
                             style={{
                               display: "block",
-                              color: "var(--text)",
+                              color: "#0f172a",
                               fontSize: 14,
                               lineHeight: 1.25,
                               fontWeight: 900,
@@ -3606,7 +3606,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               style={{
                                 display: "block",
                                 marginTop: 4,
-                                color: "var(--muted)",
+                                color: "#64748b",
                                 fontSize: 12,
                                 lineHeight: 1.3,
                                 fontWeight: 800,
@@ -3620,7 +3620,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             style={{
                               display: "block",
                               marginTop: 4,
-                              color: "var(--muted)",
+                              color: "#64748b",
                               fontSize: 12,
                               fontWeight: 800,
                             }}
@@ -3649,8 +3649,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             <details
               className="relatorios-ranking-card"
               style={{
-                background: "var(--card)",
-                border: "1px solid var(--line)",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
                 borderRadius: 30,
                 padding: 28,
                 boxShadow: "0 18px 42px rgba(15,23,42,.06)",
@@ -3674,7 +3674,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     <h3
                       style={{
                         margin: 0,
-                        color: "var(--text)",
+                        color: "#0f172a",
                         fontSize: 26,
                         lineHeight: 1,
                         letterSpacing: "-.04em",
@@ -3687,7 +3687,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                     <p
                       style={{
                         margin: "9px 0 0",
-                        color: "var(--muted)",
+                        color: "#64748b",
                         fontSize: 15,
                         lineHeight: 1.35,
                         fontWeight: 700,
@@ -3704,9 +3704,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       width: 42,
                       height: 42,
                       borderRadius: 999,
-                      background: "var(--card-strong)",
-                      border: "1px solid var(--line)",
-                      color: "var(--text)",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#0f172a",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -3731,8 +3731,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           alignItems: "center",
                           padding: "14px 16px",
                           borderRadius: 18,
-                          background: "var(--card-strong)",
-                          border: "1px solid var(--line)",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
                         <div
@@ -3742,10 +3742,10 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             borderRadius: 999,
                             background:
                               index === 0
-                                ? "var(--green-soft)"
+                                ? "#dcfce7"
                                 : index === 1
-                                  ? "var(--primary-soft)"
-                                  : "var(--primary-soft)",
+                                  ? "#dbeafe"
+                                  : "#ede9fe",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -3760,7 +3760,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           <strong
                             style={{
                               display: "block",
-                              color: "var(--text)",
+                              color: "#0f172a",
                               fontSize: 14,
                               lineHeight: 1.25,
                               fontWeight: 900,
@@ -3774,7 +3774,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               style={{
                                 display: "block",
                                 marginTop: 4,
-                                color: "var(--muted)",
+                                color: "#64748b",
                                 fontSize: 12,
                                 lineHeight: 1.3,
                                 fontWeight: 800,
@@ -3788,7 +3788,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             style={{
                               display: "block",
                               marginTop: 4,
-                              color: "var(--muted)",
+                              color: "#64748b",
                               fontSize: 12,
                               fontWeight: 800,
                             }}
@@ -3814,9 +3814,9 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       style={{
                         padding: 18,
                         borderRadius: 18,
-                        background: "var(--card-strong)",
-                        border: "1px solid var(--line)",
-                        color: "var(--muted)",
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#64748b",
                         fontSize: 14,
                         fontWeight: 800,
                       }}
@@ -3843,8 +3843,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           alignItems: "center",
                           padding: "14px 16px",
                           borderRadius: 18,
-                          background: "var(--card-strong)",
-                          border: "1px solid var(--line)",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
                         <div
@@ -3852,11 +3852,11 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             width: 42,
                             height: 42,
                             borderRadius: 999,
-                            background: position === 3 ? "var(--yellow-soft)" : "var(--primary-soft)",
+                            background: position === 3 ? "#fef3c7" : "#ede9fe",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "var(--text)",
+                            color: "#0f172a",
                             fontWeight: 900,
                           }}
                         >
@@ -3867,7 +3867,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           <strong
                             style={{
                               display: "block",
-                              color: "var(--text)",
+                              color: "#0f172a",
                               fontSize: 14,
                               lineHeight: 1.25,
                               fontWeight: 900,
@@ -3881,7 +3881,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                               style={{
                                 display: "block",
                                 marginTop: 4,
-                                color: "var(--muted)",
+                                color: "#64748b",
                                 fontSize: 12,
                                 lineHeight: 1.3,
                                 fontWeight: 800,
@@ -3895,7 +3895,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                             style={{
                               display: "block",
                               marginTop: 4,
-                              color: "var(--muted)",
+                              color: "#64748b",
                               fontSize: 12,
                               fontWeight: 800,
                             }}
@@ -3927,8 +3927,8 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           className="relatorios-checkins"
           style={{
             marginTop: 34,
-            background: "var(--card)",
-            border: "1px solid var(--line)",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
             borderRadius: 30,
             padding: 32,
             boxShadow: "0 18px 40px rgba(15,23,42,.05)",
@@ -3937,7 +3937,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
           <h2
             style={{
               margin: 0,
-              color: "var(--text)",
+              color: "#0f172a",
               fontSize: 28,
               letterSpacing: "-.04em",
             }}
@@ -3949,7 +3949,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
             style={{
               marginTop: 22,
               overflowX: "auto",
-              border: "1px solid var(--line)",
+              border: "1px solid #e2e8f0",
               borderRadius: 22,
             }}
           >
@@ -3957,21 +3957,21 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                background: "var(--card)",
+                background: "#fff",
               }}
             >
-              <thead style={{ background: "var(--card-strong)" }}>
+              <thead style={{ background: "#f8fafc" }}>
                 <tr>
-                  <th style={{ padding: 18, textAlign: "left", color: "var(--muted)" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Convidado
                   </th>
-                  <th style={{ padding: 18, textAlign: "left", color: "var(--muted)" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Tipo
                   </th>
-                  <th style={{ padding: 18, textAlign: "left", color: "var(--muted)" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Data e horário Brasil
                   </th>
-                  <th style={{ padding: 18, textAlign: "left", color: "var(--muted)" }}>
+                  <th style={{ padding: 18, textAlign: "left", color: "#64748b" }}>
                     Status
                   </th>
                 </tr>
@@ -3981,12 +3981,12 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                 {ultimosCheckins.map((convidado: any) => (
                   <tr key={convidado.id}>
                     <td style={{ padding: 18, borderTop: "1px solid #e2e8f0" }}>
-                      <strong style={{ color: "var(--text)" }}>{convidado.nome}</strong>
+                      <strong style={{ color: "#0f172a" }}>{convidado.nome}</strong>
                       <small
                         style={{
                           display: "block",
                           marginTop: 4,
-                          color: "var(--muted)",
+                          color: "#64748b",
                         }}
                       >
                         Token: {convidado.token || "-"}
@@ -4007,7 +4007,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                           display: "inline-flex",
                           borderRadius: 999,
                           padding: "7px 12px",
-                          background: "var(--green-soft)",
+                          background: "#dcfce7",
                           color: "#16a34a",
                           fontSize: 12,
                           fontWeight: 900,
@@ -4026,7 +4026,7 @@ export default async function RelatoriosPage({ searchParams }: PageProps) {
                       style={{
                         padding: 42,
                         textAlign: "center",
-                        color: "var(--muted)",
+                        color: "#64748b",
                       }}
                     >
                       Nenhum check-in encontrado.

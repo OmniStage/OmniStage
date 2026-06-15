@@ -202,13 +202,13 @@ export default function ListaPresentesPage() {
   }, [reservas]);
 
   if (loading) {
-    return <div style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)", fontWeight: 900, fontSize: 18 }}>Carregando...</div>;
+    return <div style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontWeight: 900, fontSize: 18 }}>Carregando...</div>;
   }
 
   if (!evento) {
     return (
       <div style={{ minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-        <p style={{ color: "var(--muted)", fontWeight: 800 }}>Evento não encontrado.</p>
+        <p style={{ color: "#64748b", fontWeight: 800 }}>Evento não encontrado.</p>
         <button onClick={() => router.back()} style={btnSecStyle}>Voltar</button>
       </div>
     );
@@ -483,6 +483,6 @@ export default function ListaPresentesPage() {
 }
 
 const btnSecStyle: React.CSSProperties = {
-  background: "var(--card)", color: "var(--text)", border: "1px solid var(--line)",
+  background: "#fff", color: "#0f172a", border: "1px solid rgba(226,232,240,.95)",
   borderRadius: 16, padding: "13px 18px", fontWeight: 900, cursor: "pointer", fontSize: 14,
 };

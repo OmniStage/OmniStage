@@ -3379,7 +3379,7 @@ const toastCardStyle: CSSProperties = {
   padding: "14px 16px",
   borderRadius: 20,
   border: "1px solid rgba(16,185,129,0.18)",
-  background: "var(--card)",
+  background: "rgba(255,255,255,0.96)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.18)",
   backdropFilter: "blur(14px)",
   WebkitBackdropFilter: "blur(14px)",
@@ -3390,7 +3390,7 @@ const toastIconStyle: CSSProperties = {
   height: 34,
   borderRadius: 999,
   background: "#16a34a",
-  color: "var(--card)",
+  color: "#ffffff",
   display: "grid",
   placeItems: "center",
   fontSize: 18,
@@ -3400,7 +3400,7 @@ const toastIconStyle: CSSProperties = {
 
 const toastTitleStyle: CSSProperties = {
   display: "block",
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 14,
   fontWeight: 950,
 };
@@ -3416,15 +3416,15 @@ const toastMessageStyle: CSSProperties = {
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "clamp(14px, 3vw, 24px)",
-  background: "var(--card-strong)",
-  color: "var(--text)",
+  background: "#f3f4f6",
+  color: "#0f172a",
 };
 
 const heroCardStyle: CSSProperties = {
   padding: "clamp(18px, 4vw, 30px)",
   borderRadius: "clamp(22px, 4vw, 34px)",
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e5e7eb",
+  background: "linear-gradient(135deg, #ffffff, #f9fafb)",
   boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
   display: "flex",
   justifyContent: "space-between",
@@ -3444,7 +3444,7 @@ const eyebrowStyle: CSSProperties = {
 
 const pageTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 38,
   lineHeight: 1.05,
   fontWeight: 950,
@@ -3469,8 +3469,8 @@ const tabStyle: CSSProperties = {
   minHeight: 48,
   padding: "12px 18px",
   borderRadius: 999,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
   color: "#374151",
   fontWeight: 950,
   cursor: "pointer",
@@ -3479,7 +3479,7 @@ const tabStyle: CSSProperties = {
 const tabActiveStyle: CSSProperties = {
   ...tabStyle,
   border: "1px solid rgba(124,58,237,0.24)",
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   color: "#6d28d9",
 };
 
@@ -3493,8 +3493,8 @@ const metricsGridStyle: CSSProperties = {
 const metricCardStyle: CSSProperties = {
   padding: 18,
   borderRadius: 22,
-  background: "var(--card)",
-  border: "1px solid var(--line)",
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
   boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
 };
 
@@ -3510,7 +3510,7 @@ const metricLabelStyle: CSSProperties = {
 const metricValueStyle: CSSProperties = {
   display: "block",
   marginTop: 8,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 30,
   fontWeight: 950,
 };
@@ -3519,8 +3519,8 @@ const sectionStyle: CSSProperties = {
   marginTop: 18,
   padding: "clamp(18px, 4vw, 30px)",
   borderRadius: "clamp(22px, 4vw, 34px)",
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
   boxShadow: "0 14px 45px rgba(15,23,42,0.07)",
 };
 
@@ -3535,7 +3535,7 @@ const sectionHeaderStyle: CSSProperties = {
 
 const cardTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 28,
   lineHeight: 1.1,
   fontWeight: 950,
@@ -3562,9 +3562,9 @@ const inputStyle: CSSProperties = {
   minHeight: 54,
   padding: "0 18px",
   borderRadius: 18,
-  background: "var(--card)",
-  color: "var(--text)",
-  border: "1px solid var(--line)",
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid #d1d5db",
   fontSize: 15,
   fontWeight: 700,
   outline: "none",
@@ -3592,8 +3592,8 @@ const filterPillStyle: CSSProperties = {
   padding: "9px 12px",
   minHeight: 38,
   borderRadius: 999,
-  background: "var(--card)",
-  border: "1px solid var(--line)",
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
   color: "#374151",
   fontSize: 13,
   fontWeight: 900,
@@ -3602,7 +3602,7 @@ const filterPillStyle: CSSProperties = {
 
 const filterPillActiveStyle: CSSProperties = {
   ...filterPillStyle,
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   border: "1px solid rgba(124,58,237,0.28)",
   color: "#6d28d9",
 };
@@ -3613,8 +3613,8 @@ const viewToggleStyle: CSSProperties = {
   gap: 4,
   padding: 4,
   borderRadius: 999,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
 };
 
 const viewToggleButtonStyle: CSSProperties = {
@@ -3631,7 +3631,7 @@ const viewToggleButtonStyle: CSSProperties = {
 const viewToggleActiveStyle: CSSProperties = {
   ...viewToggleButtonStyle,
   background: "#0f172a",
-  color: "var(--card)",
+  color: "#ffffff",
 };
 
 const textareaStyle: CSSProperties = {
@@ -3647,7 +3647,7 @@ const buttonStyle: CSSProperties = {
   borderRadius: 999,
   background: "#43a500",
   border: "none",
-  color: "var(--card)",
+  color: "#ffffff",
   fontSize: 15,
   fontWeight: 950,
   cursor: "pointer",
@@ -3658,8 +3658,8 @@ const secondaryButtonStyle: CSSProperties = {
   padding: "10px 14px",
   minHeight: 42,
   borderRadius: 999,
-  background: "var(--card)",
-  border: "1px solid var(--line)",
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
   color: "#374151",
   fontSize: 14,
   fontWeight: 900,
@@ -3670,7 +3670,7 @@ const dangerButtonStyle: CSSProperties = {
   ...secondaryButtonStyle,
   border: "1px solid rgba(220,38,38,0.24)",
   color: "#b91c1c",
-  background: "var(--red-soft)",
+  background: "#fff1f2",
 };
 
 const listStyle: CSSProperties = {
@@ -3686,8 +3686,8 @@ const rowCardStyle: CSSProperties = {
   gap: 18,
   padding: "16px 18px",
   borderRadius: 22,
-  border: "1px solid var(--line)",
-  background: "var(--card-strong)",
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
   flexWrap: "wrap",
 };
 
@@ -3750,7 +3750,7 @@ const avatarStyle: CSSProperties = {
   width: 44,
   height: 44,
   borderRadius: 16,
-  background: "var(--primary-soft)",
+  background: "#ede9fe",
   color: "#6d28d9",
   fontWeight: 950,
   display: "grid",
@@ -3760,13 +3760,13 @@ const avatarStyle: CSSProperties = {
 
 const nucleoIconStyle: CSSProperties = {
   ...avatarStyle,
-  background: "var(--green-soft)",
+  background: "#ecfdf5",
   color: "#047857",
 };
 
 const itemTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 18,
   fontWeight: 950,
   letterSpacing: "-0.02em",
@@ -3801,7 +3801,7 @@ const badgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "6px 10px",
   borderRadius: 999,
-  background: "var(--card)",
+  background: "#ffffff",
   color: "#6d28d9",
   border: "1px solid rgba(124,58,237,0.18)",
   fontSize: 12,
@@ -3819,7 +3819,7 @@ const miniItemStyle: CSSProperties = {
   display: "inline-flex",
   padding: "7px 10px",
   borderRadius: 999,
-  background: "var(--primary-soft)",
+  background: "#eef2ff",
   color: "#3730a3",
   fontSize: 12,
   fontWeight: 900,
@@ -3834,7 +3834,7 @@ const miniItemDetailedStyle: CSSProperties = {
   gap: 3,
   padding: "8px 11px",
   borderRadius: 14,
-  background: "var(--primary-soft)",
+  background: "#eef2ff",
   color: "#3730a3",
   fontSize: 12,
   fontWeight: 900,
@@ -3843,7 +3843,7 @@ const miniItemDetailedStyle: CSSProperties = {
 };
 
 const miniItemDetailStyle: CSSProperties = {
-  color: "var(--muted)",
+  color: "#64748b",
   fontSize: 11,
   fontWeight: 850,
 };
@@ -3851,7 +3851,7 @@ const miniItemDetailStyle: CSSProperties = {
 const emptyStyle: CSSProperties = {
   padding: 18,
   borderRadius: 16,
-  border: "1px dashed var(--line)",
+  border: "1px dashed #d1d5db",
   color: "#6b7280",
   fontWeight: 800,
 };
@@ -3875,8 +3875,8 @@ const modalCardStyle: CSSProperties = {
   overflowY: "auto",
   padding: "clamp(18px, 4vw, 28px)",
   borderRadius: 28,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
   boxShadow: "0 28px 90px rgba(15,23,42,0.28)",
 };
 
@@ -3898,7 +3898,7 @@ const modalKickerStyle: CSSProperties = {
 
 const modalTitleStyle: CSSProperties = {
   margin: "4px 0 0",
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 28,
   fontWeight: 950,
   letterSpacing: "-0.03em",
@@ -3926,7 +3926,7 @@ const modalActionsStyle: CSSProperties = {
 
 const modalSectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 20,
   fontWeight: 950,
 };
@@ -3936,8 +3936,8 @@ const historyRowStyle: CSSProperties = {
   gap: 5,
   padding: 14,
   borderRadius: 16,
-  border: "1px solid var(--line)",
-  background: "var(--card-strong)",
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
   color: "#374151",
   fontWeight: 750,
 };
@@ -3949,8 +3949,8 @@ const memberManageRowStyle: CSSProperties = {
   gap: 12,
   padding: 14,
   borderRadius: 16,
-  border: "1px solid var(--line)",
-  background: "var(--card-strong)",
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
   color: "#374151",
   fontWeight: 800,
   flexWrap: "wrap",
@@ -3980,8 +3980,8 @@ const stackStyle: CSSProperties = {
 const formSectionStyle: CSSProperties = {
   padding: "clamp(16px, 3vw, 24px)",
   borderRadius: 22,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
 };
 
 const formSectionHeaderStyle: CSSProperties = {
@@ -3993,14 +3993,14 @@ const formSectionHeaderStyle: CSSProperties = {
 
 const formStepStyle: CSSProperties = {
   minWidth: 34,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 18,
   fontWeight: 900,
 };
 
 const formSectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 18,
   fontWeight: 950,
 };
@@ -4018,12 +4018,12 @@ const responsavelBoxStyle: CSSProperties = {
   padding: 16,
   borderRadius: 20,
   border: "1px solid rgba(124,58,237,0.28)",
-  background: "var(--primary-soft)",
+  background: "#faf7ff",
 };
 
 const responsavelTitleStyle: CSSProperties = {
   margin: 0,
-  color: "var(--text)",
+  color: "#0f172a",
   fontSize: 16,
   fontWeight: 950,
 };
@@ -4035,7 +4035,7 @@ const confirmBoxStyle: CSSProperties = {
   padding: 18,
   borderRadius: 20,
   border: "1px solid #fecaca",
-  background: "var(--red-soft)",
+  background: "#fef2f2",
   color: "#7f1d1d",
   marginBottom: 16,
 };
@@ -4062,8 +4062,8 @@ const selectedNucleoStyle: CSSProperties = {
   gap: 12,
   padding: 14,
   borderRadius: 16,
-  border: "1px solid var(--line)",
-  background: "var(--card-strong)",
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
   color: "#374151",
   fontWeight: 850,
   flexWrap: "wrap",
@@ -4076,8 +4076,8 @@ const searchResultListStyle: CSSProperties = {
   overflowY: "auto",
   padding: 10,
   borderRadius: 18,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
   boxShadow: "0 14px 34px rgba(15,23,42,0.08)",
   marginTop: -10,
 };
@@ -4090,9 +4090,9 @@ const searchResultButtonStyle: CSSProperties = {
   width: "100%",
   padding: "12px 14px",
   borderRadius: 14,
-  border: "1px solid var(--line)",
-  background: "var(--card-strong)",
-  color: "var(--text)",
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  color: "#0f172a",
   fontSize: 14,
   fontWeight: 850,
   textAlign: "left",
@@ -4102,7 +4102,7 @@ const searchResultButtonStyle: CSSProperties = {
 const emptySearchResultStyle: CSSProperties = {
   padding: "12px 14px",
   borderRadius: 14,
-  border: "1px dashed var(--line)",
+  border: "1px dashed #d1d5db",
   color: "#6b7280",
   fontSize: 13,
   fontWeight: 800,
@@ -4123,8 +4123,8 @@ const compactToggleStyle: CSSProperties = {
   gap: 8,
   padding: "8px 10px",
   borderRadius: 999,
-  border: "1px solid var(--line)",
-  background: "var(--card)",
+  border: "1px solid #e5e7eb",
+  background: "#ffffff",
   color: "#374151",
   fontSize: 12,
   fontWeight: 900,
@@ -4136,8 +4136,8 @@ const toggleStyle: CSSProperties = {
   gap: 10,
   padding: 14,
   borderRadius: 16,
-  border: "1px solid var(--line)",
-  background: "var(--card-strong)",
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
   color: "#374151",
   fontWeight: 850,
 };

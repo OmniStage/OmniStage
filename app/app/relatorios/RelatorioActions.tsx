@@ -171,7 +171,7 @@ export default function RelatorioActions(props: RelatorioActionsProps) {
       className="relatorios-actions"
       style={{
         marginBottom: 34,
-        background: "var(--card)",
+        background: "#fff",
         border: "1px solid #e2e8f0",
         borderRadius: 28,
         padding: 22,
@@ -222,7 +222,7 @@ export default function RelatorioActions(props: RelatorioActionsProps) {
             height: 86,
             borderRadius: 18,
             border: "1px solid #e2e8f0",
-            background: "var(--card)",
+            background: "#fff",
             padding: 8,
           }}
         />
@@ -236,30 +236,30 @@ export default function RelatorioActions(props: RelatorioActionsProps) {
           marginTop: 20,
         }}
       >
-        <button type="button" onClick={shareWhatsapp} style={buttonStyle("#16a34a", "var(--card)")}>
+        <button type="button" onClick={shareWhatsapp} style={buttonStyle("#16a34a", "#fff")}>
           WhatsApp
         </button>
 
-        <button type="button" onClick={shareImage} disabled={isGenerating} style={buttonStyle("#6d28d9", "var(--card)")}>
+        <button type="button" onClick={shareImage} disabled={isGenerating} style={buttonStyle("#6d28d9", "#fff")}>
           {isGenerating ? "Gerando..." : "Imagem + WhatsApp"}
         </button>
 
-        <button type="button" onClick={downloadImage} disabled={isGenerating} style={buttonStyle("#0f172a", "var(--card)")}>
+        <button type="button" onClick={downloadImage} disabled={isGenerating} style={buttonStyle("#0f172a", "#fff")}>
           Baixar imagem
         </button>
 
-        <button type="button" onClick={exportPdf} style={buttonStyle("var(--card)", "#0f172a")}>
+        <button type="button" onClick={exportPdf} style={buttonStyle("#fff", "#0f172a")}>
           Exportar PDF
         </button>
 
-        <button type="button" onClick={copyLink} style={buttonStyle("var(--card)", "#0f172a")}>
+        <button type="button" onClick={copyLink} style={buttonStyle("#fff", "#0f172a")}>
           Copiar link
         </button>
 
         <button
           type="button"
           onClick={() => setLiveMode((value) => !value)}
-          style={buttonStyle(liveMode ? "var(--green-soft)" : "var(--card)", liveMode ? "#16a34a" : "#0f172a")}
+          style={buttonStyle(liveMode ? "#dcfce7" : "#fff", liveMode ? "#16a34a" : "#0f172a")}
         >
           {liveMode ? "Live ligado" : "Live 60s"}
         </button>
@@ -272,13 +272,13 @@ function buttonStyle(background: string, color: string): CSSProperties {
   return {
     minHeight: 48,
     borderRadius: 999,
-    border: background === "var(--card)" ? "1px solid #e2e8f0" : "0",
+    border: background === "#fff" ? "1px solid #e2e8f0" : "0",
     background,
     color,
     padding: "0 16px",
     fontSize: 14,
     fontWeight: 900,
     cursor: "pointer",
-    boxShadow: background === "var(--card)" ? "none" : "0 12px 24px rgba(15,23,42,.12)",
+    boxShadow: background === "#fff" ? "none" : "0 12px 24px rgba(15,23,42,.12)",
   };
 }
