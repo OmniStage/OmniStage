@@ -545,6 +545,6 @@ const loadingStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "#0f172a",
+  color: "var(--text)",
   fontWeight: 950,
 };

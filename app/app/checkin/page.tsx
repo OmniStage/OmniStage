@@ -159,7 +159,7 @@ export default function CheckinPage() {
             ? new Date(evento.data_evento + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
             : null;
           const statusColor = evento.status === "ativo" ? { bg: "#dcfce7", color: "#166534" }
-            : evento.status === "encerrado" ? { bg: "#f1f5f9", color: "#475569" }
+            : evento.status === "encerrado" ? { bg: "#f1f5f9", color: "var(--muted)" }
             : { bg: "#fef3c7", color: "#92400e" };
 
           return (
@@ -193,12 +193,12 @@ export default function CheckinPage() {
                       </span>
                     )}
                     {dataFormatada && (
-                      <span style={{ background: "#f1f5f9", color: "#475569", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                      <span style={{ background: "var(--card-strong)", color: "var(--muted)", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
                         {dataFormatada}
                       </span>
                     )}
                     {evento.cidade && (
-                      <span style={{ background: "#f1f5f9", color: "#475569", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
+                      <span style={{ background: "var(--card-strong)", color: "var(--muted)", borderRadius: 999, padding: "5px 10px", fontSize: 12, fontWeight: 900 }}>
                         {evento.cidade}
                       </span>
                     )}

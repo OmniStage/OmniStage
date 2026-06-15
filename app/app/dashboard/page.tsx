@@ -410,7 +410,7 @@ export default function DashboardPage() {
       label: "Total para buffet",
       value: stats.confirmados,
       detail: "Base operacional: confirmados",
-      color: "#0f172a",
+      color: "var(--text)",
       bg: "#e2e8f0",
     },
   ];
@@ -1674,7 +1674,7 @@ const groupSubtitleStyle: React.CSSProperties = {
 
 const groupContactStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 12,
   fontWeight: 750,
 };

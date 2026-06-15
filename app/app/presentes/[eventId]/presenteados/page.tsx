@@ -495,7 +495,7 @@ export default function RecebidosAntesPage() {
   });
 
   if (loading) {
-    return <div style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#0f172a" }}>Carregando...</div>;
+    return <div style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "var(--text)" }}>Carregando...</div>;
   }
 
   return (
@@ -653,7 +653,7 @@ export default function RecebidosAntesPage() {
                     </div>
                   )}
                   {!buscandoConvidado && buscaConvidado.length >= 2 && convidados.length === 0 && (
-                    <span style={{ fontSize: 12, color: "#64748b" }}>Não encontrado — o nome digitado será usado.</span>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Não encontrado — o nome digitado será usado.</span>
                   )}
                 </>
               )}
@@ -938,7 +938,7 @@ export default function RecebidosAntesPage() {
                       {nfCardFile.type.startsWith("image/") && (
                         <img src={URL.createObjectURL(nfCardFile)} alt="Preview NF" style={{ width: "100%", borderRadius: 14, objectFit: "contain", maxHeight: 220 }} />
                       )}
-                      <p style={{ fontSize: 13, color: "#475569", fontWeight: 800, margin: 0 }}>{nfCardFile.name}</p>
+                      <p style={{ fontSize: 13, color: "var(--muted)", fontWeight: 800, margin: 0 }}>{nfCardFile.name}</p>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button className="nf-pop-save" style={{ flex: 1 }} onClick={() => salvarNfCard(nfCardAberto!)} disabled={salvandoNfCard}>
                           {salvandoNfCard ? "Salvando..." : "Confirmar NF"}

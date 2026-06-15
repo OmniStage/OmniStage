@@ -1338,7 +1338,7 @@ const groupNamesStyle: React.CSSProperties = {
 
 const groupContactStyle: React.CSSProperties = {
   margin: "6px 0 0",
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 12,
   fontWeight: 750,
 };

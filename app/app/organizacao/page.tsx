@@ -458,7 +458,7 @@ const ROTEIROS_PADRAO = [
 
 const cardStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.92)",
-  border: "1px solid rgba(226,232,240,0.95)",
+  border: "1px solid var(--line)",
   borderRadius: 24,
   boxShadow: "0 18px 45px rgba(15,23,42,0.06)",
 };

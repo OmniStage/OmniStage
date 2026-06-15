@@ -3400,7 +3400,7 @@ const toastIconStyle: CSSProperties = {
 
 const toastTitleStyle: CSSProperties = {
   display: "block",
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 14,
   fontWeight: 950,
 };
@@ -3417,7 +3417,7 @@ const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "clamp(14px, 3vw, 24px)",
   background: "#f3f4f6",
-  color: "#0f172a",
+  color: "var(--text)",
 };
 
 const heroCardStyle: CSSProperties = {
@@ -3444,7 +3444,7 @@ const eyebrowStyle: CSSProperties = {
 
 const pageTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 38,
   lineHeight: 1.05,
   fontWeight: 950,
@@ -3470,7 +3470,7 @@ const tabStyle: CSSProperties = {
   padding: "12px 18px",
   borderRadius: 999,
   border: "1px solid #d1d5db",
-  background: "#ffffff",
+  background: "var(--card)",
   color: "#374151",
   fontWeight: 950,
   cursor: "pointer",
@@ -3493,7 +3493,7 @@ const metricsGridStyle: CSSProperties = {
 const metricCardStyle: CSSProperties = {
   padding: 18,
   borderRadius: 22,
-  background: "#ffffff",
+  background: "var(--card)",
   border: "1px solid #e5e7eb",
   boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
 };
@@ -3510,7 +3510,7 @@ const metricLabelStyle: CSSProperties = {
 const metricValueStyle: CSSProperties = {
   display: "block",
   marginTop: 8,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 30,
   fontWeight: 950,
 };
@@ -3520,7 +3520,7 @@ const sectionStyle: CSSProperties = {
   padding: "clamp(18px, 4vw, 30px)",
   borderRadius: "clamp(22px, 4vw, 34px)",
   border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  background: "var(--card)",
   boxShadow: "0 14px 45px rgba(15,23,42,0.07)",
 };
 
@@ -3535,7 +3535,7 @@ const sectionHeaderStyle: CSSProperties = {
 
 const cardTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 28,
   lineHeight: 1.1,
   fontWeight: 950,
@@ -3562,8 +3562,8 @@ const inputStyle: CSSProperties = {
   minHeight: 54,
   padding: "0 18px",
   borderRadius: 18,
-  background: "#ffffff",
-  color: "#0f172a",
+  background: "var(--card)",
+  color: "var(--text)",
   border: "1px solid #d1d5db",
   fontSize: 15,
   fontWeight: 700,
@@ -3592,7 +3592,7 @@ const filterPillStyle: CSSProperties = {
   padding: "9px 12px",
   minHeight: 38,
   borderRadius: 999,
-  background: "#ffffff",
+  background: "var(--card)",
   border: "1px solid #d1d5db",
   color: "#374151",
   fontSize: 13,
@@ -3614,7 +3614,7 @@ const viewToggleStyle: CSSProperties = {
   padding: 4,
   borderRadius: 999,
   border: "1px solid #d1d5db",
-  background: "#ffffff",
+  background: "var(--card)",
 };
 
 const viewToggleButtonStyle: CSSProperties = {
@@ -3658,7 +3658,7 @@ const secondaryButtonStyle: CSSProperties = {
   padding: "10px 14px",
   minHeight: 42,
   borderRadius: 999,
-  background: "#ffffff",
+  background: "var(--card)",
   border: "1px solid #d1d5db",
   color: "#374151",
   fontSize: 14,
@@ -3766,7 +3766,7 @@ const nucleoIconStyle: CSSProperties = {
 
 const itemTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 18,
   fontWeight: 950,
   letterSpacing: "-0.02em",
@@ -3801,7 +3801,7 @@ const badgeStyle: CSSProperties = {
   width: "fit-content",
   padding: "6px 10px",
   borderRadius: 999,
-  background: "#ffffff",
+  background: "var(--card)",
   color: "#6d28d9",
   border: "1px solid rgba(124,58,237,0.18)",
   fontSize: 12,
@@ -3843,7 +3843,7 @@ const miniItemDetailedStyle: CSSProperties = {
 };
 
 const miniItemDetailStyle: CSSProperties = {
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 11,
   fontWeight: 850,
 };
@@ -3876,7 +3876,7 @@ const modalCardStyle: CSSProperties = {
   padding: "clamp(18px, 4vw, 28px)",
   borderRadius: 28,
   border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  background: "var(--card)",
   boxShadow: "0 28px 90px rgba(15,23,42,0.28)",
 };
 
@@ -3898,7 +3898,7 @@ const modalKickerStyle: CSSProperties = {
 
 const modalTitleStyle: CSSProperties = {
   margin: "4px 0 0",
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 28,
   fontWeight: 950,
   letterSpacing: "-0.03em",
@@ -3926,7 +3926,7 @@ const modalActionsStyle: CSSProperties = {
 
 const modalSectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 20,
   fontWeight: 950,
 };
@@ -3981,7 +3981,7 @@ const formSectionStyle: CSSProperties = {
   padding: "clamp(16px, 3vw, 24px)",
   borderRadius: 22,
   border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  background: "var(--card)",
 };
 
 const formSectionHeaderStyle: CSSProperties = {
@@ -3993,14 +3993,14 @@ const formSectionHeaderStyle: CSSProperties = {
 
 const formStepStyle: CSSProperties = {
   minWidth: 34,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 18,
   fontWeight: 900,
 };
 
 const formSectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 18,
   fontWeight: 950,
 };
@@ -4023,7 +4023,7 @@ const responsavelBoxStyle: CSSProperties = {
 
 const responsavelTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 16,
   fontWeight: 950,
 };
@@ -4077,7 +4077,7 @@ const searchResultListStyle: CSSProperties = {
   padding: 10,
   borderRadius: 18,
   border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  background: "var(--card)",
   boxShadow: "0 14px 34px rgba(15,23,42,0.08)",
   marginTop: -10,
 };
@@ -4092,7 +4092,7 @@ const searchResultButtonStyle: CSSProperties = {
   borderRadius: 14,
   border: "1px solid #e5e7eb",
   background: "#f9fafb",
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 14,
   fontWeight: 850,
   textAlign: "left",
@@ -4124,7 +4124,7 @@ const compactToggleStyle: CSSProperties = {
   padding: "8px 10px",
   borderRadius: 999,
   border: "1px solid #e5e7eb",
-  background: "#ffffff",
+  background: "var(--card)",
   color: "#374151",
   fontSize: 12,
   fontWeight: 900,
