@@ -3416,7 +3416,7 @@ const toastMessageStyle: CSSProperties = {
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "clamp(14px, 3vw, 24px)",
-  background: "#f3f4f6",
+  background: "var(--card-strong)",
   color: "var(--text)",
 };
 
@@ -3424,7 +3424,7 @@ const heroCardStyle: CSSProperties = {
   padding: "clamp(18px, 4vw, 30px)",
   borderRadius: "clamp(22px, 4vw, 34px)",
   border: "1px solid #e5e7eb",
-  background: "linear-gradient(135deg, #ffffff, #f9fafb)",
+  background: "var(--card)",
   boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
   display: "flex",
   justifyContent: "space-between",
@@ -3670,7 +3670,7 @@ const dangerButtonStyle: CSSProperties = {
   ...secondaryButtonStyle,
   border: "1px solid rgba(220,38,38,0.24)",
   color: "#b91c1c",
-  background: "#fff1f2",
+  background: "var(--red-soft)",
 };
 
 const listStyle: CSSProperties = {
@@ -3687,7 +3687,7 @@ const rowCardStyle: CSSProperties = {
   padding: "16px 18px",
   borderRadius: 22,
   border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   flexWrap: "wrap",
 };
 
@@ -3819,7 +3819,7 @@ const miniItemStyle: CSSProperties = {
   display: "inline-flex",
   padding: "7px 10px",
   borderRadius: 999,
-  background: "#eef2ff",
+  background: "var(--primary-soft)",
   color: "#3730a3",
   fontSize: 12,
   fontWeight: 900,
@@ -3834,7 +3834,7 @@ const miniItemDetailedStyle: CSSProperties = {
   gap: 3,
   padding: "8px 11px",
   borderRadius: 14,
-  background: "#eef2ff",
+  background: "var(--primary-soft)",
   color: "#3730a3",
   fontSize: 12,
   fontWeight: 900,
@@ -3937,7 +3937,7 @@ const historyRowStyle: CSSProperties = {
   padding: 14,
   borderRadius: 16,
   border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   color: "#374151",
   fontWeight: 750,
 };
@@ -3950,7 +3950,7 @@ const memberManageRowStyle: CSSProperties = {
   padding: 14,
   borderRadius: 16,
   border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   color: "#374151",
   fontWeight: 800,
   flexWrap: "wrap",
@@ -4018,7 +4018,7 @@ const responsavelBoxStyle: CSSProperties = {
   padding: 16,
   borderRadius: 20,
   border: "1px solid rgba(124,58,237,0.28)",
-  background: "#faf7ff",
+  background: "var(--primary-soft)",
 };
 
 const responsavelTitleStyle: CSSProperties = {
@@ -4035,7 +4035,7 @@ const confirmBoxStyle: CSSProperties = {
   padding: 18,
   borderRadius: 20,
   border: "1px solid #fecaca",
-  background: "#fef2f2",
+  background: "var(--red-soft)",
   color: "#7f1d1d",
   marginBottom: 16,
 };
@@ -4063,7 +4063,7 @@ const selectedNucleoStyle: CSSProperties = {
   padding: 14,
   borderRadius: 16,
   border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   color: "#374151",
   fontWeight: 850,
   flexWrap: "wrap",
@@ -4091,7 +4091,7 @@ const searchResultButtonStyle: CSSProperties = {
   padding: "12px 14px",
   borderRadius: 14,
   border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   color: "var(--text)",
   fontSize: 14,
   fontWeight: 850,
@@ -4137,7 +4137,7 @@ const toggleStyle: CSSProperties = {
   padding: 14,
   borderRadius: 16,
   border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   color: "#374151",
   fontWeight: 850,
 };

@@ -356,7 +356,7 @@ function statusStyle(status: string): CSSProperties {
     return { background: "var(--card-strong)", color: "var(--muted)", border: "1px solid var(--line)" };
   }
   if (valor.includes("cancel") || valor.includes("erro") || valor.includes("inativo")) {
-    return { background: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3" };
+    return { background: "var(--red-soft)", color: "#be123c", border: "1px solid #fecdd3" };
   }
   if (valor.includes("pend") || valor.includes("rascunho")) {
     return { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" };
@@ -1535,7 +1535,7 @@ const mainGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto", display
 const sideColumnStyle: CSSProperties = { display: "grid", gap: 18 };
 
 const alertsGridStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 };
-const alertCardHighStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fecdd3", background: "#fff1f2", display: "grid", gap: 5 };
+const alertCardHighStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fecdd3", background: "var(--red-soft)", display: "grid", gap: 5 };
 const alertCardMediumStyle: CSSProperties = { padding: 16, borderRadius: 22, border: "1px solid #fde68a", background: "#fffbeb", display: "grid", gap: 5 };
 const alertTitleStyle: CSSProperties = { color: "var(--text)", fontSize: 14, fontWeight: 800 };
 const alertTextStyle: CSSProperties = { color: "var(--muted)", fontSize: 13, fontWeight: 600, lineHeight: 1.45 };
@@ -1609,7 +1609,7 @@ const timelineDateStyle: CSSProperties = { display: "block", marginBottom: 4, co
 
 const emptyStateStyle: CSSProperties = { border: "1px dashed #cbd5e1", background: "var(--card-strong)", borderRadius: 22, padding: 18, display: "grid", gap: 5, textAlign: "center", color: "var(--muted)", fontSize: 13, fontWeight: 700 };
 const simpleRowButtonStyle: CSSProperties = { width: "100%", border: "1px solid var(--line)", background: "var(--card)", borderRadius: 18, padding: 12, textAlign: "left", fontWeight: 850, color: "var(--text)", cursor: "pointer" };
-const errorBoxStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", border: "1px solid #fecdd3", background: "#fff1f2", color: "#be123c", borderRadius: 20, padding: 16, fontWeight: 800 };
+const errorBoxStyle: CSSProperties = { maxWidth: 1280, margin: "0 auto 18px", border: "1px solid #fecdd3", background: "var(--red-soft)", color: "#be123c", borderRadius: 20, padding: 16, fontWeight: 800 };
 
 const modalBackdropStyle: CSSProperties = { position: "fixed", inset: 0, zIndex: 60, background: "rgba(15,23,42,0.58)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, backdropFilter: "blur(6px)" };
 const modalStyle: CSSProperties = { width: "min(760px, 100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 30, background: "var(--card)", boxShadow: "0 30px 90px rgba(15,23,42,0.34)" };

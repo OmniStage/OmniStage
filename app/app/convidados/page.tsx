@@ -3270,7 +3270,7 @@ const nucleoVinculadoConviteCardStyle: CSSProperties = {
   border: "1px solid #e5e7eb",
   borderRadius: 22,
   padding: 22,
-  background: "#f9fafb",
+  background: "var(--card-strong)",
   display: "flex",
   justifyContent: "space-between",
   gap: 18,
