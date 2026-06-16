@@ -10,7 +10,8 @@ type AbaOrganizacao =
   | "servicos"
   | "producao"
   | "roteiro"
-  | "pendencias";
+  | "pendencias"
+  | "financeiro";
 type SubPlanejamento =
   | "producao"
   | "fornecedores"
@@ -81,26 +82,30 @@ type Fornecedor = {
   id: string;
   tenant_id: string;
   nome: string;
-  categoria: string;
-  responsavel_nome: string | null;
+  categoria: string | null;
+  responsavel_nome?: string | null;
   telefone: string | null;
   telefone_normalizado: string | null;
   email: string | null;
-  documento: string | null;
-  endereco: string | null;
+  cpf_cnpj: string | null;
+  logradouro: string | null;
   site: string | null;
   instagram: string | null;
-  pix: string | null;
-  conta_corrente: string | null;
+  pix_chave: string | null;
   observacoes: string | null;
   ativo: boolean;
+  eh_cliente?: boolean;
+  eh_fornecedor?: boolean;
+  eh_equipe?: boolean;
 };
+
+type OrganizacaoCadastro = Fornecedor;
 
 type FornecedorEvento = {
   id: string;
   tenant_id: string;
   evento_id: string;
-  fornecedor_id: string;
+  cadastro_id: string;
   categoria_evento: string | null;
   status:
     | "orcamento"
@@ -134,11 +139,86 @@ type Contratacao = {
   data_vencimento: string | null;
   data_pagamento: string | null;
   status: "pendente" | "parcial" | "pago" | "vencido" | "cancelado" | string;
+  status_aprovacao: "orcamento" | "aprovado" | "cancelado" | string;
+  unidade: string | null;
+  quantidade: number | null;
   forma_pagamento: string | null;
   orcamento_url: string | null;
   contrato_url: string | null;
   comprovante_url: string | null;
   observacoes: string | null;
+  nf_numero: string | null;
+  nf_data: string | null;
+  nf_valor: number | null;
+};
+
+type OrganizacaoCliente = {
+  id: string;
+  tenant_id: string;
+  nome: string;
+  cpf_cnpj: string | null;
+  email: string | null;
+  telefone: string | null;
+  logradouro: string | null;
+  observacoes: string | null;
+  criado_em: string;
+};
+
+type Parcela = {
+  id: string;
+  tenant_id: string;
+  evento_id: string;
+  contratacao_id: string | null;
+  numero: number;
+  descricao: string | null;
+  valor: number;
+  data_vencimento: string | null;
+  data_pagamento: string | null;
+  status: "pendente" | "pago" | "atrasado" | string;
+  forma_pagamento: string | null;
+  documento: string | null;
+  observacoes: string | null;
+  criado_em: string;
+  // campos financeiros
+  competencia: string | null;
+  data_emissao: string | null;
+  cliente: string | null;
+  cadastro_cliente_id: string | null;
+  cadastro_fornecedor_id: string | null;
+  tipo: "receber" | "pagar" | string;
+  plano_de_contas: string | null;
+  empresa: string | null;
+  conta_corrente: string | null;
+  centro_de_custo: string | null;
+  historico: string | null;
+  numero_doc: string | null;
+};
+
+type FornecedorServico = {
+  id: string;
+  tenant_id: string;
+  fornecedor_id: string;
+  titulo: string;
+  descricao: string | null;
+  unidade: string | null;
+  preco_custo: number;
+  preco_venda: number;
+  ativo: boolean;
+  criado_em: string;
+};
+
+type ContratacaoItem = {
+  id: string;
+  tenant_id: string;
+  contratacao_id: string;
+  titulo: string;
+  quantidade_item: number;
+  unidade: string | null;
+  quantidade: number;
+  preco_custo: number;
+  preco_venda: number;
+  aprovado: boolean;
+  criado_em: string;
 };
 
 type Equipe = {
@@ -159,6 +239,20 @@ type Equipe = {
     | "ausente"
     | "cancelado"
     | string;
+  observacoes: string | null;
+};
+
+type FornecedorEquipeMembro = {
+  id: string;
+  tenant_id: string;
+  fornecedor_id: string;
+  evento_id: string | null;
+  nome: string;
+  funcao: string | null;
+  telefone: string | null;
+  status: string;
+  horario_inicio: string | null;
+  horario_fim: string | null;
   observacoes: string | null;
 };
 
@@ -472,8 +566,65 @@ export default function OrganizacaoPage() {
     FornecedorEvento[]
   >([]);
   const [fornecedoresCadastrados, setFornecedoresCadastrados] = useState<Fornecedor[]>([]);
+  const [clientesCadastrados, setClientesCadastrados] = useState<OrganizacaoCliente[]>([]);
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<string | null>(null);
   const [contratacoes, setContratacoes] = useState<Contratacao[]>([]);
   const [equipe, setEquipe] = useState<Equipe[]>([]);
+  const [fornecedorEquipe, setFornecedorEquipe] = useState<FornecedorEquipeMembro[]>([]);
+  const [fornecedorEquipeForm, setFornecedorEquipeForm] = useState<Record<string, { nome: string; funcao: string; telefone: string; horario_inicio: string; horario_fim: string }>>({});
+  const [fornecedorEquipeSalvando, setFornecedorEquipeSalvando] = useState(false);
+  const [fornecedorEquipeEditando, setFornecedorEquipeEditando] = useState<string | null>(null);
+  const [fornecedorEquipeEditForm, setFornecedorEquipeEditForm] = useState<{ nome: string; funcao: string; telefone: string; horario_inicio: string; horario_fim: string }>({ nome: "", funcao: "", telefone: "", horario_inicio: "", horario_fim: "" });
+  const [fornecedorExpandido, setFornecedorExpandido] = useState<string | null>(null);
+  const [fornecedorAba, setFornecedorAba] = useState<Record<string, "dados" | "equipe" | "servicos">>({});
+  const [novoServico, setNovoServico] = useState<Record<string, { titulo: string; valor_contratado: string; valor_pago: string; data_vencimento: string; status: string }>>({});
+  const [contratacaoItens, setContratacaoItens] = useState<ContratacaoItem[]>([]);
+  const [contratacaoEdits, setContratacaoEdits] = useState<Record<string, { qtd: string; unidade: string }>>({});
+  const [parcelas, setParcelas] = useState<Parcela[]>([]);
+  const [nfModal, setNfModal] = useState<string | null>(null); // contratacao id
+  const [nfForm, setNfForm] = useState<{ nf_numero: string; nf_data: string; nf_valor: string }>({ nf_numero: "", nf_data: "", nf_valor: "" });
+  const [parcelaModal, setParcelaModal] = useState<string | null>(null); // contratacao id
+  const [parcelaModalTitulo, setParcelaModalTitulo] = useState<string>("");
+  const [parcelaForm, setParcelaForm] = useState<{ numero_parcelas: string; valor_total: string; data_inicio: string; forma_pagamento: string; documento: string }>({ numero_parcelas: "1", valor_total: "", data_inicio: "", forma_pagamento: "", documento: "" });
+  const [parcelasPreview, setParcelasPreview] = useState<{ data: string; valor: string; descricao: string }[]>([]);
+  const [liquidando, setLiquidando] = useState<Record<string, string>>({}); // parcelaId → data_pagamento
+  const [confirmarDialog, setConfirmarDialog] = useState<{ mensagem: string; onConfirm: () => void; onCancel: () => void } | null>(null);
+  const [novaParcelaModal, setNovaParcelaModal] = useState(false);
+  const [clienteDropdownAberto, setClienteDropdownAberto] = useState(false);
+  const [novoFornecedorParcelaModal, setNovoFornecedorParcelaModal] = useState(false);
+  const [novoFornecedorParcela, setNovoFornecedorParcela] = useState({ nome: "", categoria: "buffet", responsavel_nome: "", telefone: "", email: "", documento: "", endereco: "", instagram: "", pix: "", conta_corrente: "", observacoes: "" });
+  const [novaParcelaForm, setNovaParcelaForm] = useState({
+    numero_doc: "", competencia: "", data_emissao: "", data_vencimento: "",
+    numero_parcelas: "1", valor: "", cliente: "", plano_de_contas: "",
+    empresa: "", conta_corrente: "", centro_de_custo: "", historico: "",
+    forma_pagamento: "", documento: "",
+  });
+  const [financeiroSubAba, setFinanceiroSubAba] = useState<"receber" | "pagar">("receber");
+  const [novaParcelaPagarModal, setNovaParcelaPagarModal] = useState(false);
+  const [fornecedorDropdownAberto, setFornecedorDropdownAberto] = useState(false);
+  const [fornecedorSelecionadoId, setFornecedorSelecionadoId] = useState<string | null>(null);
+  const [novoFornecedorPagarModal, setNovoFornecedorPagarModal] = useState(false);
+  const [novoFornecedorParcelaForm, setNovoFornecedorParcelaForm] = useState({ nome: "", documento: "", telefone: "", email: "", endereco: "", observacoes: "" });
+  const [novaParcelaPagarForm, setNovaParcelaPagarForm] = useState({
+    numero_doc: "", competencia: "", data_emissao: "", data_vencimento: "",
+    numero_parcelas: "1", valor: "", fornecedor: "", plano_de_contas: "",
+    empresa: "", conta_corrente: "", centro_de_custo: "", historico: "",
+    forma_pagamento: "", documento: "",
+  });
+
+  function pedirConfirmacao(mensagem: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      setConfirmarDialog({
+        mensagem,
+        onConfirm: () => { setConfirmarDialog(null); resolve(true); },
+        onCancel: () => { setConfirmarDialog(null); resolve(false); },
+      });
+    });
+  }
+  const [fornecedorServicos, setFornecedorServicos] = useState<FornecedorServico[]>([]);
+  const [novoFornecedorServico, setNovoFornecedorServico] = useState<Record<string, { titulo: string; descricao: string; unidade: string; preco_custo: string; preco_venda: string }>>({});
+  const [servicoExpandido, setServicoExpandido] = useState<string | null>(null);
+  const [novoItem, setNovoItem] = useState<Record<string, { titulo: string; quantidade_item: string; unidade: string; quantidade: string; preco_custo: string; preco_venda: string }>>({});
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [aba, setAba] = useState<AbaOrganizacao>("visao");
   const [subPlanejamento, setSubPlanejamento] =
@@ -670,6 +821,11 @@ export default function OrganizacaoPage() {
       contratacoesRes,
       equipeRes,
       agendaRes,
+      fornecedorEquipeRes,
+      contratacaoItensRes,
+      fornecedorServicosRes,
+      parcelasRes,
+      clientesCadastradosRes,
     ] = await Promise.all([
       supabase
         .from("organizacao_producao")
@@ -687,9 +843,10 @@ export default function OrganizacaoPage() {
         .eq("evento_id", eventoId)
         .order("criado_em", { ascending: false }),
       supabase
-        .from("organizacao_fornecedores")
+        .from("organizacao_cadastros")
         .select("*")
         .eq("tenant_id", evento.tenant_id)
+        .eq("eh_fornecedor", true)
         .order("nome", { ascending: true }),
       supabase
         .from("organizacao_contratacoes")
@@ -708,6 +865,32 @@ export default function OrganizacaoPage() {
         )
         .eq("evento_id", eventoId)
         .order("data_inicio", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("organizacao_fornecedor_equipe")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("criado_em", { ascending: true }),
+      supabase
+        .from("organizacao_contratacao_itens")
+        .select("*")
+        .eq("tenant_id", evento.tenant_id)
+        .order("criado_em", { ascending: true }),
+      supabase
+        .from("organizacao_fornecedor_servicos")
+        .select("*")
+        .eq("tenant_id", evento.tenant_id)
+        .order("criado_em", { ascending: true }),
+      supabase
+        .from("organizacao_parcelas")
+        .select("*")
+        .eq("evento_id", eventoId)
+        .order("data_vencimento", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("organizacao_cadastros")
+        .select("*")
+        .eq("tenant_id", evento.tenant_id)
+        .eq("eh_cliente", true)
+        .order("nome", { ascending: true }),
     ]);
 
     if (producaoRes.error)
@@ -737,13 +920,13 @@ export default function OrganizacaoPage() {
 
     const vinculos = (fornecedoresEventoRes.data || []) as FornecedorEvento[];
     const fornecedorIds = Array.from(
-      new Set(vinculos.map((v) => v.fornecedor_id).filter(Boolean)),
+      new Set(vinculos.map((v) => v.cadastro_id).filter(Boolean)),
     );
     let fornecedoresPorId: Record<string, Fornecedor> = {};
 
     if (fornecedorIds.length > 0) {
       const { data: fornecedoresData } = await supabase
-        .from("organizacao_fornecedores")
+        .from("organizacao_cadastros")
         .select("*")
         .in("id", fornecedorIds);
 
@@ -759,18 +942,23 @@ export default function OrganizacaoPage() {
     setChecklist((checklistRes.data || []) as Checklist[]);
     const fornecedoresFixos = (fornecedoresCadastradosRes.data || []) as Fornecedor[];
     setFornecedoresCadastrados(fornecedoresFixos);
+    setClientesCadastrados((clientesCadastradosRes.data || []) as OrganizacaoCliente[]);
     setFornecedoresEvento(
       vinculos.map((vinculo) => ({
         ...vinculo,
         fornecedor:
-          fornecedoresPorId[vinculo.fornecedor_id] ||
-          fornecedoresFixos.find((fornecedor) => fornecedor.id === vinculo.fornecedor_id) ||
+          fornecedoresPorId[vinculo.cadastro_id] ||
+          fornecedoresFixos.find((fornecedor) => fornecedor.id === vinculo.cadastro_id) ||
           null,
       })),
     );
     setContratacoes((contratacoesRes.data || []) as Contratacao[]);
     setEquipe((equipeRes.data || []) as Equipe[]);
     setAgenda((agendaRes.data || []) as AgendaItem[]);
+    setFornecedorEquipe((fornecedorEquipeRes.data || []) as FornecedorEquipeMembro[]);
+    setContratacaoItens((contratacaoItensRes.data || []) as ContratacaoItem[]);
+    setFornecedorServicos((fornecedorServicosRes.data || []) as FornecedorServico[]);
+    setParcelas((parcelasRes.data || []) as Parcela[]);
   }
 
   const tenantId = eventoAtual?.tenant_id || "";
@@ -1210,7 +1398,7 @@ ${categorias}`,
     const fornecedores = fornecedoresEvento
       .map(
         (item) =>
-          `${item.fornecedor_id} = ${item.fornecedor?.nome || "Fornecedor"}`,
+          `${item.cadastro_id} = ${item.fornecedor?.nome || "Fornecedor"}`,
       )
       .join("\n");
     const fornecedor = window.prompt(
@@ -1267,13 +1455,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function excluirAcao(acao: AcaoProducao) {
-    const confirmar = window.confirm(`Excluir a ação "${acao.titulo}"?`);
-    if (!confirmar) return;
-
-    const { error } = await supabase
-      .from("organizacao_producao")
-      .delete()
-      .eq("id", acao.id);
+    if (!await pedirConfirmacao(`Excluir a ação "${acao.titulo}"?`)) return;
+    const { error } = await supabase.from("organizacao_producao").delete().eq("id", acao.id);
     await depoisSalvar(error);
   }
 
@@ -1282,20 +1465,19 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     setSalvando(true);
 
     const { data: fornecedor, error: fornecedorError } = await supabase
-      .from("organizacao_fornecedores")
+      .from("organizacao_cadastros")
       .insert({
         tenant_id: tenantId,
+        eh_fornecedor: true,
         nome: novoFornecedor.nome.trim(),
         categoria: novoFornecedor.categoria,
         telefone: limpar(novoFornecedor.telefone),
         telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
         email: limpar(novoFornecedor.email),
-        responsavel_nome: limpar(novoFornecedor.responsavel_nome),
-        documento: limpar(novoFornecedor.documento),
-        endereco: limpar(novoFornecedor.endereco),
+        cpf_cnpj: limpar(novoFornecedor.documento),
+        logradouro: limpar(novoFornecedor.endereco),
         instagram: limpar(novoFornecedor.instagram),
-        pix: limpar(novoFornecedor.pix),
-        conta_corrente: limpar(novoFornecedor.conta_corrente),
+        pix_chave: limpar(novoFornecedor.pix),
         observacoes: limpar(novoFornecedor.observacoes),
       })
       .select("id")
@@ -1313,7 +1495,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       .insert({
         tenant_id: tenantId,
         evento_id: eventoAtual.id,
-        fornecedor_id: fornecedor.id,
+        cadastro_id: fornecedor.id,
         categoria_evento: novoFornecedor.categoria,
         status: novoFornecedor.status,
       });
@@ -1342,7 +1524,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     setSalvando(true);
 
     const vinculoAtual = fornecedoresEvento.find(
-      (item) => item.fornecedor_id === fornecedor.id && item.evento_id === eventoAtual.id,
+      (item) => item.cadastro_id === fornecedor.id && item.evento_id === eventoAtual.id,
     );
 
     if (!selecionado) {
@@ -1369,7 +1551,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       .insert({
         tenant_id: tenantId,
         evento_id: eventoAtual.id,
-        fornecedor_id: fornecedor.id,
+        cadastro_id: fornecedor.id,
         categoria_evento: fornecedor.categoria || "fornecedor",
         status: "confirmado",
         valor_orcado: null,
@@ -1398,11 +1580,11 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       responsavel_nome: f?.responsavel_nome || "",
       telefone: f?.telefone || "",
       email: f?.email || "",
-      documento: f?.documento || "",
-      endereco: f?.endereco || "",
+      documento: f?.cpf_cnpj || "",
+      endereco: f?.logradouro || "",
       instagram: f?.instagram || "",
-      pix: (f as any)?.pix || "",
-      conta_corrente: (f as any)?.conta_corrente || "",
+      pix: f?.pix_chave || "",
+      conta_corrente: "",
       observacoes: f?.observacoes || "",
       status: item.status || "orcamento",
     });
@@ -1416,22 +1598,20 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     setSalvando(true);
 
     const { error } = await supabase
-      .from("organizacao_fornecedores")
+      .from("organizacao_cadastros")
       .update({
         nome: novoFornecedor.nome.trim(),
         categoria: novoFornecedor.categoria,
-        responsavel_nome: limpar(novoFornecedor.responsavel_nome),
         telefone: limpar(novoFornecedor.telefone),
         telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
         email: limpar(novoFornecedor.email),
-        documento: limpar(novoFornecedor.documento),
-        endereco: limpar(novoFornecedor.endereco),
+        cpf_cnpj: limpar(novoFornecedor.documento),
+        logradouro: limpar(novoFornecedor.endereco),
         instagram: limpar(novoFornecedor.instagram),
-        pix: limpar(novoFornecedor.pix),
-        conta_corrente: limpar(novoFornecedor.conta_corrente),
+        pix_chave: limpar(novoFornecedor.pix),
         observacoes: limpar(novoFornecedor.observacoes),
       })
-      .eq("id", item.fornecedor_id);
+      .eq("id", item.cadastro_id);
 
     await depoisSalvar(error, () => {
       setFornecedorEditandoId(null);
@@ -1454,10 +1634,8 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       return;
     }
 
-    const confirmar = window.confirm(
-      `Criar uma contratação para "${item.fornecedor?.nome || "Fornecedor"}"?`,
-    );
-    if (!confirmar || !eventoAtual || !tenantId) return;
+    if (!await pedirConfirmacao(`Criar uma contratação para "${item.fornecedor?.nome || "Fornecedor"}"?`)) return;
+    if (!eventoAtual || !tenantId) return;
 
     setSalvando(true);
     const { error } = await supabase.from("organizacao_contratacoes").insert({
@@ -1494,10 +1672,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function excluirFornecedor(item: FornecedorEvento) {
-    const confirmar = window.confirm(
-      `Remover "${item.fornecedor?.nome || "Fornecedor"}" deste evento?`,
-    );
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Remover "${item.fornecedor?.nome || "Fornecedor"}" deste evento?`)) return;
 
     const { error } = await supabase
       .from("organizacao_fornecedores_evento")
@@ -1591,8 +1766,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function marcarContratacaoPaga(item: Contratacao) {
-    const confirmar = window.confirm(`Marcar "${item.titulo}" como pago?`);
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Marcar "${item.titulo}" como pago?`)) return;
 
     const { error } = await supabase
       .from("organizacao_contratacoes")
@@ -1621,9 +1795,315 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     await depoisSalvar(error);
   }
 
+  async function atualizarContratacaoCampo(item: Contratacao, campo: "unidade" | "quantidade", valor: string) {
+    const update = campo === "quantidade" ? { quantidade: Number(valor) || 1 } : { unidade: valor || null };
+    const { error } = await supabase.from("organizacao_contratacoes").update(update).eq("id", item.id);
+    if (error) { setErro("Erro ao atualizar: " + error.message); return; }
+    setContratacoes((prev) => prev.map((c) => c.id === item.id ? { ...c, ...update } : c));
+  }
+
+  async function salvarContratacaoEdits(item: Contratacao) {
+    const edits = contratacaoEdits[item.id];
+    if (!edits) return;
+    const update = { quantidade: Number(edits.qtd) || 1, unidade: edits.unidade || null };
+    const { error } = await supabase.from("organizacao_contratacoes").update(update).eq("id", item.id);
+    if (error) { setErro("Erro ao salvar: " + error.message); return; }
+    setContratacoes((prev) => prev.map((c) => c.id === item.id ? { ...c, ...update } : c));
+    setContratacaoEdits((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
+  }
+
+  async function aprovarContratacao(item: Contratacao) {
+    const { error } = await supabase.from("organizacao_contratacoes").update({ status_aprovacao: "aprovado" }).eq("id", item.id);
+    if (error) { setErro("Erro ao aprovar: " + error.message); return; }
+    setContratacoes((prev) => prev.map((c) => c.id === item.id ? { ...c, status_aprovacao: "aprovado" } : c));
+    // Approve all items of this contratação
+    const itensIds = contratacaoItens.filter((i) => i.contratacao_id === item.id).map((i) => i.id);
+    if (itensIds.length > 0) {
+      await supabase.from("organizacao_contratacao_itens").update({ aprovado: true }).in("id", itensIds);
+      setContratacaoItens((prev) => prev.map((i) => itensIds.includes(i.id) ? { ...i, aprovado: true } : i));
+    }
+  }
+
+  async function cancelarContratacao(item: Contratacao) {
+    const { error } = await supabase.from("organizacao_contratacoes").update({ status_aprovacao: "cancelado" }).eq("id", item.id);
+    if (error) { setErro("Erro ao cancelar: " + error.message); return; }
+    setContratacoes((prev) => prev.map((c) => c.id === item.id ? { ...c, status_aprovacao: "cancelado" } : c));
+  }
+
+  async function toggleItemAprovado(item: ContratacaoItem) {
+    const novoValor = !item.aprovado;
+    const { error } = await supabase.from("organizacao_contratacao_itens").update({ aprovado: novoValor }).eq("id", item.id);
+    if (error) { setErro("Erro ao atualizar item: " + error.message); return; }
+    setContratacaoItens((prev) => prev.map((i) => i.id === item.id ? { ...i, aprovado: novoValor } : i));
+    // Se todos os itens da contratação estão aprovados, aprova a contratação
+    const contratId = item.contratacao_id;
+    const todosItens = contratacaoItens.map((i) => i.id === item.id ? { ...i, aprovado: novoValor } : i).filter((i) => i.contratacao_id === contratId);
+    if (todosItens.length > 0 && todosItens.every((i) => i.aprovado)) {
+      await supabase.from("organizacao_contratacoes").update({ status_aprovacao: "aprovado" }).eq("id", contratId);
+      setContratacoes((prev) => prev.map((c) => c.id === contratId ? { ...c, status_aprovacao: "aprovado" } : c));
+    } else if (!novoValor) {
+      // Se desmarcou um item, volta para orcamento
+      await supabase.from("organizacao_contratacoes").update({ status_aprovacao: "orcamento" }).eq("id", contratId);
+      setContratacoes((prev) => prev.map((c) => c.id === contratId ? { ...c, status_aprovacao: "orcamento" } : c));
+    }
+  }
+
+  async function aprovarOrcamento(item: Contratacao) {
+    const { error } = await supabase.from("organizacao_contratacoes").update({ status: "contratado" }).eq("id", item.id);
+    if (error) { setErro("Erro ao aprovar: " + error.message); return; }
+    setContratacoes((prev) => prev.map((c) => c.id === item.id ? { ...c, status: "contratado" } : c));
+  }
+
+  async function salvarNF(item: Contratacao) {
+    const update = { nf_numero: nfForm.nf_numero || null, nf_data: nfForm.nf_data || null, nf_valor: nfForm.nf_valor ? Number(nfForm.nf_valor) : null };
+    const { error } = await supabase.from("organizacao_contratacoes").update(update).eq("id", item.id);
+    if (error) { setErro("Erro ao salvar NF: " + error.message); return; }
+    setContratacoes((prev) => prev.map((c) => c.id === item.id ? { ...c, ...update } : c));
+    setNfModal(null);
+  }
+
+  function calcularParcelasPreview(n: number, valorTotal: number, dataInicio: string, titulo: string) {
+    const dataStr = dataInicio || new Date().toISOString().split("T")[0];
+    const [anoI, mesI, diaI] = dataStr.split("-").map(Number);
+    const valorBase = Math.floor((valorTotal / n) * 100) / 100;
+    const resto = Math.round((valorTotal - valorBase * n) * 100) / 100;
+    return Array.from({ length: n }, (_, i) => {
+      let mes = mesI - 1 + i;
+      const ano = anoI + Math.floor(mes / 12);
+      mes = mes % 12;
+      const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+      const dia = Math.min(diaI || 1, diasNoMes);
+      const data = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+      const valor = i === n - 1 ? String(Math.round((valorBase + resto) * 100) / 100) : String(valorBase);
+      return { data, valor, descricao: n > 1 ? `Parcela ${i + 1}/${n}` : titulo };
+    });
+  }
+
+  async function gerarParcelas(item: Contratacao, previewOverride?: { data: string; valor: string; descricao: string }[]) {
+    const preview = previewOverride ?? (parcelasPreview.length > 0 ? parcelasPreview : calcularParcelasPreview(
+      Math.max(1, parseInt(parcelaForm.numero_parcelas) || 1),
+      Number(parcelaForm.valor_total) || toNumber(item.valor_contratado),
+      parcelaForm.data_inicio,
+      item.titulo
+    ));
+    const novasParcelas = preview.map((p, i) => ({
+        tenant_id: item.tenant_id,
+        evento_id: item.evento_id,
+        contratacao_id: item.id,
+        numero: i + 1,
+        descricao: p.descricao,
+        valor: Number(p.valor) || 0,
+        data_vencimento: p.data || null,
+        status: "pendente",
+        forma_pagamento: parcelaForm.forma_pagamento || null,
+        documento: parcelaForm.documento || null,
+      }));
+    console.log("gerarParcelas novasParcelas:", novasParcelas);
+    // Remove parcelas antigas desta contratação
+    const delRes = await supabase.from("organizacao_parcelas").delete().eq("contratacao_id", item.id);
+    if (delRes.error) { console.error("delete error:", delRes.error); setErro("Erro ao limpar parcelas: " + delRes.error.message); return; }
+    const { data, error } = await supabase.from("organizacao_parcelas").insert(novasParcelas).select();
+    console.log("insert result:", { data, error });
+    if (error) { setErro("Erro ao gerar parcelas: " + error.message + " | " + JSON.stringify(error)); return; }
+    setParcelas((prev) => [...prev.filter((p) => p.contratacao_id !== item.id), ...(data as Parcela[])]);
+    setParcelaModal(null);
+    setParcelasPreview([]);
+    setAba("financeiro");
+  }
+
+  async function criarClienteInlineParaParcela() {
+    if (!tenantId || !novoFornecedorParcela.nome.trim()) { setErro("Informe o nome do cliente."); return; }
+    const { data: cliente, error } = await supabase.from("organizacao_cadastros").insert({
+      tenant_id: tenantId,
+      eh_cliente: true,
+      nome: novoFornecedorParcela.nome.trim(),
+      cpf_cnpj: novoFornecedorParcela.documento || null,
+      telefone: novoFornecedorParcela.telefone || null,
+      email: novoFornecedorParcela.email || null,
+      logradouro: novoFornecedorParcela.endereco || null,
+      observacoes: novoFornecedorParcela.observacoes || null,
+    }).select().single();
+    if (error || !cliente) { setErro("Erro ao criar cliente: " + error?.message); return; }
+    setClientesCadastrados((prev) => [...prev, cliente as OrganizacaoCliente]);
+    setClienteSelecionadoId(cliente.id);
+    setNovaParcelaForm((prev) => ({ ...prev, cliente: cliente.nome }));
+    setNovoFornecedorParcelaModal(false);
+    setNovoFornecedorParcela({ nome: "", categoria: "buffet", responsavel_nome: "", telefone: "", email: "", documento: "", endereco: "", instagram: "", pix: "", conta_corrente: "", observacoes: "" });
+  }
+
+  async function buscarOuCriarCliente(nome: string): Promise<string | null> {
+    if (!eventoAtual || !tenantId || !nome.trim()) return null;
+    const existente = clientesCadastrados.find((c) => c.nome.trim().toLowerCase() === nome.trim().toLowerCase());
+    if (existente) return existente.id;
+    const { data: cliente, error } = await supabase.from("organizacao_cadastros").insert({
+      tenant_id: tenantId,
+      eh_cliente: true,
+      nome: nome.trim(),
+    }).select().single();
+    if (error || !cliente) { setErro("Erro ao criar cliente: " + error?.message); return null; }
+    setClientesCadastrados((prev) => [...prev, cliente as OrganizacaoCliente]);
+    return cliente.id;
+  }
+
+  async function criarFornecedorInlineParaParcela() {
+    if (!tenantId || !novoFornecedorParcelaForm.nome.trim()) { setErro("Informe o nome do fornecedor."); return; }
+    const { data: fornecedor, error } = await supabase.from("organizacao_cadastros").insert({
+      tenant_id: tenantId,
+      eh_fornecedor: true,
+      nome: novoFornecedorParcelaForm.nome.trim(),
+      cpf_cnpj: novoFornecedorParcelaForm.documento || null,
+      telefone: novoFornecedorParcelaForm.telefone || null,
+      email: novoFornecedorParcelaForm.email || null,
+      logradouro: novoFornecedorParcelaForm.endereco || null,
+      observacoes: novoFornecedorParcelaForm.observacoes || null,
+    }).select().single();
+    if (error || !fornecedor) { setErro("Erro ao criar fornecedor: " + error?.message); return; }
+    setFornecedoresCadastrados((prev) => [...prev, fornecedor as Fornecedor]);
+    setFornecedorSelecionadoId(fornecedor.id);
+    setNovaParcelaPagarForm((prev) => ({ ...prev, fornecedor: fornecedor.nome }));
+    setNovoFornecedorPagarModal(false);
+    setNovoFornecedorParcelaForm({ nome: "", documento: "", telefone: "", email: "", endereco: "", observacoes: "" });
+  }
+
+  async function buscarOuCriarFornecedorParcela(nome: string): Promise<string | null> {
+    if (!eventoAtual || !tenantId || !nome.trim()) return null;
+    const existente = fornecedoresCadastrados.find((f) => f.nome.trim().toLowerCase() === nome.trim().toLowerCase());
+    if (existente) return existente.id;
+    const { data: fornecedor, error } = await supabase.from("organizacao_cadastros").insert({
+      tenant_id: tenantId,
+      eh_fornecedor: true,
+      nome: nome.trim(),
+    }).select().single();
+    if (error || !fornecedor) { setErro("Erro ao criar fornecedor: " + error?.message); return null; }
+    setFornecedoresCadastrados((prev) => [...prev, fornecedor as Fornecedor]);
+    return fornecedor.id;
+  }
+
+  async function salvarNovaParcela() {
+    if (!eventoAtual?.id) return;
+    const valorTotal = parseFloat(novaParcelaForm.valor.replace(",", ".")) || 0;
+    if (!valorTotal) { setErro("Informe o valor."); return; }
+    const n = Math.max(1, parseInt(novaParcelaForm.numero_parcelas) || 1);
+    const tenantId = eventoAtual.tenant_id;
+    const valorBase = Math.floor((valorTotal / n) * 100) / 100;
+    const resto = Math.round((valorTotal - valorBase * n) * 100) / 100;
+    const dataStr = novaParcelaForm.data_vencimento || new Date().toISOString().split("T")[0];
+    const [anoI, mesI, diaI] = dataStr.split("-").map(Number);
+    const clienteIdResolvido = clienteSelecionadoId || (novaParcelaForm.cliente.trim() ? await buscarOuCriarCliente(novaParcelaForm.cliente) : null);
+    const novasParcelas = Array.from({ length: n }, (_, i) => {
+      let mes = mesI - 1 + i;
+      const ano = anoI + Math.floor(mes / 12);
+      mes = mes % 12;
+      const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+      const dia = Math.min(diaI || 1, diasNoMes);
+      const data = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+      const valor = i === n - 1 ? Math.round((valorBase + resto) * 100) / 100 : valorBase;
+      return {
+        tenant_id: tenantId,
+        evento_id: eventoAtual.id,
+        contratacao_id: null,
+        numero: i + 1,
+        descricao: n > 1 ? `Parcela ${i + 1}/${n}` : (novaParcelaForm.historico || null),
+        valor,
+        data_vencimento: data,
+        status: "pendente",
+        forma_pagamento: novaParcelaForm.forma_pagamento || null,
+        documento: novaParcelaForm.documento || null,
+        competencia: novaParcelaForm.competencia || null,
+        data_emissao: novaParcelaForm.data_emissao || null,
+        cliente: novaParcelaForm.cliente || null,
+        cadastro_cliente_id: clienteIdResolvido || null,
+        tipo: "receber",
+        plano_de_contas: novaParcelaForm.plano_de_contas || null,
+        empresa: novaParcelaForm.empresa || null,
+        conta_corrente: novaParcelaForm.conta_corrente || null,
+        centro_de_custo: novaParcelaForm.centro_de_custo || null,
+        historico: novaParcelaForm.historico || null,
+        numero_doc: novaParcelaForm.numero_doc || null,
+        observacoes: null,
+      };
+    });
+    const { data, error } = await supabase.from("organizacao_parcelas").insert(novasParcelas).select();
+    if (error) { setErro("Erro ao criar parcela: " + error.message); return; }
+    setParcelas((prev) => [...prev, ...(data as Parcela[])]);
+    setNovaParcelaModal(false);
+    setClienteSelecionadoId(null);
+    setNovaParcelaForm({ numero_doc: "", competencia: "", data_emissao: "", data_vencimento: "", numero_parcelas: "1", valor: "", cliente: "", plano_de_contas: "", empresa: "", conta_corrente: "", centro_de_custo: "", historico: "", forma_pagamento: "", documento: "" });
+  }
+
+  async function salvarNovaParcelaPagar() {
+    if (!eventoAtual?.id) return;
+    const valorTotal = parseFloat(novaParcelaPagarForm.valor.replace(",", ".")) || 0;
+    if (!valorTotal) { setErro("Informe o valor."); return; }
+    const n = Math.max(1, parseInt(novaParcelaPagarForm.numero_parcelas) || 1);
+    const tenantId = eventoAtual.tenant_id;
+    const valorBase = Math.floor((valorTotal / n) * 100) / 100;
+    const resto = Math.round((valorTotal - valorBase * n) * 100) / 100;
+    const dataStr = novaParcelaPagarForm.data_vencimento || new Date().toISOString().split("T")[0];
+    const [anoI, mesI, diaI] = dataStr.split("-").map(Number);
+    const fornecedorIdResolvido = fornecedorSelecionadoId || (novaParcelaPagarForm.fornecedor.trim() ? await buscarOuCriarFornecedorParcela(novaParcelaPagarForm.fornecedor) : null);
+    const novasParcelas = Array.from({ length: n }, (_, i) => {
+      let mes = mesI - 1 + i;
+      const ano = anoI + Math.floor(mes / 12);
+      mes = mes % 12;
+      const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+      const dia = Math.min(diaI || 1, diasNoMes);
+      const data = `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+      const valor = i === n - 1 ? Math.round((valorBase + resto) * 100) / 100 : valorBase;
+      return {
+        tenant_id: tenantId,
+        evento_id: eventoAtual.id,
+        contratacao_id: null,
+        numero: i + 1,
+        descricao: n > 1 ? `Parcela ${i + 1}/${n}` : (novaParcelaPagarForm.historico || null),
+        valor,
+        data_vencimento: data,
+        status: "pendente",
+        forma_pagamento: novaParcelaPagarForm.forma_pagamento || null,
+        documento: novaParcelaPagarForm.documento || null,
+        competencia: novaParcelaPagarForm.competencia || null,
+        data_emissao: novaParcelaPagarForm.data_emissao || null,
+        cadastro_fornecedor_id: fornecedorIdResolvido || null,
+        tipo: "pagar",
+        plano_de_contas: novaParcelaPagarForm.plano_de_contas || null,
+        empresa: novaParcelaPagarForm.empresa || null,
+        conta_corrente: novaParcelaPagarForm.conta_corrente || null,
+        centro_de_custo: novaParcelaPagarForm.centro_de_custo || null,
+        historico: novaParcelaPagarForm.historico || null,
+        numero_doc: novaParcelaPagarForm.numero_doc || null,
+        observacoes: null,
+      };
+    });
+    const { data, error } = await supabase.from("organizacao_parcelas").insert(novasParcelas).select();
+    if (error) { setErro("Erro ao criar parcela: " + error.message); return; }
+    setParcelas((prev) => [...prev, ...(data as Parcela[])]);
+    setNovaParcelaPagarModal(false);
+    setFornecedorSelecionadoId(null);
+    setNovaParcelaPagarForm({ numero_doc: "", competencia: "", data_emissao: "", data_vencimento: "", numero_parcelas: "1", valor: "", fornecedor: "", plano_de_contas: "", empresa: "", conta_corrente: "", centro_de_custo: "", historico: "", forma_pagamento: "", documento: "" });
+  }
+
+  async function marcarParcelaPaga(parcela: Parcela, dataPagamento: string) {
+    const { error } = await supabase.from("organizacao_parcelas").update({ status: "pago", data_pagamento: dataPagamento }).eq("id", parcela.id);
+    if (error) { setErro("Erro ao marcar recebido: " + error.message); return; }
+    setParcelas((prev) => prev.map((p) => p.id === parcela.id ? { ...p, status: "pago", data_pagamento: dataPagamento } : p));
+    setLiquidando((prev) => { const n = { ...prev }; delete n[parcela.id]; return n; });
+  }
+
+  async function reabrirParcela(parcela: Parcela) {
+    const { error } = await supabase.from("organizacao_parcelas").update({ status: "pendente", data_pagamento: null }).eq("id", parcela.id);
+    if (error) { setErro("Erro ao reabrir parcela: " + error.message); return; }
+    setParcelas((prev) => prev.map((p) => p.id === parcela.id ? { ...p, status: "pendente", data_pagamento: null } : p));
+  }
+
+  async function excluirParcela(parcela: Parcela) {
+    if (!await pedirConfirmacao(`Excluir "${parcela.descricao || `Parcela ${parcela.numero}`}"?`)) return;
+    const { error } = await supabase.from("organizacao_parcelas").delete().eq("id", parcela.id);
+    if (error) { setErro("Erro ao excluir parcela: " + error.message); return; }
+    setParcelas((prev) => prev.filter((p) => p.id !== parcela.id));
+  }
+
   async function excluirContratacao(item: Contratacao) {
-    const confirmar = window.confirm(`Excluir a contratação "${item.titulo}"?`);
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Excluir a contratação "${item.titulo}"?`)) return;
 
     const { error } = await supabase
       .from("organizacao_contratacoes")
@@ -1632,12 +2112,192 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     await depoisSalvar(error);
   }
 
+  function getNovoFornecedorServico(fornecedorId: string) {
+    return novoFornecedorServico[fornecedorId] || { titulo: "", descricao: "", unidade: "", preco_custo: "", preco_venda: "" };
+  }
+
+  async function criarFornecedorServico(fornecedorId: string) {
+    if (!tenantId) return;
+    const form = getNovoFornecedorServico(fornecedorId);
+    if (!form.titulo.trim()) return;
+    const { data, error } = await supabase.from("organizacao_fornecedor_servicos").insert({
+      tenant_id: tenantId,
+      fornecedor_id: fornecedorId,
+      titulo: form.titulo.trim(),
+      descricao: form.descricao.trim() || null,
+      unidade: form.unidade.trim() || null,
+      preco_custo: valorOuZero(form.preco_custo),
+      preco_venda: valorOuZero(form.preco_venda),
+    }).select().single();
+    if (error) { setErro("Erro ao adicionar serviço: " + error.message); return; }
+    if (data) setFornecedorServicos((prev) => [...prev, data as FornecedorServico]);
+    setNovoFornecedorServico((prev) => ({ ...prev, [fornecedorId]: { titulo: "", descricao: "", unidade: "", preco_custo: "", preco_venda: "" } }));
+  }
+
+  async function excluirFornecedorServico(s: FornecedorServico) {
+    if (!confirm(`Excluir serviço "${s.titulo}" do catálogo?`)) return;
+    const { error } = await supabase.from("organizacao_fornecedor_servicos").delete().eq("id", s.id);
+    if (error) { setErro("Erro ao excluir: " + error.message); return; }
+    setFornecedorServicos((prev) => prev.filter((x) => x.id !== s.id));
+  }
+
+  function getNovoItem(id: string) {
+    return novoItem[id] || { titulo: "", quantidade_item: "1", unidade: "", quantidade: "1", preco_custo: "", preco_venda: "" };
+  }
+
+  async function criarContratacaoItem(contratacaoId: string) {
+    if (!tenantId) return;
+    const form = getNovoItem(contratacaoId);
+    if (!form.titulo.trim()) return;
+    const { data, error } = await supabase.from("organizacao_contratacao_itens").insert({
+      tenant_id: tenantId,
+      contratacao_id: contratacaoId,
+      titulo: form.titulo.trim(),
+      quantidade_item: Number(form.quantidade_item) || 1,
+      unidade: form.unidade.trim() || null,
+      quantidade: Number(form.quantidade) || 1,
+      preco_custo: valorOuZero(form.preco_custo),
+      preco_venda: valorOuZero(form.preco_venda),
+      valor: valorOuZero(form.preco_venda),
+    }).select().single();
+    if (error) { setErro("Erro ao adicionar item: " + error.message); return; }
+    if (data) setContratacaoItens((prev) => [...prev, data as ContratacaoItem]);
+    setNovoItem((prev) => ({ ...prev, [contratacaoId]: { titulo: "", quantidade_item: "1", unidade: "", quantidade: "1", preco_custo: "", preco_venda: "" } }));
+  }
+
+  async function excluirContratacaoItem(item: ContratacaoItem) {
+    const { error } = await supabase.from("organizacao_contratacao_itens").delete().eq("id", item.id);
+    if (error) { setErro("Erro ao remover item: " + error.message); return; }
+    setContratacaoItens((prev) => prev.filter((i) => i.id !== item.id));
+  }
+
+  function getNovoServico(fEventoId: string) {
+    return novoServico[fEventoId] || { titulo: "", valor_contratado: "", valor_pago: "", data_vencimento: "", status: "pendente" };
+  }
+
+  function setNovoServicoCampo(fEventoId: string, campo: string, valor: string) {
+    setNovoServico((prev) => ({ ...prev, [fEventoId]: { ...getNovoServico(fEventoId), [campo]: valor } }));
+  }
+
+  async function criarServicoFornecedor(fornecedorEventoId: string) {
+    if (!eventoAtual || !tenantId) return;
+    const form = getNovoServico(fornecedorEventoId);
+    if (!form.titulo.trim()) return;
+    setSalvando(true);
+    const { data, error } = await supabase.from("organizacao_contratacoes").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      fornecedor_evento_id: fornecedorEventoId,
+      titulo: form.titulo.trim(),
+      valor_contratado: valorOuZero(form.valor_contratado),
+      valor_pago: valorOuZero(form.valor_pago),
+      data_vencimento: form.data_vencimento || null,
+      status: form.status,
+      parcelas: 1,
+    }).select().single();
+    setSalvando(false);
+    if (error) { setErro("Erro ao criar serviço: " + error.message); return; }
+    if (data) setContratacoes((prev) => [...prev, data as Contratacao]);
+    setNovoServico((prev) => ({ ...prev, [fornecedorEventoId]: { titulo: "", valor_contratado: "", valor_pago: "", data_vencimento: "", status: "pendente" } }));
+  }
+
+  function getFormFornecedorEquipe(fornecedorId: string) {
+    return fornecedorEquipeForm[fornecedorId] || { nome: "", funcao: "", telefone: "", horario_inicio: "", horario_fim: "" };
+  }
+
+  function setFormFornecedorEquipe(fornecedorId: string, campo: string, valor: string) {
+    setFornecedorEquipeForm((prev) => ({
+      ...prev,
+      [fornecedorId]: { ...getFormFornecedorEquipe(fornecedorId), [campo]: valor },
+    }));
+  }
+
+  async function criarFornecedorEquipeMembro(fornecedorId: string) {
+    if (!tenantId || !eventoAtual?.id) return;
+    const form = getFormFornecedorEquipe(fornecedorId);
+    if (!form.nome.trim()) return;
+    setFornecedorEquipeSalvando(true);
+    const { data, error } = await supabase.from("organizacao_fornecedor_equipe").insert({
+      tenant_id: tenantId,
+      fornecedor_id: fornecedorId,
+      evento_id: eventoAtual.id,
+      nome: form.nome.trim(),
+      funcao: form.funcao.trim() || null,
+      telefone: limpar(form.telefone) || null,
+      horario_inicio: datetimeOuNull(form.horario_inicio),
+      horario_fim: datetimeOuNull(form.horario_fim),
+      status: "confirmado",
+    }).select().single();
+    setFornecedorEquipeSalvando(false);
+    if (error) { setErro("Erro ao adicionar membro: " + error.message); return; }
+    if (data) setFornecedorEquipe((prev) => [...prev, data as FornecedorEquipeMembro]);
+    setFornecedorEquipeForm((prev) => ({ ...prev, [fornecedorId]: { nome: "", funcao: "", telefone: "", horario_inicio: "", horario_fim: "" } }));
+  }
+
+  async function excluirFornecedorEquipeMembro(membro: FornecedorEquipeMembro) {
+    if (!confirm(`Remover ${membro.nome} da equipe do fornecedor?`)) return;
+    const { error } = await supabase.from("organizacao_fornecedor_equipe").delete().eq("id", membro.id);
+    if (error) { setErro("Erro ao remover: " + error.message); return; }
+    setFornecedorEquipe((prev) => prev.filter((m) => m.id !== membro.id));
+  }
+
+  async function atualizarStatusFornecedorEquipe(membro: FornecedorEquipeMembro, status: string) {
+    const { error } = await supabase.from("organizacao_fornecedor_equipe").update({ status }).eq("id", membro.id);
+    if (error) { setErro("Erro ao atualizar status: " + error.message); return; }
+    setFornecedorEquipe((prev) => prev.map((m) => m.id === membro.id ? { ...m, status } : m));
+  }
+
+  function abrirEdicaoFornecedorEquipe(membro: FornecedorEquipeMembro) {
+    setFornecedorEquipeEditando(membro.id);
+    setFornecedorEquipeEditForm({
+      nome: membro.nome,
+      funcao: membro.funcao || "",
+      telefone: membro.telefone || "",
+      horario_inicio: membro.horario_inicio ? new Date(membro.horario_inicio).toTimeString().slice(0, 5) : "",
+      horario_fim: membro.horario_fim ? new Date(membro.horario_fim).toTimeString().slice(0, 5) : "",
+    });
+  }
+
+  async function salvarEdicaoFornecedorEquipe(membro: FornecedorEquipeMembro) {
+    if (!fornecedorEquipeEditForm.nome.trim()) return;
+    setFornecedorEquipeSalvando(true);
+    const { error } = await supabase.from("organizacao_fornecedor_equipe").update({
+      nome: fornecedorEquipeEditForm.nome.trim(),
+      funcao: fornecedorEquipeEditForm.funcao.trim() || null,
+      telefone: limpar(fornecedorEquipeEditForm.telefone) || null,
+      horario_inicio: datetimeOuNull(fornecedorEquipeEditForm.horario_inicio),
+      horario_fim: datetimeOuNull(fornecedorEquipeEditForm.horario_fim),
+    }).eq("id", membro.id);
+    setFornecedorEquipeSalvando(false);
+    if (error) { setErro("Erro ao salvar: " + error.message); return; }
+    setFornecedorEquipe((prev) => prev.map((m) => m.id === membro.id ? {
+      ...m,
+      nome: fornecedorEquipeEditForm.nome.trim(),
+      funcao: fornecedorEquipeEditForm.funcao.trim() || null,
+      telefone: limpar(fornecedorEquipeEditForm.telefone) || null,
+      horario_inicio: datetimeOuNull(fornecedorEquipeEditForm.horario_inicio),
+      horario_fim: datetimeOuNull(fornecedorEquipeEditForm.horario_fim),
+    } : m));
+    setFornecedorEquipeEditando(null);
+  }
+
+  function gerarCodigoCredencial() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return "EQP-" + code;
+  }
+
   async function criarEquipe() {
     if (!tenantId || !novoEquipe.nome.trim() || !novoEquipe.funcao.trim()) return;
+    if (!eventoAtual?.id) {
+      setErro("Selecione um evento antes de adicionar um membro à equipe.");
+      return;
+    }
     setSalvando(true);
     const { error } = await supabase.from("organizacao_equipe").insert({
       tenant_id: tenantId,
-      evento_id: null,
+      evento_id: eventoAtual.id,
       nome: novoEquipe.nome.trim(),
       funcao: novoEquipe.funcao.trim(),
       telefone: limpar(novoEquipe.telefone),
@@ -1646,6 +2306,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       horario_fim: datetimeOuNull(novoEquipe.horario_fim),
       contato_principal: novoEquipe.contato_principal,
       status: "confirmado",
+      codigo_credencial: gerarCodigoCredencial(),
     });
     await depoisSalvar(error, () => {
       setNovoEquipe({
@@ -1698,8 +2359,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function excluirEquipe(item: Equipe) {
-    const confirmar = window.confirm(`Excluir "${item.nome}" da equipe?`);
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Excluir "${item.nome}" da equipe?`)) return;
 
     const { error } = await supabase
       .from("organizacao_equipe")
@@ -1736,7 +2396,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     const { error } = await supabase.from("organizacao_equipe").insert({
       tenant_id: tenantId,
-      evento_id: null,
+      evento_id: eventoAtual.id,
       nome: item.nome,
       funcao: item.funcao,
       telefone: item.telefone,
@@ -1745,6 +2405,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       horario_fim: item.horario_fim,
       contato_principal: item.contato_principal,
       status: "convidado",
+      codigo_credencial: gerarCodigoCredencial(),
     });
 
     await depoisSalvar(error);
@@ -1891,10 +2552,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function excluirChecklist(item: Checklist) {
-    const confirmar = window.confirm(
-      `Excluir o item "${item.item}" do checklist?`,
-    );
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Excluir "${item.item}" do checklist?`)) return;
 
     const { error } = await supabase
       .from("organizacao_checklist")
@@ -1941,10 +2599,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       return;
     }
 
-    const confirmar = window.confirm(
-      `Adicionar o roteiro padrão "${modelo.label}" ao evento?\n\nOs itens que já existirem pelo mesmo título não serão duplicados.`,
-    );
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Adicionar o roteiro padrão "${modelo.label}" ao evento? Itens duplicados serão ignorados.`)) return;
 
     const titulosExistentes = new Set(
       agenda
@@ -2056,10 +2711,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
   }
 
   async function excluirAgenda(item: AgendaItem) {
-    const confirmar = window.confirm(
-      `Excluir "${String(item.titulo || "Item do roteiro")}" do roteiro?`,
-    );
-    if (!confirmar) return;
+    if (!await pedirConfirmacao(`Excluir "${String(item.titulo || "Item do roteiro")}" do roteiro?`)) return;
 
     const { error } = await supabase
       .from("event_agenda_items")
@@ -2194,22 +2846,28 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 Visão Geral
               </button>
               <button
-                className={aba === "equipe" ? "active" : ""}
-                onClick={() => setAba("equipe")}
-              >
-                Equipe
-              </button>
-              <button
                 className={aba === "fornecedores" ? "active" : ""}
                 onClick={() => setAba("fornecedores")}
               >
                 Fornecedores
               </button>
               <button
+                className={aba === "equipe" ? "active" : ""}
+                onClick={() => setAba("equipe")}
+              >
+                Equipe
+              </button>
+              <button
                 className={aba === "servicos" ? "active" : ""}
                 onClick={() => setAba("servicos")}
               >
                 Serviços Contratados
+              </button>
+              <button
+                className={aba === "financeiro" ? "active" : ""}
+                onClick={() => setAba("financeiro")}
+              >
+                Financeiro
               </button>
               <button
                 className={aba === "producao" ? "active" : ""}
@@ -2325,6 +2983,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           {aba === "equipe" && renderEquipe()}
           {aba === "fornecedores" && renderFornecedores()}
           {aba === "servicos" && renderContratacoes(false)}
+          {aba === "financeiro" && renderFinanceiro()}
           {aba === "producao" && renderProducao()}
           {aba === "roteiro" && renderRoteiro()}
 
@@ -2351,12 +3010,417 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           )}
         </>
       )}
+
+      {/* Modal de confirmação padronizado */}
+      {novaParcelaModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 2000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto" }}>
+          <div style={{ background: "var(--card)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 620, boxShadow: "0 24px 60px rgba(0,0,0,.3)" }}>
+
+            {novoFornecedorParcelaModal ? (<>
+              {/* === TELA: NOVO CLIENTE === */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ fontWeight: 900, fontSize: 16, color: "var(--primary)", textTransform: "uppercase", letterSpacing: ".05em" }}>Novo Cliente</div>
+                <button type="button" onClick={() => setNovoFornecedorParcelaModal(false)} style={{ background: "none", border: "none", fontSize: 22, color: "var(--muted)", cursor: "pointer", lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <input type="text" placeholder="Nome do cliente *" value={novoFornecedorParcela.nome}
+                  onChange={(e) => setNovoFornecedorParcela({ ...novoFornecedorParcela, nome: e.target.value })}
+                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                <input type="text" placeholder="CPF ou CNPJ" value={novoFornecedorParcela.documento}
+                  onChange={(e) => setNovoFornecedorParcela({ ...novoFornecedorParcela, documento: e.target.value })}
+                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                {[{ placeholder: "Telefone / WhatsApp", key: "telefone" }, { placeholder: "E-mail", key: "email" }].map(({ placeholder, key }) => (
+                  <input key={key} type="text" placeholder={placeholder} value={(novoFornecedorParcela as Record<string,string>)[key]}
+                    onChange={(e) => setNovoFornecedorParcela({ ...novoFornecedorParcela, [key]: e.target.value })}
+                    style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                ))}
+              </div>
+              <input type="text" placeholder="Endereço completo" value={novoFornecedorParcela.endereco}
+                onChange={(e) => setNovoFornecedorParcela({ ...novoFornecedorParcela, endereco: e.target.value })}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", marginBottom: 10 }} />
+              <textarea placeholder="Observações" value={novoFornecedorParcela.observacoes}
+                onChange={(e) => setNovoFornecedorParcela({ ...novoFornecedorParcela, observacoes: e.target.value })} rows={2}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", marginBottom: 18 }} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" onClick={criarClienteInlineParaParcela}
+                  style={{ flex: 1, padding: "11px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                  Adicionar cliente
+                </button>
+                <button type="button" onClick={() => setNovoFornecedorParcelaModal(false)}
+                  style={{ padding: "11px 20px", borderRadius: 12, border: "1px solid var(--line)", background: "none", color: "var(--muted)", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
+                  Cancelar
+                </button>
+              </div>
+            </>) : (<>
+            {/* === TELA: NOVA CONTA A RECEBER === */}
+            <div style={{ fontWeight: 900, fontSize: 17, color: "var(--text)", marginBottom: 22 }}>+ Nova Conta a Receber</div>
+
+            {/* Linha 1: Número, Competência, Emissão, Vencimento */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+              {[
+                { label: "Número", key: "numero_doc", type: "text", placeholder: "NF-001" },
+                { label: "Competência", key: "competencia", type: "month", placeholder: "" },
+                { label: "Emissão", key: "data_emissao", type: "date", placeholder: "" },
+                { label: "Vencimento", key: "data_vencimento", type: "date", placeholder: "" },
+              ].map(({ label, key, type, placeholder }) => (
+                <div key={key}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>{label}</div>
+                  <input type={type} value={(novaParcelaForm as Record<string, string>)[key]} placeholder={placeholder}
+                    onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, [key]: e.target.value })}
+                    style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Linha 2: Parcelas, Valor, Cliente */}
+            <div style={{ display: "grid", gridTemplateColumns: "90px 130px 1fr", gap: 12, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Parcelas</div>
+                <input type="number" min="1" value={novaParcelaForm.numero_parcelas}
+                  onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, numero_parcelas: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Valor Total (R$)</div>
+                <input type="number" value={novaParcelaForm.valor} placeholder="0,00"
+                  onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, valor: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Cliente / Fornecedor</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <input type="text" value={novaParcelaForm.cliente} placeholder="Buscar cliente..."
+                      onChange={(e) => { setNovaParcelaForm({ ...novaParcelaForm, cliente: e.target.value }); setClienteSelecionadoId(null); setClienteDropdownAberto(true); }}
+                      onFocus={() => setClienteDropdownAberto(true)}
+                      onBlur={() => setTimeout(() => setClienteDropdownAberto(false), 150)}
+                      style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                    {clienteDropdownAberto && novaParcelaForm.cliente.length >= 1 && (() => {
+                      const termo = novaParcelaForm.cliente.toLowerCase();
+                      const filtrados = clientesCadastrados.filter((c) => c.nome.toLowerCase().includes(termo));
+                      if (filtrados.length === 0) return null;
+                      return (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,.2)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
+                          {filtrados.map((c) => (
+                            <div key={c.id}
+                              onMouseDown={() => { setNovaParcelaForm({ ...novaParcelaForm, cliente: c.nome }); setClienteSelecionadoId(c.id); setClienteDropdownAberto(false); }}
+                              style={{ padding: "9px 14px", fontSize: 13, color: "var(--text)", cursor: "pointer", borderBottom: "1px solid var(--line)" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-soft)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                              {c.nome}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <button type="button"
+                    title="Cadastrar novo cliente"
+                    onClick={() => { setNovoFornecedorParcela({ nome: "", categoria: "buffet", responsavel_nome: "", telefone: "", email: "", documento: "", endereco: "", instagram: "", pix: "", conta_corrente: "", observacoes: "" }); setNovoFornecedorParcelaModal(true); }}
+                    style={{ padding: "9px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--primary)", cursor: "pointer", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Linha 3: Plano de Contas, Empresa */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              {[
+                { label: "Plano de Contas", key: "plano_de_contas", placeholder: "Ex: Receita de Serviços" },
+                { label: "Empresa", key: "empresa", placeholder: "Ex: OmniStage Produções" },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>{label}</div>
+                  <input type="text" value={(novaParcelaForm as Record<string, string>)[key]} placeholder={placeholder}
+                    onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, [key]: e.target.value })}
+                    style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Linha 4: Conta Corrente, Centro de Custo, Forma Pagamento, Documento */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Conta Corrente</div>
+                <input type="text" value={novaParcelaForm.conta_corrente} placeholder="Ex: Bradesco CC"
+                  onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, conta_corrente: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Centro de Custo</div>
+                <input type="text" value={novaParcelaForm.centro_de_custo} placeholder="Ex: Eventos"
+                  onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, centro_de_custo: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Forma de Pgto</div>
+                <select value={novaParcelaForm.forma_pagamento} onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, forma_pagamento: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }}>
+                  <option value="">Selecione...</option>
+                  <option value="pix">PIX</option>
+                  <option value="ted">TED</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="cartao_credito">Cartão de Crédito</option>
+                  <option value="cartao_debito">Cartão de Débito</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Documento</div>
+                <select value={novaParcelaForm.documento} onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, documento: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }}>
+                  <option value="">Selecione...</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="comprovante">Comprovante</option>
+                  <option value="cupom_fiscal">Cupom Fiscal</option>
+                  <option value="duplicata">Duplicata</option>
+                  <option value="nota_fiscal">Nota Fiscal</option>
+                  <option value="previsao">Previsão</option>
+                  <option value="outros">Outros</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Histórico */}
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Histórico</div>
+              <textarea value={novaParcelaForm.historico} placeholder="Observações ou descrição do lançamento"
+                onChange={(e) => setNovaParcelaForm({ ...novaParcelaForm, historico: e.target.value })} rows={2}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", resize: "vertical", fontFamily: "inherit" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" onClick={() => setNovaParcelaModal(false)}
+                style={{ flex: 1, padding: "11px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={salvarNovaParcela}
+                style={{ flex: 1, padding: "11px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                Salvar
+              </button>
+            </div>
+            </>)}
+          </div>
+        </div>
+      )}
+
+      {novaParcelaPagarModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 2000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto" }}>
+          <div style={{ background: "var(--card)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 620, boxShadow: "0 24px 60px rgba(0,0,0,.3)" }}>
+
+            {novoFornecedorPagarModal ? (<>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ fontWeight: 900, fontSize: 16, color: "var(--primary)", textTransform: "uppercase", letterSpacing: ".05em" }}>Novo Fornecedor</div>
+                <button type="button" onClick={() => setNovoFornecedorPagarModal(false)} style={{ background: "none", border: "none", fontSize: 22, color: "var(--muted)", cursor: "pointer", lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <input type="text" placeholder="Nome do fornecedor *" value={novoFornecedorParcelaForm.nome}
+                  onChange={(e) => setNovoFornecedorParcelaForm({ ...novoFornecedorParcelaForm, nome: e.target.value })}
+                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                <input type="text" placeholder="CPF ou CNPJ" value={novoFornecedorParcelaForm.documento}
+                  onChange={(e) => setNovoFornecedorParcelaForm({ ...novoFornecedorParcelaForm, documento: e.target.value })}
+                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                {[{ placeholder: "Telefone / WhatsApp", key: "telefone" }, { placeholder: "E-mail", key: "email" }].map(({ placeholder, key }) => (
+                  <input key={key} type="text" placeholder={placeholder} value={(novoFornecedorParcelaForm as Record<string,string>)[key]}
+                    onChange={(e) => setNovoFornecedorParcelaForm({ ...novoFornecedorParcelaForm, [key]: e.target.value })}
+                    style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                ))}
+              </div>
+              <input type="text" placeholder="Endereço completo" value={novoFornecedorParcelaForm.endereco}
+                onChange={(e) => setNovoFornecedorParcelaForm({ ...novoFornecedorParcelaForm, endereco: e.target.value })}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", marginBottom: 10 }} />
+              <textarea placeholder="Observações" value={novoFornecedorParcelaForm.observacoes}
+                onChange={(e) => setNovoFornecedorParcelaForm({ ...novoFornecedorParcelaForm, observacoes: e.target.value })} rows={2}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", marginBottom: 18 }} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" onClick={criarFornecedorInlineParaParcela}
+                  style={{ flex: 1, padding: "11px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                  Adicionar fornecedor
+                </button>
+                <button type="button" onClick={() => setNovoFornecedorPagarModal(false)}
+                  style={{ padding: "11px 20px", borderRadius: 12, border: "1px solid var(--line)", background: "none", color: "var(--muted)", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
+                  Cancelar
+                </button>
+              </div>
+            </>) : (<>
+            <div style={{ fontWeight: 900, fontSize: 17, color: "var(--text)", marginBottom: 22 }}>+ Nova Conta a Pagar</div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+              {[
+                { label: "Número", key: "numero_doc", type: "text", placeholder: "NF-001" },
+                { label: "Competência", key: "competencia", type: "month", placeholder: "" },
+                { label: "Emissão", key: "data_emissao", type: "date", placeholder: "" },
+                { label: "Vencimento", key: "data_vencimento", type: "date", placeholder: "" },
+              ].map(({ label, key, type, placeholder }) => (
+                <div key={key}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>{label}</div>
+                  <input type={type} value={(novaParcelaPagarForm as Record<string, string>)[key]} placeholder={placeholder}
+                    onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, [key]: e.target.value })}
+                    style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "90px 130px 1fr", gap: 12, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Parcelas</div>
+                <input type="number" min="1" value={novaParcelaPagarForm.numero_parcelas}
+                  onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, numero_parcelas: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Valor Total (R$)</div>
+                <input type="number" value={novaParcelaPagarForm.valor} placeholder="0,00"
+                  onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, valor: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Fornecedor</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <input type="text" value={novaParcelaPagarForm.fornecedor} placeholder="Buscar fornecedor..."
+                      onChange={(e) => { setNovaParcelaPagarForm({ ...novaParcelaPagarForm, fornecedor: e.target.value }); setFornecedorSelecionadoId(null); setFornecedorDropdownAberto(true); }}
+                      onFocus={() => setFornecedorDropdownAberto(true)}
+                      onBlur={() => setTimeout(() => setFornecedorDropdownAberto(false), 150)}
+                      style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                    {fornecedorDropdownAberto && novaParcelaPagarForm.fornecedor.length >= 1 && (() => {
+                      const termo = novaParcelaPagarForm.fornecedor.toLowerCase();
+                      const filtrados = fornecedoresCadastrados.filter((f) => f.nome.toLowerCase().includes(termo));
+                      if (filtrados.length === 0) return null;
+                      return (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,.2)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
+                          {filtrados.map((f) => (
+                            <div key={f.id}
+                              onMouseDown={() => { setNovaParcelaPagarForm({ ...novaParcelaPagarForm, fornecedor: f.nome }); setFornecedorSelecionadoId(f.id); setFornecedorDropdownAberto(false); }}
+                              style={{ padding: "9px 14px", fontSize: 13, color: "var(--text)", cursor: "pointer", borderBottom: "1px solid var(--line)" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-soft)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                              {f.nome}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <button type="button"
+                    title="Cadastrar novo fornecedor"
+                    onClick={() => { setNovoFornecedorParcelaForm({ nome: "", documento: "", telefone: "", email: "", endereco: "", observacoes: "" }); setNovoFornecedorPagarModal(true); }}
+                    style={{ padding: "9px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--primary)", cursor: "pointer", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              {[
+                { label: "Plano de Contas", key: "plano_de_contas", placeholder: "Ex: Despesa com Fornecedores" },
+                { label: "Empresa", key: "empresa", placeholder: "Ex: OmniStage Produções" },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>{label}</div>
+                  <input type="text" value={(novaParcelaPagarForm as Record<string, string>)[key]} placeholder={placeholder}
+                    onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, [key]: e.target.value })}
+                    style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Conta Corrente</div>
+                <input type="text" value={novaParcelaPagarForm.conta_corrente} placeholder="Ex: Bradesco CC"
+                  onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, conta_corrente: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Centro de Custo</div>
+                <input type="text" value={novaParcelaPagarForm.centro_de_custo} placeholder="Ex: Eventos"
+                  onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, centro_de_custo: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Forma de Pgto</div>
+                <select value={novaParcelaPagarForm.forma_pagamento} onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, forma_pagamento: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }}>
+                  <option value="">Selecione...</option>
+                  <option value="pix">PIX</option>
+                  <option value="ted">TED</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="cartao_credito">Cartão de Crédito</option>
+                  <option value="cartao_debito">Cartão de Débito</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Documento</div>
+                <select value={novaParcelaPagarForm.documento} onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, documento: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }}>
+                  <option value="">Selecione...</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="comprovante">Comprovante</option>
+                  <option value="cupom_fiscal">Cupom Fiscal</option>
+                  <option value="duplicata">Duplicata</option>
+                  <option value="nota_fiscal">Nota Fiscal</option>
+                  <option value="previsao">Previsão</option>
+                  <option value="outros">Outros</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 22 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Histórico</div>
+              <textarea value={novaParcelaPagarForm.historico} placeholder="Observações ou descrição do lançamento"
+                onChange={(e) => setNovaParcelaPagarForm({ ...novaParcelaPagarForm, historico: e.target.value })} rows={2}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", resize: "vertical", fontFamily: "inherit" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" onClick={() => setNovaParcelaPagarModal(false)}
+                style={{ flex: 1, padding: "11px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={salvarNovaParcelaPagar}
+                style={{ flex: 1, padding: "11px", borderRadius: 12, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                Salvar
+              </button>
+            </div>
+            </>)}
+          </div>
+        </div>
+      )}
+
+      {confirmarDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "var(--card)", borderRadius: 20, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 60px rgba(0,0,0,.3)", textAlign: "center" }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(239,68,68,.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 22 }}>⚠️</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 24, lineHeight: 1.4 }}>{confirmarDialog.mensagem}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" onClick={confirmarDialog.onCancel}
+                style={{ flex: 1, padding: "11px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmarDialog.onConfirm}
+                style={{ flex: 1, padding: "11px", borderRadius: 12, border: "none", background: "var(--red)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
   function renderProducao() {
     const fornecedorNome = (fornecedorId?: string | null) =>
-      fornecedoresEvento.find((item) => item.fornecedor_id === fornecedorId)
+      fornecedoresEvento.find((item) => item.cadastro_id === fornecedorId)
         ?.fornecedor?.nome || "";
 
     const acoesPorData = producaoFiltrada
@@ -2624,7 +3688,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           >
             <option value="">Fornecedor opcional</option>
             {fornecedoresEvento.map((item) => (
-              <option key={item.id} value={item.fornecedor_id}>
+              <option key={item.id} value={item.cadastro_id}>
                 {item.fornecedor?.nome || "Fornecedor"}
               </option>
             ))}
@@ -2967,7 +4031,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                     >
                       <option value="">Sem fornecedor</option>
                       {fornecedoresEvento.map((item) => (
-                        <option key={item.id} value={item.fornecedor_id}>
+                        <option key={item.id} value={item.cadastro_id}>
                           {item.fornecedor?.nome || "Fornecedor"}
                         </option>
                       ))}
@@ -3291,67 +4355,71 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         </div>
 
         <div className="org-form-grid contratacao">
-          <input
-            placeholder="Serviço contratado. Ex.: DJ + som + iluminação"
-            value={novaContratacao.titulo}
-            onChange={(e) =>
-              setNovaContratacao({
-                ...novaContratacao,
-                titulo: e.target.value,
-              })
-            }
-          />
+          {/* 1. Selecionar fornecedor */}
           <select
             value={novaContratacao.fornecedor_evento_id}
-            onChange={(e) =>
-              setNovaContratacao({
-                ...novaContratacao,
-                fornecedor_evento_id: e.target.value,
-              })
-            }
+            onChange={(e) => setNovaContratacao({ ...novaContratacao, fornecedor_evento_id: e.target.value, titulo: "" })}
           >
-            <option value="">Sem fornecedor vinculado</option>
+            <option value="">Selecione o fornecedor</option>
             {fornecedoresEvento.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.fornecedor?.nome || "Fornecedor"}
               </option>
             ))}
           </select>
+
+          {/* 2. Selecionar do catálogo (se fornecedor selecionado e tiver catálogo) */}
+          {(() => {
+            const fEvento = fornecedoresEvento.find((f) => f.id === novaContratacao.fornecedor_evento_id);
+            const catalogo = fEvento ? fornecedorServicos.filter((s) => s.fornecedor_id === fEvento.cadastro_id) : [];
+            if (!novaContratacao.fornecedor_evento_id || catalogo.length === 0) return null;
+            return (
+              <select
+                value=""
+                onChange={(e) => {
+                  const srv = catalogo.find((s) => s.id === e.target.value);
+                  if (srv) setNovaContratacao({ ...novaContratacao, titulo: srv.titulo, valor_contratado: String(srv.preco_venda || "") });
+                }}
+                style={{ gridColumn: "span 1" }}
+              >
+                <option value="">📋 Selecionar do catálogo...</option>
+                {catalogo.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.titulo}{s.unidade ? ` (${s.unidade})` : ""}{s.preco_venda > 0 ? ` — ${s.preco_venda.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                  </option>
+                ))}
+              </select>
+            );
+          })()}
+
+          {/* 3. Título (preenchido pelo catálogo ou manual) */}
           <input
-            placeholder="Valor contratado"
+            placeholder="Descrição do serviço contratado *"
+            value={novaContratacao.titulo}
+            onChange={(e) => setNovaContratacao({ ...novaContratacao, titulo: e.target.value })}
+            style={{ gridColumn: novaContratacao.fornecedor_evento_id && fornecedorServicos.some((s) => s.fornecedor_id === fornecedoresEvento.find((f) => f.id === novaContratacao.fornecedor_evento_id)?.cadastro_id) ? "span 1" : "span 2" }}
+          />
+
+          <input
+            placeholder="Valor contratado (R$)"
             value={novaContratacao.valor_contratado}
-            onChange={(e) =>
-              setNovaContratacao({
-                ...novaContratacao,
-                valor_contratado: e.target.value,
-              })
-            }
+            onChange={(e) => setNovaContratacao({ ...novaContratacao, valor_contratado: e.target.value })}
           />
           <input
-            placeholder="Valor pago"
+            placeholder="Valor pago (R$)"
             value={novaContratacao.valor_pago}
-            onChange={(e) =>
-              setNovaContratacao({
-                ...novaContratacao,
-                valor_pago: e.target.value,
-              })
-            }
+            onChange={(e) => setNovaContratacao({ ...novaContratacao, valor_pago: e.target.value })}
           />
           <input
             type="date"
             value={novaContratacao.data_vencimento}
-            onChange={(e) =>
-              setNovaContratacao({
-                ...novaContratacao,
-                data_vencimento: e.target.value,
-              })
-            }
+            onChange={(e) => setNovaContratacao({ ...novaContratacao, data_vencimento: e.target.value })}
           />
           <button
             onClick={criarContratacao}
             disabled={salvando || !novaContratacao.titulo.trim()}
           >
-            Adicionar serviço
+            + Adicionar serviço
           </button>
         </div>
 
@@ -3652,46 +4720,309 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         <div className="org-card-list">
           {fornecedoresFiltrados.map((item) => {
             const f = item.fornecedor;
+            const membros = fornecedorEquipe.filter((m) => m.fornecedor_id === f?.id);
+            const catalogoCount = f ? fornecedorServicos.filter((s) => s.fornecedor_id === f.id).length : 0;
+            const expandido = fornecedorExpandido === item.id;
+            const abaAtiva = fornecedorAba[item.id] || "dados";
+            const formEquipe = f ? getFormFornecedorEquipe(f.id) : null;
+
+            const btnAbaStyle = (aba: string) => ({
+              padding: "6px 14px",
+              borderRadius: 999,
+              border: "1px solid",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer" as const,
+              borderColor: abaAtiva === aba ? "var(--primary)" : "var(--line)",
+              background: abaAtiva === aba ? "var(--primary)" : "var(--card-strong)",
+              color: abaAtiva === aba ? "#fff" : "var(--muted)",
+            });
+
+            const inputStyle = {
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--line)",
+              background: "var(--card-strong)",
+              color: "var(--text)",
+              fontSize: 13,
+              width: "100%",
+              boxSizing: "border-box" as const,
+            };
+
             return (
-              <div key={item.id} className="org-item-card">
-                <div className="org-item-main">
-                  <span className={`org-pill ${item.status}`}>
-                    {labelStatus(item.status)}
-                  </span>
-                  <h3>{f?.nome || "Fornecedor"}</h3>
-                  <p>
-                    {labelCategoria(f?.categoria || item.categoria_evento)}
-                    {f?.responsavel_nome ? ` · ${f.responsavel_nome}` : ""}
-                    {f?.telefone ? ` · ${f.telefone}` : ""}
-                    {f?.email ? ` · ${f.email}` : ""}
-                  </p>
-                  {f?.instagram && <p>📸 {f.instagram}</p>}
-                  {f?.documento && <p>📄 {f.documento}</p>}
-                  {f?.endereco && <p>📍 {f.endereco}</p>}
-                  {(f as any)?.pix && <p>💠 PIX: {(f as any).pix}</p>}
-                  {(f as any)?.conta_corrente && <p>🏦 {(f as any).conta_corrente}</p>}
-                  {f?.observacoes && <p style={{ fontStyle: "italic", color: "var(--muted)" }}>{f.observacoes}</p>}
+              <div key={item.id} style={{
+                background: "var(--card)",
+                border: expandido ? "1.5px solid var(--primary)" : "1px solid var(--line)",
+                borderRadius: 18,
+                boxShadow: "var(--shadow-card)",
+                overflow: "hidden",
+                transition: "border-color .15s",
+              }}>
+                {/* Header sempre visível */}
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", cursor: "pointer" }}
+                  onClick={() => setFornecedorExpandido(expandido ? null : item.id)}
+                >
+                  <div style={{
+                    width: 42, height: 42, borderRadius: 12,
+                    background: "var(--primary-soft)", color: "var(--primary)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 18, fontWeight: 900, flexShrink: 0,
+                  }}>
+                    {(f?.nome || "?").charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <strong style={{ fontSize: 15, color: "var(--text)" }}>{f?.nome || "Fornecedor"}</strong>
+                      <span className={`org-pill ${item.status}`} style={{ fontSize: 10 }}>{labelStatus(item.status)}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      {labelCategoria(f?.categoria || item.categoria_evento)}
+                      {f?.responsavel_nome ? ` · ${f.responsavel_nome}` : ""}
+                      {membros.length > 0 ? ` · 👥 ${membros.length} na equipe` : ""}
+                      {catalogoCount > 0 ? ` · 📋 ${catalogoCount} serviço${catalogoCount > 1 ? "s" : ""} no catálogo` : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <select
+                      value={item.status}
+                      onChange={(e) => { e.stopPropagation(); atualizarStatusFornecedor(item, e.target.value); }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ fontSize: 12, padding: "5px 8px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", cursor: "pointer" }}
+                    >
+                      {STATUS_FORNECEDOR.map((s) => (
+                        <option key={s} value={s}>{labelStatus(s)}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); abrirEdicaoFornecedor(item); }}
+                      style={{ background: "none", border: "1px solid var(--line)", borderRadius: 10, padding: "5px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", color: "var(--muted)" }}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); excluirFornecedor(item); }}
+                      style={{ background: "var(--red-soft)", border: "none", borderRadius: 10, padding: "5px 10px", fontSize: 12, color: "var(--red)", cursor: "pointer" }}
+                    >
+                      🗑️
+                    </button>
+                    <span style={{ color: "var(--muted)", fontSize: 16, userSelect: "none" }}>{expandido ? "▲" : "▼"}</span>
+                  </div>
                 </div>
-                <div className="org-card-actions">
-                  <select
-                    value={item.status}
-                    onChange={(e) => atualizarStatusFornecedor(item, e.target.value)}
-                  >
-                    {STATUS_FORNECEDOR.map((s) => (
-                      <option key={s} value={s}>{labelStatus(s)}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={() => abrirEdicaoFornecedor(item)}>
-                    ✏️ Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => excluirFornecedor(item)}
-                  >
-                    🗑️ Excluir
-                  </button>
-                </div>
+
+                {/* Corpo expandido com abas */}
+                {expandido && (
+                  <div style={{ borderTop: "1px solid var(--line)", padding: "16px 20px 20px" }}>
+                    {/* Mini abas */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                      <button type="button" style={btnAbaStyle("dados")} onClick={() => setFornecedorAba((p) => ({ ...p, [item.id]: "dados" }))}>
+                        📋 Dados
+                      </button>
+                      <button type="button" style={btnAbaStyle("equipe")} onClick={() => setFornecedorAba((p) => ({ ...p, [item.id]: "equipe" }))}>
+                        👥 Equipe {membros.length > 0 ? `(${membros.length})` : ""}
+                      </button>
+                      <button type="button" style={btnAbaStyle("servicos")} onClick={() => setFornecedorAba((p) => ({ ...p, [item.id]: "servicos" }))}>
+                        📋 Catálogo {catalogoCount > 0 ? `(${catalogoCount})` : ""}
+                      </button>
+                    </div>
+
+                    {/* ABA: DADOS */}
+                    {abaAtiva === "dados" && f && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        {[
+                          { label: "Responsável", value: f.responsavel_nome },
+                          { label: "Telefone", value: f.telefone },
+                          { label: "E-mail", value: f.email },
+                          { label: "Instagram", value: f.instagram },
+                          { label: "Documento", value: f.cpf_cnpj },
+                          { label: "Endereço", value: f.logradouro },
+                          { label: "PIX", value: f.pix_chave },
+                        ].filter((row) => row.value).map((row) => (
+                          <div key={row.label} style={{ background: "var(--card-strong)", borderRadius: 10, padding: "10px 14px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 2 }}>{row.label}</div>
+                            <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{row.value}</div>
+                          </div>
+                        ))}
+                        {f.observacoes && (
+                          <div style={{ gridColumn: "span 2", background: "var(--card-strong)", borderRadius: 10, padding: "10px 14px" }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 2 }}>Observações</div>
+                            <div style={{ fontSize: 13, color: "var(--muted)", fontStyle: "italic" }}>{f.observacoes}</div>
+                          </div>
+                        )}
+                        {![f.responsavel_nome, f.telefone, f.email, f.instagram, f.cpf_cnpj, f.logradouro, f.pix_chave, f.observacoes].some(Boolean) && (
+                          <div style={{ gridColumn: "span 2", color: "var(--muted)", fontSize: 13 }}>Nenhum dado cadastrado além do nome.</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ABA: EQUIPE */}
+                    {abaAtiva === "equipe" && f && (
+                      <div>
+                        {membros.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                            {membros.map((m) => {
+                              const editando = fornecedorEquipeEditando === m.id;
+                              return (
+                                <div key={m.id} style={{ background: "var(--card-strong)", border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
+                                  {/* Linha normal */}
+                                  {!editando && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+                                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--primary-soft)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, flexShrink: 0 }}>
+                                        {m.nome.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 800, fontSize: 13 }}>{m.nome}</div>
+                                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                                          {m.funcao || "Sem função"}
+                                          {m.telefone ? ` · ${m.telefone}` : ""}
+                                          {m.horario_inicio ? ` · ${hora(m.horario_inicio)}` : ""}
+                                          {m.horario_fim ? `–${hora(m.horario_fim)}` : ""}
+                                        </div>
+                                      </div>
+                                      <button type="button" onClick={() => abrirEdicaoFornecedorEquipe(m)}
+                                        style={{ background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--primary)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                                        ✏️ Editar
+                                      </button>
+                                      <button type="button" onClick={() => excluirFornecedorEquipeMembro(m)}
+                                        style={{ background: "var(--red-soft)", color: "var(--red)", border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13 }}>
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  )}
+                                  {/* Linha de edição inline */}
+                                  {editando && (
+                                    <div style={{ padding: "12px 14px" }}>
+                                      <div style={{ fontSize: 12, fontWeight: 900, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>
+                                        Editando: <span style={{ color: "var(--text)" }}>{m.nome}</span>
+                                      </div>
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 4 }}>
+                                        {["Nome", "Função", "Telefone"].map((label) => (
+                                          <div key={label} style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", paddingLeft: 4 }}>{label}</div>
+                                        ))}
+                                      </div>
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                                        <input value={fornecedorEquipeEditForm.nome} onChange={(e) => setFornecedorEquipeEditForm((p) => ({ ...p, nome: e.target.value }))} placeholder="Nome *" style={inputStyle} />
+                                        <input list="funcoes-equipe-fornecedor" value={fornecedorEquipeEditForm.funcao} onChange={(e) => setFornecedorEquipeEditForm((p) => ({ ...p, funcao: e.target.value }))} placeholder="Função" style={inputStyle} />
+                                        <input value={fornecedorEquipeEditForm.telefone} onChange={(e) => setFornecedorEquipeEditForm((p) => ({ ...p, telefone: e.target.value }))} placeholder="Telefone" style={inputStyle} />
+                                      </div>
+                                      <div style={{ display: "flex", gap: 8 }}>
+                                        <button type="button" onClick={() => salvarEdicaoFornecedorEquipe(m)} disabled={fornecedorEquipeSalvando}
+                                          style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "7px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                                          Salvar
+                                        </button>
+                                        <button type="button" onClick={() => setFornecedorEquipeEditando(null)}
+                                          style={{ background: "none", border: "1px solid var(--line)", borderRadius: 10, padding: "7px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", color: "var(--muted)" }}>
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {formEquipe && (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8, alignItems: "center" }}>
+                            <input placeholder="Nome *" value={formEquipe.nome} onChange={(e) => setFormFornecedorEquipe(f.id, "nome", e.target.value)} style={inputStyle} />
+                            <input list="funcoes-equipe-fornecedor" placeholder="Função" value={formEquipe.funcao} onChange={(e) => setFormFornecedorEquipe(f.id, "funcao", e.target.value)} style={inputStyle} />
+                            <input placeholder="Telefone" value={formEquipe.telefone} onChange={(e) => setFormFornecedorEquipe(f.id, "telefone", e.target.value)} style={inputStyle} />
+                            <button type="button" disabled={!formEquipe.nome.trim() || fornecedorEquipeSalvando}
+                              onClick={() => criarFornecedorEquipeMembro(f.id)}
+                              style={{ background: formEquipe.nome.trim() ? "var(--primary)" : "var(--card-strong)", color: formEquipe.nome.trim() ? "#fff" : "var(--muted)", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              + Adicionar
+                            </button>
+                          </div>
+                        )}
+                        {membros.length === 0 && !formEquipe?.nome && (
+                          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Nenhum membro. Preencha acima para adicionar.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ABA: SERVIÇOS (Catálogo do fornecedor) */}
+                    {abaAtiva === "servicos" && f && (() => {
+                      const catalogo = fornecedorServicos.filter((s) => s.fornecedor_id === f.id);
+                      const formCat = getNovoFornecedorServico(f.id);
+                      const fmt = (v: number) => v > 0 ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+                      return (
+                        <div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 14 }}>
+                            Cadastre aqui os serviços que <strong>{f.nome}</strong> oferece. Eles ficarão disponíveis para seleção em <em>Serviços Contratados</em>.
+                          </div>
+
+                          {catalogo.length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 16, border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden" }}>
+                              {/* Cabeçalho */}
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 120px 32px", gap: 12, padding: "8px 14px", background: "var(--card-strong)" }}>
+                                {["Serviço", "Unid.", "Preço Custo", "Preço Venda", ""].map((h) => (
+                                  <div key={h} style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>{h}</div>
+                                ))}
+                              </div>
+                              {catalogo.map((s, idx) => (
+                                <div key={s.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 120px 32px", gap: 12, padding: "10px 14px", background: idx % 2 === 0 ? "var(--card)" : "var(--card-strong)", alignItems: "center" }}>
+                                  <div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{s.titulo}</div>
+                                    {s.descricao && <div style={{ fontSize: 11, color: "var(--muted)" }}>{s.descricao}</div>}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{s.unidade || "—"}</div>
+                                  <div style={{ fontSize: 13, color: "var(--muted)" }}>{fmt(s.preco_custo)}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 800, color: "var(--green)" }}>{fmt(s.preco_venda)}</div>
+                                  <button type="button" onClick={() => excluirFornecedorServico(s)}
+                                    style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 14 }}>✕</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Formulário de adição */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 120px 120px auto", gap: 8, alignItems: "end" }}>
+                            <div>
+                              <div style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 4 }}>Serviço *</div>
+                              <input placeholder="Ex: Locação M2 Painel LED Montagem Chapada" value={formCat.titulo}
+                                onChange={(e) => setNovoFornecedorServico((p) => ({ ...p, [f.id]: { ...getNovoFornecedorServico(f.id), titulo: e.target.value } }))}
+                                style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 4 }}>Unid.</div>
+                              <input list="unidades-medida" placeholder="m², un..." value={formCat.unidade}
+                                onChange={(e) => setNovoFornecedorServico((p) => ({ ...p, [f.id]: { ...getNovoFornecedorServico(f.id), unidade: e.target.value } }))}
+                                style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 4 }}>Preço Custo</div>
+                              <input placeholder="R$ 0,00" value={formCat.preco_custo}
+                                onChange={(e) => setNovoFornecedorServico((p) => ({ ...p, [f.id]: { ...getNovoFornecedorServico(f.id), preco_custo: e.target.value } }))}
+                                style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 4 }}>Preço Venda</div>
+                              <input placeholder="R$ 0,00" value={formCat.preco_venda}
+                                onChange={(e) => setNovoFornecedorServico((p) => ({ ...p, [f.id]: { ...getNovoFornecedorServico(f.id), preco_venda: e.target.value } }))}
+                                style={inputStyle} />
+                            </div>
+                            <button type="button" disabled={!formCat.titulo.trim()}
+                              onClick={() => criarFornecedorServico(f.id)}
+                              style={{ background: formCat.titulo.trim() ? "var(--primary)" : "var(--card-strong)", color: formCat.titulo.trim() ? "#fff" : "var(--muted)", border: "none", borderRadius: 10, padding: "9px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              + Adicionar
+                            </button>
+                          </div>
+                          <datalist id="unidades-medida">
+                            <option value="un" /><option value="m²" /><option value="m" />
+                            <option value="m³" /><option value="kg" /><option value="h" />
+                            <option value="dia" /><option value="par" /><option value="pç" />
+                          </datalist>
+
+                          {catalogo.length === 0 && (
+                            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Nenhum serviço no catálogo. Adicione acima.</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -3699,6 +5030,21 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
             <Empty text="Nenhum fornecedor cadastrado para este evento." />
           )}
         </div>
+
+        <datalist id="funcoes-equipe-fornecedor">
+          <option value="Cerimonialista" />
+          <option value="Produtor" />
+          <option value="DJ / Sonorização" />
+          <option value="Fotógrafo" />
+          <option value="Videomaker" />
+          <option value="Mestre de Cerimônias" />
+          <option value="Segurança" />
+          <option value="Recepcionista" />
+          <option value="Buffet" />
+          <option value="Decorador" />
+          <option value="Iluminador" />
+          <option value="Assessor" />
+        </datalist>
       </Panel>
     );
   }
@@ -3711,130 +5057,687 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       >
         {!financeiro && (
           <div className="org-form-grid contratacao">
-            <input
-              placeholder="Título da contratação"
-              value={novaContratacao.titulo}
-              onChange={(e) =>
-                setNovaContratacao({
-                  ...novaContratacao,
-                  titulo: e.target.value,
-                })
-              }
-            />
+            {/* 1. Fornecedor */}
             <select
               value={novaContratacao.fornecedor_evento_id}
-              onChange={(e) =>
-                setNovaContratacao({
-                  ...novaContratacao,
-                  fornecedor_evento_id: e.target.value,
-                })
-              }
+              onChange={(e) => setNovaContratacao({ ...novaContratacao, fornecedor_evento_id: e.target.value, titulo: "" })}
             >
-              <option value="">Sem fornecedor vinculado</option>
+              <option value="">Selecione o fornecedor</option>
               {fornecedoresEvento.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.fornecedor?.nome || "Fornecedor"}
-                </option>
+                <option key={f.id} value={f.id}>{f.fornecedor?.nome || "Fornecedor"}</option>
               ))}
             </select>
+
+            {/* 2. Catálogo do fornecedor (aparece se tiver itens) */}
+            {(() => {
+              const fEvento = fornecedoresEvento.find((f) => f.id === novaContratacao.fornecedor_evento_id);
+              const catalogo = fEvento ? fornecedorServicos.filter((s) => s.fornecedor_id === fEvento.cadastro_id) : [];
+              if (!fEvento || catalogo.length === 0) return null;
+              return (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const srv = catalogo.find((s) => s.id === e.target.value);
+                    if (srv) setNovaContratacao({ ...novaContratacao, titulo: srv.titulo, valor_contratado: String(srv.preco_venda || "") });
+                  }}
+                >
+                  <option value="">📋 Selecionar do catálogo...</option>
+                  {catalogo.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.titulo}{s.unidade ? ` (${s.unidade})` : ""}{s.preco_venda > 0 ? ` — ${s.preco_venda.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                    </option>
+                  ))}
+                </select>
+              );
+            })()}
+
+            {/* 3. Título */}
             <input
-              placeholder="Valor contratado"
-              value={novaContratacao.valor_contratado}
-              onChange={(e) =>
-                setNovaContratacao({
-                  ...novaContratacao,
-                  valor_contratado: e.target.value,
-                })
-              }
+              placeholder="Descrição do serviço *"
+              value={novaContratacao.titulo}
+              onChange={(e) => setNovaContratacao({ ...novaContratacao, titulo: e.target.value })}
             />
             <input
-              placeholder="Valor pago"
+              placeholder="Valor contratado (R$)"
+              value={novaContratacao.valor_contratado}
+              onChange={(e) => setNovaContratacao({ ...novaContratacao, valor_contratado: e.target.value })}
+            />
+            <input
+              placeholder="Valor pago (R$)"
               value={novaContratacao.valor_pago}
-              onChange={(e) =>
-                setNovaContratacao({
-                  ...novaContratacao,
-                  valor_pago: e.target.value,
-                })
-              }
+              onChange={(e) => setNovaContratacao({ ...novaContratacao, valor_pago: e.target.value })}
             />
             <input
               type="date"
               value={novaContratacao.data_vencimento}
-              onChange={(e) =>
-                setNovaContratacao({
-                  ...novaContratacao,
-                  data_vencimento: e.target.value,
-                })
-              }
+              onChange={(e) => setNovaContratacao({ ...novaContratacao, data_vencimento: e.target.value })}
             />
-            <button
-              onClick={criarContratacao}
-              disabled={salvando || !novaContratacao.titulo.trim()}
-            >
-              Adicionar
+            <button onClick={criarContratacao} disabled={salvando || !novaContratacao.titulo.trim()}>
+              + Adicionar
             </button>
           </div>
         )}
-        <div className="org-card-list">
-          {contratacoesFiltradas.map((item) => (
-            <div key={item.id} className="org-item-card finance">
-              <div className="org-item-main">
-                <span className={`org-pill ${item.status}`}>
-                  {labelStatus(item.status)}
-                </span>
-                <h3>{item.titulo}</h3>
-                <p>
-                  Vencimento {formatarData(item.data_vencimento)} ·{" "}
-                  {item.parcelas || 1} parcela(s)
-                </p>
+        {/* Agrupado por fornecedor */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {fornecedoresEvento.length === 0 && (
+            <Empty text="Nenhum fornecedor vinculado ao evento." />
+          )}
+          {fornecedoresEvento.map((fEvento) => {
+            const contratacoesDoForn = contratacoes.filter((c) => c.fornecedor_evento_id === fEvento.id);
+            const totalPago = contratacoesDoForn.reduce((s, c) => s + toNumber(c.valor_pago), 0);
+            const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+            // Montar linhas: cada contratacao + seus itens (ou a própria contratacao como linha)
+            const linhas: { codigo: string; item: string; unidade: string; qtd: number; precoVenda: number; total: number; contratacaoId: string; itemId?: string; contratacao?: Contratacao }[] = [];
+            let codigoIdx = 1;
+            contratacoesDoForn.forEach((c) => {
+              const itens = contratacaoItens.filter((i) => i.contratacao_id === c.id);
+              if (itens.length > 0) {
+                itens.forEach((i) => {
+                  const qtdTotal = (i.quantidade_item || 1) * (i.quantidade || 1);
+                  linhas.push({
+                    codigo: String(codigoIdx++).padStart(3, "0"),
+                    item: i.titulo,
+                    unidade: i.unidade || "",
+                    qtd: qtdTotal,
+                    precoVenda: i.preco_venda || 0,
+                    total: qtdTotal * (i.preco_venda || 0),
+                    contratacaoId: c.id,
+                    itemId: i.id,
+                    contratacao: c,
+                  });
+                });
+              } else {
+                const edit = contratacaoEdits[c.id];
+                const qtdEfetiva = edit ? (Number(edit.qtd) || 1) : (c.quantidade || 1);
+                const unidadeEfetiva = edit ? edit.unidade : (c.unidade || "");
+                linhas.push({
+                  codigo: String(codigoIdx++).padStart(3, "0"),
+                  item: c.titulo,
+                  unidade: unidadeEfetiva,
+                  qtd: qtdEfetiva,
+                  precoVenda: toNumber(c.valor_contratado),
+                  total: qtdEfetiva * toNumber(c.valor_contratado),
+                  contratacaoId: c.id,
+                  contratacao: c,
+                });
+              }
+            });
+
+            return (
+              <div key={fEvento.id} style={{ border: "1px solid var(--line)", borderRadius: 18, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
+                {/* Header do fornecedor */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: "var(--card-strong)", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--primary-soft)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16 }}>
+                      {(fEvento.fornecedor?.nome || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 900, fontSize: 15, color: "var(--text)" }}>{fEvento.fornecedor?.nome || "Fornecedor"}</div>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{labelCategoria(fEvento.fornecedor?.categoria || fEvento.categoria_evento)}</div>
+                    </div>
+                    <span className={`org-pill ${fEvento.status}`} style={{ fontSize: 10 }}>{labelStatus(fEvento.status)}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--muted)" }}>Total</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "var(--text)" }}>{fmt(linhas.reduce((s, l) => s + l.total, 0))}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--muted)" }}>Pago</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "var(--green)" }}>{fmt(totalPago)}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--muted)" }}>Pendente</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: linhas.reduce((s, l) => s + l.total, 0) - totalPago > 0 ? "var(--red)" : "var(--green)" }}>{fmt(linhas.reduce((s, l) => s + l.total, 0) - totalPago)}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <select value={fEvento.status} onChange={(e) => atualizarStatusFornecedor(fEvento, e.target.value)}
+                        style={{ fontSize: 11, padding: "4px 8px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", cursor: "pointer" }}>
+                        {STATUS_FORNECEDOR.map((s) => <option key={s} value={s}>{labelStatus(s)}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Barra de ações rápidas do orçamento */}
+                {contratacoesDoForn.length > 0 && (() => {
+                  const totalAprovado = linhas.filter((l) => l.contratacao?.status_aprovacao === "aprovado").reduce((s, l) => s + l.total, 0);
+                  const todoAprovado = contratacoesDoForn.every((c) => c.status_aprovacao === "aprovado");
+                  const algumAprovado = contratacoesDoForn.some((c) => c.status_aprovacao === "aprovado");
+                  return (
+                    <div style={{ padding: "10px 20px", background: "var(--card-strong)", borderTop: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                        {algumAprovado && <span style={{ fontSize: 12, color: "var(--green)", fontWeight: 700 }}>✅ Aprovado: {fmt(totalAprovado)}</span>}
+                        {!todoAprovado && <span style={{ fontSize: 12, color: "var(--muted)" }}>Proposta pendente de aprovação</span>}
+                      </div>
+                      {!todoAprovado && (
+                        <button type="button" onClick={() => contratacoesDoForn.forEach((c) => aprovarContratacao(c))}
+                          style={{ fontSize: 12, padding: "6px 16px", borderRadius: 20, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 800 }}>
+                          ✅ Aprovar Tudo
+                        </button>
+                      )}
+                      {todoAprovado && (
+                        <button type="button" onClick={() => contratacoesDoForn.forEach((c) => cancelarContratacao(c))}
+                          style={{ fontSize: 11, padding: "5px 12px", borderRadius: 20, background: "var(--card)", color: "var(--muted)", border: "1px solid var(--line)", cursor: "pointer", fontWeight: 700 }}>
+                          Cancelar aprovação
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Tabela de itens */}
+                {linhas.length > 0 ? (
+                  <div style={{ background: "var(--card)" }}>
+                    {/* Cabeçalho */}
+                    <div style={{ display: "grid", gridTemplateColumns: "36px 60px 1fr 100px 80px 130px 130px 80px", gap: 10, padding: "8px 20px", background: "var(--card-strong)", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+                      {["✓", "Código", "Item", "Un. Med.", "Qtd", "Preço Venda", "Preço Total", ""].map((h) => (
+                        <div key={h} style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>{h}</div>
+                      ))}
+                    </div>
+                    {linhas.map((linha, idx) => {
+                      const isContratacaoDireta = !linha.itemId && linha.contratacao;
+                      const edit = linha.contratacao ? contratacaoEdits[linha.contratacao.id] : undefined;
+                      const hasEdits = !!edit;
+                      const inlineInput: React.CSSProperties = { fontSize: 12, padding: "4px 8px", borderRadius: 8, border: `1px solid ${hasEdits ? "var(--primary)" : "var(--line)"}`, background: "var(--card)", color: "var(--text)", width: "100%" };
+                      // Approval state per row
+                      const itemObj = linha.itemId ? contratacaoItens.find((i) => i.id === linha.itemId) : null;
+                      const contratacaoAprovada = linha.contratacao?.status_aprovacao === "aprovado";
+                      const itemAprovado = itemObj ? itemObj.aprovado : contratacaoAprovada;
+                      const rowAprovado = linha.itemId ? (itemObj?.aprovado ?? false) : contratacaoAprovada;
+                      return (
+                        <div key={linha.codigo} style={{ display: "grid", gridTemplateColumns: "36px 60px 1fr 100px 80px 130px 130px 80px", gap: 10, padding: "10px 20px", background: rowAprovado ? "rgba(34,197,94,.06)" : idx % 2 === 0 ? "var(--card)" : "var(--card-strong)", alignItems: "center", borderBottom: "1px solid var(--line)", borderLeft: rowAprovado ? "3px solid var(--green)" : "3px solid transparent" }}>
+                          {/* Checkbox aprovação */}
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {linha.itemId ? (
+                              <input type="checkbox" checked={itemObj?.aprovado ?? false}
+                                onChange={() => itemObj && toggleItemAprovado(itemObj)}
+                                style={{ width: 16, height: 16, accentColor: "var(--green)", cursor: "pointer" }} />
+                            ) : (
+                              <input type="checkbox" checked={contratacaoAprovada}
+                                onChange={() => linha.contratacao && (contratacaoAprovada ? cancelarContratacao(linha.contratacao) : aprovarContratacao(linha.contratacao))}
+                                style={{ width: 16, height: 16, accentColor: "var(--green)", cursor: "pointer" }} />
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", fontFamily: "monospace" }}>{linha.codigo}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: rowAprovado ? "var(--green)" : "var(--text)" }}>{linha.item}</div>
+                          {isContratacaoDireta ? (
+                            <input list="unidades-medida-sc"
+                              value={edit?.unidade ?? (linha.contratacao!.unidade || "")}
+                              placeholder="m², un, h..."
+                              onChange={(e) => setContratacaoEdits((prev) => ({
+                                ...prev,
+                                [linha.contratacao!.id]: { qtd: prev[linha.contratacao!.id]?.qtd ?? String(linha.contratacao!.quantidade || 1), unidade: e.target.value }
+                              }))}
+                              style={inlineInput} />
+                          ) : (
+                            <div style={{ fontSize: 12, color: "var(--muted)" }}>{linha.unidade || "—"}</div>
+                          )}
+                          {isContratacaoDireta ? (
+                            <input type="number" min="1"
+                              value={edit?.qtd ?? String(linha.contratacao!.quantidade || 1)}
+                              onChange={(e) => setContratacaoEdits((prev) => ({
+                                ...prev,
+                                [linha.contratacao!.id]: { unidade: prev[linha.contratacao!.id]?.unidade ?? (linha.contratacao!.unidade || ""), qtd: e.target.value }
+                              }))}
+                              style={{ ...inlineInput, textAlign: "center" }} />
+                          ) : (
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", textAlign: "center" }}>{linha.qtd}</div>
+                          )}
+                          <div style={{ fontSize: 13, color: "var(--muted)" }}>{fmt(linha.precoVenda)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: rowAprovado ? "var(--green)" : "var(--text)" }}>{fmt(linha.total)}</div>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            {isContratacaoDireta && hasEdits && (
+                              <button type="button" onClick={() => salvarContratacaoEdits(linha.contratacao!)}
+                                style={{ background: "var(--primary)", border: "none", color: "#fff", cursor: "pointer", fontSize: 11, padding: "4px 8px", borderRadius: 8, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                Salvar
+                              </button>
+                            )}
+                            <button type="button" onClick={() => {
+                              const c = contratacoesDoForn.find((x) => x.id === linha.contratacaoId);
+                              if (c) excluirContratacao(c);
+                            }} style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 14, padding: 0 }}>🗑️</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <datalist id="unidades-medida-sc">
+                      <option value="un" /><option value="m²" /><option value="m" />
+                      <option value="m³" /><option value="kg" /><option value="h" />
+                      <option value="dia" /><option value="par" /><option value="pç" />
+                    </datalist>
+                    {/* Total + ações */}
+                    {(() => {
+                      const totalGeral = linhas.reduce((s, l) => s + l.total, 0);
+                      const aprovadas = contratacoesDoForn.filter((c) => c.status_aprovacao === "aprovado");
+                      const totalParcelasDoForn = parcelas.filter((p) => contratacoesDoForn.some((c) => c.id === p.contratacao_id));
+                      // Para NF e parcelas: usa primeira aprovada (ou abre seleção se múltiplas)
+                      const primeiraAprovada = aprovadas[0];
+                      const temNF = aprovadas.some((c) => c.nf_numero);
+                      const nfLabel = aprovadas.find((c) => c.nf_numero)?.nf_numero;
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", padding: "10px 20px", background: "var(--primary-soft)", gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--primary)", textTransform: "uppercase", letterSpacing: ".06em", flex: 1 }}>Total do fornecedor</div>
+                          {aprovadas.length > 0 && (
+                            <>
+                              <button type="button" onClick={() => { if (primeiraAprovada) { setNfModal(primeiraAprovada.id); setNfForm({ nf_numero: primeiraAprovada.nf_numero || "", nf_data: primeiraAprovada.nf_data || "", nf_valor: primeiraAprovada.nf_valor ? String(primeiraAprovada.nf_valor) : String(totalGeral) }); } }}
+                                style={{ fontSize: 11, padding: "5px 12px", borderRadius: 20, background: temNF ? "var(--primary-soft)" : "var(--card)", color: temNF ? "var(--primary)" : "var(--muted)", border: "1px solid var(--line)", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                {temNF ? `📄 NF ${nfLabel}` : "📄 Emitir NF"}
+                              </button>
+                              <button type="button" onClick={() => { if (primeiraAprovada) { const nP = 1; const dataI = primeiraAprovada.data_vencimento || ""; const nomeForn = fEvento.fornecedor?.nome || "Fornecedor"; setParcelaForm({ numero_parcelas: String(nP), valor_total: String(totalGeral), data_inicio: dataI, forma_pagamento: primeiraAprovada.forma_pagamento || "", documento: "" }); setParcelasPreview(calcularParcelasPreview(nP, totalGeral, dataI, nomeForn)); setParcelaModalTitulo(nomeForn); setParcelaModal(primeiraAprovada.id); } }}
+                                style={{ fontSize: 11, padding: "5px 12px", borderRadius: 20, background: totalParcelasDoForn.length > 0 ? "var(--primary-soft)" : "var(--card)", color: totalParcelasDoForn.length > 0 ? "var(--primary)" : "var(--muted)", border: "1px solid var(--line)", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                💰 {totalParcelasDoForn.length > 0 ? `${totalParcelasDoForn.length} parcela(s)` : "Contas a Receber"}
+                              </button>
+                            </>
+                          )}
+                          <div style={{ fontSize: 15, fontWeight: 900, color: "var(--primary)" }}>{fmt(totalGeral)}</div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div style={{ padding: "20px", color: "var(--muted)", fontSize: 13, textAlign: "center" }}>
+                    Nenhum serviço contratado. Adicione acima selecionando este fornecedor.
+                  </div>
+                )}
+
+                {/* Modal NF */}
+                {contratacoesDoForn.some((c) => c.id === nfModal) && (() => {
+                  const c = contratacoesDoForn.find((c) => c.id === nfModal)!;
+                  return (
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ background: "var(--card)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 16, color: "var(--text)" }}>📄 Nota Fiscal — {c.titulo}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          <input placeholder="Número da NF" value={nfForm.nf_numero} onChange={(e) => setNfForm({ ...nfForm, nf_numero: e.target.value })} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 14 }} />
+                          <input type="date" value={nfForm.nf_data} onChange={(e) => setNfForm({ ...nfForm, nf_data: e.target.value })} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 14 }} />
+                          <input placeholder="Valor (R$)" value={nfForm.nf_valor} onChange={(e) => setNfForm({ ...nfForm, nf_valor: e.target.value })} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--text)", fontSize: 14 }} />
+                          <div style={{ display: "flex", gap: 10 }}>
+                            <button type="button" onClick={() => setNfModal(null)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--muted)", cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
+                            <button type="button" onClick={() => salvarNF(c)} style={{ flex: 2, padding: "10px", borderRadius: 10, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 700 }}>Salvar NF</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Modal Parcelas */}
+                {contratacoesDoForn.some((c) => c.id === parcelaModal) && (() => {
+                  const c = contratacoesDoForn.find((c) => c.id === parcelaModal)!;
+                  const n = Math.max(1, parseInt(parcelaForm.numero_parcelas) || 1);
+                  const valorTotal = Number(parcelaForm.valor_total) || 0;
+                  const preview = parcelasPreview.length === n ? parcelasPreview : calcularParcelasPreview(n, valorTotal, parcelaForm.data_inicio, c.titulo);
+                  const inputSt = { padding: "8px 10px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontSize: 13, width: "100%" };
+                  return (
+                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+                      <div style={{ background: "var(--card)", borderRadius: 20, padding: 24, width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 4, color: "var(--text)" }}>💰 Contas a Receber</div>
+                        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>{parcelaModalTitulo || c.titulo}</div>
+                        {/* Configuração */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Nº Parcelas</div>
+                            <input type="number" min="1" max="60" value={parcelaForm.numero_parcelas}
+                              onChange={(e) => { const novo = { ...parcelaForm, numero_parcelas: e.target.value }; setParcelaForm(novo); setParcelasPreview(calcularParcelasPreview(Math.max(1, parseInt(e.target.value) || 1), Number(novo.valor_total) || 0, novo.data_inicio, c.titulo)); }}
+                              style={inputSt} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Valor Total (R$)</div>
+                            <input value={parcelaForm.valor_total}
+                              onChange={(e) => { const novo = { ...parcelaForm, valor_total: e.target.value }; setParcelaForm(novo); setParcelasPreview(calcularParcelasPreview(n, Number(e.target.value) || 0, novo.data_inicio, c.titulo)); }}
+                              style={inputSt} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Forma Pgto</div>
+                            <select value={parcelaForm.forma_pagamento} onChange={(e) => setParcelaForm({ ...parcelaForm, forma_pagamento: e.target.value })} style={inputSt}>
+                              <option value="">—</option>
+                              <option value="pix">PIX</option>
+                              <option value="transferencia">Transferência</option>
+                              <option value="boleto">Boleto</option>
+                              <option value="cartao_credito">Cartão Crédito</option>
+                              <option value="dinheiro">Dinheiro</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>Documento</div>
+                            <select value={parcelaForm.documento} onChange={(e) => setParcelaForm({ ...parcelaForm, documento: e.target.value })} style={inputSt}>
+                              <option value="">Selecione...</option>
+                              <option value="boleto">Boleto</option>
+                              <option value="comprovante">Comprovante</option>
+                              <option value="cupom_fiscal">Cupom Fiscal</option>
+                              <option value="duplicata">Duplicata</option>
+                              <option value="nota_fiscal">Nota Fiscal</option>
+                              <option value="previsao">Previsão</option>
+                              <option value="outros">Outros</option>
+                            </select>
+                          </div>
+                        </div>
+                        {/* Tabela de parcelas editáveis */}
+                        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)", marginBottom: 16 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 130px 100px", gap: 8, padding: "8px 12px", background: "var(--card-strong)" }}>
+                            {["Nº", "Descrição", "Vencimento", "Valor (R$)"].map((h) => (
+                              <div key={h} style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", color: "var(--muted)" }}>{h}</div>
+                            ))}
+                          </div>
+                          {preview.map((p, i) => (
+                            <div key={i} style={{ display: "grid", gridTemplateColumns: "40px 1fr 130px 100px", gap: 8, padding: "8px 12px", borderTop: "1px solid var(--line)", alignItems: "center", background: i % 2 === 0 ? "var(--card)" : "var(--card-strong)" }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", fontFamily: "monospace" }}>{String(i + 1).padStart(2, "0")}</div>
+                              <input value={p.descricao} onChange={(e) => { const np = [...preview]; np[i] = { ...np[i], descricao: e.target.value }; setParcelasPreview(np); }} style={{ ...inputSt, fontSize: 12, padding: "4px 8px" }} />
+                              <input type="date" value={p.data}
+                                onChange={(e) => { const np = [...preview]; np[i] = { ...np[i], data: e.target.value }; setParcelasPreview(np); }}
+                                style={{ ...inputSt, fontSize: 12, padding: "4px 8px" }} />
+                              <input value={p.valor} onChange={(e) => { const np = [...preview]; np[i] = { ...np[i], valor: e.target.value }; setParcelasPreview(np); }} style={{ ...inputSt, fontSize: 12, padding: "4px 8px", textAlign: "right" }} />
+                            </div>
+                          ))}
+                          <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 130px 100px", gap: 8, padding: "8px 12px", background: "var(--primary-soft)", borderTop: "1px solid var(--line)" }}>
+                            <div />
+                            <div style={{ fontSize: 11, fontWeight: 900, color: "var(--primary)" }}>Total</div>
+                            <div />
+                            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--primary)", textAlign: "right" }}>
+                              {preview.reduce((s, p) => s + (Number(p.valor) || 0), 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button type="button" onClick={() => { setParcelaModal(null); setParcelasPreview([]); }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--muted)", cursor: "pointer", fontWeight: 700 }}>Cancelar</button>
+                          <button type="button" onClick={() => gerarParcelas(c, preview)} style={{ flex: 2, padding: "10px", borderRadius: 10, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 700 }}>Salvar Parcelas</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-              <div className="org-finance-values">
-                <strong>
-                  {formatarMoeda(toNumber(item.valor_contratado))}
-                </strong>
-                <span>Pago {formatarMoeda(toNumber(item.valor_pago))}</span>
-                <span>
-                  Pendente{" "}
-                  {formatarMoeda(
-                    toNumber(
-                      item.valor_pendente ??
-                        toNumber(item.valor_contratado) -
-                          toNumber(item.valor_pago),
-                    ),
-                  )}
-                </span>
-              </div>
-              <div className="org-card-actions compact">
-                <button type="button" onClick={() => editarContratacao(item)}>
-                  ✏️ Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => marcarContratacaoPaga(item)}
-                  disabled={item.status === "pago"}
-                >
-                  ✅ Marcar pago
-                </button>
-                <button
-                  type="button"
-                  onClick={() => anexarComprovanteContratacao(item)}
-                >
-                  📎 Comprovante
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  onClick={() => excluirContratacao(item)}
-                >
-                  🗑️ Excluir
-                </button>
-              </div>
+            );
+          })}
+        </div>
+      </Panel>
+    );
+  }
+
+  function renderFinanceiroSubAbas() {
+    return (
+      <div style={{ display: "flex", gap: 4, background: "var(--card-strong)", borderRadius: 10, padding: 4 }}>
+        {[
+          { value: "receber" as const, label: "Contas a Receber" },
+          { value: "pagar" as const, label: "Contas a Pagar" },
+        ].map((tab) => (
+          <button key={tab.value} type="button" onClick={() => setFinanceiroSubAba(tab.value)}
+            style={{
+              fontSize: 11, padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap",
+              background: financeiroSubAba === tab.value ? "var(--primary)" : "transparent",
+              color: financeiroSubAba === tab.value ? "#fff" : "var(--muted)",
+            }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  function renderFinanceiroPagar() {
+    const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const hoje = new Date().toISOString().split("T")[0];
+
+    const parcelasPagar = parcelas.filter((p) => p.tipo === "pagar");
+    const totalPago = parcelasPagar.filter((p) => p.status === "pago").reduce((s, p) => s + p.valor, 0);
+    const totalPendente = parcelasPagar.filter((p) => p.status !== "pago").reduce((s, p) => s + p.valor, 0);
+    const totalVencido = parcelasPagar.filter((p) => p.status !== "pago" && p.data_vencimento && p.data_vencimento < hoje).reduce((s, p) => s + p.valor, 0);
+    const totalGeral = parcelasPagar.reduce((s, p) => s + p.valor, 0);
+
+    return (
+      <Panel title="Financeiro" subtitle="Contas a pagar — fornecedores e despesas"
+        headerExtra={
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {renderFinanceiroSubAbas()}
+            <button onClick={() => { setNovaParcelaPagarModal(true); setNovaParcelaPagarForm({ numero_doc: "", competencia: "", data_emissao: "", data_vencimento: "", numero_parcelas: "1", valor: "", fornecedor: "", plano_de_contas: "", empresa: "", conta_corrente: "", centro_de_custo: "", historico: "", forma_pagamento: "", documento: "" }); }}
+              style={{ fontSize: 12, padding: "7px 14px", borderRadius: 10, background: "var(--primary)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+              + Criar
+            </button>
+          </div>
+        }>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
+          {[
+            { label: "A Pagar", value: totalGeral, color: "var(--primary)" },
+            { label: "Pago", value: totalPago, color: "var(--green)" },
+            { label: "Vencido", value: totalVencido, color: "var(--red)" },
+          ].map((m) => (
+            <div key={m.label} style={{ background: "var(--card-strong)", borderRadius: 14, padding: "14px 18px" }}>
+              <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 4 }}>{m.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: m.color }}>{fmt(m.value)}</div>
             </div>
           ))}
-          {contratacoesFiltradas.length === 0 && (
-            <Empty text="Nenhuma contratação encontrada." />
-          )}
         </div>
+
+        {parcelasPagar.length === 0 ? (
+          <Empty text="Nenhuma conta a pagar cadastrada. Clique em '+ Criar' para lançar." />
+        ) : (
+          <div style={{ border: "1px solid var(--line)", borderRadius: 16, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 110px 120px 110px 120px 100px", gap: 10, padding: "8px 18px", background: "var(--card-strong)", borderBottom: "1px solid var(--line)" }}>
+              {["Nº", "Fornecedor", "Descrição", "Vencimento", "Valor", "Pagamento", "Status", ""].map((h) => (
+                <div key={h} style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>{h}</div>
+              ))}
+            </div>
+            {parcelasPagar.map((p, idx) => {
+              const vencida = p.status !== "pago" && p.data_vencimento && p.data_vencimento < hoje;
+              const statusColor = p.status === "pago" ? "var(--green)" : vencida ? "var(--red)" : "var(--yellow)";
+              const statusLabel = p.status === "pago" ? "Pago" : vencida ? "Vencido" : "Pendente";
+              const fornecedorNome = fornecedoresCadastrados.find((f) => f.id === p.cadastro_fornecedor_id)?.nome || "—";
+              return (
+                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 110px 120px 110px 120px 100px", gap: 10, padding: "10px 18px", background: idx % 2 === 0 ? "var(--card)" : "var(--card-strong)", alignItems: "center", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", fontFamily: "monospace" }}>{String(p.numero).padStart(2, "0")}</div>
+                  <div style={{ fontSize: 13, color: "var(--text)" }}>{fornecedorNome}</div>
+                  <div style={{ fontSize: 13, color: "var(--text)" }}>{p.descricao || "—"}</div>
+                  <div style={{ fontSize: 12, color: vencida ? "var(--red)" : "var(--muted)" }}>{p.data_vencimento ? new Date(p.data_vencimento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{fmt(p.valor)}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.data_pagamento ? new Date(p.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor, display: "inline-block", flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                    {p.status === "pago" ? (
+                      <button type="button" onClick={() => reabrirParcela(p)} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--card-strong)", color: "var(--muted)", border: "1px solid var(--line)", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>↩ Reabrir</button>
+                    ) : liquidando[p.id] !== undefined ? (
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <input type="date" value={liquidando[p.id]} onChange={(e) => setLiquidando((prev) => ({ ...prev, [p.id]: e.target.value }))} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--primary)", background: "var(--card)", color: "var(--text)", width: 120 }} />
+                        <button type="button" onClick={() => marcarParcelaPaga(p, liquidando[p.id])} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}>✓ OK</button>
+                        <button type="button" onClick={() => setLiquidando((prev) => { const n = { ...prev }; delete n[p.id]; return n; })} style={{ fontSize: 11, background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}>✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setLiquidando((prev) => ({ ...prev, [p.id]: new Date().toISOString().split("T")[0] }))} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}>✓ Pago</button>
+                    )}
+                    <button type="button" onClick={() => excluirParcela(p)} style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 13, padding: 0 }}>🗑️</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+    );
+  }
+
+  function renderFinanceiro() {
+    if (financeiroSubAba === "pagar") return renderFinanceiroPagar();
+
+    const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const hoje = new Date().toISOString().split("T")[0];
+
+    const parcelasReceber = parcelas.filter((p) => p.tipo !== "pagar");
+
+    const totalRecebido = parcelasReceber.filter((p) => p.status === "pago").reduce((s, p) => s + p.valor, 0);
+    const totalPendente = parcelasReceber.filter((p) => p.status !== "pago").reduce((s, p) => s + p.valor, 0);
+    const totalVencido = parcelasReceber.filter((p) => p.status !== "pago" && p.data_vencimento && p.data_vencimento < hoje).reduce((s, p) => s + p.valor, 0);
+    const totalGeral = parcelasReceber.reduce((s, p) => s + p.valor, 0);
+    // Total aprovado no orçamento (mesmo sem parcelas geradas)
+    const totalAprovado = contratacoes.filter((c) => c.status_aprovacao === "aprovado").reduce((s, c) => s + toNumber(c.valor_contratado), 0);
+
+    // Agrupar por fornecedor (via contratação)
+    const fornecedoresComParcelas = fornecedoresEvento.filter((fe) =>
+      contratacoes.some((c) => c.fornecedor_evento_id === fe.id && parcelasReceber.some((p) => p.contratacao_id === c.id))
+    );
+
+    const parcelasAvulsas = parcelasReceber.filter((p) => !p.contratacao_id);
+
+    return (
+      <Panel title="Financeiro" subtitle="Contas a receber — parcelas aprovadas pelo cliente"
+        headerExtra={
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {renderFinanceiroSubAbas()}
+            <button onClick={() => { setNovaParcelaModal(true); setNovaParcelaForm({ numero_doc: "", competencia: "", data_emissao: "", data_vencimento: "", numero_parcelas: "1", valor: "", cliente: "", plano_de_contas: "", empresa: "", conta_corrente: "", centro_de_custo: "", historico: "", forma_pagamento: "", documento: "" }); }}
+              style={{ fontSize: 12, padding: "7px 14px", borderRadius: 10, background: "var(--primary)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+              + Criar
+            </button>
+          </div>
+        }>
+        {/* Resumo */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
+          {[
+            { label: "Total Aprovado", value: totalAprovado, color: "var(--text)" },
+            { label: "A Receber", value: totalGeral > 0 ? totalGeral : totalAprovado, color: "var(--primary)" },
+            { label: "Recebido", value: totalRecebido, color: "var(--green)" },
+            { label: "Vencido", value: totalVencido, color: "var(--red)" },
+          ].map((m) => (
+            <div key={m.label} style={{ background: "var(--card-strong)", borderRadius: 14, padding: "14px 18px" }}>
+              <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)", marginBottom: 4 }}>{m.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: m.color }}>{fmt(m.value)}</div>
+            </div>
+          ))}
+        </div>
+
+        {parcelasReceber.length === 0 ? (
+          <Empty text="Nenhuma parcela cadastrada. Clique em '+ Criar' para lançar ou em '💰 Contas a Receber' em Serviços Contratados." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {parcelasAvulsas.length > 0 && (
+              <div style={{ border: "1px solid var(--line)", borderRadius: 16, overflow: "hidden" }}>
+                <div style={{ padding: "12px 18px", background: "var(--card-strong)", display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15 }}>A</div>
+                  <div style={{ fontWeight: 900, fontSize: 14, color: "var(--text)" }}>Avulso</div>
+                  <div style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>{fmt(parcelasAvulsas.reduce((s, p) => s + p.valor, 0))}</div>
+                </div>
+                <div style={{ background: "var(--card)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 110px 120px 110px 120px 100px", gap: 10, padding: "8px 18px", background: "var(--card-strong)", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+                    {["Nº", "Descrição", "Vencimento", "Valor", "Pagamento", "Status", ""].map((h) => (
+                      <div key={h} style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>{h}</div>
+                    ))}
+                  </div>
+                  {parcelasAvulsas.map((p, idx) => {
+                    const vencida = p.status !== "pago" && p.data_vencimento && p.data_vencimento < hoje;
+                    const statusColor = p.status === "pago" ? "var(--green)" : vencida ? "var(--red)" : "var(--yellow)";
+                    const statusLabel = p.status === "pago" ? "Recebido" : vencida ? "Vencido" : "Pendente";
+                    return (
+                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "50px 1fr 110px 120px 110px 120px 100px", gap: 10, padding: "10px 18px", background: idx % 2 === 0 ? "var(--card)" : "var(--card-strong)", alignItems: "center", borderBottom: "1px solid var(--line)" }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", fontFamily: "monospace" }}>{String(p.numero).padStart(2, "0")}</div>
+                        <div style={{ fontSize: 13, color: "var(--text)" }}>{p.descricao || "—"}</div>
+                        <div style={{ fontSize: 12, color: vencida ? "var(--red)" : "var(--muted)" }}>{p.data_vencimento ? new Date(p.data_vencimento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{fmt(p.valor)}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.data_pagamento ? new Date(p.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor, display: "inline-block", flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                          {p.status === "pago" ? (
+                            <button type="button" onClick={() => reabrirParcela(p)} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--card-strong)", color: "var(--muted)", border: "1px solid var(--line)", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>↩ Reabrir</button>
+                          ) : liquidando[p.id] !== undefined ? (
+                            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                              <input type="date" value={liquidando[p.id]} onChange={(e) => setLiquidando((prev) => ({ ...prev, [p.id]: e.target.value }))} style={{ fontSize: 11, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--primary)", background: "var(--card)", color: "var(--text)", width: 120 }} />
+                              <button type="button" onClick={() => marcarParcelaPaga(p, liquidando[p.id])} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}>✓ OK</button>
+                              <button type="button" onClick={() => setLiquidando((prev) => { const n = { ...prev }; delete n[p.id]; return n; })} style={{ fontSize: 11, background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}>✕</button>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => setLiquidando((prev) => ({ ...prev, [p.id]: new Date().toISOString().split("T")[0] }))} style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700 }}>✓ Recebido</button>
+                          )}
+                          <button type="button" onClick={() => excluirParcela(p)} style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 13, padding: 0 }}>🗑️</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {fornecedoresComParcelas.map((fe) => {
+              const contratsDoForn = contratacoes.filter((c) => c.fornecedor_evento_id === fe.id);
+              const parcelasDoForn = parcelas.filter((p) => p.contratacao_id && contratsDoForn.some((c) => c.id === p.contratacao_id));
+              if (parcelasDoForn.length === 0) return null;
+              return (
+                <div key={fe.id} style={{ border: "1px solid var(--line)", borderRadius: 16, overflow: "hidden" }}>
+                  <div style={{ padding: "12px 18px", background: "var(--card-strong)", display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15 }}>
+                      {(fe.fornecedor?.nome || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ fontWeight: 900, fontSize: 14, color: "var(--text)" }}>{fe.fornecedor?.nome || "Fornecedor"}</div>
+                    <div style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>
+                      {fmt(parcelasDoForn.reduce((s, p) => s + p.valor, 0))}
+                    </div>
+                  </div>
+                  {/* Tabela de parcelas */}
+                  <div style={{ background: "var(--card)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 110px 120px 110px 120px 100px", gap: 10, padding: "8px 18px", background: "var(--card-strong)", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+                      {["Nº", "Descrição", "Vencimento", "Valor", "Pagamento", "Status", ""].map((h) => (
+                        <div key={h} style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>{h}</div>
+                      ))}
+                    </div>
+                    {parcelasDoForn.map((p, idx) => {
+                      const vencida = p.status !== "pago" && p.data_vencimento && p.data_vencimento < hoje;
+                      const statusColor = p.status === "pago" ? "var(--green)" : vencida ? "var(--red)" : "var(--yellow)";
+                      const statusLabel = p.status === "pago" ? "Recebido" : vencida ? "Vencido" : "Pendente";
+                      return (
+                        <div key={p.id} style={{ display: "grid", gridTemplateColumns: "50px 1fr 110px 120px 110px 120px 100px", gap: 10, padding: "10px 18px", background: idx % 2 === 0 ? "var(--card)" : "var(--card-strong)", alignItems: "center", borderBottom: "1px solid var(--line)" }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", fontFamily: "monospace" }}>{String(p.numero).padStart(2, "0")}</div>
+                          <div style={{ fontSize: 13, color: "var(--text)" }}>{p.descricao || "—"}</div>
+                          <div style={{ fontSize: 12, color: vencida ? "var(--red)" : "var(--muted)" }}>
+                            {p.data_vencimento ? new Date(p.data_vencimento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{fmt(p.valor)}</div>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                            {p.data_pagamento ? new Date(p.data_pagamento + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor, display: "inline-block", flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>{statusLabel}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                            {p.status === "pago" ? (
+                              <button type="button" onClick={() => reabrirParcela(p)}
+                                style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--card-strong)", color: "var(--muted)", border: "1px solid var(--line)", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                ↩ Reabrir
+                              </button>
+                            ) : liquidando[p.id] !== undefined ? (
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <input type="date" value={liquidando[p.id]}
+                                  onChange={(e) => setLiquidando((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                                  style={{ fontSize: 11, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--primary)", background: "var(--card)", color: "var(--text)", width: 120 }} />
+                                <button type="button" onClick={() => marcarParcelaPaga(p, liquidando[p.id])}
+                                  style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                  ✓ OK
+                                </button>
+                                <button type="button" onClick={() => setLiquidando((prev) => { const n = { ...prev }; delete n[p.id]; return n; })}
+                                  style={{ fontSize: 11, background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0 }}>✕</button>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => setLiquidando((prev) => ({ ...prev, [p.id]: new Date().toISOString().split("T")[0] }))}
+                                style={{ fontSize: 10, padding: "4px 8px", borderRadius: 8, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                ✓ Recebido
+                              </button>
+                            )}
+                            <button type="button" onClick={() => excluirParcela(p)}
+                              style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 13, padding: 0 }}>
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Panel>
     );
   }
@@ -4375,6 +6278,28 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                   >
                     {selecionado ? labelStatus(item.status) : "Disponível"}
                   </span>
+                  {selecionado && (
+                    <a
+                      href={`/credencial/equipe/${item.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        background: "var(--primary-soft)",
+                        color: "var(--primary)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        border: "1px solid var(--primary)",
+                      }}
+                    >
+                      🪪 Credencial
+                    </a>
+                  )}
                   <button type="button" onClick={() => editarEquipe(item)}>
                     ✏️ Editar
                   </button>
@@ -4407,7 +6332,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           {fornecedoresParaSelecao.map((fornecedor) => {
             const vinculo = fornecedoresEvento.find(
               (item) =>
-                item.fornecedor_id === fornecedor.id &&
+                item.cadastro_id === fornecedor.id &&
                 item.evento_id === eventoAtual?.id,
             );
             const selecionado = Boolean(vinculo);
@@ -4655,7 +6580,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 <div className="org-card-list">
                   {fornecedoresCadastrados.map((fornecedor) => {
                     const vinculado = fornecedoresEvento.some(
-                      (item) => item.fornecedor_id === fornecedor.id,
+                      (item) => item.cadastro_id === fornecedor.id,
                     );
 
                     return (
@@ -4835,10 +6760,12 @@ function Panel({
   title,
   subtitle,
   children,
+  headerExtra,
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  headerExtra?: React.ReactNode;
 }) {
   return (
     <section className="org-panel">
@@ -4847,6 +6774,7 @@ function Panel({
           <h2>{title}</h2>
           {subtitle ? <p>{subtitle}</p> : null}
         </div>
+        {headerExtra && <div style={{ marginLeft: "auto" }}>{headerExtra}</div>}
       </div>
       {children}
     </section>
@@ -5346,22 +7274,22 @@ const styles = `
 .org-equipe-event-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: center; margin-bottom: 18px; }
 .org-equipe-event-row label { color: var(--muted); font-weight: 950; }
 .org-equipe-event-row select, .org-equipe-table select { width: 100%; border: 1px solid #dbe3ef; border-radius: 14px; padding: 12px 13px; background: var(--card); color: var(--text); font-weight: 800; outline: none; }
-.org-equipe-table { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--card); }
-.org-equipe-table-head, .org-equipe-table-row { display: grid; grid-template-columns: 1.35fr 1.25fr .95fr .75fr .85fr 1.05fr; gap: 14px; align-items: center; padding: 14px 18px; }
-.org-equipe-table-head { background: var(--card-strong); color: var(--muted); font-size: 12px; font-weight: 950; text-transform: uppercase; letter-spacing: .05em; }
-.org-equipe-table-row + .org-equipe-table-row { border-top: 1px solid #e2e8f0; }
+.org-equipe-table { display: flex; flex-direction: column; gap: 10px; }
+.org-equipe-table-head { display: grid; grid-template-columns: 1.35fr 1.25fr .95fr .75fr .85fr 1.05fr; gap: 14px; align-items: center; padding: 10px 18px; background: var(--card-strong); border: 1px solid var(--line); border-radius: 16px; color: var(--muted); font-size: 12px; font-weight: 950; text-transform: uppercase; letter-spacing: .05em; }
+.org-equipe-table-row { display: grid; grid-template-columns: 1.35fr 1.25fr .95fr .75fr .85fr 1.05fr; gap: 14px; align-items: center; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-card); }
+.org-equipe-table-row.selected { border-color: var(--primary); background: var(--card); }
 .org-equipe-member-cell { display: grid; grid-template-columns: auto 44px 1fr; gap: 12px; align-items: center; min-width: 0; }
-.org-avatar { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: #ede9fe; color: #6d28d9; }
+.org-avatar { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary); }
 .org-equipe-member-cell strong, .org-equipe-event-cell strong { display: block; color: var(--text); font-size: 15px; }
 .org-equipe-member-cell small, .org-equipe-event-cell small { display: block; color: var(--muted); font-weight: 750; margin-top: 2px; }
 .org-equipe-time { color: var(--muted); font-weight: 900; white-space: nowrap; }
 .org-equipe-time-inputs { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 900; }
-.org-equipe-time-inputs input { width: 92px; border: 1px solid #dbe3ef; border-radius: 14px; padding: 10px 10px; background: var(--card); color: var(--text); font-weight: 900; }
+.org-equipe-time-inputs input { width: 92px; border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px; background: var(--card-strong); color: var(--text); font-weight: 900; }
 .org-equipe-time-inputs input:disabled, .org-equipe-table-row select:disabled { opacity: .55; background: var(--card-strong); }
-.org-pill.disponivel { background: #dbeafe; color: #2563eb; }
+.org-pill.disponivel { background: var(--primary-soft); color: var(--primary); }
 .org-card-actions.equipe-actions { justify-content: flex-start; }
 .org-card-actions.equipe-actions .danger { border-radius: 12px; padding-inline: 10px; }
-.org-equipe-info { margin-top: 14px; padding: 14px 16px; border: 1px solid #bfdbfe; border-radius: 14px; background: #eff6ff; color: #1d4ed8; font-weight: 800; }
+.org-equipe-info { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--primary-soft); color: var(--primary); font-weight: 800; }
 .org-equipe-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .org-equipe-footer button { border-radius: 14px; padding: 12px 18px; font-weight: 950; cursor: pointer; }
 .org-equipe-footer .secondary { border: 1px solid var(--line); background: var(--card); color: var(--muted); }

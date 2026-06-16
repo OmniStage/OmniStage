@@ -39,6 +39,7 @@ export default function AppLayout({
     { name: "Calendário", href: "/app/calendario" },
     { name: "Organização", href: "/app/organizacao" },
     { name: "Contatos", href: "/app/contatos" },
+    { name: "Clientes / Fornecedores", href: "/app/cadastros" },
     { name: "Convidados", href: "/app/convidados" },
     { name: "Convite Digital", href: "/app/convite" },
     { name: "Envios", href: "/app/envios" },
