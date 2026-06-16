@@ -652,10 +652,10 @@ export default function ConvitePage() {
                     type="button"
                     style={{
                       ...templateCardStyle,
-                      border: selected ? "2px solid #7c3aed" : "1px solid #e2e8f0",
+                      border: selected ? "2px solid var(--primary)" : "1px solid var(--line)",
                       boxShadow: selected
                         ? "0 20px 55px rgba(124,58,237,0.20)"
-                        : "0 10px 35px rgba(15,23,42,0.06)",
+                        : "var(--shadow-card)",
                     }}
                     onClick={() => setTemplateSelecionado(template.id)}
                   >
@@ -738,7 +738,7 @@ export default function ConvitePage() {
 }
 
 const pageStyle: CSSProperties = {
-  color: "#0f172a",
+  color: "var(--text)",
   display: "grid",
   gap: 24,
 };
@@ -746,9 +746,9 @@ const pageStyle: CSSProperties = {
 const heroStyle: CSSProperties = {
   padding: 34,
   borderRadius: 34,
-  border: "1px solid #e2e8f0",
-  background: "linear-gradient(135deg,#ffffff,#f8fafc)",
-  boxShadow: "0 18px 55px rgba(15,23,42,0.08)",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  boxShadow: "var(--shadow-card)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -771,12 +771,12 @@ const titleStyle: CSSProperties = {
   lineHeight: 1.02,
   fontWeight: 950,
   letterSpacing: "-0.045em",
-  color: "#0f172a",
+  color: "var(--text)",
 };
 
 const subtitleStyle: CSSProperties = {
   margin: "12px 0 0",
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 18,
   lineHeight: 1.45,
 };
@@ -784,9 +784,9 @@ const subtitleStyle: CSSProperties = {
 const sectionStyle: CSSProperties = {
   padding: 28,
   borderRadius: 30,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-  boxShadow: "0 14px 45px rgba(15,23,42,0.07)",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const eventSectionGridStyle: CSSProperties = {
@@ -807,7 +807,7 @@ const eventInfoBarStyle: CSSProperties = {
   flexWrap: "wrap",
   gap: 10,
   alignItems: "center",
-  color: "#64748b",
+  color: "var(--muted)",
   fontWeight: 800,
 };
 
@@ -822,7 +822,7 @@ const sectionKickerStyle: CSSProperties = {
 
 const sectionTitleStyle: CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 28,
   lineHeight: 1.08,
   fontWeight: 950,
@@ -831,14 +831,14 @@ const sectionTitleStyle: CSSProperties = {
 
 const sectionDescriptionStyle: CSSProperties = {
   margin: "8px 0 0",
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 16,
   lineHeight: 1.45,
 };
 
 const labelStyle: CSSProperties = {
   display: "block",
-  color: "#334155",
+  color: "var(--muted)",
   fontSize: 14,
   fontWeight: 900,
 };
@@ -857,9 +857,9 @@ const selectStyle: CSSProperties = {
   minHeight: 52,
   padding: "0 16px",
   borderRadius: 16,
-  background: "#ffffff",
-  color: "#0f172a",
-  border: "1px solid #cbd5e1",
+  background: "var(--card)",
+  color: "var(--text)",
+  border: "1px solid var(--line)",
   fontSize: 15,
   fontWeight: 800,
   outline: "none",
@@ -870,9 +870,9 @@ const filterSelectStyle: CSSProperties = {
   minHeight: 48,
   padding: "0 16px",
   borderRadius: 999,
-  background: "#ffffff",
-  color: "#0f172a",
-  border: "1px solid #cbd5e1",
+  background: "var(--card)",
+  color: "var(--text)",
+  border: "1px solid var(--line)",
   fontSize: 14,
   fontWeight: 800,
   outline: "none",
@@ -890,21 +890,21 @@ const templateCardStyle: CSSProperties = {
   borderRadius: 28,
   padding: 16,
   cursor: "pointer",
-  background: "#ffffff",
-  color: "#0f172a",
+  background: "var(--card)",
+  color: "var(--text)",
   alignContent: "start",
   transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
 };
 
 const templateNameStyle: CSSProperties = {
   marginTop: 14,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 16,
   fontWeight: 950,
 };
 
 const templateCategoryStyle: CSSProperties = {
-  color: "#64748b",
+  color: "var(--muted)",
   marginTop: 5,
   fontSize: 13,
   fontWeight: 750,
@@ -915,8 +915,8 @@ const visualBadgeStyle: CSSProperties = {
   marginTop: 10,
   padding: "7px 10px",
   borderRadius: 999,
-  background: "#dcfce7",
-  color: "#15803d",
+  background: "var(--green-soft)",
+  color: "var(--green)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -926,8 +926,8 @@ const htmlBadgeStyle: CSSProperties = {
   marginTop: 10,
   padding: "7px 10px",
   borderRadius: 999,
-  background: "#ede9fe",
-  color: "#6d28d9",
+  background: "var(--primary-soft)",
+  color: "var(--primary)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -937,8 +937,8 @@ const templateThumbStyle: CSSProperties = {
   height: 390,
   objectFit: "cover",
   borderRadius: 22,
-  border: "1px solid #e2e8f0",
-  background: "#f8fafc",
+  border: "1px solid var(--line)",
+  background: "var(--card-strong)",
 };
 
 const templateThumbFrameStyle: CSSProperties = {
@@ -959,8 +959,8 @@ const templateThumbFrameWrapStyle: CSSProperties = {
   width: "100%",
   height: 390,
   borderRadius: 22,
-  border: "1px solid #e2e8f0",
-  background: "linear-gradient(135deg,#f8fafc,#eef2ff)",
+  border: "1px solid var(--line)",
+  background: "var(--card-strong)",
   overflow: "hidden",
   position: "relative",
 };
@@ -969,11 +969,11 @@ const templateThumbEmptyStyle: CSSProperties = {
   width: "100%",
   height: 390,
   borderRadius: 22,
-  border: "1px dashed #cbd5e1",
+  border: "1px dashed var(--line)",
   display: "grid",
   placeItems: "center",
-  color: "#64748b",
-  background: "#f8fafc",
+  color: "var(--muted)",
+  background: "var(--card-strong)",
   fontWeight: 900,
 };
 
@@ -981,9 +981,9 @@ const emptyStyle: CSSProperties = {
   marginTop: 14,
   padding: 20,
   borderRadius: 18,
-  border: "1px dashed #cbd5e1",
-  color: "#64748b",
-  background: "#f8fafc",
+  border: "1px dashed var(--line)",
+  color: "var(--muted)",
+  background: "var(--card-strong)",
   fontWeight: 800,
 };
 
@@ -994,9 +994,9 @@ const previewFrameStyle: CSSProperties = {
   display: "block",
   margin: "22px auto 0",
   borderRadius: 34,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-  boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const previewImageStyle: CSSProperties = {
@@ -1007,9 +1007,9 @@ const previewImageStyle: CSSProperties = {
   margin: "22px auto 0",
   objectFit: "contain",
   borderRadius: 34,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-  boxShadow: "0 24px 70px rgba(15,23,42,0.14)",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const visualPreviewLargeWrapStyle: CSSProperties = {

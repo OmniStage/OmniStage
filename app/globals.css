@@ -614,6 +614,36 @@ html[data-theme="dark"] .org-progress {
   background: var(--card-strong) !important;
 }
 
+html[data-theme="dark"] .org-event-select select,
+html[data-theme="dark"] .org-toolbar input,
+html[data-theme="dark"] .org-form-grid input,
+html[data-theme="dark"] .org-form-grid select,
+html[data-theme="dark"] .org-item-card select,
+html[data-theme="dark"] .org-item-card input[type="time"],
+html[data-theme="dark"] .org-template-actions select {
+  background: var(--card-strong) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+
+html[data-theme="dark"] .org-check-toggle {
+  background: var(--card-strong) !important;
+  border-color: var(--line) !important;
+}
+
+html[data-theme="dark"] .org-row-actions button,
+html[data-theme="dark"] .org-card-actions button {
+  background: var(--card-strong) !important;
+  color: var(--muted) !important;
+  border-color: var(--line) !important;
+}
+
+html[data-theme="dark"] .org-badge,
+html[data-theme="dark"] .org-pill {
+  background: var(--primary-soft) !important;
+  color: var(--primary) !important;
+}
+
 html[data-theme="dark"] .organizacao-page {
   color: var(--text) !important;
 }

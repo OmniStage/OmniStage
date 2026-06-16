@@ -1576,8 +1576,8 @@ export default function EnviosPage() {
         }}
       >
         <div>
-          <h2 style={panelTitleStyle}>{campanha.titulo}</h2>
-          <p style={panelTextStyle}>{campanha.descricao}</p>
+          <h2 style={{ ...panelTitleStyle, color: "#0f172a" }}>{campanha.titulo}</h2>
+          <p style={{ ...panelTextStyle, color: "#334155" }}>{campanha.descricao}</p>
         </div>
 
         <div style={campaignHeaderActionsStyle}>
@@ -2852,7 +2852,7 @@ const eventSelectStyle: React.CSSProperties = {
   padding: "16px 17px",
   borderRadius: 16,
   border: "1px solid var(--line)",
-  background: "#fff",
+  background: "var(--card)",
   color: "var(--text)",
   fontSize: 19,
   fontWeight: 900,
@@ -2875,8 +2875,8 @@ const templateWarningStyle: React.CSSProperties = {
   padding: 14,
   borderRadius: 16,
   border: "1px solid rgba(245,158,11,0.28)",
-  background: "#fffbeb",
-  color: "#92400e",
+  background: "var(--yellow-soft)",
+  color: "var(--yellow)",
   fontSize: 13,
   fontWeight: 750,
 };
@@ -2885,15 +2885,15 @@ const editorGridStyle: React.CSSProperties = { display: "grid", gridTemplateColu
 const editorColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
 const previewColumnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 12 };
 const fieldLabelStyle: React.CSSProperties = { color: "var(--text)", fontSize: 16, fontWeight: 900 };
-const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 300, resize: "vertical", border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "#ffffff", color: "var(--text)", fontSize: 14, lineHeight: 1.5, outline: "none", fontFamily: "Arial, Helvetica, sans-serif" };
-const variablesBoxStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "#f8fafc" };
+const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 300, resize: "vertical", border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "var(--card)", color: "var(--text)", fontSize: 14, lineHeight: 1.5, outline: "none", fontFamily: "Arial, Helvetica, sans-serif" };
+const variablesBoxStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 16, padding: 14, background: "var(--card-strong)" };
 const variablesTitleStyle: React.CSSProperties = { display: "block", marginBottom: 10, color: "var(--text)", fontSize: 13 };
 const variablesListStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
-const chipStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.18)", background: "#ede9fe", color: "#6d28d9", padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer" };
+const chipStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.18)", background: "var(--primary-soft)", color: "var(--primary)", padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer" };
 const previewHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" };
 const previewHelpStyle: React.CSSProperties = { margin: "5px 0 0", color: "var(--muted)", fontSize: 12, fontWeight: 700 };
-const previewSelectStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "#fff", color: "var(--text)", borderRadius: 12, padding: "10px 12px", fontWeight: 800 };
-const phonePreviewStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 22, padding: 16, background: "linear-gradient(180deg, #f8fafc, #eef2f7)", minHeight: 350 };
+const previewSelectStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", borderRadius: 12, padding: "10px 12px", fontWeight: 800 };
+const phonePreviewStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 22, padding: 16, background: "var(--card-strong)", minHeight: 350 };
 const phoneTopStyle: React.CSSProperties = { color: "#166534", fontWeight: 900, marginBottom: 14 };
 const messageBubbleStyle: React.CSSProperties = { background: "#dcfce7", color: "#14532d", borderRadius: "18px 18px 18px 6px", padding: 14, whiteSpace: "pre-line", lineHeight: 1.45, fontSize: 14, boxShadow: "0 10px 25px rgba(15,23,42,0.06)" };
 const statsGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 };
@@ -2911,42 +2911,42 @@ const tabStyle: React.CSSProperties = { padding: "9px 14px", borderRadius: 999, 
 const tabActiveStyle: React.CSSProperties = { ...tabStyle, background: "#6d28d9", color: "#fff", border: "1px solid #6d28d9" };
 const searchRowStyle: React.CSSProperties = { display: "flex", gap: 10, marginTop: 16 };
 const searchInputStyle: React.CSSProperties = { flex: 1, minWidth: 260, padding: 13, borderRadius: 14, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", outline: "none" };
-const bulkBarStyle: React.CSSProperties = {   display: "flex",   justifyContent: "space-between",   alignItems: "center",   gap: 14,   flexWrap: "wrap",   marginTop: 16,   padding: 14,   borderRadius: 18,   border: "1px solid var(--line)",   background: "#f8fafc", };  const selectAllStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 9,   color: "var(--text)",   fontWeight: 850,   cursor: "pointer", };  const bulkActionsStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 8,   flexWrap: "wrap", };  const bulkCountStyle: React.CSSProperties = {   padding: "8px 11px",   borderRadius: 999,   background: "rgba(109,40,217,0.08)",   color: "#6d28d9",   fontSize: 12,   fontWeight: 900, };  const rowCheckboxStyle: React.CSSProperties = {   display: "flex",   alignItems: "flex-start",   paddingTop: 4,   cursor: "pointer", };  const listStyle: React.CSSProperties = {   display: "flex",   flexDirection: "column",   gap: 12,   marginTop: 16, };
-const cardStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 18, background: "rgba(255,255,255,0.78)", padding: 16, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" };
+const bulkBarStyle: React.CSSProperties = {   display: "flex",   justifyContent: "space-between",   alignItems: "center",   gap: 14,   flexWrap: "wrap",   marginTop: 16,   padding: 14,   borderRadius: 18,   border: "1px solid var(--line)",   background: "var(--card-strong)", };  const selectAllStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 9,   color: "var(--text)",   fontWeight: 850,   cursor: "pointer", };  const bulkActionsStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 8,   flexWrap: "wrap", };  const bulkCountStyle: React.CSSProperties = {   padding: "8px 11px",   borderRadius: 999,   background: "rgba(109,40,217,0.08)",   color: "#6d28d9",   fontSize: 12,   fontWeight: 900, };  const rowCheckboxStyle: React.CSSProperties = {   display: "flex",   alignItems: "flex-start",   paddingTop: 4,   cursor: "pointer", };  const listStyle: React.CSSProperties = {   display: "flex",   flexDirection: "column",   gap: 12,   marginTop: 16, };
+const cardStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 18, background: "var(--card)", padding: 16, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" };
 const guestInfoStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, flex: 1, minWidth: 280 };
 const guestNameStyle: React.CSSProperties = { color: "var(--text)", fontSize: 17, fontWeight: 900 };
 const guestMetaStyle: React.CSSProperties = { color: "var(--muted)", fontSize: 13, fontWeight: 700 };
-const responsavelBadgeStyle: React.CSSProperties = { width: "fit-content", marginTop: 2, padding: "6px 9px", borderRadius: 999, background: "#f5f3ff", color: "#6d28d9", border: "1px solid rgba(109,40,217,0.18)", fontSize: 12, fontWeight: 900 };
+const responsavelBadgeStyle: React.CSSProperties = { width: "fit-content", marginTop: 2, padding: "6px 9px", borderRadius: 999, background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid rgba(109,40,217,0.18)", fontSize: 12, fontWeight: 900 };
 const messagePreviewStyle: React.CSSProperties = { margin: "10px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.45, whiteSpace: "pre-line" };
 const sentDateStyle: React.CSSProperties = { marginTop: 8, color: "var(--muted)", fontWeight: 800 };
 const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" };
-const mediaBoxStyle: React.CSSProperties = { marginTop: 18, padding: 18, borderRadius: 24, border: "1px solid #e2e8f0", background: "#f8fafc", display: "grid", gap: 12 };
-const mediaHelpStyle: React.CSSProperties = { margin: "6px 0 0", color: "#64748b", fontSize: 14, lineHeight: 1.45 };
-const mediaInputStyle: React.CSSProperties = { width: "100%", border: "1px solid #dbe4ef", borderRadius: 16, padding: "13px 15px", fontSize: 15, color: "#0f172a", background: "#fff", outline: "none" };
+const mediaBoxStyle: React.CSSProperties = { marginTop: 18, padding: 18, borderRadius: 24, border: "1px solid var(--line)", background: "var(--card-strong)", display: "grid", gap: 12 };
+const mediaHelpStyle: React.CSSProperties = { margin: "6px 0 0", color: "var(--muted)", fontSize: 14, lineHeight: 1.45 };
+const mediaInputStyle: React.CSSProperties = { width: "100%", border: "1px solid var(--line)", borderRadius: 16, padding: "13px 15px", fontSize: 15, color: "var(--text)", background: "var(--card)", outline: "none" };
 const mediaUploadRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
 const mediaUploadButtonStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", border: "none", borderRadius: 999, padding: "12px 16px", background: "#6d28d9", color: "#fff", fontSize: 14, fontWeight: 900, cursor: "pointer" };
 const mediaActionButtonStyle: React.CSSProperties = { border: "1px solid #bfdbfe", borderRadius: 999, padding: "11px 15px", background: "#eff6ff", color: "#1d4ed8", fontSize: 14, fontWeight: 900, cursor: "pointer" };
-const mediaRemoveButtonStyle: React.CSSProperties = { border: "1px solid #fecaca", borderRadius: 999, padding: "11px 15px", background: "#fff1f2", color: "#be123c", fontSize: 14, fontWeight: 900, cursor: "pointer" };
+const mediaRemoveButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.24)", borderRadius: 999, padding: "11px 15px", background: "var(--red-soft)", color: "var(--red)", fontSize: 14, fontWeight: 900, cursor: "pointer" };
 const hiddenFileInputStyle: React.CSSProperties = { display: "none" };
 const mediaPreviewBoxStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 18, border: "1px solid #dbeafe", background: "#eff6ff" };
 const mediaPreviewImageStyle: React.CSSProperties = { width: 92, height: 92, borderRadius: 16, objectFit: "cover", background: "#fff", border: "1px solid #dbeafe" };
 const mediaPreviewTextStyle: React.CSSProperties = { color: "#1e3a8a", fontSize: 13, fontWeight: 800, lineHeight: 1.45 };
-const mediaStatusSuccessStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "#dcfce7", color: "#166534", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
-const mediaStatusWarningStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "#fef3c7", color: "#92400e", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
-const mediaStatusErrorStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "#fee2e2", color: "#991b1b", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
+const mediaStatusSuccessStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "var(--green-soft)", color: "var(--green)", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
+const mediaStatusWarningStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "var(--yellow-soft)", color: "var(--yellow)", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
+const mediaStatusErrorStyle: React.CSSProperties = { padding: "12px 14px", borderRadius: 16, background: "var(--red-soft)", color: "var(--red)", fontWeight: 900, fontSize: 14, lineHeight: 1.45 };
 
 const whatsappButtonStyle: React.CSSProperties = { border: "none", background: "#16a34a", color: "#fff", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const enviarFilaButtonStyle: React.CSSProperties = { border: "none", background: "#2563eb", color: "#fff", padding: "10px 15px", borderRadius: 999, fontWeight: 950, cursor: "pointer", boxShadow: "0 10px 24px rgba(37,99,235,0.22)" };
-const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "#dbeafe", color: "#1d4ed8", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const removeFilaButtonStyle: React.CSSProperties = { border: "1px solid rgba(239,68,68,0.22)", background: "#fee2e2", color: "#b91c1c", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "#ede9fe", color: "#6d28d9", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const cancelButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.22)", background: "#fee2e2", color: "#b91c1c", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const filaButtonStyle: React.CSSProperties = { border: "1px solid rgba(37,99,235,0.24)", background: "var(--primary-soft)", color: "var(--primary)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const removeFilaButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.24)", background: "var(--red-soft)", color: "var(--red)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const secondaryButtonStyle: React.CSSProperties = { border: "1px solid rgba(109,40,217,0.24)", background: "var(--primary-soft)", color: "var(--primary)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
+const cancelButtonStyle: React.CSSProperties = { border: "1px solid rgba(220,38,38,0.24)", background: "var(--red-soft)", color: "var(--red)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
 const ghostButtonStyle: React.CSSProperties = { border: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "10px 13px", borderRadius: 999, fontWeight: 900, cursor: "pointer" };
-const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 900 };
-const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 900 };
-const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontSize: 12, fontWeight: 900 };
+const pendingBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "var(--yellow-soft)", color: "var(--yellow)", fontSize: 12, fontWeight: 900 };
+const filaBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "var(--primary-soft)", color: "var(--primary)", fontSize: 12, fontWeight: 900 };
+const sentBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "var(--green-soft)", color: "var(--green)", fontSize: 12, fontWeight: 900 };
 const sentImportedBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#e0f2fe", color: "#075985", fontSize: 12, fontWeight: 900 };
-const sentCardConvidadoBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "#f3e8ff", color: "#6d28d9", fontSize: 12, fontWeight: 900 };
+const sentCardConvidadoBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, background: "var(--primary-soft)", color: "var(--primary)", fontSize: 12, fontWeight: 900 };
 
 const sendConfirmOverlayStyle: React.CSSProperties = {
   position: "fixed",
@@ -2964,8 +2964,8 @@ const sendConfirmModalStyle: React.CSSProperties = {
   width: "min(520px, 100%)",
   borderRadius: 26,
   padding: 24,
-  background: "#ffffff",
-  border: "1px solid rgba(226,232,240,0.95)",
+  background: "var(--card)",
+  border: "1px solid var(--line)",
   boxShadow: "0 28px 90px rgba(15,23,42,0.26)",
   display: "flex",
   flexDirection: "column",
@@ -2982,14 +2982,14 @@ const sendConfirmEyebrowStyle: React.CSSProperties = {
 
 const sendConfirmTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: "#0f172a",
+  color: "var(--text)",
   fontSize: 24,
   fontWeight: 950,
 };
 
 const sendConfirmTextStyle: React.CSSProperties = {
   margin: 0,
-  color: "#64748b",
+  color: "var(--muted)",
   fontSize: 15,
   lineHeight: 1.5,
   fontWeight: 700,
@@ -3004,9 +3004,9 @@ const sendConfirmActionsStyle: React.CSSProperties = {
 };
 
 const sendCancelButtonStyle: React.CSSProperties = {
-  border: "1px solid rgba(148,163,184,0.5)",
-  background: "#ffffff",
-  color: "#334155",
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--muted)",
   padding: "12px 15px",
   borderRadius: 999,
   fontWeight: 950,
