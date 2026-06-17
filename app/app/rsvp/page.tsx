@@ -995,19 +995,19 @@ function gerarLinkCartao(convidado: Convidado) {
 
 function formatarData(data: string) {
   if (!data) return "";
-  // Garante que a string tem timezone explícito antes de parsear
   const raw = String(data).trim();
   const comZ = raw.endsWith("Z") || raw.includes("+") ? raw : raw + "Z";
-  const d = new Date(comZ);
-  if (isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  const utc = new Date(comZ);
+  if (isNaN(utc.getTime())) return "";
+  // UTC-3 fixo (Brasil sem horário de verão desde 2019)
+  const brt = new Date(utc.getTime() - 3 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const d = pad(brt.getUTCDate());
+  const m = pad(brt.getUTCMonth() + 1);
+  const y = String(brt.getUTCFullYear()).slice(-2);
+  const h = pad(brt.getUTCHours());
+  const min = pad(brt.getUTCMinutes());
+  return `${d}/${m}/${y}, ${h}:${min}`;
 }
 
 function formatarNomeEvento(evento: Evento) {
