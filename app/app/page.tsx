@@ -95,14 +95,18 @@ function formatDataHora(raw: string | null | undefined) {
   if (!raw) return "";
   const d = new Date(raw);
   if (isNaN(d.getTime())) return "";
+  const tz = "America/Sao_Paulo";
+  const optsData: Intl.DateTimeFormatOptions = { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" };
+  const optsHora: Intl.DateTimeFormatOptions = { timeZone: tz, hour: "2-digit", minute: "2-digit" };
   const hoje = new Date();
-  const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
-  const eHoje  = d.toDateString() === hoje.toDateString();
-  const eOntem = d.toDateString() === ontem.toDateString();
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  if (eHoje)  return `Hoje ${hora}`;
-  if (eOntem) return `Ontem ${hora}`;
-  return `${d.toLocaleDateString("pt-BR")} ${hora}`;
+  const dStr = new Intl.DateTimeFormat("pt-BR", optsData).format(d);
+  const hojeStr = new Intl.DateTimeFormat("pt-BR", optsData).format(hoje);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  const ontemStr = new Intl.DateTimeFormat("pt-BR", optsData).format(ontem);
+  const hora = new Intl.DateTimeFormat("pt-BR", optsHora).format(d);
+  if (dStr === hojeStr) return `Hoje ${hora}`;
+  if (dStr === ontemStr) return `Ontem ${hora}`;
+  return `${dStr} ${hora}`;
 }
 function diaInicio(ev: Evento) {
   const raw = ev.data_inicio || ev.data_evento;
