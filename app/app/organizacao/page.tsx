@@ -7516,7 +7516,9 @@ function mascararCpf(valor: string) {
 }
 
 function mascararTelefone(valor: string) {
-  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  let digitos = valor.replace(/\D/g, "");
+  if (digitos.startsWith("55") && digitos.length > 11) digitos = digitos.slice(2);
+  digitos = digitos.slice(0, 11);
   if (digitos.length <= 2) return digitos;
   if (digitos.length <= 6) return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
   if (digitos.length <= 10) return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
