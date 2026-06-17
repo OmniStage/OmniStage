@@ -986,37 +986,33 @@ export default function ConvitePublicoPage() {
       );
     }
 
-    const updates = [];
+    const chamadas = [];
 
     if (idsConfirmados.length) {
-      updates.push(
-        supabase
-          .from("convidados")
-          .update({
-            status_rsvp: "confirmado",
-            data_resposta: agora,
-          })
-          .in("id", idsConfirmados),
+      chamadas.push(
+        fetch("/api/convite-publico", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, status_rsvp: "confirmado", convidado_ids: idsConfirmados }),
+        }),
       );
     }
 
     if (idsAusentes.length) {
-      updates.push(
-        supabase
-          .from("convidados")
-          .update({
-            status_rsvp: "ausente",
-            data_resposta: agora,
-          })
-          .in("id", idsAusentes),
+      chamadas.push(
+        fetch("/api/convite-publico", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, status_rsvp: "ausente", convidado_ids: idsAusentes }),
+        }),
       );
     }
 
-    const resultados = await Promise.all(updates);
-    const erro = resultados.find((resultado) => resultado.error)?.error;
+    const resultados = await Promise.all(chamadas);
+    const erro = resultados.find((r) => !r.ok);
 
     if (erro) {
-      console.error("Erro ao confirmar presença:", erro);
+      console.error("Erro ao confirmar presença");
       window.alert("Não foi possível registrar a confirmação. Tente novamente.");
       setConfirmandoPresenca(false);
       setConfirmacaoAberta(false);
@@ -1033,135 +1029,31 @@ export default function ConvitePublicoPage() {
   async function carregarConvite(tokenUrl: string) {
     setLoading(true);
 
-    const tokenDecodificado = decodeURIComponent(tokenUrl);
-
-    const tokens = tokenDecodificado
-      .split(",")
-      .map((item) =>
-        String(item || "")
-          .trim()
-          .replace(/\s/g, ""),
-      )
-      .filter(Boolean);
-
-    if (!tokens.length) {
+    if (!tokenUrl) {
       setRenderState({ kind: "html", html: htmlErro("Convite inválido.") });
       setLoading(false);
       return;
     }
 
-    const { data: convidadosPorToken, error: convidadosError } = await supabase
-      .from("convidados")
-      .select(
-        `
-        id,
-        nome,
-        token,
-        evento_id,
-        grupo,
-        tipo_convite
-      `,
-      )
-      .in("token", tokens)
-      .order("nome", { ascending: true });
+    const resp = await fetch(`/api/convite-publico?token=${encodeURIComponent(tokenUrl)}`);
 
-    if (convidadosError || !convidadosPorToken?.length) {
-      console.error("Erro ao buscar convidados:", convidadosError);
-      setRenderState({ kind: "html", html: htmlErro("Convite não encontrado.") });
+    if (!resp.ok) {
+      const json = await resp.json().catch(() => ({}));
+      setRenderState({ kind: "html", html: htmlErro(json.error || "Convite não encontrado.") });
       setLoading(false);
       return;
     }
 
-    const convidadosOrdenados = tokens
-      .map((tokenItem) =>
-        convidadosPorToken.find((convidado) => convidado.token === tokenItem),
-      )
-      .filter(Boolean) as Convidado[];
+    const { convidados: convidadosDoConvite, evento, template, blocks: blocksData } = await resp.json();
 
-    const convidadoBase =
-      convidadosOrdenados[0] || (convidadosPorToken[0] as Convidado);
-
-    const tipoConviteBase = String(convidadoBase?.tipo_convite || "")
-      .trim()
-      .toLowerCase();
-
-    const conviteEhIndividual = tipoConviteBase === "individual";
-    const conviteEhNucleo = ["grupo", "nucleo"].includes(tipoConviteBase);
-
-    let convidadosDoConvite: Convidado[] = conviteEhIndividual
-      ? [convidadoBase]
-      : convidadosOrdenados.length
-        ? convidadosOrdenados
-        : (convidadosPorToken as Convidado[]);
-
-    if (!conviteEhIndividual && tokens.length === 1 && convidadoBase?.grupo && conviteEhNucleo) {
-      const grupoBase = String(convidadoBase.grupo || "").trim();
-
-      const { data: convidadosGrupo, error: grupoError } = await supabase
-        .from("convidados")
-        .select(
-          `
-          id,
-          nome,
-          token,
-          evento_id,
-          grupo,
-          tipo_convite
-        `,
-        )
-        .eq("evento_id", convidadoBase.evento_id)
-        .eq("grupo", grupoBase)
-        .order("nome", { ascending: true });
-
-      if (grupoError) {
-        console.error("Erro ao buscar grupo:", grupoError);
-      }
-
-      if (convidadosGrupo?.length) {
-        convidadosDoConvite = convidadosGrupo as Convidado[];
-      }
-    }
-
-    if (!convidadoBase?.evento_id) {
-      setRenderState({ kind: "html", html: htmlErro("Convite inválido.") });
-      setLoading(false);
-      return;
-    }
-
-    const { data: evento, error: eventoError } = await supabase
-      .from("eventos")
-      .select(
-        `
-        id,
-        nome,
-        data_evento,
-        data_inicio,
-        hora_inicio,
-        data_termino,
-        hora_termino,
-        local,
-        invite_template_id,
-        horario,
-        endereco,
-        mapa_url,
-        background_image,
-        background_url,
-        logo_image,
-        logo_url,
-        music_file,
-        musica_url
-      `,
-      )
-      .eq("id", convidadoBase.evento_id)
-      .maybeSingle();
-
-    if (eventoError || !evento) {
-      console.error("Erro ao buscar evento do convite:", {
-        evento_id: convidadoBase.evento_id,
-        erro: eventoError,
-      });
-
+    if (!evento) {
       setRenderState({ kind: "html", html: htmlErro("Evento do convite não encontrado.") });
+      setLoading(false);
+      return;
+    }
+
+    if (!template) {
+      setRenderState({ kind: "html", html: htmlErro("Modelo de convite não encontrado.") });
       setLoading(false);
       return;
     }
@@ -1171,97 +1063,18 @@ export default function ConvitePublicoPage() {
       horario: getHoraEvento(evento as Evento),
     } as Evento;
 
-    let templateId = eventoNormalizado?.invite_template_id || null;
-
-    /*
-      Compatibilidade:
-      - Alguns eventos salvam o modelo direto em eventos.invite_template_id.
-      - Outros ficam vinculados pela tabela event_invite_templates.
-      - No restante do app esta tabela usa a coluna evento_id.
-    */
-    if (!templateId && evento.id) {
-      const { data: vinculosPorEventoId, error: vinculoEventoIdError } = await supabase
-        .from("event_invite_templates")
-        .select("template_id")
-        .eq("evento_id", evento.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (vinculoEventoIdError) {
-        console.error("Erro ao buscar vínculo por evento_id:", vinculoEventoIdError);
-      }
-
-      const primeiroVinculo = vinculosPorEventoId?.[0];
-
-      if (primeiroVinculo?.template_id) {
-        templateId = primeiroVinculo.template_id;
-      }
-    }
-
-    if (!templateId) {
-      console.error("Evento sem modelo aplicado:", {
-        evento_id: evento?.id,
-        invite_template_id: evento?.invite_template_id,
-      });
-
-      setRenderState({
-        kind: "html",
-        html: htmlErro(`Evento sem convite aplicado. Evento: ${evento.id}`),
-      });
-      setLoading(false);
-      return;
-    }
-
-    const { data: template } = await supabase
-      .from("invite_templates")
-      .select(
-        `
-        id,
-        nome,
-        name,
-        html_template,
-        editor_mode,
-        preview_image,
-        background_image,
-        logo_image,
-        visual_config
-      `,
-      )
-      .eq("id", templateId)
-      .maybeSingle();
-
-    if (!template) {
-      setRenderState({ kind: "html", html: htmlErro("Modelo de convite não encontrado.") });
-      setLoading(false);
-      return;
-    }
-
-    const nomesDoConvite = convidadosDoConvite
+    const nomesDoConvite = (convidadosDoConvite as Convidado[])
       .map((item) => item.nome)
       .filter(Boolean);
 
     const nomesFinais = nomesDoConvite.length
       ? nomesDoConvite
-      : [convidadoBase.nome || "Convidado"];
+      : [convidadosDoConvite[0]?.nome || "Convidado"];
 
     const isVisual = template.editor_mode === "visual";
 
     if (isVisual) {
-      const { data: blocksData, error: blocksError } = await supabase
-        .from("invite_template_blocks")
-        .select("*")
-        .eq("template_id", template.id)
-        .order("z_index", { ascending: true });
-
-      if (blocksError) {
-        setRenderState({ kind: "html", html: htmlErro("Erro ao carregar blocos do convite.") });
-        setLoading(false);
-        return;
-      }
-
-      const convidadosConfirmacao = convidadosDoConvite.filter((item) => Boolean(item.id));
-      // RSVP em grupo: todos começam marcados por padrão.
-      // O convidado desmarca apenas quem não vai ao evento.
+      const convidadosConfirmacao = (convidadosDoConvite as Convidado[]).filter((item) => Boolean(item.id));
       setConvidadosSelecionados(
         convidadosConfirmacao.map((item) => item.id).filter(Boolean),
       );
@@ -1280,16 +1093,8 @@ export default function ConvitePublicoPage() {
     }
 
     if (template.html_template?.trim()) {
-      let htmlDoEvento = preencherTemplate(
-        template.html_template,
-        eventoNormalizado,
-      );
-
-      htmlDoEvento = injetarConvidadosNoConvite(
-        htmlDoEvento,
-        nomesFinais,
-      );
-
+      let htmlDoEvento = preencherTemplate(template.html_template, eventoNormalizado);
+      htmlDoEvento = injetarConvidadosNoConvite(htmlDoEvento, nomesFinais);
       setRenderState({ kind: "html", html: htmlDoEvento });
       setLoading(false);
       return;

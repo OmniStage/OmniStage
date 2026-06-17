@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { notFound } from "next/navigation";
 import CartaoActions from "./CartaoActions";
 import CartaoSaveMode from "./CartaoSaveMode";
@@ -41,7 +41,7 @@ export default async function CartaoPage({
   const isSaveMode = query.save === "1";
   const isPreviewMode = query.preview === "1";
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: convidado, error: convidadoError } = await supabase
     .from("convidados")
