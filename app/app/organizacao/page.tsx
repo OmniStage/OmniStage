@@ -84,22 +84,46 @@ type Fornecedor = {
   nome: string;
   categoria: string | null;
   responsavel_nome?: string | null;
+  responsavel_telefone?: string | null;
   telefone: string | null;
   telefone_normalizado: string | null;
   email: string | null;
   cpf_cnpj: string | null;
+  tipo_pessoa?: string | null;
   logradouro: string | null;
+  cep?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
   site: string | null;
   instagram: string | null;
+  pix_tipo?: string | null;
   pix_chave: string | null;
+  banco?: string | null;
+  agencia?: string | null;
+  agencia_digito?: string | null;
+  conta?: string | null;
+  conta_digito?: string | null;
+  codigo_externo?: string | null;
   observacoes: string | null;
   ativo: boolean;
   eh_cliente?: boolean;
   eh_fornecedor?: boolean;
   eh_equipe?: boolean;
+  responsavel_tenant_contato_id?: string | null;
+  nucleo_id?: string | null;
 };
 
 type OrganizacaoCadastro = Fornecedor;
+
+type TenantContato = {
+  id: string;
+  tenant_id: string | null;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+};
 
 type FornecedorEvento = {
   id: string;
@@ -285,6 +309,43 @@ const CATEGORIAS_FORNECEDOR = [
   { value: "espaco", label: "Espaço" },
   { value: "outros", label: "Outros" },
 ];
+
+const fornecedorVazio = {
+  tipo_pessoa: "fisica",
+  nome: "",
+  categoria: "buffet",
+  responsavel_nome: "",
+  responsavel_telefone: "",
+  responsavel_tenant_contato_id: null as string | null,
+  telefone: "",
+  email: "",
+  documento: "",
+  codigo_externo: "",
+  endereco: "",
+  cep: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cidade: "",
+  instagram: "",
+  pix_tipo: "",
+  pix: "",
+  banco: "",
+  agencia: "",
+  agencia_digito: "",
+  conta: "",
+  conta_digito: "",
+  observacoes: "",
+  status: "orcamento",
+};
+
+const abasFornecedorModal = ["principais", "endereco", "financeiro", "observacao"] as const;
+const abaFornecedorModalLabel: Record<typeof abasFornecedorModal[number], string> = {
+  principais: "Dados Principais",
+  endereco: "Endereço",
+  financeiro: "Financeiro",
+  observacao: "Observação",
+};
 
 const STATUS_PRODUCAO = [
   { value: "ideia", label: "Ideias" },
@@ -588,7 +649,7 @@ export default function OrganizacaoPage() {
   const [parcelaForm, setParcelaForm] = useState<{ numero_parcelas: string; valor_total: string; data_inicio: string; forma_pagamento: string; documento: string }>({ numero_parcelas: "1", valor_total: "", data_inicio: "", forma_pagamento: "", documento: "" });
   const [parcelasPreview, setParcelasPreview] = useState<{ data: string; valor: string; descricao: string }[]>([]);
   const [liquidando, setLiquidando] = useState<Record<string, string>>({}); // parcelaId → data_pagamento
-  const [confirmarDialog, setConfirmarDialog] = useState<{ mensagem: string; onConfirm: () => void; onCancel: () => void } | null>(null);
+  const [confirmarDialog, setConfirmarDialog] = useState<{ mensagem: string; onConfirm: () => void; onCancel: () => void; confirmLabel?: string } | null>(null);
   const [novaParcelaModal, setNovaParcelaModal] = useState(false);
   const [clienteDropdownAberto, setClienteDropdownAberto] = useState(false);
   const [novoFornecedorParcelaModal, setNovoFornecedorParcelaModal] = useState(false);
@@ -612,10 +673,11 @@ export default function OrganizacaoPage() {
     forma_pagamento: "", documento: "",
   });
 
-  function pedirConfirmacao(mensagem: string): Promise<boolean> {
+  function pedirConfirmacao(mensagem: string, confirmLabel?: string): Promise<boolean> {
     return new Promise((resolve) => {
       setConfirmarDialog({
         mensagem,
+        confirmLabel,
         onConfirm: () => { setConfirmarDialog(null); resolve(true); },
         onCancel: () => { setConfirmarDialog(null); resolve(false); },
       });
@@ -663,21 +725,16 @@ export default function OrganizacaoPage() {
     Record<string, string>
   >({});
   const [fornecedorFormAberto, setFornecedorFormAberto] = useState(false);
+  const [vincularFornecedorAberto, setVincularFornecedorAberto] = useState(false);
   const [fornecedorEditandoId, setFornecedorEditandoId] = useState<string | null>(null);
-  const [novoFornecedor, setNovoFornecedor] = useState({
-    nome: "",
-    categoria: "buffet",
-    responsavel_nome: "",
-    telefone: "",
-    email: "",
-    documento: "",
-    endereco: "",
-    instagram: "",
-    pix: "",
-    conta_corrente: "",
-    observacoes: "",
-    status: "orcamento",
-  });
+  const [novoFornecedor, setNovoFornecedor] = useState({ ...fornecedorVazio });
+  const [fornecedorAbaModal, setFornecedorAbaModal] = useState<"principais" | "endereco" | "financeiro" | "observacao">("principais");
+  const [tenantContatos, setTenantContatos] = useState<TenantContato[]>([]);
+  const [responsavelDropdownAberto, setResponsavelDropdownAberto] = useState(false);
+  const [responsavelNovoModal, setResponsavelNovoModal] = useState(false);
+  const [responsavelNovoForm, setResponsavelNovoForm] = useState({ nome: "", telefone: "", email: "" });
+  const [buscandoCepFornecedor, setBuscandoCepFornecedor] = useState(false);
+  const [buscandoCnpjFornecedor, setBuscandoCnpjFornecedor] = useState(false);
   const [novaContratacao, setNovaContratacao] = useState({
     titulo: "",
     fornecedor_evento_id: "",
@@ -826,6 +883,7 @@ export default function OrganizacaoPage() {
       fornecedorServicosRes,
       parcelasRes,
       clientesCadastradosRes,
+      tenantContatosRes,
     ] = await Promise.all([
       supabase
         .from("organizacao_producao")
@@ -890,6 +948,11 @@ export default function OrganizacaoPage() {
         .select("*")
         .eq("tenant_id", evento.tenant_id)
         .eq("eh_cliente", true)
+        .order("nome", { ascending: true }),
+      supabase
+        .from("tenant_contatos")
+        .select("id, tenant_id, nome, telefone, email")
+        .eq("tenant_id", evento.tenant_id)
         .order("nome", { ascending: true }),
     ]);
 
@@ -959,6 +1022,7 @@ export default function OrganizacaoPage() {
     setContratacaoItens((contratacaoItensRes.data || []) as ContratacaoItem[]);
     setFornecedorServicos((fornecedorServicosRes.data || []) as FornecedorServico[]);
     setParcelas((parcelasRes.data || []) as Parcela[]);
+    setTenantContatos((tenantContatosRes.data || []) as TenantContato[]);
   }
 
   const tenantId = eventoAtual?.tenant_id || "";
@@ -1460,25 +1524,200 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     await depoisSalvar(error);
   }
 
+  function camposFornecedorParaSalvar() {
+    return {
+      eh_fornecedor: true,
+      tipo_pessoa: novoFornecedor.tipo_pessoa,
+      nome: novoFornecedor.nome.trim(),
+      categoria: novoFornecedor.categoria,
+      responsavel_nome: limpar(novoFornecedor.responsavel_nome),
+      responsavel_telefone: limpar(novoFornecedor.responsavel_telefone),
+      responsavel_tenant_contato_id: novoFornecedor.responsavel_tenant_contato_id || null,
+      telefone: limpar(novoFornecedor.telefone),
+      telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
+      email: limpar(novoFornecedor.email),
+      cpf_cnpj: limpar(novoFornecedor.documento),
+      codigo_externo: limpar(novoFornecedor.codigo_externo),
+      logradouro: limpar(novoFornecedor.endereco),
+      cep: limpar(novoFornecedor.cep),
+      numero: limpar(novoFornecedor.numero),
+      complemento: limpar(novoFornecedor.complemento),
+      bairro: limpar(novoFornecedor.bairro),
+      cidade: limpar(novoFornecedor.cidade),
+      instagram: limpar(novoFornecedor.instagram),
+      pix_tipo: limpar(novoFornecedor.pix_tipo),
+      pix_chave: limpar(novoFornecedor.pix),
+      banco: limpar(novoFornecedor.banco),
+      agencia: limpar(novoFornecedor.agencia),
+      agencia_digito: limpar(novoFornecedor.agencia_digito),
+      conta: limpar(novoFornecedor.conta),
+      conta_digito: limpar(novoFornecedor.conta_digito),
+      observacoes: limpar(novoFornecedor.observacoes),
+    };
+  }
+
+  async function vincularNucleoEmpresa(
+    cadastroId: string,
+    nomeEmpresa: string,
+    tenantContatoId: string | null,
+  ) {
+    if (!tenantId || !nomeEmpresa.trim()) return;
+
+    const nomeBusca = nomeEmpresa.trim();
+
+    let nucleoId: string | null = null;
+
+    const { data: nucleoExistente } = await supabase
+      .from("contato_grupos")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("tipo_nucleo", "empresa")
+      .ilike("nome", nomeBusca)
+      .maybeSingle();
+
+    if (nucleoExistente?.id) {
+      nucleoId = nucleoExistente.id;
+    } else {
+      const { data: nucleoCriado, error: nucleoError } = await supabase
+        .from("contato_grupos")
+        .insert({
+          tenant_id: tenantId,
+          nome: nomeBusca,
+          tipo_nucleo: "empresa",
+          tipo: "organizacao",
+          origem: "organizacao",
+        })
+        .select("id")
+        .single();
+
+      if (nucleoError || !nucleoCriado?.id) return;
+      nucleoId = nucleoCriado.id;
+    }
+
+    if (!nucleoId) return;
+
+    await supabase
+      .from("organizacao_cadastros")
+      .update({ nucleo_id: nucleoId })
+      .eq("id", cadastroId);
+
+    if (tenantContatoId) {
+      const { data: membroExistente } = await supabase
+        .from("contato_grupo_membros")
+        .select("id")
+        .eq("grupo_contato_id", nucleoId)
+        .eq("tenant_contato_id", tenantContatoId)
+        .maybeSingle();
+
+      if (!membroExistente?.id) {
+        await supabase.from("contato_grupo_membros").insert({
+          tenant_id: tenantId,
+          grupo_contato_id: nucleoId,
+          tenant_contato_id: tenantContatoId,
+          papel: "responsavel",
+          papel_nucleo: "responsavel",
+          recebe_comunicacao: true,
+          principal_envio: true,
+        });
+      }
+    }
+  }
+
+  async function criarResponsavelContato() {
+    if (!tenantId || !responsavelNovoForm.nome.trim()) return;
+    setSalvando(true);
+    const { data: contato, error } = await supabase
+      .from("tenant_contatos")
+      .insert({
+        tenant_id: tenantId,
+        nome: responsavelNovoForm.nome.trim(),
+        telefone: limpar(responsavelNovoForm.telefone),
+        telefone_normalizado: normalizarTelefone(responsavelNovoForm.telefone),
+        email: limpar(responsavelNovoForm.email),
+        tipo_contato: "adulto",
+        origem: "organizacao",
+      })
+      .select("id, tenant_id, nome, telefone, email")
+      .single();
+
+    if (error || !contato) {
+      setErro("Erro ao criar contato: " + (error?.message || ""));
+      setSalvando(false);
+      return;
+    }
+
+    setTenantContatos((prev) => [...prev, contato as TenantContato]);
+    setNovoFornecedor((prev) => ({
+      ...prev,
+      responsavel_nome: contato.nome,
+      responsavel_telefone: contato.telefone ? mascararTelefone(contato.telefone) : "",
+      responsavel_tenant_contato_id: contato.id,
+    }));
+    setResponsavelNovoModal(false);
+    setSalvando(false);
+  }
+
+  async function vincularCadastroAoEvento(cadastroId: string) {
+    if (!eventoAtual || !tenantId) return;
+    const jaVinculado = fornecedoresEvento.some(
+      (item) => item.cadastro_id === cadastroId && item.evento_id === eventoAtual.id,
+    );
+    if (jaVinculado) return;
+    await supabase.from("organizacao_fornecedores_evento").insert({
+      tenant_id: tenantId,
+      evento_id: eventoAtual.id,
+      cadastro_id: cadastroId,
+      categoria_evento: novoFornecedor.categoria,
+      status: novoFornecedor.status,
+    });
+  }
+
   async function criarFornecedor() {
     if (!eventoAtual || !tenantId || !novoFornecedor.nome.trim()) return;
+
+    const nomeBusca = novoFornecedor.nome.trim();
+    const documentoBusca = limpar(novoFornecedor.documento);
+    const { data: possiveisDuplicados } = await supabase
+      .from("organizacao_cadastros")
+      .select("id, nome, cpf_cnpj")
+      .eq("tenant_id", tenantId)
+      .or(
+        documentoBusca
+          ? `nome.ilike.${nomeBusca},cpf_cnpj.eq.${documentoBusca}`
+          : `nome.ilike.${nomeBusca}`,
+      );
+
+    if (possiveisDuplicados && possiveisDuplicados.length > 0) {
+      const existente = possiveisDuplicados[0];
+      const atualizar = await pedirConfirmacao(
+        `Já existe um cadastro com esse nome/documento: "${existente.nome}". Não é permitido cadastrar a mesma pessoa ou empresa duas vezes — ela pode estar em vários eventos, mas só pode ter um cadastro. Quer atualizar o cadastro existente com esses dados e vinculá-lo a este evento?`,
+        "Atualizar Cadastro",
+      );
+      if (!atualizar) return;
+
+      setSalvando(true);
+      const { error: updateError } = await supabase
+        .from("organizacao_cadastros")
+        .update(camposFornecedorParaSalvar())
+        .eq("id", existente.id);
+      if (updateError) { await depoisSalvar(updateError); return; }
+
+      await vincularCadastroAoEvento(existente.id);
+      if (novoFornecedor.tipo_pessoa === "juridica" && nomeBusca) {
+        await vincularNucleoEmpresa(existente.id, nomeBusca, novoFornecedor.responsavel_tenant_contato_id);
+      }
+      await depoisSalvar(null, () => setNovoFornecedor({ ...fornecedorVazio }));
+      return;
+    }
+
     setSalvando(true);
 
     const { data: fornecedor, error: fornecedorError } = await supabase
       .from("organizacao_cadastros")
       .insert({
         tenant_id: tenantId,
-        eh_fornecedor: true,
-        nome: novoFornecedor.nome.trim(),
-        categoria: novoFornecedor.categoria,
-        telefone: limpar(novoFornecedor.telefone),
-        telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
-        email: limpar(novoFornecedor.email),
-        cpf_cnpj: limpar(novoFornecedor.documento),
-        logradouro: limpar(novoFornecedor.endereco),
-        instagram: limpar(novoFornecedor.instagram),
-        pix_chave: limpar(novoFornecedor.pix),
-        observacoes: limpar(novoFornecedor.observacoes),
+        origem_evento_id: eventoAtual.id,
+        ...camposFornecedorParaSalvar(),
       })
       .select("id")
       .single();
@@ -1490,32 +1729,11 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
       return;
     }
 
-    const { error } = await supabase
-      .from("organizacao_fornecedores_evento")
-      .insert({
-        tenant_id: tenantId,
-        evento_id: eventoAtual.id,
-        cadastro_id: fornecedor.id,
-        categoria_evento: novoFornecedor.categoria,
-        status: novoFornecedor.status,
-      });
-
-    await depoisSalvar(error, () =>
-      setNovoFornecedor({
-        nome: "",
-        categoria: "buffet",
-        responsavel_nome: "",
-        telefone: "",
-        email: "",
-        documento: "",
-        endereco: "",
-        instagram: "",
-        pix: "",
-        conta_corrente: "",
-        observacoes: "",
-        status: "orcamento",
-      }),
-    );
+    await vincularCadastroAoEvento(fornecedor.id);
+    if (novoFornecedor.tipo_pessoa === "juridica" && nomeBusca) {
+      await vincularNucleoEmpresa(fornecedor.id, nomeBusca, novoFornecedor.responsavel_tenant_contato_id);
+    }
+    await depoisSalvar(null, () => setNovoFornecedor({ ...fornecedorVazio }));
   }
 
   async function alternarFornecedorNoEvento(fornecedor: Fornecedor, selecionado: boolean) {
@@ -1574,21 +1792,37 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
   function abrirEdicaoFornecedor(item: FornecedorEvento) {
     const f = item.fornecedor;
+    const tipoPessoa = f?.tipo_pessoa || "fisica";
     setNovoFornecedor({
+      tipo_pessoa: tipoPessoa,
       nome: f?.nome || "",
       categoria: f?.categoria || "buffet",
       responsavel_nome: f?.responsavel_nome || "",
-      telefone: f?.telefone || "",
+      responsavel_telefone: f?.responsavel_telefone ? mascararTelefone(f.responsavel_telefone) : "",
+      responsavel_tenant_contato_id: f?.responsavel_tenant_contato_id || null,
+      telefone: f?.telefone ? mascararTelefone(f.telefone) : "",
       email: f?.email || "",
-      documento: f?.cpf_cnpj || "",
+      documento: f?.cpf_cnpj ? (tipoPessoa === "juridica" ? mascararCnpj(f.cpf_cnpj) : mascararCpf(f.cpf_cnpj)) : "",
+      codigo_externo: f?.codigo_externo || "",
       endereco: f?.logradouro || "",
+      cep: f?.cep ? mascararCep(f.cep) : "",
+      numero: f?.numero || "",
+      complemento: f?.complemento || "",
+      bairro: f?.bairro || "",
+      cidade: f?.cidade || "",
       instagram: f?.instagram || "",
+      pix_tipo: f?.pix_tipo || "",
       pix: f?.pix_chave || "",
-      conta_corrente: "",
+      banco: f?.banco || "",
+      agencia: f?.agencia || "",
+      agencia_digito: f?.agencia_digito || "",
+      conta: f?.conta || "",
+      conta_digito: f?.conta_digito || "",
       observacoes: f?.observacoes || "",
       status: item.status || "orcamento",
     });
     setFornecedorEditandoId(item.id);
+    setFornecedorAbaModal("principais");
     setFornecedorFormAberto(true);
   }
 
@@ -1599,29 +1833,82 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
     const { error } = await supabase
       .from("organizacao_cadastros")
-      .update({
-        nome: novoFornecedor.nome.trim(),
-        categoria: novoFornecedor.categoria,
-        telefone: limpar(novoFornecedor.telefone),
-        telefone_normalizado: normalizarTelefone(novoFornecedor.telefone),
-        email: limpar(novoFornecedor.email),
-        cpf_cnpj: limpar(novoFornecedor.documento),
-        logradouro: limpar(novoFornecedor.endereco),
-        instagram: limpar(novoFornecedor.instagram),
-        pix_chave: limpar(novoFornecedor.pix),
-        observacoes: limpar(novoFornecedor.observacoes),
-      })
+      .update(camposFornecedorParaSalvar())
       .eq("id", item.cadastro_id);
 
-    await depoisSalvar(error, () => {
+    if (error) { await depoisSalvar(error); return; }
+
+    const nomeEmpresa = novoFornecedor.nome.trim();
+    if (novoFornecedor.tipo_pessoa === "juridica" && nomeEmpresa) {
+      await vincularNucleoEmpresa(item.cadastro_id, nomeEmpresa, novoFornecedor.responsavel_tenant_contato_id);
+    }
+
+    await depoisSalvar(null, () => {
       setFornecedorEditandoId(null);
       setFornecedorFormAberto(false);
-      setNovoFornecedor({
-        nome: "", categoria: "buffet", responsavel_nome: "", telefone: "",
-        email: "", documento: "", endereco: "", instagram: "", pix: "",
-        conta_corrente: "", observacoes: "", status: "orcamento",
-      });
+      setNovoFornecedor({ ...fornecedorVazio });
     });
+  }
+
+  async function buscarCepFornecedor() {
+    const cep = novoFornecedor.cep.replace(/\D/g, "");
+    if (cep.length !== 8) { setErro("Informe um CEP válido (8 dígitos)."); return; }
+    setBuscandoCepFornecedor(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setNovoFornecedor((prev) => ({
+          ...prev,
+          endereco: data.logradouro || prev.endereco,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade ? `${data.localidade} - ${data.uf}` : prev.cidade,
+        }));
+        return;
+      }
+
+      const resAlt = await fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`);
+      if (!resAlt.ok) { setErro("CEP não encontrado."); return; }
+      const dataAlt = await resAlt.json();
+      setNovoFornecedor((prev) => ({
+        ...prev,
+        endereco: dataAlt.street || prev.endereco,
+        bairro: dataAlt.neighborhood || prev.bairro,
+        cidade: dataAlt.city ? `${dataAlt.city} - ${dataAlt.state}` : prev.cidade,
+      }));
+    } catch {
+      setErro("Erro ao buscar CEP.");
+    } finally {
+      setBuscandoCepFornecedor(false);
+    }
+  }
+
+  async function buscarCnpjFornecedor() {
+    const cnpj = novoFornecedor.documento.replace(/\D/g, "");
+    if (cnpj.length !== 14) { setErro("Informe um CNPJ válido (14 dígitos) para buscar."); return; }
+    setBuscandoCnpjFornecedor(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+      if (!res.ok) { setErro("CNPJ não encontrado."); return; }
+      const data = await res.json();
+      setNovoFornecedor((prev) => ({
+        ...prev,
+        tipo_pessoa: "juridica",
+        nome: data.nome_fantasia || data.razao_social || prev.nome,
+        telefone: data.ddd_telefone_1 ? mascararTelefone(data.ddd_telefone_1) : prev.telefone,
+        email: data.email || prev.email,
+        cep: data.cep ? mascararCep(data.cep) : prev.cep,
+        endereco: data.logradouro || prev.endereco,
+        numero: data.numero || prev.numero,
+        complemento: data.complemento || prev.complemento,
+        bairro: data.bairro || prev.bairro,
+        cidade: data.municipio ? `${data.municipio} - ${data.uf}` : prev.cidade,
+      }));
+    } catch {
+      setErro("Erro ao buscar CNPJ.");
+    } finally {
+      setBuscandoCnpjFornecedor(false);
+    }
   }
 
   async function abrirContratoFornecedor(item: FornecedorEvento) {
@@ -3409,7 +3696,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               </button>
               <button type="button" onClick={confirmarDialog.onConfirm}
                 style={{ flex: 1, padding: "11px", borderRadius: 12, border: "none", background: "var(--red)", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
-                Excluir
+                {confirmarDialog.confirmLabel || "Excluir"}
               </button>
             </div>
           </div>
@@ -4637,11 +4924,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
     function fecharForm() {
       setFornecedorFormAberto(false);
       setFornecedorEditandoId(null);
-      setNovoFornecedor({
-        nome: "", categoria: "buffet", responsavel_nome: "", telefone: "",
-        email: "", documento: "", endereco: "", instagram: "", pix: "",
-        conta_corrente: "", observacoes: "", status: "orcamento",
-      });
+      setNovoFornecedor({ ...fornecedorVazio });
     }
 
     return (
@@ -4649,14 +4932,64 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
         title="Fornecedores"
         subtitle="Cadastro completo de fornecedores vinculados ao evento"
       >
-        {/* Botão abrir formulário */}
+        {/* Botões de ação */}
         {!fornecedorFormAberto && (
-          <button
-            onClick={() => { setFornecedorFormAberto(true); setFornecedorEditandoId(null); }}
-            style={{ marginBottom: 20, background: "#6d28d9", color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontWeight: 900, cursor: "pointer" }}
-          >
-            + Novo fornecedor
-          </button>
+          <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+            <button
+              onClick={() => { setFornecedorFormAberto(true); setFornecedorEditandoId(null); }}
+              style={{ background: "#6d28d9", color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontWeight: 900, cursor: "pointer" }}
+            >
+              + Novo fornecedor
+            </button>
+            <button
+              onClick={() => setVincularFornecedorAberto((prev) => !prev)}
+              style={{ background: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 20px", fontWeight: 900, cursor: "pointer" }}
+            >
+              {vincularFornecedorAberto ? "Ocultar fornecedores cadastrados" : "Adicionar fornecedor ao evento"}
+            </button>
+          </div>
+        )}
+
+        {/* Lista de fornecedores já cadastrados pra vincular ao evento */}
+        {vincularFornecedorAberto && (
+          <div style={{ border: "1px solid var(--line)", borderRadius: 18, padding: 20, marginBottom: 24, background: "var(--card-strong)" }}>
+            <div style={{ fontWeight: 900, fontSize: 13, color: "var(--primary)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 14 }}>
+              Fornecedores cadastrados no tenant
+            </div>
+            {fornecedoresParaSelecao.length === 0 ? (
+              <Empty text="Nenhum fornecedor cadastrado ainda. Cadastre em Clientes / Fornecedores ou clique em + Novo fornecedor." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {fornecedoresParaSelecao.map((fornecedor) => {
+                  const vinculado = fornecedoresEvento.some(
+                    (item) => item.cadastro_id === fornecedor.id && item.evento_id === eventoAtual?.id,
+                  );
+                  return (
+                    <label
+                      key={fornecedor.id}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, background: "var(--card)", border: "1px solid var(--line)", cursor: "pointer" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={vinculado}
+                        onChange={(e) => alternarFornecedorNoEvento(fornecedor, e.target.checked)}
+                      />
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: "var(--primary-soft)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, flexShrink: 0 }}>
+                        {fornecedor.nome.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ fontSize: 14, color: "var(--text)" }}>{fornecedor.nome}</strong>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {labelCategoria(fornecedor.categoria)}{fornecedor.telefone ? ` · ${fornecedor.telefone}` : ""}
+                        </div>
+                      </div>
+                      {vinculado && <span className="org-pill confirmado" style={{ fontSize: 10 }}>No evento</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Formulário colapsável */}
@@ -4667,41 +5000,268 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
               <button onClick={fecharForm} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }}>✕</button>
             </div>
 
-            {/* Linha 1: identificação */}
-            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
-              <input placeholder="Nome do fornecedor *" value={F.nome} onChange={(e) => set("nome", e.target.value)} />
-              <select value={F.categoria} onChange={(e) => set("categoria", e.target.value)}>
-                {CATEGORIAS_FORNECEDOR.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-              <input placeholder="Responsável / contato" value={F.responsavel_nome} onChange={(e) => set("responsavel_nome", e.target.value)} />
+            <div style={fornecedorModalTabsStyle}>
+              {abasFornecedorModal.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setFornecedorAbaModal(a)}
+                  style={fornecedorAbaModal === a ? fornecedorModalTabActiveStyle : fornecedorModalTabStyle}
+                >
+                  {abaFornecedorModalLabel[a]}
+                </button>
+              ))}
             </div>
 
-            {/* Linha 2: contato */}
-            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
-              <input placeholder="Telefone / WhatsApp" value={F.telefone} onChange={(e) => set("telefone", e.target.value)} />
-              <input placeholder="E-mail" value={F.email} onChange={(e) => set("email", e.target.value)} />
-              <input placeholder="Instagram (ex: @nome)" value={F.instagram} onChange={(e) => set("instagram", e.target.value)} />
-            </div>
+            {fornecedorAbaModal === "principais" && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
+                  <CampoFornecedor label="Tipo de pessoa">
+                    <select value={F.tipo_pessoa} onChange={(e) => set("tipo_pessoa", e.target.value)} style={fornecedorInputStyle}>
+                      <option value="fisica">Pessoa Física</option>
+                      <option value="juridica">Pessoa Jurídica</option>
+                    </select>
+                  </CampoFornecedor>
+                  <CampoFornecedor label={F.tipo_pessoa === "juridica" ? "CNPJ" : "CPF"}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        value={F.documento}
+                        onChange={(e) => set("documento", F.tipo_pessoa === "juridica" ? mascararCnpj(e.target.value) : mascararCpf(e.target.value))}
+                        placeholder={F.tipo_pessoa === "juridica" ? "00.000.000/0000-00" : "000.000.000-00"}
+                        maxLength={F.tipo_pessoa === "juridica" ? 18 : 14}
+                        style={{ ...fornecedorInputStyle, flex: 1 }}
+                      />
+                      {F.tipo_pessoa === "juridica" && (
+                        <button type="button" onClick={buscarCnpjFornecedor} disabled={buscandoCnpjFornecedor} style={fornecedorBuscarButtonStyle}>
+                          {buscandoCnpjFornecedor ? "..." : "Buscar"}
+                        </button>
+                      )}
+                    </div>
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Categoria">
+                    <select value={F.categoria} onChange={(e) => set("categoria", e.target.value)} style={fornecedorInputStyle}>
+                      {CATEGORIAS_FORNECEDOR.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </CampoFornecedor>
+                </div>
 
-            {/* Linha 3: documentos e endereço */}
-            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
-              <input placeholder="CPF ou CNPJ" value={F.documento} onChange={(e) => set("documento", e.target.value)} />
-              <input placeholder="Endereço completo" value={F.endereco} onChange={(e) => set("endereco", e.target.value)} style={{ gridColumn: "span 2" }} />
-            </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 10 }}>
+                  <CampoFornecedor label="Nome do fornecedor *">
+                    <input value={F.nome} onChange={(e) => set("nome", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Código externo">
+                    <input value={F.codigo_externo} onChange={(e) => set("codigo_externo", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
 
-            {/* Linha 4: pagamento */}
-            <div className="org-form-grid fornecedor" style={{ marginBottom: 10 }}>
-              <input placeholder="Chave PIX" value={F.pix} onChange={(e) => set("pix", e.target.value)} />
-              <input placeholder="Conta corrente (banco / agência / conta)" value={F.conta_corrente} onChange={(e) => set("conta_corrente", e.target.value)} style={{ gridColumn: "span 2" }} />
-            </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 10 }}>
+                  <CampoFornecedor label="Responsável / contato">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <input
+                          value={F.responsavel_nome}
+                          onChange={(e) => {
+                            set("responsavel_nome", e.target.value);
+                            setNovoFornecedor((prev) => ({ ...prev, responsavel_tenant_contato_id: null }));
+                            setResponsavelDropdownAberto(true);
+                          }}
+                          onFocus={() => setResponsavelDropdownAberto(true)}
+                          onBlur={() => setTimeout(() => setResponsavelDropdownAberto(false), 150)}
+                          placeholder="Buscar contato..."
+                          style={fornecedorInputStyle}
+                        />
+                        {responsavelDropdownAberto && F.responsavel_nome.trim().length >= 1 && (() => {
+                          const termo = F.responsavel_nome.trim().toLowerCase();
+                          const filtrados = tenantContatos.filter((c) => c.nome.toLowerCase().includes(termo));
+                          if (filtrados.length === 0) return null;
+                          return (
+                            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,.2)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
+                              {filtrados.map((c) => (
+                                <div key={c.id}
+                                  onMouseDown={() => {
+                                    setNovoFornecedor((prev) => ({
+                                      ...prev,
+                                      responsavel_nome: c.nome,
+                                      responsavel_telefone: c.telefone ? mascararTelefone(c.telefone) : "",
+                                      responsavel_tenant_contato_id: c.id,
+                                    }));
+                                    setResponsavelDropdownAberto(false);
+                                  }}
+                                  style={{ padding: "9px 14px", fontSize: 13, color: "var(--text)", cursor: "pointer", borderBottom: "1px solid var(--line)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-soft)")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                                  {c.nome}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <button type="button"
+                        title="Cadastrar novo contato"
+                        onClick={() => { setResponsavelNovoForm({ nome: "", telefone: "", email: "" }); setResponsavelNovoModal(true); }}
+                        style={{ padding: "9px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong)", color: "var(--primary)", cursor: "pointer", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
+                        +
+                      </button>
+                    </div>
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Telefone do responsável">
+                    <input
+                      value={F.responsavel_telefone}
+                      onChange={(e) => set("responsavel_telefone", mascararTelefone(e.target.value))}
+                      placeholder="(00) 00000-0000"
+                      maxLength={15}
+                      readOnly={!!F.responsavel_tenant_contato_id}
+                      style={{ ...fornecedorInputStyle, ...(F.responsavel_tenant_contato_id ? { opacity: 0.75 } : {}) }}
+                    />
+                  </CampoFornecedor>
+                </div>
 
-            {/* Linha 5: observações + botões */}
-            <div className="org-form-grid fornecedor">
-              <input placeholder="Observações" value={F.observacoes} onChange={(e) => set("observacoes", e.target.value)} style={{ gridColumn: "span 3" }} />
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                {responsavelNovoModal && (
+                  <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 14, marginBottom: 14, background: "var(--card-strong)" }}>
+                    <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 10, color: "var(--text)" }}>Novo contato</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
+                      <input
+                        value={responsavelNovoForm.nome}
+                        onChange={(e) => setResponsavelNovoForm({ ...responsavelNovoForm, nome: e.target.value })}
+                        placeholder="Nome *"
+                        style={fornecedorInputStyle}
+                      />
+                      <input
+                        value={responsavelNovoForm.telefone}
+                        onChange={(e) => setResponsavelNovoForm({ ...responsavelNovoForm, telefone: mascararTelefone(e.target.value) })}
+                        placeholder="(00) 00000-0000"
+                        maxLength={15}
+                        style={fornecedorInputStyle}
+                      />
+                      <input
+                        value={responsavelNovoForm.email}
+                        onChange={(e) => setResponsavelNovoForm({ ...responsavelNovoForm, email: e.target.value })}
+                        placeholder="E-mail"
+                        style={fornecedorInputStyle}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button type="button" onClick={() => setResponsavelNovoModal(false)}
+                        style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                        Cancelar
+                      </button>
+                      <button type="button" onClick={criarResponsavelContato} disabled={!responsavelNovoForm.nome.trim() || salvando}
+                        style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#6d28d9", color: "#fff", cursor: "pointer", fontWeight: 800, fontSize: 13 }}>
+                        Salvar contato
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  <CampoFornecedor label="Telefone / WhatsApp">
+                    <input
+                      value={F.telefone}
+                      onChange={(e) => set("telefone", mascararTelefone(e.target.value))}
+                      placeholder="(00) 00000-0000"
+                      maxLength={15} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="E-mail">
+                    <input value={F.email} onChange={(e) => set("email", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Instagram (ex: @nome)">
+                    <input value={F.instagram} onChange={(e) => set("instagram", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
+              </>
+            )}
+
+            {fornecedorAbaModal === "endereco" && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
+                  <CampoFornecedor label="CEP">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        value={F.cep}
+                        onChange={(e) => set("cep", mascararCep(e.target.value))}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        style={{ ...fornecedorInputStyle, flex: 1 }}
+                      />
+                      <button type="button" onClick={buscarCepFornecedor} disabled={buscandoCepFornecedor} style={fornecedorBuscarButtonStyle}>
+                        {buscandoCepFornecedor ? "..." : "Buscar"}
+                      </button>
+                    </div>
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Logradouro">
+                    <input value={F.endereco} onChange={(e) => set("endereco", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Número">
+                    <input value={F.numero} onChange={(e) => set("numero", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  <CampoFornecedor label="Complemento">
+                    <input value={F.complemento} onChange={(e) => set("complemento", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Bairro">
+                    <input value={F.bairro} onChange={(e) => set("bairro", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Cidade">
+                    <input value={F.cidade} onChange={(e) => set("cidade", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
+              </>
+            )}
+
+            {fornecedorAbaModal === "financeiro" && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
+                  <CampoFornecedor label="Tipo da chave PIX">
+                    <select value={F.pix_tipo} onChange={(e) => set("pix_tipo", e.target.value)} style={fornecedorInputStyle}>
+                      <option value="">Selecione...</option>
+                      <option value="cpf_cnpj">CPF/CNPJ</option>
+                      <option value="email">E-mail</option>
+                      <option value="telefone">Telefone</option>
+                      <option value="aleatoria">Aleatória</option>
+                    </select>
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Chave PIX">
+                    <input value={F.pix} onChange={(e) => set("pix", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Banco">
+                    <input value={F.banco} onChange={(e) => set("banco", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  <CampoFornecedor label="Agência">
+                    <input value={F.agencia} onChange={(e) => set("agencia", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Dígito da agência">
+                    <input value={F.agencia_digito} onChange={(e) => set("agencia_digito", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                  <CampoFornecedor label="Conta">
+                    <input value={F.conta} onChange={(e) => set("conta", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  <CampoFornecedor label="Dígito da conta">
+                    <input value={F.conta_digito} onChange={(e) => set("conta_digito", e.target.value)} style={fornecedorInputStyle} />
+                  </CampoFornecedor>
+                </div>
+              </>
+            )}
+
+            {fornecedorAbaModal === "observacao" && (
+              <CampoFornecedor label="Observações">
+                <textarea
+                  value={F.observacoes}
+                  onChange={(e) => set("observacoes", e.target.value)}
+                  rows={6}
+                  style={{ ...fornecedorInputStyle, resize: "vertical", fontFamily: "inherit" }}
+                />
+              </CampoFornecedor>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button
                 onClick={editando ? salvarEdicaoFornecedor : criarFornecedor}
                 disabled={salvando || !F.nome.trim()}
@@ -6829,6 +7389,79 @@ function Empty({ text }: { text: string }) {
   return <div className="org-empty-inline">{text}</div>;
 }
 
+function CampoFornecedor({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={fornecedorCampoWrapperStyle}>
+      <span style={fornecedorCampoLabelStyle}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+const fornecedorModalTabsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  marginBottom: 18,
+  borderBottom: "1px solid var(--line)",
+  flexWrap: "wrap",
+};
+
+const fornecedorModalTabStyle: React.CSSProperties = {
+  padding: "8px 14px",
+  border: "none",
+  borderBottom: "2px solid transparent",
+  background: "none",
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const fornecedorModalTabActiveStyle: React.CSSProperties = {
+  ...fornecedorModalTabStyle,
+  color: "var(--primary)",
+  borderBottom: "2px solid var(--primary)",
+};
+
+const fornecedorInputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "10px 14px",
+  borderRadius: 12,
+  border: "1px solid var(--line)",
+  background: "var(--card)",
+  color: "var(--text)",
+  fontSize: 14,
+  fontWeight: 700,
+  outline: "none",
+};
+
+const fornecedorBuscarButtonStyle: React.CSSProperties = {
+  padding: "0 16px",
+  borderRadius: 12,
+  border: "1px solid var(--line)",
+  background: "var(--primary-soft)",
+  color: "var(--primary)",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const fornecedorCampoWrapperStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+};
+
+const fornecedorCampoLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 800,
+  color: "var(--muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
 function filtrar<T>(
   items: T[],
   termo: string,
@@ -6853,6 +7486,37 @@ function limpar(value: string | null | undefined) {
 function normalizarTelefone(value: string) {
   const digits = value.replace(/\D/g, "");
   return digits || null;
+}
+
+function mascararCep(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 8);
+  if (digitos.length <= 5) return digitos;
+  return `${digitos.slice(0, 5)}-${digitos.slice(5)}`;
+}
+
+function mascararCnpj(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 14);
+  return digitos
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function mascararCpf(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  return digitos
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+
+function mascararTelefone(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 6) return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
+  if (digitos.length <= 10) return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
+  return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
 }
 
 function toNumber(value: number | string | null | undefined) {

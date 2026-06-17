@@ -41,6 +41,9 @@ type Cadastro = {
   observacoes: string | null;
   ativo: boolean;
   criado_em: string;
+  origem_evento_id: string | null;
+  nucleo_id: string | null;
+  responsavel_tenant_contato_id: string | null;
 };
 
 type EventoVinculo = {
@@ -169,6 +172,9 @@ export default function CadastrosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [cadastros, setCadastros] = useState<Cadastro[]>([]);
   const [eventosPorCadastro, setEventosPorCadastro] = useState<Record<string, EventoVinculo[]>>({});
+  const [nomesEventoOrigem, setNomesEventoOrigem] = useState<Record<string, string>>({});
+  const [nomesNucleo, setNomesNucleo] = useState<Record<string, string>>({});
+  const [nomesResponsavelContato, setNomesResponsavelContato] = useState<Record<string, string>>({});
   const [aba, setAba] = useState<Aba>("clientes");
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
@@ -216,7 +222,41 @@ export default function CadastrosPage() {
       .eq("tenant_id", tenant)
       .order("nome", { ascending: true });
     if (error) { setErro("Erro ao carregar cadastros: " + error.message); return; }
-    setCadastros((data || []) as Cadastro[]);
+    const lista = (data || []) as Cadastro[];
+    setCadastros(lista);
+
+    const idsOrigem = Array.from(new Set(lista.map((c) => c.origem_evento_id).filter(Boolean))) as string[];
+    if (idsOrigem.length > 0) {
+      const { data: eventosOrigem } = await supabase
+        .from("eventos")
+        .select("id, nome")
+        .in("id", idsOrigem);
+      const mapa: Record<string, string> = {};
+      (eventosOrigem || []).forEach((ev: any) => { mapa[ev.id] = ev.nome; });
+      setNomesEventoOrigem(mapa);
+    }
+
+    const idsNucleo = Array.from(new Set(lista.map((c) => c.nucleo_id).filter(Boolean))) as string[];
+    if (idsNucleo.length > 0) {
+      const { data: nucleos } = await supabase
+        .from("contato_grupos")
+        .select("id, nome")
+        .in("id", idsNucleo);
+      const mapaNucleo: Record<string, string> = {};
+      (nucleos || []).forEach((n: any) => { mapaNucleo[n.id] = n.nome; });
+      setNomesNucleo(mapaNucleo);
+    }
+
+    const idsResponsavel = Array.from(new Set(lista.map((c) => c.responsavel_tenant_contato_id).filter(Boolean))) as string[];
+    if (idsResponsavel.length > 0) {
+      const { data: contatos } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome")
+        .in("id", idsResponsavel);
+      const mapaContato: Record<string, string> = {};
+      (contatos || []).forEach((c: any) => { mapaContato[c.id] = c.nome; });
+      setNomesResponsavelContato(mapaContato);
+    }
   }
 
   async function carregarEventosVinculados(cadastro: Cadastro) {
@@ -546,6 +586,19 @@ export default function CadastrosPage() {
                         {c.telefone && <span>{c.telefone}</span>}
                         {c.email && <span>{c.email}</span>}
                       </div>
+                      {c.origem_evento_id && (
+                        <div style={origemStyle}>
+                          📍 Cadastrado a partir do evento: {nomesEventoOrigem[c.origem_evento_id] || "..."}
+                        </div>
+                      )}
+                      {c.nucleo_id && (
+                        <div style={origemStyle}>
+                          🏢 Núcleo: {nomesNucleo[c.nucleo_id] || "..."}
+                          {c.responsavel_tenant_contato_id && (
+                            <> · Responsável: {nomesResponsavelContato[c.responsavel_tenant_contato_id] || "..."}</>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={rowActionsStyle}>
@@ -1138,6 +1191,13 @@ const metaLineStyle: CSSProperties = {
   marginTop: 4,
   color: "var(--muted)",
   fontSize: 13,
+};
+
+const origemStyle: CSSProperties = {
+  marginTop: 4,
+  fontSize: 12,
+  color: "var(--primary)",
+  fontWeight: 700,
 };
 
 const badgeStyle: CSSProperties = {
