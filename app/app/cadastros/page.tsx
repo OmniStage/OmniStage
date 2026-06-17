@@ -6,6 +6,14 @@ import { supabase } from "@/lib/supabase";
 
 type Aba = "clientes" | "fornecedores" | "equipe";
 
+type TenantContato = {
+  id: string;
+  tenant_id: string | null;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+};
+
 type Cadastro = {
   id: string;
   tenant_id: string;
@@ -82,6 +90,9 @@ type Form = {
   conta_digito: string;
   codigo_funcionario: string;
   observacoes: string;
+  responsavel_nome: string;
+  responsavel_telefone: string;
+  responsavel_tenant_contato_id: string | null;
 };
 
 const formVazio: Form = {
@@ -114,6 +125,9 @@ const formVazio: Form = {
   conta_digito: "",
   codigo_funcionario: "",
   observacoes: "",
+  responsavel_nome: "",
+  responsavel_telefone: "",
+  responsavel_tenant_contato_id: null,
 };
 
 const abasModal = ["principais", "endereco", "financeiro", "observacao"] as const;
@@ -175,6 +189,10 @@ export default function CadastrosPage() {
   const [nomesEventoOrigem, setNomesEventoOrigem] = useState<Record<string, string>>({});
   const [nomesNucleo, setNomesNucleo] = useState<Record<string, string>>({});
   const [nomesResponsavelContato, setNomesResponsavelContato] = useState<Record<string, string>>({});
+  const [tenantContatos, setTenantContatos] = useState<TenantContato[]>([]);
+  const [responsavelDropdownAberto, setResponsavelDropdownAberto] = useState(false);
+  const [responsavelNovoModal, setResponsavelNovoModal] = useState(false);
+  const [responsavelNovoForm, setResponsavelNovoForm] = useState({ nome: "", telefone: "", email: "" });
   const [aba, setAba] = useState<Aba>("clientes");
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
@@ -196,8 +214,32 @@ export default function CadastrosPage() {
   async function inicializar() {
     setLoading(true);
     const tenant = await carregarTenant();
-    if (tenant) await carregarCadastros(tenant);
+    if (tenant) {
+      await carregarCadastros(tenant);
+      const { data } = await supabase.from("tenant_contatos").select("id, tenant_id, nome, telefone, email").eq("tenant_id", tenant).order("nome");
+      setTenantContatos((data || []) as TenantContato[]);
+    }
     setLoading(false);
+  }
+
+  async function criarResponsavelContato() {
+    if (!tenantId || !responsavelNovoForm.nome.trim()) return;
+    const { data, error } = await supabase
+      .from("tenant_contatos")
+      .insert({ tenant_id: tenantId, nome: responsavelNovoForm.nome.trim(), telefone: responsavelNovoForm.telefone || null, email: responsavelNovoForm.email || null })
+      .select()
+      .single();
+    if (error || !data) return;
+    const contato = data as TenantContato;
+    setTenantContatos((prev) => [...prev, contato]);
+    setForm((prev) => ({
+      ...prev,
+      responsavel_nome: contato.nome,
+      responsavel_telefone: contato.telefone ? mascararTelefone(contato.telefone) : "",
+      responsavel_tenant_contato_id: contato.id,
+    }));
+    setResponsavelNovoModal(false);
+    setResponsavelNovoForm({ nome: "", telefone: "", email: "" });
   }
 
   async function carregarTenant() {
@@ -403,6 +445,9 @@ export default function CadastrosPage() {
       conta_digito: c.conta_digito || "",
       codigo_funcionario: c.codigo_funcionario || "",
       observacoes: c.observacoes || "",
+      responsavel_nome: c.responsavel_tenant_contato_id ? (nomesResponsavelContato[c.responsavel_tenant_contato_id] || "") : "",
+      responsavel_telefone: "",
+      responsavel_tenant_contato_id: c.responsavel_tenant_contato_id || null,
     });
     setEditandoId(c.id);
     setAbaModal("principais");
@@ -447,6 +492,7 @@ export default function CadastrosPage() {
       conta_digito: form.conta_digito || null,
       codigo_funcionario: form.codigo_funcionario || null,
       observacoes: form.observacoes || null,
+      responsavel_tenant_contato_id: form.responsavel_tenant_contato_id || null,
     };
 
     if (editandoId) {
@@ -735,6 +781,78 @@ export default function CadastrosPage() {
                     />
                   </Campo>
                 </div>
+
+                <div style={fieldRowStyle}>
+                  <Campo label="Responsável / Contato">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <input
+                          value={form.responsavel_nome}
+                          onChange={(e) => {
+                            setForm({ ...form, responsavel_nome: e.target.value, responsavel_tenant_contato_id: null });
+                            setResponsavelDropdownAberto(true);
+                          }}
+                          onFocus={() => setResponsavelDropdownAberto(true)}
+                          onBlur={() => setTimeout(() => setResponsavelDropdownAberto(false), 150)}
+                          placeholder="Buscar contato..."
+                          style={{ ...inputModalStyle, marginBottom: 0 }}
+                        />
+                        {responsavelDropdownAberto && form.responsavel_nome.trim().length >= 1 && (() => {
+                          const termo = form.responsavel_nome.trim().toLowerCase();
+                          const filtrados = tenantContatos.filter((c) => c.nome.toLowerCase().includes(termo));
+                          if (filtrados.length === 0) return null;
+                          return (
+                            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,.2)", maxHeight: 200, overflowY: "auto", marginTop: 4 }}>
+                              {filtrados.map((c) => (
+                                <div key={c.id}
+                                  onMouseDown={() => {
+                                    setForm((prev) => ({ ...prev, responsavel_nome: c.nome, responsavel_telefone: c.telefone ? mascararTelefone(c.telefone) : "", responsavel_tenant_contato_id: c.id }));
+                                    setResponsavelDropdownAberto(false);
+                                  }}
+                                  style={{ padding: "9px 14px", fontSize: 13, color: "var(--text)", cursor: "pointer", borderBottom: "1px solid var(--line)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-soft)")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                                  {c.nome}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <button type="button"
+                        title="Cadastrar novo contato"
+                        onClick={() => { setResponsavelNovoForm({ nome: "", telefone: "", email: "" }); setResponsavelNovoModal(true); }}
+                        style={{ padding: "9px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--card-strong, var(--card))", color: "var(--primary)", cursor: "pointer", fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
+                        +
+                      </button>
+                    </div>
+                  </Campo>
+                  <Campo label="Telefone do responsável">
+                    <input
+                      value={form.responsavel_telefone}
+                      onChange={(e) => setForm({ ...form, responsavel_telefone: mascararTelefone(e.target.value) })}
+                      placeholder="(00) 00000-0000"
+                      maxLength={15}
+                      readOnly={!!form.responsavel_tenant_contato_id}
+                      style={{ ...inputModalStyle, ...(form.responsavel_tenant_contato_id ? { opacity: 0.75 } : {}) }}
+                    />
+                  </Campo>
+                </div>
+
+                {responsavelNovoModal && (
+                  <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 14, marginBottom: 14, background: "var(--card-strong, var(--card))" }}>
+                    <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 10, color: "var(--text)" }}>Novo contato</div>
+                    <div style={fieldRowStyle}>
+                      <input value={responsavelNovoForm.nome} onChange={(e) => setResponsavelNovoForm({ ...responsavelNovoForm, nome: e.target.value })} placeholder="Nome *" style={inputModalStyle} />
+                      <input value={responsavelNovoForm.telefone} onChange={(e) => setResponsavelNovoForm({ ...responsavelNovoForm, telefone: mascararTelefone(e.target.value) })} placeholder="(00) 00000-0000" maxLength={15} style={inputModalStyle} />
+                    </div>
+                    <input value={responsavelNovoForm.email} onChange={(e) => setResponsavelNovoForm({ ...responsavelNovoForm, email: e.target.value })} placeholder="E-mail" style={inputModalStyle} />
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button type="button" onClick={() => setResponsavelNovoModal(false)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Cancelar</button>
+                      <button type="button" onClick={criarResponsavelContato} disabled={!responsavelNovoForm.nome.trim()} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "var(--primary)", color: "#fff", cursor: "pointer", fontWeight: 800, fontSize: 13 }}>Salvar contato</button>
+                    </div>
+                  </div>
+                )}
 
                 <div style={fieldRowStyle}>
                   <Campo label="Código externo">

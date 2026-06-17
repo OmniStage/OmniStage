@@ -4992,9 +4992,10 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
           </div>
         )}
 
-        {/* Formulário colapsável */}
+        {/* Formulário modal */}
         {fornecedorFormAberto && (
-          <div style={{ border: "1px solid var(--line)", borderRadius: 18, padding: 20, marginBottom: 24, background: "rgba(109,40,217,0.03)" }}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 2000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto" }}>
+          <div style={{ background: "var(--card)", borderRadius: 20, padding: "26px 24px", width: "100%", maxWidth: 620, boxShadow: "0 24px 60px rgba(0,0,0,.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <span className="org-eyebrow">{editando ? "Editar fornecedor" : "Novo fornecedor"}</span>
               <button onClick={fecharForm} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }}>✕</button>
@@ -5273,6 +5274,7 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                 Cancelar
               </button>
             </div>
+          </div>
           </div>
         )}
 
