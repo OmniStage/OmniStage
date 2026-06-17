@@ -52,8 +52,6 @@ type Cadastro = {
   origem_evento_id: string | null;
   nucleo_id: string | null;
   responsavel_tenant_contato_id: string | null;
-  responsavel_nome: string | null;
-  responsavel_telefone: string | null;
 };
 
 type EventoVinculo = {
@@ -447,8 +445,8 @@ export default function CadastrosPage() {
       conta_digito: c.conta_digito || "",
       codigo_funcionario: c.codigo_funcionario || "",
       observacoes: c.observacoes || "",
-      responsavel_nome: c.responsavel_nome || (c.responsavel_tenant_contato_id ? (nomesResponsavelContato[c.responsavel_tenant_contato_id] || "") : ""),
-      responsavel_telefone: c.responsavel_telefone ? mascararTelefone(c.responsavel_telefone) : (() => { const ct = tenantContatos.find((t) => t.id === c.responsavel_tenant_contato_id); return ct?.telefone ? mascararTelefone(ct.telefone) : ""; })(),
+      responsavel_nome: c.responsavel_tenant_contato_id ? (nomesResponsavelContato[c.responsavel_tenant_contato_id] || "") : "",
+      responsavel_telefone: (() => { const ct = tenantContatos.find((t) => t.id === c.responsavel_tenant_contato_id); return ct?.telefone ? mascararTelefone(ct.telefone) : ""; })(),
       responsavel_tenant_contato_id: c.responsavel_tenant_contato_id || null,
     });
     setEditandoId(c.id);
@@ -495,8 +493,6 @@ export default function CadastrosPage() {
       codigo_funcionario: form.codigo_funcionario || null,
       observacoes: form.observacoes || null,
       responsavel_tenant_contato_id: form.responsavel_tenant_contato_id || null,
-      responsavel_nome: form.responsavel_nome.trim() || null,
-      responsavel_telefone: form.responsavel_telefone || null,
     };
 
     if (editandoId) {
@@ -641,10 +637,12 @@ export default function CadastrosPage() {
                           📍 Cadastrado a partir do evento: {nomesEventoOrigem[c.origem_evento_id] || "..."}
                         </div>
                       )}
-                      {(c.responsavel_nome || c.responsavel_tenant_contato_id) && (
+                      {c.responsavel_tenant_contato_id && (
                         <div style={origemStyle}>
-                          👤 Responsável: {c.responsavel_nome || nomesResponsavelContato[c.responsavel_tenant_contato_id!] || "..."}
-                          {c.responsavel_telefone && <> · {c.responsavel_telefone}</>}
+                          👤 Responsável: {nomesResponsavelContato[c.responsavel_tenant_contato_id] || "..."}
+                          {tenantContatos.find((t) => t.id === c.responsavel_tenant_contato_id)?.telefone && (
+                            <> · {mascararTelefone(tenantContatos.find((t) => t.id === c.responsavel_tenant_contato_id)!.telefone!)}</>
+                          )}
                         </div>
                       )}
                       {c.nucleo_id && (
