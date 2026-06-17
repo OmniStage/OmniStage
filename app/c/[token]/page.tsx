@@ -758,61 +758,6 @@ function renderBotaoVisual(
   return <span>{finalLabel}</span>;
 }
 
-function calcularCountdown(evento: Evento) {
-  const dataISO = evento.data_evento ? String(evento.data_evento).slice(0, 10) : null;
-  if (!dataISO) return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
-  const horaRaw = getHoraEvento(evento) || "00:00";
-  const horaMatch = String(horaRaw).match(/^(\d{1,2})(?::|h)?(\d{2})?/i);
-  const hh = horaMatch ? horaMatch[1].padStart(2, "0") : "00";
-  const mm = horaMatch ? (horaMatch[2] || "00").padStart(2, "0") : "00";
-  const target = new Date(`${dataISO}T${hh}:${mm}:00-03:00`);
-  if (isNaN(target.getTime())) return { dias: 0, horas: 0, minutos: 0, segundos: 0 };
-  const diff = Math.max(0, target.getTime() - Date.now());
-  const s = Math.floor(diff / 1000);
-  return {
-    dias: Math.floor(s / 86400),
-    horas: Math.floor((s % 86400) / 3600),
-    minutos: Math.floor((s % 3600) / 60),
-    segundos: s % 60,
-  };
-}
-
-function renderCountdown(block: VisualBlock, evento: Evento) {
-  const cd = calcularCountdown(evento);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const numberStyle: CSSProperties = {
-    display: "block",
-    fontSize: block.font_size || 28,
-    fontWeight: 800,
-    color: block.color || "#f7d477",
-    lineHeight: 1,
-    fontFamily: block.font_family || "Inter",
-  };
-  const labelStyle: CSSProperties = {
-    display: "block",
-    fontSize: (block.font_size || 28) * 0.35,
-    fontWeight: 600,
-    color: block.color || "#f7d477",
-    opacity: 0.8,
-    letterSpacing: 1,
-    marginTop: 2,
-  };
-  const itemStyle: CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-  };
-  return (
-    <div style={{ width: "100%", height: "100%", display: "grid", gridTemplateColumns: "repeat(4,1fr)", alignItems: "center", gap: 4 }}>
-      <div style={itemStyle}><strong style={numberStyle}>{pad(cd.dias)}</strong><span style={labelStyle}>DIAS</span></div>
-      <div style={itemStyle}><strong style={numberStyle}>{pad(cd.horas)}</strong><span style={labelStyle}>HORAS</span></div>
-      <div style={itemStyle}><strong style={numberStyle}>{pad(cd.minutos)}</strong><span style={labelStyle}>MIN</span></div>
-      <div style={itemStyle}><strong style={numberStyle}>{pad(cd.segundos)}</strong><span style={labelStyle}>SEG</span></div>
-    </div>
-  );
-}
-
 function getChildrenForVisualBlock(
   evento: Evento,
   nomes: string[],
@@ -823,10 +768,6 @@ function getChildrenForVisualBlock(
   onAcaoBotao?: () => void,
 ) {
   return (block: any): ReactNode | null => {
-    if (block.type === "countdown") {
-      return renderCountdown(block, evento);
-    }
-
     if (block.type === "guest_picker") {
       return renderGuestPicker(block, convidados, selectedIds, onToggleConvidado);
     }
@@ -879,7 +820,6 @@ export default function ConvitePublicoPage() {
 
   const [renderState, setRenderState] = useState<RenderState | null>(null);
   const [loading, setLoading] = useState(true);
-  const [countdownTick, setCountdownTick] = useState(0);
   const [somAtivo, setSomAtivo] = useState(true);
   const [somLiberado, setSomLiberado] = useState(false);
   const [, setMusicaConviteTocando] = useState(false);
@@ -934,11 +874,6 @@ export default function ConvitePublicoPage() {
   useEffect(() => {
     setMusicaConviteTocando(false);
   }, [token]);
-
-  useEffect(() => {
-    const t = setInterval(() => setCountdownTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     if (renderState?.kind !== "visual") return;
@@ -1411,7 +1346,7 @@ export default function ConvitePublicoPage() {
         onConfirmPresence={confirmarPresenca}
       />
     );
-  }, [renderState, visualConfig, visualScale, confirmandoPresenca, somAtivo, somLiberado, convidadosSelecionados, countdownTick]);
+  }, [renderState, visualConfig, visualScale, confirmandoPresenca, somAtivo, somLiberado, convidadosSelecionados]);
 
   if (loading) {
     return (
