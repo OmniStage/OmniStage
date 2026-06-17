@@ -5016,13 +5016,22 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
 
             {fornecedorAbaModal === "principais" && (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                   <CampoFornecedor label="Tipo de pessoa">
                     <select value={F.tipo_pessoa} onChange={(e) => set("tipo_pessoa", e.target.value)} style={fornecedorInputStyle}>
                       <option value="fisica">Pessoa Física</option>
                       <option value="juridica">Pessoa Jurídica</option>
                     </select>
                   </CampoFornecedor>
+                  <CampoFornecedor label="Categoria">
+                    <select value={F.categoria} onChange={(e) => set("categoria", e.target.value)} style={fornecedorInputStyle}>
+                      {CATEGORIAS_FORNECEDOR.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </CampoFornecedor>
+                </div>
+                <div style={{ marginBottom: 10 }}>
                   <CampoFornecedor label={F.tipo_pessoa === "juridica" ? "CNPJ" : "CPF"}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <input
@@ -5038,13 +5047,6 @@ ${fornecedores || "Nenhum fornecedor cadastrado."}`,
                         </button>
                       )}
                     </div>
-                  </CampoFornecedor>
-                  <CampoFornecedor label="Categoria">
-                    <select value={F.categoria} onChange={(e) => set("categoria", e.target.value)} style={fornecedorInputStyle}>
-                      {CATEGORIAS_FORNECEDOR.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
                   </CampoFornecedor>
                 </div>
 
