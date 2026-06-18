@@ -8,6 +8,7 @@ type FiltroStatusEnvio =
   | "a_enviar"
   | "na_fila"
   | "enviados"
+  | "com_erro"
   | "card_convidado"
   | "sem_telefone"
   | "todos";
@@ -73,6 +74,8 @@ type ItemFila = {
   convidado_id: string | null;
   tipo_envio: string;
   status: string;
+  erro?: string | null;
+  agendado_para?: string | null;
 };
 
 type CampanhaEnvioRegistro = {
@@ -135,6 +138,19 @@ export default function EnviosPage() {
   const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
   const [processandoMassa, setProcessandoMassa] = useState(false);
   const [disparandoFila, setDisparandoFila] = useState(false);
+
+  type ModalAgendamento = {
+    aberto: boolean;
+    lista: Convidado[];
+    dataHora: string;
+    agendar: boolean;
+  };
+  const [modalAgendamento, setModalAgendamento] = useState<ModalAgendamento>({
+    aberto: false,
+    lista: [],
+    dataHora: "",
+    agendar: false,
+  });
 
   type ProgressoEnvio = {
     total: number;
@@ -435,7 +451,7 @@ export default function EnviosPage() {
   async function carregarFila(eventoId: string) {
     const { data, error } = await supabase
       .from("envio_fila")
-      .select("id, convidado_id, tipo_envio, status")
+      .select("id, convidado_id, tipo_envio, status, erro, agendado_para")
       .eq("evento_id", eventoId);
 
     if (error) {
@@ -663,6 +679,7 @@ export default function EnviosPage() {
       }
       if (filtroStatus === "na_fila") return estaNaFila && !enviado;
       if (filtroStatus === "enviados") return enviado;
+      if (filtroStatus === "com_erro") return filaEnvios.some((f) => f.convidado_id === convidado.id && f.tipo_envio === tipoEnvio && f.status === "erro");
       if (filtroStatus === "card_convidado") return enviadoCardConvidado;
       if (filtroStatus === "sem_telefone") return !telefoneLimpo;
 
@@ -712,8 +729,9 @@ export default function EnviosPage() {
     const aEnviar = publicoCampanha.filter((c) =>
       deveAparecerEmAEnviar(c, campanha, filaEnvios, tipoEnvio, convidados)
     ).length;
+    const comErro = filaEnvios.filter((f) => f.tipo_envio === tipoEnvio && f.status === "erro").length;
 
-    return { total, enviados, enviadosCardConvidado, aEnviar, semTelefone, naFila };
+    return { total, enviados, enviadosCardConvidado, aEnviar, semTelefone, naFila, comErro };
   }, [publicoCampanha, campanha, filaEnvios, tipoEnvio, convidados]);
 
   async function salvarTemplate() {
@@ -801,7 +819,7 @@ export default function EnviosPage() {
     setSelecionados(novoMapa);
   }
 
-  async function adicionarListaNaFila(lista: Convidado[]) {
+  function adicionarListaNaFila(lista: Convidado[]) {
     if (!eventoAtual?.id) {
       toast("Selecione um evento antes de adicionar à fila.", "warning");
       return;
@@ -821,15 +839,24 @@ export default function EnviosPage() {
       return;
     }
 
-    const confirmar = window.confirm(
-      `Adicionar ${elegiveis.length} convidado(s) à fila de envio desta campanha?`
-    );
+    const dataHoje = new Date().toISOString().slice(0, 10);
 
-    if (!confirmar) return;
+    setModalAgendamento({ aberto: true, lista: elegiveis, dataHora: dataHoje, agendar: false });
+  }
 
+  async function confirmarAdicionarFila() {
+    if (!eventoAtual?.id || !eventoAtual.tenant_id) return;
+
+    const { lista, agendar, dataHora } = modalAgendamento;
+    // Converte data escolhida para 09:00 horário de Brasília (UTC-3)
+    const agendadoPara = agendar && dataHora
+      ? new Date(`${dataHora}T09:00:00-03:00`).toISOString()
+      : null;
+
+    setModalAgendamento((m) => ({ ...m, aberto: false }));
     setProcessandoMassa(true);
 
-    const linhas = elegiveis.map((convidado) => ({
+    const linhas = lista.map((convidado) => ({
       tenant_id: eventoAtual.tenant_id,
       evento_id: eventoAtual.id,
       convidado_id: convidado.id,
@@ -837,7 +864,8 @@ export default function EnviosPage() {
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
-      status: "pendente",
+      status: agendadoPara ? "agendado" : "pendente",
+      agendado_para: agendadoPara,
     }));
 
     const { error } = await supabase.from("envio_fila").insert(linhas);
@@ -848,7 +876,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const historico = elegiveis.map((convidado) => ({
+    const historico = lista.map((convidado) => ({
       evento_id: eventoAtual.id,
       convidado_id: convidado.id,
       tipo_envio: tipoEnvio,
@@ -856,16 +884,22 @@ export default function EnviosPage() {
       telefone: getTelefoneEnvio(convidado, convidados),
       mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
       status: "pendente",
-      detalhe: "Adicionado à fila por ação em massa.",
+      detalhe: agendadoPara
+        ? `Agendado para ${new Date(agendadoPara).toLocaleString("pt-BR")}.`
+        : "Adicionado à fila por ação em massa.",
     }));
 
     await supabase.from("envio_historico").insert(historico);
-
     await carregarFila(eventoAtual.id);
 
     setSelecionados({});
     setProcessandoMassa(false);
-    toast(`${elegiveis.length} envio(s) adicionados à fila.`, "success");
+    toast(
+      agendadoPara
+        ? `${lista.length} envio(s) agendados para ${new Date(agendadoPara).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`
+        : `${lista.length} envio(s) adicionados à fila.`,
+      "success"
+    );
   }
 
   async function dispararFila() {
@@ -1082,6 +1116,26 @@ export default function EnviosPage() {
     );
   }
 
+  async function tentarNovamente(convidado: Convidado) {
+    if (!eventoAtual?.id) return;
+
+    const { error } = await supabase
+      .from("envio_fila")
+      .update({ status: "pendente", erro: null, processado_em: null })
+      .eq("evento_id", eventoAtual.id)
+      .eq("convidado_id", convidado.id)
+      .eq("tipo_envio", tipoEnvio)
+      .eq("status", "erro");
+
+    if (error) {
+      toast("Erro ao recolocar na fila: " + error.message, "error");
+      return;
+    }
+
+    await carregarFila(eventoAtual.id);
+    toast(`${convidado.nome || "Convidado"} recolocado na fila`, "success");
+  }
+
   async function cancelarEnvioConfirmado(convidado: Convidado) {
     if (!eventoAtual?.id) return;
 
@@ -1186,25 +1240,8 @@ export default function EnviosPage() {
       return;
     }
 
-    const { error } = await supabase.from("envio_fila").insert({
-      tenant_id: eventoAtual.tenant_id,
-      evento_id: eventoAtual.id,
-      convidado_id: convidado.id,
-      tipo_envio: tipoEnvio,
-      canal: "whatsapp",
-      telefone,
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
-      status: "pendente",
-    });
-
-    if (error) {
-      toast("Erro ao adicionar à fila: " + error.message, "error");
-      return;
-    }
-
-    await registrarHistoricoEnvio(convidado, "pendente", "Adicionado à fila de envio.");
-    await carregarFila(eventoAtual.id);
-    toast("Convidado adicionado à fila de envio.", "success");
+    const dataHoje = new Date().toISOString().slice(0, 10);
+    setModalAgendamento({ aberto: true, lista: [convidado], dataHora: dataHoje, agendar: false });
   }
 
 
@@ -1600,6 +1637,76 @@ export default function EnviosPage() {
 
   return (
     <div style={pageStyle}>
+      {modalAgendamento.aberto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", width: 400, maxWidth: "92vw", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 600, color: "#111" }}>Agendar envio</h3>
+            <p style={{ margin: "0 0 20px", fontSize: 14, color: "#666" }}>
+              {modalAgendamento.lista.length === 1
+                ? `1 convidado será adicionado à fila.`
+                : `${modalAgendamento.lista.length} convidados serão adicionados à fila.`}
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#111" }}>
+                <input
+                  type="radio"
+                  name="agendamento"
+                  checked={!modalAgendamento.agendar}
+                  onChange={() => setModalAgendamento((m) => ({ ...m, agendar: false }))}
+                  style={{ accentColor: "#6d28d9" }}
+                />
+                Enviar imediatamente
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#111" }}>
+                <input
+                  type="radio"
+                  name="agendamento"
+                  checked={modalAgendamento.agendar}
+                  onChange={() => setModalAgendamento((m) => ({ ...m, agendar: true }))}
+                  style={{ accentColor: "#6d28d9" }}
+                />
+                Agendar para um dia específico
+              </label>
+
+              {modalAgendamento.agendar && (
+                <div style={{ marginLeft: 24, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <input
+                    type="date"
+                    value={modalAgendamento.dataHora}
+                    onChange={(e) => setModalAgendamento((m) => ({ ...m, dataHora: e.target.value }))}
+                    style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, color: "#111", outline: "none" }}
+                  />
+                  <small style={{ color: "#6d28d9", fontSize: 12 }}>
+                    Os envios serão distribuídos automaticamente a partir das 9h com 15s de intervalo entre cada mensagem.
+                  </small>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setModalAgendamento((m) => ({ ...m, aberto: false }))}
+                style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 14, cursor: "pointer", color: "#444" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarAdicionarFila}
+                disabled={modalAgendamento.agendar && !modalAgendamento.dataHora}
+                style={{
+                  padding: "9px 20px", borderRadius: 8, border: "none",
+                  background: modalAgendamento.agendar && !modalAgendamento.dataHora ? "#c4b5fd" : "#6d28d9",
+                  color: "#fff", fontSize: 14, cursor: "pointer", fontWeight: 500
+                }}
+              >
+                {modalAgendamento.agendar ? "Agendar" : "Adicionar à fila"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {progresso && (
         <div style={progressoOverlayStyle}>
           <div style={progressoModalStyle}>
@@ -2024,17 +2131,27 @@ export default function EnviosPage() {
             { key: "a_enviar", label: "A enviar" },
             { key: "na_fila", label: "Na fila" },
             { key: "enviados", label: "Enviados" },
+            { key: "com_erro", label: `Com erro${stats.comErro > 0 ? ` (${stats.comErro})` : ""}` },
             { key: "card_convidado", label: "Card Convidado" },
             { key: "sem_telefone", label: "Sem telefone" },
             { key: "todos", label: "Todos" },
           ].map((tab) => {
             const active = filtroStatus === tab.key;
+            const isErro = tab.key === "com_erro";
 
             return (
               <button
                 key={tab.key}
                 onClick={() => setFiltroStatus(tab.key as FiltroStatusEnvio)}
-                style={active ? tabActiveStyle : tabStyle}
+                style={
+                  active
+                    ? isErro
+                      ? { ...tabActiveStyle, background: "#dc2626", border: "1px solid #dc2626" }
+                      : tabActiveStyle
+                    : isErro && stats.comErro > 0
+                    ? { ...tabStyle, border: "1px solid rgba(220,38,38,0.4)", color: "#dc2626", background: "var(--red-soft)" }
+                    : tabStyle
+                }
               >
                 {tab.label}
               </button>
@@ -2104,7 +2221,7 @@ export default function EnviosPage() {
                 cursor: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? "not-allowed" : "pointer",
               }}
             >
-              {disparandoFila ? "Enviando..." : `📲 Disparar via WhatsApp (${filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length} na fila)`}
+              {disparandoFila ? "Enviando..." : `Envio automático (${filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length} na fila)`}
             </button>
           </div>
         </div>
@@ -2120,7 +2237,15 @@ export default function EnviosPage() {
             const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
             const enviadoCardConvidado = statusAtual === "enviado_manual" || confirmadoSemEnvioConvite;
             const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
+            const itemNaFila = filaEnvios.find(
+              (f) => f.convidado_id === convidado.id && f.tipo_envio === tipoEnvio && (f.status === "pendente" || f.status === "agendado")
+            );
+            const estaAgendado = itemNaFila?.status === "agendado";
+            const dataAgendamento = itemNaFila?.agendado_para;
             const dataEnvio = getDataEnvio(convidado, campanha);
+            const itemComErro = filaEnvios.find(
+              (f) => f.convidado_id === convidado.id && f.tipo_envio === tipoEnvio && f.status === "erro"
+            );
 
             return (
               <article key={convidado.id} className="envio-card" style={cardStyle}>
@@ -2154,31 +2279,51 @@ export default function EnviosPage() {
                       Enviado em {formatarData(dataEnvio)}
                     </small>
                   )}
+
+                  {estaAgendado && dataAgendamento && (
+                    <small style={{ color: "#7c3aed", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
+                      Agendado para {new Date(dataAgendamento).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </small>
+                  )}
+
+                  {itemComErro && (
+                    <small style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
+                      ✕ Falha: {itemComErro.erro || "Erro desconhecido"}
+                    </small>
+                  )}
                 </div>
 
                 <div style={actionsStyle}>
                   <span
                     style={
-                      envioImportado
-                        ? sentImportedBadgeStyle
-                        : enviadoCardConvidado
-                          ? sentCardConvidadoBadgeStyle
-                          : enviado
-                            ? sentBadgeStyle
-                          : estaNaFila
-                            ? filaBadgeStyle
-                            : pendingBadgeStyle
+                      itemComErro
+                        ? { ...pendingBadgeStyle, background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5" }
+                        : envioImportado
+                          ? sentImportedBadgeStyle
+                          : enviadoCardConvidado
+                            ? sentCardConvidadoBadgeStyle
+                            : enviado
+                              ? sentBadgeStyle
+                            : estaAgendado
+                              ? { ...filaBadgeStyle, background: "#ede9fe", color: "#6d28d9", border: "1px solid #c4b5fd" }
+                              : estaNaFila
+                                ? filaBadgeStyle
+                                : pendingBadgeStyle
                     }
                   >
-                    {envioImportado
-                      ? "Envio importado"
-                      : enviadoCardConvidado
-                        ? "Enviado Card Convidado"
-                        : enviado
-                          ? "Enviado"
-                        : estaNaFila
-                          ? "Na fila"
-                          : "A enviar"}
+                    {itemComErro
+                      ? "Com erro"
+                      : envioImportado
+                        ? "Envio importado"
+                        : enviadoCardConvidado
+                          ? "Enviado Card Convidado"
+                          : enviado
+                            ? "Enviado"
+                          : estaAgendado
+                            ? "Agendado"
+                          : estaNaFila
+                            ? "Na fila"
+                            : "A enviar"}
                   </span>
 
                   <button
@@ -2247,6 +2392,16 @@ export default function EnviosPage() {
                       style={secondaryButtonStyle}
                     >
                       Marcar enviado
+                    </button>
+                  )}
+
+                  {itemComErro && (
+                    <button
+                      className="envio-action"
+                      onClick={() => tentarNovamente(convidado)}
+                      style={{ ...filaButtonStyle, background: "#dc2626", borderColor: "#dc2626" }}
+                    >
+                      Tentar novamente
                     </button>
                   )}
                 </div>
@@ -2507,7 +2662,7 @@ function convidadoEstaNaFila(
     (item) =>
       item.convidado_id === convidadoId &&
       item.tipo_envio === tipo &&
-      item.status === "pendente"
+      (item.status === "pendente" || item.status === "agendado")
   );
 }
 

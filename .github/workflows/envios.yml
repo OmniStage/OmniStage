@@ -1,0 +1,41 @@
+name: Disparar envios agendados
+
+on:
+  schedule:
+    - cron: "*/15 9-22 * * *"  # a cada 15min das 9h às 22h (UTC-3 = 12h-01h UTC)
+  workflow_dispatch:            # permite rodar manualmente pelo GitHub
+
+jobs:
+  processar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Processar fila de envios
+        run: |
+          APP_URL="${{ secrets.APP_URL }}"
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
+
+          for i in $(seq 1 25); do
+            echo "=== Envio $i ==="
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              "$APP_URL/api/envios/processar-um-proximo")
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | head -1)
+
+            echo "Status: $HTTP_CODE | Resposta: $BODY"
+
+            # Para se não houver mais itens
+            if echo "$BODY" | grep -q "Nada para processar"; then
+              echo "Fila vazia, encerrando."
+              break
+            fi
+
+            # Aguarda 15 segundos antes do próximo envio
+            if [ $i -lt 25 ]; then
+              sleep 15
+            fi
+          done
