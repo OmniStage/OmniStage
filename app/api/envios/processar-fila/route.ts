@@ -44,7 +44,23 @@ export async function GET() {
           })
           .eq("id", item.id);
 
-        // 5. Histórico
+        // 5. Atualizar status no convidado
+        const colunaStatus =
+          item.tipo_envio === "convite" ? "status_envio_convite" :
+          item.tipo_envio === "lembrete_rsvp" ? "status_envio_lembrete_rsvp" :
+          item.tipo_envio === "cartao" ? "status_envio_cartao" : null;
+
+        if (colunaStatus && item.convidado_id) {
+          await supabase
+            .from("convidados")
+            .update({
+              [colunaStatus]: "enviado",
+              [`data_${colunaStatus.replace("status_", "")}`]: new Date().toISOString(),
+            })
+            .eq("id", item.convidado_id);
+        }
+
+        // 6. Histórico
         await supabase.from("envio_historico").insert({
           evento_id: item.evento_id,
           convidado_id: item.convidado_id,
