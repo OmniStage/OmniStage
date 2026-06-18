@@ -59,6 +59,12 @@ type PrincipalNucleoEnvio = {
   telefone: string | null;
 };
 
+type Toast = {
+  id: string;
+  message: string;
+  type: "success" | "error" | "warning" | "info";
+};
+
 type ItemFila = {
   id?: string;
   convidado_id: string | null;
@@ -144,6 +150,15 @@ export default function EnviosPage() {
     "copiada" | "url_copiada" | "erro" | "sem_midia" | null
   >(null);
   const [uploadingMidia, setUploadingMidia] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  function toast(message: string, type: Toast["type"] = "info") {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((current) => [...current, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((current) => current.filter((t) => t.id !== id));
+    }, 4500);
+  }
 
   const campanha = campanhas[tipoEnvio];
   const mensagemAtual = templates[tipoEnvio] || campanha.templatePadrao;
@@ -176,7 +191,7 @@ export default function EnviosPage() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      alert("Usuário não autenticado. Faça login novamente para carregar os eventos.");
+      toast("Usuário não autenticado. Faça login novamente para carregar os eventos.", "error");
       setEventos([]);
       setEventoAtual(null);
       return null;
@@ -192,7 +207,7 @@ export default function EnviosPage() {
       .maybeSingle();
 
     if (membroError || !membro?.tenant_id) {
-      alert("Não foi possível identificar o cliente vinculado a este usuário.");
+      toast("Não foi possível identificar o cliente vinculado a este usuário.", "error");
       setEventos([]);
       setEventoAtual(null);
       return null;
@@ -205,7 +220,7 @@ export default function EnviosPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      alert("Erro ao carregar eventos: " + error.message);
+      toast("Erro ao carregar eventos: " + error.message, "error");
       return null;
     }
 
@@ -284,7 +299,7 @@ export default function EnviosPage() {
       .order("nome", { ascending: true });
 
     if (error) {
-      alert("Erro ao carregar convidados: " + error.message);
+      toast("Erro ao carregar convidados: " + error.message, "error");
       return;
     }
 
@@ -675,7 +690,7 @@ export default function EnviosPage() {
 
   async function salvarTemplate() {
     if (!eventoAtual?.id) {
-      alert("Selecione ou carregue um evento antes de salvar a mensagem.");
+      toast("Selecione ou carregue um evento antes de salvar a mensagem.", "warning");
       return;
     }
 
@@ -695,7 +710,7 @@ export default function EnviosPage() {
 
     if (error) {
       setSalvandoTemplate(false);
-      alert("Erro ao salvar mensagem: " + error.message);
+      toast("Erro ao salvar mensagem: " + error.message, "error");
       return;
     }
 
@@ -712,7 +727,7 @@ export default function EnviosPage() {
 
       if (campanhaError) {
         setSalvandoTemplate(false);
-        alert("Mensagem salva no template, mas houve erro ao atualizar a campanha: " + campanhaError.message);
+        toast("Mensagem salva no template, mas houve erro ao atualizar a campanha: " + campanhaError.message, "warning");
         return;
       }
     }
@@ -724,7 +739,7 @@ export default function EnviosPage() {
       [tipoEnvio]: true,
     }));
 
-    alert("Mensagem salva com sucesso.");
+    toast("Mensagem salva com sucesso.", "success");
   }
 
   function restaurarTemplatePadrao() {
@@ -760,12 +775,12 @@ export default function EnviosPage() {
 
   async function adicionarListaNaFila(lista: Convidado[]) {
     if (!eventoAtual?.id) {
-      alert("Selecione um evento antes de adicionar à fila.");
+      toast("Selecione um evento antes de adicionar à fila.", "warning");
       return;
     }
 
     if (!eventoAtual.tenant_id) {
-      alert("Este evento está sem tenant_id. Atualize o cadastro do evento antes de adicionar à fila.");
+      toast("Este evento está sem tenant_id. Atualize o cadastro do evento antes de adicionar à fila.", "warning");
       return;
     }
 
@@ -774,7 +789,7 @@ export default function EnviosPage() {
     );
 
     if (elegiveis.length === 0) {
-      alert("Nenhum convidado elegível para adicionar à fila.");
+      toast("Nenhum convidado elegível para adicionar à fila.", "warning");
       return;
     }
 
@@ -801,7 +816,7 @@ export default function EnviosPage() {
 
     if (error) {
       setProcessandoMassa(false);
-      alert("Erro ao adicionar envios à fila: " + error.message);
+      toast("Erro ao adicionar envios à fila: " + error.message, "error");
       return;
     }
 
@@ -822,14 +837,14 @@ export default function EnviosPage() {
 
     setSelecionados({});
     setProcessandoMassa(false);
-    alert(`${elegiveis.length} envio(s) adicionados à fila.`);
+    toast(`${elegiveis.length} envio(s) adicionados à fila.`, "success");
   }
 
   async function dispararFila() {
     if (disparandoFila) return;
     const naFila = filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length;
     if (naFila === 0) {
-      alert("Nenhum envio na fila para disparar.");
+      toast("Nenhum envio na fila para disparar.", "warning");
       return;
     }
     if (!confirm(`Disparar ${naFila} envio(s) via WhatsApp agora?`)) return;
@@ -839,10 +854,10 @@ export default function EnviosPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erro ao processar fila");
       const erros = json.erros?.length ? `\n\n⚠️ Erros: ${json.erros.map((e: any) => e.erro).join("; ")}` : "";
-      alert(`✅ ${json.processados || 0} mensagem(ns) enviada(s) com sucesso!${erros}`);
+      toast(`${json.processados || 0} mensagem(ns) enviada(s) com sucesso!${erros}`, erros ? "warning" : "success");
       if (eventoAtual?.id) await carregarFila(eventoAtual.id);
     } catch (err: any) {
-      alert("Erro ao disparar: " + err.message);
+      toast("Erro ao disparar: " + err.message, "error");
     } finally {
       setDisparandoFila(false);
     }
@@ -895,7 +910,7 @@ export default function EnviosPage() {
     const { error } = await supabase.from("convidados").update(payload).in("id", idsParaAtualizar);
 
     if (error) {
-      alert("Erro ao marcar como enviado: " + error.message);
+      toast("Erro ao marcar como enviado: " + error.message, "error");
       return;
     }
 
@@ -964,7 +979,7 @@ export default function EnviosPage() {
       .eq("status", "pendente");
 
     if (error) {
-      alert("Erro ao retirar da fila: " + error.message);
+      toast("Erro ao retirar da fila: " + error.message, "error");
       return;
     }
 
@@ -1011,7 +1026,7 @@ export default function EnviosPage() {
 
     if (error) {
       setCancelandoEnvioId(null);
-      alert("Erro ao cancelar envio: " + error.message);
+      toast("Erro ao cancelar envio: " + error.message, "error");
       return;
     }
 
@@ -1071,24 +1086,24 @@ export default function EnviosPage() {
 
   async function adicionarFilaEnvio(convidado: Convidado) {
     if (!eventoAtual?.id) {
-      alert("Selecione um evento antes de adicionar à fila.");
+      toast("Selecione um evento antes de adicionar à fila.", "warning");
       return;
     }
 
     if (!eventoAtual.tenant_id) {
-      alert("Este evento está sem tenant_id. Atualize o cadastro do evento antes de adicionar à fila.");
+      toast("Este evento está sem tenant_id. Atualize o cadastro do evento antes de adicionar à fila.", "warning");
       return;
     }
 
     const telefone = getTelefoneEnvio(convidado, convidados);
 
     if (!telefone) {
-      alert("Este convidado não tem telefone cadastrado.");
+      toast("Este convidado não tem telefone cadastrado.", "warning");
       return;
     }
 
     if (convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio)) {
-      alert("Este convidado já está na fila desta campanha.");
+      toast("Este convidado já está na fila desta campanha.", "warning");
       return;
     }
 
@@ -1104,13 +1119,13 @@ export default function EnviosPage() {
     });
 
     if (error) {
-      alert("Erro ao adicionar à fila: " + error.message);
+      toast("Erro ao adicionar à fila: " + error.message, "error");
       return;
     }
 
     await registrarHistoricoEnvio(convidado, "pendente", "Adicionado à fila de envio.");
     await carregarFila(eventoAtual.id);
-    alert("Convidado adicionado à fila de envio.");
+    toast("Convidado adicionado à fila de envio.", "success");
   }
 
 
@@ -1131,7 +1146,7 @@ export default function EnviosPage() {
       .maybeSingle();
 
     if (buscarError) {
-      alert("Erro ao localizar campanha de envio: " + buscarError.message);
+      toast("Erro ao localizar campanha de envio: " + buscarError.message, "error");
       return null;
     }
 
@@ -1154,7 +1169,7 @@ export default function EnviosPage() {
       .single();
 
     if (criarError || !criada?.id) {
-      alert("Erro ao criar campanha de envio: " + (criarError?.message || "campanha não retornada."));
+      toast("Erro ao criar campanha de envio: " + (criarError?.message || "campanha não retornada."), "error");
       return null;
     }
 
@@ -1186,7 +1201,7 @@ export default function EnviosPage() {
       .eq("id", campanhaId);
 
     if (error) {
-      alert("Erro ao salvar a mídia da campanha: " + error.message);
+      toast("Erro ao salvar a mídia da campanha: " + error.message, "error");
       return false;
     }
 
@@ -1203,19 +1218,19 @@ export default function EnviosPage() {
     if (!file) return;
 
     if (!eventoAtual?.id) {
-      alert("Selecione um evento antes de fazer upload da mídia.");
+      toast("Selecione um evento antes de fazer upload da mídia.", "warning");
       return;
     }
 
     if (!file.type.startsWith("image/") && file.type !== "video/mp4") {
-      alert("Use uma imagem, GIF ou vídeo MP4 curto.");
+      toast("Use uma imagem, GIF ou vídeo MP4 curto.", "warning");
       return;
     }
 
     const limiteBytes = ENVIO_MIDIA_MAX_SIZE_MB * 1024 * 1024;
 
     if (file.size > limiteBytes) {
-      alert(`A mídia precisa ter no máximo ${ENVIO_MIDIA_MAX_SIZE_MB} MB.`);
+      toast(`A mídia precisa ter no máximo ${ENVIO_MIDIA_MAX_SIZE_MB} MB.`, "warning");
       return;
     }
 
@@ -1242,9 +1257,7 @@ export default function EnviosPage() {
         });
 
       if (uploadError) {
-        alert(
-          `Erro ao fazer upload da mídia: ${uploadError.message}. Verifique se o bucket "${CAMPAIGN_ASSETS_BUCKET}" existe e está público no Supabase Storage.`
-        );
+        toast(`Erro ao fazer upload da mídia: ${uploadError.message}. Verifique se o bucket "${CAMPAIGN_ASSETS_BUCKET}" existe e está público no Supabase Storage.`, "error");
         return;
       }
 
@@ -1255,7 +1268,7 @@ export default function EnviosPage() {
       const publicUrl = publicUrlData?.publicUrl;
 
       if (!publicUrl) {
-        alert("Upload concluído, mas não foi possível gerar a URL pública da mídia.");
+        toast("Upload concluído, mas não foi possível gerar a URL pública da mídia.", "warning");
         return;
       }
 
@@ -1308,7 +1321,7 @@ export default function EnviosPage() {
       .eq("id", campanhaId);
 
     if (error) {
-      alert("Erro ao remover mídia: " + error.message);
+      toast("Erro ao remover mídia: " + error.message, "error");
       return;
     }
 
@@ -1341,18 +1354,18 @@ export default function EnviosPage() {
 
   async function copiarLinkMidiaCampanha() {
     if (!midiaAtual) {
-      alert("Não existe mídia para copiar.");
+      toast("Não existe mídia para copiar.", "warning");
       return;
     }
 
     await navigator.clipboard.writeText(midiaAtual);
     setStatusMidiaUltimoEnvio("url_copiada");
-    alert("Link da mídia copiado.");
+    toast("Link da mídia copiado.", "success");
   }
 
   function abrirMidiaCampanha() {
     if (!midiaAtual) {
-      alert("Não existe mídia para abrir.");
+      toast("Não existe mídia para abrir.", "warning");
       return;
     }
 
@@ -1361,12 +1374,12 @@ export default function EnviosPage() {
 
   async function copiarImagemEstaticaCampanha() {
     if (!midiaAtual) {
-      alert("Não existe imagem para copiar.");
+      toast("Não existe imagem para copiar.", "warning");
       return;
     }
 
     if (!isImagemEstaticaCopiavel(midiaAtual)) {
-      alert("Use este botão apenas para imagem estática (.png, .jpg, .jpeg ou .webp). Para GIF/MP4, use Copiar link ou Abrir mídia.");
+      toast("Use este botão apenas para imagem estática (.png, .jpg, .jpeg ou .webp). Para GIF/MP4, use Copiar link ou Abrir mídia.", "warning");
       return;
     }
 
@@ -1375,11 +1388,11 @@ export default function EnviosPage() {
     setStatusMidiaUltimoEnvio(status);
 
     if (status === "copiada") {
-      alert("Imagem copiada. Cole no WhatsApp com Ctrl+V ou Cmd+V.");
+      toast("Imagem copiada. Cole no WhatsApp com Ctrl+V ou Cmd+V.", "success");
     } else if (status === "url_copiada") {
-      alert("Não foi possível copiar a imagem diretamente; o link foi copiado.");
+      toast("Não foi possível copiar a imagem diretamente; o link foi copiado.", "warning");
     } else {
-      alert("Não foi possível copiar a imagem.");
+      toast("Não foi possível copiar a imagem.", "error");
     }
   }
 
@@ -1445,7 +1458,7 @@ export default function EnviosPage() {
     const telefone = getTelefoneEnvio(convidado, convidados);
 
     if (!telefone) {
-      alert("Este convidado não tem telefone cadastrado.");
+      toast("Este convidado não tem telefone cadastrado.", "warning");
       return;
     }
 
@@ -1468,7 +1481,7 @@ export default function EnviosPage() {
     const telefone = getTelefoneEnvio(convidado, convidados);
 
     if (!telefone) {
-      alert("Este convidado não tem telefone cadastrado.");
+      toast("Este convidado não tem telefone cadastrado.", "warning");
       return;
     }
 
@@ -1503,11 +1516,40 @@ export default function EnviosPage() {
 
   async function copiarMensagem(convidado: Convidado) {
     await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados));
-    alert("Mensagem copiada.");
+    toast("Mensagem copiada.", "success");
   }
 
   return (
     <div style={pageStyle}>
+      {toasts.length > 0 && (
+        <div style={toastContainerStyle}>
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              style={{
+                ...toastBaseStyle,
+                background:
+                  t.type === "success" ? "#166534" :
+                  t.type === "error" ? "#991b1b" :
+                  t.type === "warning" ? "#78350f" :
+                  "#1e3a8a",
+              }}
+            >
+              <span style={{ flex: 1 }}>
+                {t.type === "success" ? "✓ " : t.type === "error" ? "✕ " : t.type === "warning" ? "⚠ " : "ℹ "}
+                {t.message}
+              </span>
+              <button
+                onClick={() => setToasts((c) => c.filter((x) => x.id !== t.id))}
+                style={toastCloseStyle}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <style>{`
         .envio-card {
           transition:
@@ -1541,6 +1583,11 @@ export default function EnviosPage() {
           .envios-editor-grid {
             grid-template-columns: 1fr !important;
           }
+        }
+
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
 
@@ -3102,3 +3149,43 @@ const sendConfirmButtonStyle: React.CSSProperties = {
 };
 
 const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed var(--line)", color: "var(--muted)" };
+
+const toastContainerStyle: React.CSSProperties = {
+  position: "fixed",
+  bottom: 28,
+  right: 28,
+  zIndex: 99999,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  maxWidth: 400,
+  pointerEvents: "none",
+};
+
+const toastBaseStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 12,
+  padding: "14px 16px",
+  borderRadius: 16,
+  color: "#fff",
+  fontWeight: 750,
+  fontSize: 14,
+  lineHeight: 1.45,
+  boxShadow: "0 20px 60px rgba(15,23,42,0.3)",
+  pointerEvents: "all",
+  animation: "toastIn 0.25s cubic-bezier(.2,.8,.2,1)",
+};
+
+const toastCloseStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  color: "rgba(255,255,255,0.7)",
+  cursor: "pointer",
+  fontWeight: 900,
+  fontSize: 14,
+  lineHeight: 1,
+  padding: 0,
+  flexShrink: 0,
+  marginTop: 1,
+};
