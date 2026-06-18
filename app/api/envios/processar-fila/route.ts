@@ -53,10 +53,7 @@ export async function GET() {
         if (colunaStatus && item.convidado_id) {
           await supabase
             .from("convidados")
-            .update({
-              [colunaStatus]: "enviado",
-              [`data_${colunaStatus.replace("status_", "")}`]: new Date().toISOString(),
-            })
+            .update({ [colunaStatus]: "enviado" })
             .eq("id", item.convidado_id);
         }
 
