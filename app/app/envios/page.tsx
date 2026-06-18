@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "lembrete_evento" | "cartao_evento";
@@ -135,6 +135,20 @@ export default function EnviosPage() {
   const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
   const [processandoMassa, setProcessandoMassa] = useState(false);
   const [disparandoFila, setDisparandoFila] = useState(false);
+
+  type ProgressoEnvio = {
+    total: number;
+    atual: number;
+    nomeAtual: string;
+    telefoneAtual: string;
+    enviados: number;
+    erros: number;
+    ativo: boolean;
+    cancelado: boolean;
+  };
+
+  const [progresso, setProgresso] = useState<ProgressoEnvio | null>(null);
+  const cancelarEnvioRef = useRef(false);
   const [filaEnvios, setFilaEnvios] = useState<ItemFila[]>([]);
   const [envioPendenteConfirmacao, setEnvioPendenteConfirmacao] = useState<Convidado | null>(null);
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
@@ -856,25 +870,76 @@ export default function EnviosPage() {
 
   async function dispararFila() {
     if (disparandoFila) return;
-    const naFila = filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length;
-    if (naFila === 0) {
+    if (!eventoAtual?.id) return;
+
+    // Buscar itens pendentes com nome do convidado
+    const { data: itensFila, error: filaError } = await supabase
+      .from("envio_fila")
+      .select("id, telefone, convidado_id, tipo_envio")
+      .eq("evento_id", eventoAtual.id)
+      .in("status", ["pendente", "agendado"])
+      .order("created_at", { ascending: true });
+
+    if (filaError || !itensFila || itensFila.length === 0) {
       toast("Nenhum envio na fila para disparar.", "warning");
       return;
     }
-    if (!confirm(`Disparar ${naFila} envio(s) via WhatsApp agora?`)) return;
+
+    // Buscar nomes dos convidados
+    const ids = itensFila.map((i) => i.convidado_id).filter(Boolean);
+    const { data: convidadosNomes } = await supabase
+      .from("convidados")
+      .select("id, nome")
+      .in("id", ids);
+
+    const nomesPorId: Record<string, string> = {};
+    (convidadosNomes || []).forEach((c) => { nomesPorId[c.id] = c.nome || "Sem nome"; });
+
+    if (!confirm(`Disparar ${itensFila.length} envio(s) via WhatsApp agora?\n\nO processo pode levar alguns minutos. Não feche esta janela.`)) return;
+
+    cancelarEnvioRef.current = false;
     setDisparandoFila(true);
-    try {
-      const res = await fetch("/api/envios/processar-fila");
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Erro ao processar fila");
-      const erros = json.erros?.length ? `\n\n⚠️ Erros: ${json.erros.map((e: any) => e.erro).join("; ")}` : "";
-      toast(`${json.processados || 0} mensagem(ns) enviada(s) com sucesso!${erros}`, erros ? "warning" : "success");
-      if (eventoAtual?.id) await carregarFila(eventoAtual.id);
-    } catch (err: any) {
-      toast("Erro ao disparar: " + err.message, "error");
-    } finally {
-      setDisparandoFila(false);
+    setProgresso({ total: itensFila.length, atual: 0, nomeAtual: "", telefoneAtual: "", enviados: 0, erros: 0, ativo: true, cancelado: false });
+
+    let enviados = 0;
+    let erros = 0;
+
+    for (let i = 0; i < itensFila.length; i++) {
+      if (cancelarEnvioRef.current) {
+        setProgresso((p) => p ? { ...p, ativo: false, cancelado: true } : null);
+        break;
+      }
+
+      const item = itensFila[i];
+      const nome = nomesPorId[item.convidado_id] || item.telefone || "Convidado";
+
+      setProgresso((p) => p ? { ...p, atual: i + 1, nomeAtual: nome, telefoneAtual: item.telefone || "" } : null);
+
+      try {
+        const res = await fetch("/api/envios/processar-um", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: item.id }),
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || "Erro desconhecido");
+        enviados++;
+        setProgresso((p) => p ? { ...p, enviados } : null);
+      } catch (err: any) {
+        erros++;
+        setProgresso((p) => p ? { ...p, erros } : null);
+      }
+
+      // Delay aleatório entre 12 e 25 segundos (exceto no último)
+      if (i < itensFila.length - 1 && !cancelarEnvioRef.current) {
+        const delay = 12000 + Math.random() * 13000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
+
+    setProgresso((p) => p ? { ...p, ativo: false } : null);
+    setDisparandoFila(false);
+    if (eventoAtual?.id) await carregarFila(eventoAtual.id);
   }
 
   function inserirVariavel(variavel: string) {
@@ -1535,6 +1600,71 @@ export default function EnviosPage() {
 
   return (
     <div style={pageStyle}>
+      {progresso && (
+        <div style={progressoOverlayStyle}>
+          <div style={progressoModalStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <span style={{ color: "#6d28d9", fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {progresso.cancelado ? "Envio cancelado" : progresso.ativo ? "Enviando via WhatsApp..." : "Envio concluído"}
+                </span>
+                <h2 style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 900, color: "var(--text)" }}>
+                  {progresso.cancelado
+                    ? `Cancelado após ${progresso.enviados} envio(s)`
+                    : progresso.ativo
+                    ? `Enviando para ${progresso.nomeAtual}`
+                    : `${progresso.enviados} mensagem(ns) enviada(s)`}
+                </h2>
+                {progresso.telefoneAtual && progresso.ativo && (
+                  <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 14, fontWeight: 700 }}>
+                    {progresso.telefoneAtual}
+                  </p>
+                )}
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 900, color: "var(--muted)", flexShrink: 0 }}>
+                {progresso.atual} / {progresso.total}
+              </span>
+            </div>
+
+            <div style={progressoBarBgStyle}>
+              <div
+                style={{
+                  ...progressoBarFillStyle,
+                  width: `${Math.round((progresso.atual / progresso.total) * 100)}%`,
+                  background: progresso.cancelado ? "#dc2626" : progresso.ativo ? "#6d28d9" : "#16a34a",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 12, fontSize: 14, fontWeight: 800 }}>
+              <span style={{ color: "#16a34a" }}>✓ {progresso.enviados} enviados</span>
+              {progresso.erros > 0 && <span style={{ color: "#dc2626" }}>✕ {progresso.erros} erros</span>}
+              {progresso.ativo && !progresso.cancelado && (
+                <span style={{ color: "var(--muted)" }}>
+                  Aguardando intervalo seguro entre envios...
+                </span>
+              )}
+            </div>
+
+            {!progresso.ativo ? (
+              <button
+                onClick={() => { setProgresso(null); }}
+                style={{ ...primaryButtonStyle, alignSelf: "flex-end" }}
+              >
+                Fechar
+              </button>
+            ) : (
+              <button
+                onClick={() => { cancelarEnvioRef.current = true; }}
+                style={{ ...cancelButtonStyle, alignSelf: "flex-end" }}
+              >
+                Cancelar envio
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {toasts.length > 0 && (
         <div style={toastContainerStyle}>
           {toasts.map((t) => (
@@ -3193,6 +3323,43 @@ const sendConfirmButtonStyle: React.CSSProperties = {
 };
 
 const emptyStyle: React.CSSProperties = { padding: 18, borderRadius: 16, border: "1px dashed var(--line)", color: "var(--muted)" };
+
+const progressoOverlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 99998,
+  display: "grid",
+  placeItems: "center",
+  padding: 20,
+  background: "rgba(15,23,42,0.5)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+};
+
+const progressoModalStyle: React.CSSProperties = {
+  width: "min(560px, 100%)",
+  borderRadius: 28,
+  padding: 28,
+  background: "var(--card)",
+  border: "1px solid var(--line)",
+  boxShadow: "0 32px 100px rgba(15,23,42,0.3)",
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+const progressoBarBgStyle: React.CSSProperties = {
+  height: 10,
+  borderRadius: 999,
+  background: "var(--line)",
+  overflow: "hidden",
+};
+
+const progressoBarFillStyle: React.CSSProperties = {
+  height: "100%",
+  borderRadius: 999,
+  transition: "width 0.4s ease, background 0.3s ease",
+};
 
 const toastContainerStyle: React.CSSProperties = {
   position: "fixed",
