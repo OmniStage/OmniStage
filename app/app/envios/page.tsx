@@ -118,6 +118,7 @@ export default function EnviosPage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
   const [processandoMassa, setProcessandoMassa] = useState(false);
+  const [disparandoFila, setDisparandoFila] = useState(false);
   const [filaEnvios, setFilaEnvios] = useState<ItemFila[]>([]);
   const [envioPendenteConfirmacao, setEnvioPendenteConfirmacao] = useState<Convidado | null>(null);
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
@@ -808,6 +809,28 @@ export default function EnviosPage() {
     setSelecionados({});
     setProcessandoMassa(false);
     alert(`${elegiveis.length} envio(s) adicionados à fila.`);
+  }
+
+  async function dispararFila() {
+    if (disparandoFila) return;
+    const naFila = filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length;
+    if (naFila === 0) {
+      alert("Nenhum envio na fila para disparar.");
+      return;
+    }
+    if (!confirm(`Disparar ${naFila} envio(s) via WhatsApp agora?`)) return;
+    setDisparandoFila(true);
+    try {
+      const res = await fetch("/api/envios/processar-fila");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erro ao processar fila");
+      alert(`✅ ${json.processados || 0} mensagem(ns) enviada(s) com sucesso!`);
+      if (eventoAtual?.id) await carregarFila(eventoAtual.id);
+    } catch (err: any) {
+      alert("Erro ao disparar: " + err.message);
+    } finally {
+      setDisparandoFila(false);
+    }
   }
 
   function inserirVariavel(variavel: string) {
@@ -1861,6 +1884,21 @@ export default function EnviosPage() {
               }
             >
               Adicionar todos pendentes filtrados
+            </button>
+
+            <button
+              className="envio-action"
+              onClick={dispararFila}
+              disabled={disparandoFila || filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0}
+              style={{
+                ...primaryButtonStyle,
+                background: disparandoFila ? "#666" : "#25D366",
+                color: "#fff",
+                opacity: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? 0.45 : 1,
+                cursor: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              {disparandoFila ? "Enviando..." : `📲 Disparar via WhatsApp (${filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length} na fila)`}
             </button>
           </div>
         </div>
