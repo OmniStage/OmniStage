@@ -9,8 +9,8 @@ const supabase = createClient(
 export async function GET() {
   const { data, error } = await supabase
     .from("envio_fila")
-    .select("id, status, agendado_para, telefone, criado_em")
-    .order("criado_em", { ascending: false })
+    .select("id, status, agendado_para, telefone, created_at")
+    .order("created_at", { ascending: false })
     .limit(10);
 
   return NextResponse.json({ data, error });
