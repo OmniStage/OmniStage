@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type TipoEnvio = "convite" | "lembrete_rsvp" | "cartao_evento";
+type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "cartao_evento";
 type FiltroStatusEnvio =
   | "a_enviar"
   | "na_fila"
@@ -34,6 +34,9 @@ type Convidado = {
   recebe_convite?: boolean | null;
   principal_nucleo_nome?: string | null;
   principal_nucleo_telefone?: string | null;
+
+  status_envio_save_the_date?: string | null;
+  data_envio_save_the_date?: string | null;
 
   status_envio_convite?: string | null;
   data_envio_convite?: string | null;
@@ -102,11 +105,13 @@ export default function EnviosPage() {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatusEnvio>("a_enviar");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [templates, setTemplates] = useState<Record<TipoEnvio, string>>({
+    save_the_date: campanhas.save_the_date.templatePadrao,
     convite: campanhas.convite.templatePadrao,
     lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
     cartao_evento: campanhas.cartao_evento.templatePadrao,
   });
   const [templatesConfigurados, setTemplatesConfigurados] = useState<Record<TipoEnvio, boolean>>({
+    save_the_date: false,
     convite: false,
     lembrete_rsvp: false,
     cartao_evento: false,
@@ -124,11 +129,13 @@ export default function EnviosPage() {
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
   const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null);
   const [midiasCampanha, setMidiasCampanha] = useState<Record<TipoEnvio, string>>({
+    save_the_date: "",
     convite: "",
     lembrete_rsvp: "",
     cartao_evento: "",
   });
   const [campanhasEnvioIds, setCampanhasEnvioIds] = useState<Record<TipoEnvio, string>>({
+    save_the_date: "",
     convite: "",
     lembrete_rsvp: "",
     cartao_evento: "",
@@ -262,6 +269,8 @@ export default function EnviosPage() {
         data_hora_envio,
         contato_principal,
         recebe_convite,
+        status_envio_save_the_date,
+        data_envio_save_the_date,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
@@ -412,12 +421,14 @@ export default function EnviosPage() {
     }
 
     const novosTemplates: Record<TipoEnvio, string> = {
+      save_the_date: campanhas.save_the_date.templatePadrao,
       convite: campanhas.convite.templatePadrao,
       lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
       cartao_evento: campanhas.cartao_evento.templatePadrao,
     };
 
     const novosConfigurados: Record<TipoEnvio, boolean> = {
+      save_the_date: false,
       convite: false,
       lembrete_rsvp: false,
       cartao_evento: false,
@@ -431,6 +442,7 @@ export default function EnviosPage() {
       midia_nome?: string | null;
       midia_tamanho_bytes?: number | null;
     }> = {
+      save_the_date: {},
       convite: {},
       lembrete_rsvp: {},
       cartao_evento: {},
@@ -453,12 +465,14 @@ export default function EnviosPage() {
     });
 
     const novasMidias: Record<TipoEnvio, string> = {
+      save_the_date: "",
       convite: "",
       lembrete_rsvp: "",
       cartao_evento: "",
     };
 
     const novosIds: Record<TipoEnvio, string> = {
+      save_the_date: "",
       convite: "",
       lembrete_rsvp: "",
       cartao_evento: "",
@@ -2161,6 +2175,26 @@ function normalizarSegmentoStorage(valor: string) {
 }
 
 const campanhas: Record<TipoEnvio, Campanha> = {
+  save_the_date: {
+    key: "save_the_date",
+    titulo: "0. Save the Date",
+    subtitulo: "Primeiro contato",
+    descricao:
+      "Apresentação da OmniStage e aviso antecipado da data do evento. Peça aos convidados para salvar o número.",
+    statusColumn: "status_envio_save_the_date",
+    dataColumn: "data_envio_save_the_date",
+    cor: "#0ea5e9",
+    corSuave: "#e0f2fe",
+    filtrarPublico: (convidado) => !!getTelefoneEnvio(convidado),
+    templatePadrao: `Olá {{nome}}! 👋
+
+Salve este número — sou a OmniStage, assessoria responsável pelo evento {{evento}}.
+
+📅 Save the Date: em breve você receberá mais informações e seu convite oficial.
+
+OmniStage — Gestão de Eventos`,
+  },
+
   convite: {
     key: "convite",
     titulo: "1. Envio do convite",
@@ -2726,6 +2760,10 @@ function deveAparecerEmAEnviar(
 
   if (!telefoneOk || enviado || estaNaFila) {
     return false;
+  }
+
+  if (campanha.key === "save_the_date") {
+    return true;
   }
 
   if (campanha.key === "convite") {

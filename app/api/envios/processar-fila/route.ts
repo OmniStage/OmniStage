@@ -47,6 +47,7 @@ export async function GET() {
 
         // 5. Atualizar status no convidado
         const colunaStatus =
+          item.tipo_envio === "save_the_date" ? "status_envio_save_the_date" :
           item.tipo_envio === "convite" ? "status_envio_convite" :
           item.tipo_envio === "lembrete_rsvp" ? "status_envio_lembrete_rsvp" :
           item.tipo_envio === "cartao" ? "status_envio_cartao" : null;
