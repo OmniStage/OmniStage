@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "cartao_evento";
+type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "lembrete_evento" | "cartao_evento";
 type FiltroStatusEnvio =
   | "a_enviar"
   | "na_fila"
@@ -43,6 +43,9 @@ type Convidado = {
 
   status_envio_lembrete_rsvp?: string | null;
   data_envio_lembrete_rsvp?: string | null;
+
+  status_envio_lembrete_evento?: string | null;
+  data_envio_lembrete_evento?: string | null;
 
   status_envio_cartao?: string | null;
   data_envio_cartao?: string | null;
@@ -114,12 +117,14 @@ export default function EnviosPage() {
     save_the_date: campanhas.save_the_date.templatePadrao,
     convite: campanhas.convite.templatePadrao,
     lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
+    lembrete_evento: campanhas.lembrete_evento.templatePadrao,
     cartao_evento: campanhas.cartao_evento.templatePadrao,
   });
   const [templatesConfigurados, setTemplatesConfigurados] = useState<Record<TipoEnvio, boolean>>({
     save_the_date: false,
     convite: false,
     lembrete_rsvp: false,
+    lembrete_evento: false,
     cartao_evento: false,
   });
   const [loading, setLoading] = useState(true);
@@ -138,12 +143,14 @@ export default function EnviosPage() {
     save_the_date: "",
     convite: "",
     lembrete_rsvp: "",
+    lembrete_evento: "",
     cartao_evento: "",
   });
   const [campanhasEnvioIds, setCampanhasEnvioIds] = useState<Record<TipoEnvio, string>>({
     save_the_date: "",
     convite: "",
     lembrete_rsvp: "",
+    lembrete_evento: "",
     cartao_evento: "",
   });
   const [statusMidiaUltimoEnvio, setStatusMidiaUltimoEnvio] = useState<
@@ -290,6 +297,8 @@ export default function EnviosPage() {
         data_envio_convite,
         status_envio_lembrete_rsvp,
         data_envio_lembrete_rsvp,
+        status_envio_lembrete_evento,
+        data_envio_lembrete_evento,
         status_envio_cartao,
         data_envio_cartao
       `)
@@ -439,6 +448,7 @@ export default function EnviosPage() {
       save_the_date: campanhas.save_the_date.templatePadrao,
       convite: campanhas.convite.templatePadrao,
       lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
+      lembrete_evento: campanhas.lembrete_evento.templatePadrao,
       cartao_evento: campanhas.cartao_evento.templatePadrao,
     };
 
@@ -446,6 +456,7 @@ export default function EnviosPage() {
       save_the_date: false,
       convite: false,
       lembrete_rsvp: false,
+      lembrete_evento: false,
       cartao_evento: false,
     };
 
@@ -460,6 +471,7 @@ export default function EnviosPage() {
       save_the_date: {},
       convite: {},
       lembrete_rsvp: {},
+      lembrete_evento: {},
       cartao_evento: {},
     };
 
@@ -483,6 +495,7 @@ export default function EnviosPage() {
       save_the_date: "",
       convite: "",
       lembrete_rsvp: "",
+      lembrete_evento: "",
       cartao_evento: "",
     };
 
@@ -490,6 +503,7 @@ export default function EnviosPage() {
       save_the_date: "",
       convite: "",
       lembrete_rsvp: "",
+      lembrete_evento: "",
       cartao_evento: "",
     };
 
@@ -2224,7 +2238,7 @@ function normalizarSegmentoStorage(valor: string) {
 const campanhas: Record<TipoEnvio, Campanha> = {
   save_the_date: {
     key: "save_the_date",
-    titulo: "0. Save the Date",
+    titulo: "1. Save the Date",
     subtitulo: "Primeiro contato",
     descricao:
       "Apresentação da OmniStage e aviso antecipado da data do evento. Peça aos convidados para salvar o número.",
@@ -2244,7 +2258,7 @@ OmniStage — Gestão de Eventos`,
 
   convite: {
     key: "convite",
-    titulo: "1. Envio do convite",
+    titulo: "2. Envio do convite",
     subtitulo: "Primeiro contato",
     descricao:
       "Envio inicial do convite digital para todos os convidados com telefone.",
@@ -2266,7 +2280,7 @@ Pedro e Família.`,
 
   lembrete_rsvp: {
     key: "lembrete_rsvp",
-    titulo: "2. Confirmação pendente",
+    titulo: "3. Confirmação pendente",
     subtitulo: "Lembrete RSVP",
     descricao:
       "Lembrete para convidados que ainda estão com RSVP pendente.",
@@ -2289,9 +2303,31 @@ Com carinho,
 OmniStage`,
   },
 
+  lembrete_evento: {
+    key: "lembrete_evento",
+    titulo: "4. Evento está chegando",
+    subtitulo: "Lembrete final",
+    descricao: "Lembrete enviado próximo ao evento para todos os convidados confirmados.",
+    statusColumn: "status_envio_lembrete_evento",
+    dataColumn: "data_envio_lembrete_evento",
+    cor: "#ea580c",
+    corSuave: "#ffedd5",
+    filtrarPublico: (convidado) =>
+      isRsvpConfirmado(convidado.status_rsvp) && !!getTelefoneEnvio(convidado),
+    templatePadrao: `Olá {{nome}}! 🎉
+
+O evento {{evento}} está chegando!
+
+Estamos ansiosos para celebrar com você. Lembre-se de trazer seu cartão de entrada.
+
+Qualquer dúvida, estamos à disposição.
+
+OmniStage — Gestão de Eventos`,
+  },
+
   cartao_evento: {
     key: "cartao_evento",
-    titulo: "3. Cartão do evento",
+    titulo: "5. Cartão do evento",
     subtitulo: "Entrada / QR Code",
     descricao:
       "Envio do cartão de entrada para convidados confirmados.",
@@ -2820,6 +2856,14 @@ function deveAparecerEmAEnviar(
   if (campanha.key === "lembrete_rsvp") {
     return (
       isRsvpPendente(convidado.status_rsvp) &&
+      isEnvioConsideradoEnviado(convidado, campanhas.convite) &&
+      !isEnvioConsideradoEnviado(convidado, campanha)
+    );
+  }
+
+  if (campanha.key === "lembrete_evento") {
+    return (
+      isRsvpConfirmado(convidado.status_rsvp) &&
       isEnvioConsideradoEnviado(convidado, campanhas.convite) &&
       !isEnvioConsideradoEnviado(convidado, campanha)
     );

@@ -50,6 +50,8 @@ export async function GET() {
           item.tipo_envio === "save_the_date" ? "status_envio_save_the_date" :
           item.tipo_envio === "convite" ? "status_envio_convite" :
           item.tipo_envio === "lembrete_rsvp" ? "status_envio_lembrete_rsvp" :
+          item.tipo_envio === "lembrete_evento" ? "status_envio_lembrete_evento" :
+          item.tipo_envio === "cartao_evento" ? "status_envio_cartao" :
           item.tipo_envio === "cartao" ? "status_envio_cartao" : null;
 
         if (colunaStatus && item.convidado_id) {
