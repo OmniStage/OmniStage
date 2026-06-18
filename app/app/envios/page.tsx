@@ -824,7 +824,8 @@ export default function EnviosPage() {
       const res = await fetch("/api/envios/processar-fila");
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erro ao processar fila");
-      alert(`✅ ${json.processados || 0} mensagem(ns) enviada(s) com sucesso!`);
+      const erros = json.erros?.length ? `\n\n⚠️ Erros: ${json.erros.map((e: any) => e.erro).join("; ")}` : "";
+      alert(`✅ ${json.processados || 0} mensagem(ns) enviada(s) com sucesso!${erros}`);
       if (eventoAtual?.id) await carregarFila(eventoAtual.id);
     } catch (err: any) {
       alert("Erro ao disparar: " + err.message);

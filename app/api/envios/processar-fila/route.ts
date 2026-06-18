@@ -10,12 +10,12 @@ export async function GET() {
   try {
     const agora = new Date().toISOString();
 
-    // 1. Buscar envios pendentes
+    // 1. Buscar envios pendentes (agendado_para nulo ou já passou)
     const { data: filas, error } = await supabase
       .from("envio_fila")
       .select("*")
       .in("status", ["pendente", "agendado"])
-      .lte("agendado_para", agora)
+      .or(`agendado_para.is.null,agendado_para.lte.${agora}`)
       .limit(20);
 
     if (error) throw error;
@@ -65,9 +65,16 @@ export async function GET() {
       }
     }
 
+    const erros = await supabase
+      .from("envio_fila")
+      .select("id, erro")
+      .eq("status", "erro")
+      .in("id", filas.map((f) => f.id));
+
     return NextResponse.json({
       ok: true,
       processados: filas.length,
+      erros: erros.data?.filter((e) => e.erro) || [],
     });
   } catch (err: any) {
     return NextResponse.json({
@@ -88,11 +95,17 @@ async function enviarWhatsApp(item: any) {
     message: item.mensagem,
   };
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (process.env.ZAPI_CLIENT_TOKEN) {
+    headers["Client-Token"] = process.env.ZAPI_CLIENT_TOKEN;
+  }
+
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
