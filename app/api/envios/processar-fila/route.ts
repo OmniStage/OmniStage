@@ -32,11 +32,24 @@ export async function GET() {
           .update({ status: "processando" })
           .eq("id", item.id);
 
-        // 3. Enviar via Z-API (com delay para evitar bloqueio)
-        await new Promise((resolve) => setTimeout(resolve, 4000 + Math.random() * 3000));
-        await enviarWhatsApp(item);
+        // 3. Buscar mídia da campanha (se houver)
+        let midiaUrl: string | null = null;
+        if (item.evento_id && item.tipo_envio) {
+          const { data: campanha } = await supabase
+            .from("envio_campanhas")
+            .select("midia_url")
+            .eq("evento_id", item.evento_id)
+            .eq("tipo_envio", item.tipo_envio)
+            .eq("ativo", true)
+            .maybeSingle();
+          midiaUrl = campanha?.midia_url || null;
+        }
 
-        // 4. Marcar como enviado
+        // 4. Enviar via Z-API (com delay para evitar bloqueio)
+        await new Promise((resolve) => setTimeout(resolve, 4000 + Math.random() * 3000));
+        await enviarWhatsApp(item, midiaUrl);
+
+        // 5. Marcar como enviado
         await supabase
           .from("envio_fila")
           .update({
@@ -45,7 +58,7 @@ export async function GET() {
           })
           .eq("id", item.id);
 
-        // 5. Atualizar status no convidado
+        // 6. Atualizar status no convidado
         const colunaStatus =
           item.tipo_envio === "save_the_date" ? "status_envio_save_the_date" :
           item.tipo_envio === "convite" ? "status_envio_convite" :
@@ -61,7 +74,7 @@ export async function GET() {
             .eq("id", item.convidado_id);
         }
 
-        // 6. Histórico
+        // 7. Histórico
         await supabase.from("envio_historico").insert({
           evento_id: item.evento_id,
           convidado_id: item.convidado_id,
@@ -101,16 +114,9 @@ export async function GET() {
   }
 }
 
-async function enviarWhatsApp(item: any) {
+async function enviarWhatsApp(item: any, midiaUrl?: string | null) {
   const ZAPI_INSTANCE = process.env.ZAPI_INSTANCE_ID!;
   const ZAPI_TOKEN = process.env.ZAPI_TOKEN!;
-
-  const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`;
-
-  const body = {
-    phone: item.telefone,
-    message: item.mensagem,
-  };
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -120,15 +126,35 @@ async function enviarWhatsApp(item: any) {
     headers["Client-Token"] = process.env.ZAPI_CLIENT_TOKEN;
   }
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error("Erro Z-API: " + error);
+  if (midiaUrl) {
+    const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-image`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        phone: item.telefone,
+        image: midiaUrl,
+        caption: item.mensagem,
+      }),
+    });
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error("Erro Z-API (imagem): " + error);
+    }
+  } else {
+    const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        phone: item.telefone,
+        message: item.mensagem,
+      }),
+    });
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error("Erro Z-API: " + error);
+    }
   }
 
   return true;

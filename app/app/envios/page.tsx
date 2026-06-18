@@ -130,7 +130,7 @@ export default function EnviosPage() {
   const [loading, setLoading] = useState(true);
   const [salvandoTemplate, setSalvandoTemplate] = useState(false);
   const [busca, setBusca] = useState("");
-  const [editorAberto, setEditorAberto] = useState(true);
+  const [editorAberto, setEditorAberto] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
   const [processandoMassa, setProcessandoMassa] = useState(false);
