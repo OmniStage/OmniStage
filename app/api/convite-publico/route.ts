@@ -53,11 +53,11 @@ export async function GET(request: NextRequest) {
   let template = null;
   let blocks: any[] = [];
 
-  if (eventTemplate?.invite_template_id) {
+  if (eventTemplate?.template_id) {
     const { data: tpl } = await supabase
       .from("invite_templates")
       .select("*")
-      .eq("id", eventTemplate.invite_template_id)
+      .eq("id", eventTemplate.template_id)
       .single();
 
     template = tpl;
