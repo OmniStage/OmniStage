@@ -820,6 +820,7 @@ export default function ConvitePublicoPage() {
 
   const [renderState, setRenderState] = useState<RenderState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bgImageLoaded, setBgImageLoaded] = useState(false);
   const [somAtivo, setSomAtivo] = useState(true);
   const [somLiberado, setSomLiberado] = useState(false);
   const [, setMusicaConviteTocando] = useState(false);
@@ -973,6 +974,7 @@ export default function ConvitePublicoPage() {
 
     const efeitoConfirmacao = getConfirmationEffect(renderState.template);
 
+    // Mostra o efeito imediatamente, sem esperar a API
     executarSomAcao(efeitoConfirmacao);
     setEfeitoConfirmacaoAtivo(efeitoConfirmacao);
     setConfirmacaoAberta(efeitoConfirmacao !== "nenhum");
@@ -986,6 +988,13 @@ export default function ConvitePublicoPage() {
       );
     }
 
+    // Fecha o efeito após 3.2s independente da API
+    window.setTimeout(() => {
+      setConfirmacaoAberta(false);
+      setConfirmandoPresenca(false);
+    }, 3200);
+
+    // Salva no banco em paralelo (não bloqueia o efeito visual)
     const chamadas = [];
 
     if (idsConfirmados.length) {
@@ -1008,22 +1017,9 @@ export default function ConvitePublicoPage() {
       );
     }
 
-    const resultados = await Promise.all(chamadas);
-    const erro = resultados.find((r) => !r.ok);
-
-    if (erro) {
-      console.error("Erro ao confirmar presença");
-      window.alert("Não foi possível registrar a confirmação. Tente novamente.");
-      setConfirmandoPresenca(false);
-      setConfirmacaoAberta(false);
-      return;
-    }
-
-    setConfirmandoPresenca(false);
-
-    window.setTimeout(() => {
-      setConfirmacaoAberta(false);
-    }, 3200);
+    Promise.all(chamadas).catch(() => {
+      console.error("Erro ao salvar confirmação no servidor");
+    });
   }
 
   async function carregarConvite(tokenUrl: string) {
@@ -1158,23 +1154,42 @@ export default function ConvitePublicoPage() {
       <main
         style={{
           minHeight: "100vh",
-          background: "#020617",
+          background: "#000",
           color: "#fff",
           display: "grid",
           placeItems: "center",
           fontFamily: "Arial, sans-serif",
         }}
       >
-        Carregando convite...
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%",
+            border: "3px solid rgba(255,255,255,0.15)",
+            borderTop: "3px solid #fff",
+            animation: "spin 0.8s linear infinite",
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
       </main>
     );
   }
 
   if (renderState?.kind === "visual") {
     const musicaConviteUrl = getMusicUrl(renderState.template, renderState.evento);
+    const bgUrl = getBackgroundUrl(renderState.template, renderState.evento);
 
     return (
-      <main style={visualPageStyle}>
+      <main style={{ ...visualPageStyle, background: "#000" }}>
+        {/* Pré-carrega a imagem de fundo e dispara fade-in quando pronta */}
+        {bgUrl && !bgImageLoaded && (
+          <img
+            src={bgUrl}
+            alt=""
+            style={{ display: "none" }}
+            onLoad={() => setBgImageLoaded(true)}
+            onError={() => setBgImageLoaded(true)}
+          />
+        )}
         <style jsx global>{`
           @keyframes omniConfirmPop {
             0% {
@@ -1328,6 +1343,8 @@ export default function ConvitePublicoPage() {
             ...visualShellStyle,
             width: CANVAS_W * visualScale,
             minHeight: CANVAS_H * visualScale,
+            opacity: bgUrl ? (bgImageLoaded ? 1 : 0) : 1,
+            transition: "opacity 0.4s ease",
           }}
         >
           {visualContent}
