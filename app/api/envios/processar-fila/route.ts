@@ -32,7 +32,8 @@ export async function GET() {
           .update({ status: "processando" })
           .eq("id", item.id);
 
-        // 3. Enviar via Z-API
+        // 3. Enviar via Z-API (com delay para evitar bloqueio)
+        await new Promise((resolve) => setTimeout(resolve, 4000 + Math.random() * 3000));
         await enviarWhatsApp(item);
 
         // 4. Marcar como enviado
