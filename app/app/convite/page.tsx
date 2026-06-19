@@ -78,27 +78,25 @@ function getVisualConfig(template: Template | null) {
   return (template?.visual_config || {}) as Record<string, any>;
 }
 
-function getBackgroundUrl(template: Template | null, evento: Evento | null) {
+function getBackgroundUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
   return (
-    evento?.background_url ||
-    evento?.background_image ||
     visualConfig.backgroundPreviewUrl ||
     template?.background_image ||
     template?.preview_image ||
+    (usarIdentidadeVisual ? evento?.background_url || evento?.background_image : null) ||
     ""
   );
 }
 
-function getLogoUrl(template: Template | null, evento: Evento | null) {
+function getLogoUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
   return (
-    evento?.logo_url ||
-    evento?.logo_image ||
     visualConfig.logoPreviewUrl ||
     template?.logo_image ||
+    (usarIdentidadeVisual ? evento?.logo_url || evento?.logo_image : null) ||
     ""
   );
 }
@@ -161,11 +159,13 @@ function VisualPreviewCard({
   evento,
   blocks,
   totalConvidados = 0,
+  usarIdentidadeVisual = false,
 }: {
   template: Template;
   evento: Evento | null;
   blocks: VisualBlock[];
   totalConvidados?: number;
+  usarIdentidadeVisual?: boolean;
 }) {
   const visualConfig = getVisualConfig(template);
   const scale = 0.43;
@@ -184,8 +184,8 @@ function VisualPreviewCard({
       >
         <ConviteVisualRenderer
           blocks={blocks}
-          backgroundUrl={getBackgroundUrl(template, evento)}
-          logoUrl={getLogoUrl(template, evento)}
+          backgroundUrl={getBackgroundUrl(template, evento, usarIdentidadeVisual)}
+          logoUrl={getLogoUrl(template, evento, usarIdentidadeVisual)}
           width={CANVAS_W}
           height={CANVAS_H}
           scale={scale}
@@ -209,11 +209,13 @@ function VisualPreviewGrande({
   evento,
   blocks,
   totalConvidados = 0,
+  usarIdentidadeVisual = false,
 }: {
   template: Template;
   evento: Evento | null;
   blocks: VisualBlock[];
   totalConvidados?: number;
+  usarIdentidadeVisual?: boolean;
 }) {
   const visualConfig = getVisualConfig(template);
 
@@ -221,8 +223,8 @@ function VisualPreviewGrande({
     <div style={visualPreviewLargeWrapStyle}>
       <ConviteVisualRenderer
         blocks={blocks}
-        backgroundUrl={getBackgroundUrl(template, evento)}
-        logoUrl={getLogoUrl(template, evento)}
+        backgroundUrl={getBackgroundUrl(template, evento, usarIdentidadeVisual)}
+        logoUrl={getLogoUrl(template, evento, usarIdentidadeVisual)}
         width={CANVAS_W}
         height={CANVAS_H}
         scale={1}
@@ -692,6 +694,7 @@ export default function ConvitePage() {
                         evento={eventoAtual}
                         blocks={blocks}
                         totalConvidados={guestCounts[eventoAtual?.id || ""] || 0}
+                        usarIdentidadeVisual={!!identidadeVisualAtiva[`${eventoSelecionado}_${template.id}`]}
                       />
                     ) : template.html_template ? (
                       <div style={templateThumbFrameWrapStyle}>
@@ -750,6 +753,7 @@ export default function ConvitePage() {
                 evento={eventoAtual}
                 blocks={templateBlocks[templateAtual.id] || []}
                 totalConvidados={guestCounts[eventoAtual?.id || ""] || 0}
+                usarIdentidadeVisual={!!identidadeVisualAtiva[`${eventoSelecionado}_${templateAtual.id}`]}
               />
             ) : templateAtual && gerarHtmlPreview(templateAtual, eventoAtual) ? (
               <iframe
