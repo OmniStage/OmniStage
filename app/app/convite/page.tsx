@@ -251,6 +251,8 @@ export default function ConvitePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [guestCounts, setGuestCounts] = useState<Record<string, number>>({});
+  const [uploadandoArquivo, setUploadandoArquivo] = useState<"background" | "logo" | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, { backgroundPreviewUrl?: string; logoPreviewUrl?: string }>>({});
 
   const eventoAtual = useMemo(() => {
     return eventos.find((evento) => evento.id === eventoSelecionado) || null;
@@ -280,6 +282,8 @@ export default function ConvitePage() {
     const { data: vinculosData, error: vinculosError } = await supabase
       .from("event_invite_templates")
       .select(`
+        template_id,
+        visual_config_override,
         template:invite_templates (
           id,
           nome,
@@ -306,6 +310,14 @@ export default function ConvitePage() {
       setTemplateBlocks({});
       return [] as Template[];
     }
+
+    const novosOverrides: Record<string, any> = {};
+    for (const row of vinculosData || []) {
+      if (row.template_id && row.visual_config_override) {
+        novosOverrides[`${eventoId}_${row.template_id}`] = row.visual_config_override;
+      }
+    }
+    setOverrides((prev) => ({ ...prev, ...novosOverrides }));
 
     const templatesRows = (vinculosData || [])
       .map((row: any) => row.template)
@@ -491,6 +503,54 @@ export default function ConvitePage() {
         ? evento?.invite_template_id || ""
         : templatesPermitidos[0]?.id || ""
     );
+  }
+
+  async function uploadArquivoEvento(file: File, tipo: "background" | "logo") {
+    if (!eventoSelecionado || !templateSelecionado) {
+      alert("Selecione evento e modelo antes de fazer upload.");
+      return;
+    }
+
+    setUploadandoArquivo(tipo);
+
+    const ext = file.name.split(".").pop() || "jpg";
+    const filePath = `eventos/${eventoSelecionado}/${templateSelecionado}/${tipo}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("invite-assets")
+      .upload(filePath, file, { cacheControl: "3600", upsert: true });
+
+    if (uploadError) {
+      alert("Erro no upload: " + uploadError.message);
+      setUploadandoArquivo(null);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("invite-assets").getPublicUrl(filePath);
+    const url = urlData?.publicUrl || "";
+
+    const chave = tipo === "background" ? "backgroundPreviewUrl" : "logoPreviewUrl";
+    const novoOverride = { ...(overrides[`${eventoSelecionado}_${templateSelecionado}`] || {}), [chave]: url };
+
+    const { error: saveError } = await supabase
+      .from("event_invite_templates")
+      .update({ visual_config_override: novoOverride })
+      .eq("evento_id", eventoSelecionado)
+      .eq("template_id", templateSelecionado);
+
+    if (saveError) {
+      alert("Erro ao salvar arquivo: " + saveError.message);
+      setUploadandoArquivo(null);
+      return;
+    }
+
+    setOverrides((prev) => ({
+      ...prev,
+      [`${eventoSelecionado}_${templateSelecionado}`]: novoOverride,
+    }));
+
+    setUploadandoArquivo(null);
+    alert(`${tipo === "background" ? "Fundo" : "Logomarca"} salvo com sucesso!`);
   }
 
   async function salvarTemplate() {
@@ -720,6 +780,60 @@ export default function ConvitePage() {
               />
             ) : null}
           </section>
+
+          {templateAtual?.editor_mode === "visual" && eventoSelecionado && templateSelecionado && (
+            <section style={sectionStyle}>
+              <div style={sectionKickerStyle}>Personalização</div>
+              <h2 style={sectionTitleStyle}>Arquivos do evento</h2>
+              <p style={sectionDescriptionStyle}>
+                Faça upload do fundo e logomarca específicos deste evento. Não altera o modelo original.
+              </p>
+
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <span style={labelStyle}>Imagem de fundo</span>
+                  {overrides[`${eventoSelecionado}_${templateSelecionado}`]?.backgroundPreviewUrl && (
+                    <img
+                      src={overrides[`${eventoSelecionado}_${templateSelecionado}`].backgroundPreviewUrl}
+                      alt="Fundo atual"
+                      style={{ width: 80, height: 140, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }}
+                    />
+                  )}
+                  <label style={{ ...ghostButtonStyle, cursor: "pointer", textAlign: "center" }}>
+                    {uploadandoArquivo === "background" ? "Enviando..." : "Selecionar fundo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      disabled={!!uploadandoArquivo}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadArquivoEvento(f, "background"); }}
+                    />
+                  </label>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <span style={labelStyle}>Logomarca</span>
+                  {overrides[`${eventoSelecionado}_${templateSelecionado}`]?.logoPreviewUrl && (
+                    <img
+                      src={overrides[`${eventoSelecionado}_${templateSelecionado}`].logoPreviewUrl}
+                      alt="Logo atual"
+                      style={{ width: 80, height: 80, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#f4f4f4" }}
+                    />
+                  )}
+                  <label style={{ ...ghostButtonStyle, cursor: "pointer", textAlign: "center" }}>
+                    {uploadandoArquivo === "logo" ? "Enviando..." : "Selecionar logo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      disabled={!!uploadandoArquivo}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadArquivoEvento(f, "logo"); }}
+                    />
+                  </label>
+                </div>
+              </div>
+            </section>
+          )}
 
           <button
             onClick={salvarTemplate}

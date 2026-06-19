@@ -60,6 +60,14 @@ export async function GET(request: NextRequest) {
       .eq("id", eventTemplate.template_id)
       .single();
 
+    // Mescla visual_config do template com override do evento
+    if (tpl && eventTemplate.visual_config_override) {
+      tpl.visual_config = {
+        ...(tpl.visual_config || {}),
+        ...eventTemplate.visual_config_override,
+      };
+    }
+
     template = tpl;
 
     if (tpl) {
