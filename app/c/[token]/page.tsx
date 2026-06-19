@@ -187,11 +187,11 @@ function getBackgroundUrl(template: Template | null, evento: Evento | null) {
   const visualConfig = getVisualConfig(template);
 
   return (
-    evento?.background_url ||
-    evento?.background_image ||
     visualConfig.backgroundPreviewUrl ||
     template?.background_image ||
     template?.preview_image ||
+    evento?.background_url ||
+    evento?.background_image ||
     ""
   );
 }
@@ -200,10 +200,10 @@ function getLogoUrl(template: Template | null, evento: Evento | null) {
   const visualConfig = getVisualConfig(template);
 
   return (
-    evento?.logo_url ||
-    evento?.logo_image ||
     visualConfig.logoPreviewUrl ||
     template?.logo_image ||
+    evento?.logo_url ||
+    evento?.logo_image ||
     ""
   );
 }
@@ -212,12 +212,12 @@ function getMusicUrl(template: Template | null, evento: Evento | null) {
   const visualConfig = getVisualConfig(template);
 
   return (
-    evento?.musica_url ||
-    evento?.music_file ||
     visualConfig.musicaPreviewUrl ||
     visualConfig.musicUrl ||
     visualConfig.audioUrl ||
     visualConfig.backgroundMusicUrl ||
+    evento?.musica_url ||
+    evento?.music_file ||
     ""
   );
 }
