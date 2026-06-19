@@ -75,6 +75,7 @@ type RenderState =
       nomes: string[];
       convidados: Convidado[];
       convidadoIds: string[];
+      usarIdentidadeVisual: boolean;
     };
 
 function toNumber(value: unknown, fallback: number) {
@@ -183,32 +184,30 @@ function getConfirmationEffect(template: Template | null): ConfirmationEffect {
   );
 }
 
-function getBackgroundUrl(template: Template | null, evento: Evento | null) {
+function getBackgroundUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
   return (
     visualConfig.backgroundPreviewUrl ||
     template?.background_image ||
     template?.preview_image ||
-    evento?.background_url ||
-    evento?.background_image ||
+    (usarIdentidadeVisual ? evento?.background_url || evento?.background_image : null) ||
     ""
   );
 }
 
-function getLogoUrl(template: Template | null, evento: Evento | null) {
+function getLogoUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
   return (
     visualConfig.logoPreviewUrl ||
     template?.logo_image ||
-    evento?.logo_url ||
-    evento?.logo_image ||
+    (usarIdentidadeVisual ? evento?.logo_url || evento?.logo_image : null) ||
     ""
   );
 }
 
-function getMusicUrl(template: Template | null, evento: Evento | null) {
+function getMusicUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
   return (
@@ -216,8 +215,7 @@ function getMusicUrl(template: Template | null, evento: Evento | null) {
     visualConfig.musicUrl ||
     visualConfig.audioUrl ||
     visualConfig.backgroundMusicUrl ||
-    evento?.musica_url ||
-    evento?.music_file ||
+    (usarIdentidadeVisual ? evento?.musica_url || evento?.music_file : null) ||
     ""
   );
 }
@@ -879,7 +877,7 @@ export default function ConvitePublicoPage() {
   useEffect(() => {
     if (renderState?.kind !== "visual") return;
 
-    const musicaConviteUrl = getMusicUrl(renderState.template, renderState.evento);
+    const musicaConviteUrl = getMusicUrl(renderState.template, renderState.evento, renderState.usarIdentidadeVisual);
 
     if (!musicaConviteUrl) {
       setMusicaConviteTocando(false);
@@ -1040,7 +1038,8 @@ export default function ConvitePublicoPage() {
       return;
     }
 
-    const { convidados: convidadosDoConvite, evento, template, blocks: blocksData } = await resp.json();
+    const { convidados: convidadosDoConvite, evento, eventTemplate, template, blocks: blocksData } = await resp.json();
+    const usarIdentidadeVisual = !!(eventTemplate?.visual_config_override?.usarIdentidadeVisual);
 
     if (!evento) {
       setRenderState({ kind: "html", html: htmlErro("Evento do convite não encontrado.") });
@@ -1083,6 +1082,7 @@ export default function ConvitePublicoPage() {
         nomes: nomesFinais,
         convidados: convidadosConfirmacao,
         convidadoIds: convidadosConfirmacao.map((item) => item.id).filter(Boolean),
+        usarIdentidadeVisual,
       });
       setLoading(false);
       return;
@@ -1119,8 +1119,8 @@ export default function ConvitePublicoPage() {
           ),
           renderState.nomes,
         )}
-        backgroundUrl={getBackgroundUrl(renderState.template, renderState.evento)}
-        logoUrl={getLogoUrl(renderState.template, renderState.evento)}
+        backgroundUrl={getBackgroundUrl(renderState.template, renderState.evento, renderState.usarIdentidadeVisual)}
+        logoUrl={getLogoUrl(renderState.template, renderState.evento, renderState.usarIdentidadeVisual)}
         width={CANVAS_W}
         height={CANVAS_H}
         scale={visualScale}
@@ -1175,8 +1175,8 @@ export default function ConvitePublicoPage() {
   }
 
   if (renderState?.kind === "visual") {
-    const musicaConviteUrl = getMusicUrl(renderState.template, renderState.evento);
-    const bgUrl = getBackgroundUrl(renderState.template, renderState.evento);
+    const musicaConviteUrl = getMusicUrl(renderState.template, renderState.evento, renderState.usarIdentidadeVisual);
+    const bgUrl = getBackgroundUrl(renderState.template, renderState.evento, renderState.usarIdentidadeVisual);
 
     return (
       <main style={{ ...visualPageStyle, background: "#000" }}>

@@ -251,6 +251,8 @@ export default function ConvitePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [guestCounts, setGuestCounts] = useState<Record<string, number>>({});
+  const [identidadeVisualAtiva, setIdentidadeVisualAtiva] = useState<Record<string, boolean>>({});
+  const [salvandoIdentidade, setSalvandoIdentidade] = useState<string | null>(null);
 
   const eventoAtual = useMemo(() => {
     return eventos.find((evento) => evento.id === eventoSelecionado) || null;
@@ -280,6 +282,8 @@ export default function ConvitePage() {
     const { data: vinculosData, error: vinculosError } = await supabase
       .from("event_invite_templates")
       .select(`
+        template_id,
+        visual_config_override,
         template:invite_templates (
           id,
           nome,
@@ -306,6 +310,14 @@ export default function ConvitePage() {
       setTemplateBlocks({});
       return [] as Template[];
     }
+
+    const novaIdentidade: Record<string, boolean> = {};
+    for (const row of vinculosData || []) {
+      if (row.template_id) {
+        novaIdentidade[`${eventoId}_${row.template_id}`] = !!(row.visual_config_override?.usarIdentidadeVisual);
+      }
+    }
+    setIdentidadeVisualAtiva((prev) => ({ ...prev, ...novaIdentidade }));
 
     const templatesRows = (vinculosData || [])
       .map((row: any) => row.template)
@@ -491,6 +503,21 @@ export default function ConvitePage() {
         ? evento?.invite_template_id || ""
         : templatesPermitidos[0]?.id || ""
     );
+  }
+
+  async function toggleIdentidadeVisual(templateId: string, ativo: boolean) {
+    if (!eventoSelecionado) return;
+    const chave = `${eventoSelecionado}_${templateId}`;
+    setSalvandoIdentidade(chave);
+
+    await supabase
+      .from("event_invite_templates")
+      .update({ visual_config_override: { usarIdentidadeVisual: ativo } })
+      .eq("evento_id", eventoSelecionado)
+      .eq("template_id", templateId);
+
+    setIdentidadeVisualAtiva((prev) => ({ ...prev, [chave]: ativo }));
+    setSalvandoIdentidade(null);
   }
 
   async function salvarTemplate() {
@@ -687,6 +714,24 @@ export default function ConvitePage() {
                     <span style={isVisual ? visualBadgeStyle : htmlBadgeStyle}>
                       {isVisual ? "Editor visual" : "HTML"}
                     </span>
+
+                    {eventoSelecionado && (
+                      <label
+                        style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!identidadeVisualAtiva[`${eventoSelecionado}_${template.id}`]}
+                          disabled={salvandoIdentidade === `${eventoSelecionado}_${template.id}`}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleIdentidadeVisual(template.id, e.target.checked);
+                          }}
+                        />
+                        Usar identidade visual do evento
+                      </label>
+                    )}
                   </button>
                 );
               })}
