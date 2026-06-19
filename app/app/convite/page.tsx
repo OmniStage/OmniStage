@@ -81,11 +81,21 @@ function getVisualConfig(template: Template | null) {
 function getBackgroundUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
+  if (usarIdentidadeVisual) {
+    return (
+      evento?.background_url ||
+      evento?.background_image ||
+      visualConfig.backgroundPreviewUrl ||
+      template?.background_image ||
+      template?.preview_image ||
+      ""
+    );
+  }
+
   return (
     visualConfig.backgroundPreviewUrl ||
     template?.background_image ||
     template?.preview_image ||
-    (usarIdentidadeVisual ? evento?.background_url || evento?.background_image : null) ||
     ""
   );
 }
@@ -93,10 +103,19 @@ function getBackgroundUrl(template: Template | null, evento: Evento | null, usar
 function getLogoUrl(template: Template | null, evento: Evento | null, usarIdentidadeVisual = false) {
   const visualConfig = getVisualConfig(template);
 
+  if (usarIdentidadeVisual) {
+    return (
+      evento?.logo_url ||
+      evento?.logo_image ||
+      visualConfig.logoPreviewUrl ||
+      template?.logo_image ||
+      ""
+    );
+  }
+
   return (
     visualConfig.logoPreviewUrl ||
     template?.logo_image ||
-    (usarIdentidadeVisual ? evento?.logo_url || evento?.logo_image : null) ||
     ""
   );
 }
