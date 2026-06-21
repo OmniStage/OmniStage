@@ -21,7 +21,13 @@ export async function GET(req: NextRequest) {
     .eq("evento_id", evento.id)
     .order("criado_em", { ascending: false });
 
-  return NextResponse.json({ evento, midias: midias || [] });
+  const { data: convidados } = await supabase
+    .from("convidados")
+    .select("id, nome")
+    .eq("evento_id", evento.id)
+    .order("nome", { ascending: true });
+
+  return NextResponse.json({ evento, midias: midias || [], convidados: (convidados || []).map((c) => c.nome).filter(Boolean) });
 }
 
 export async function DELETE(req: NextRequest) {

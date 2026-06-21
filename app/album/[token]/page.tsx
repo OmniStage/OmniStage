@@ -25,11 +25,13 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const { token } = params;
   const [evento, setEvento] = useState<Evento | null>(null);
   const [midias, setMidias] = useState<Midia[]>([]);
+  const [convidados, setConvidados] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [nomeUploader, setNomeUploader] = useState("");
+  const [sugestoes, setSugestoes] = useState<string[]>([]);
   const [modalMidia, setModalMidia] = useState<Midia | null>(null);
   const [toast, setToast] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +46,23 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     if (!res.ok) { setErro(json.error || "Álbum não encontrado"); setLoading(false); return; }
     setEvento(json.evento);
     setMidias(json.midias);
+    setConvidados(json.convidados || []);
     setLoading(false);
+  }
+
+  function handleNomeChange(valor: string) {
+    setNomeUploader(valor);
+    if (valor.trim().length < 2) { setSugestoes([]); return; }
+    const filtradas = convidados.filter((n) =>
+      n.toLowerCase().includes(valor.toLowerCase())
+    ).slice(0, 6);
+    setSugestoes(filtradas);
+  }
+
+  function selecionarNome(nome: string) {
+    setNomeUploader(nome);
+    setSugestoes([]);
+    fileInputRef.current?.click();
   }
 
   function mostrarToast(msg: string) {
@@ -120,14 +138,31 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
 
       {/* Upload */}
       <div style={uploadSectionStyle}>
-        <input
-          ref={nomeInputRef}
-          type="text"
-          placeholder="Seu nome (opcional)"
-          value={nomeUploader}
-          onChange={(e) => setNomeUploader(e.target.value)}
-          style={nomeInputStyle}
-        />
+        <div style={{ position: "relative", width: "100%" }}>
+          <input
+            ref={nomeInputRef}
+            type="text"
+            placeholder="Digite seu nome..."
+            value={nomeUploader}
+            onChange={(e) => handleNomeChange(e.target.value)}
+            onBlur={() => setTimeout(() => setSugestoes([]), 200)}
+            style={nomeInputStyle}
+            autoComplete="off"
+          />
+          {sugestoes.length > 0 && (
+            <div style={sugestoesStyle}>
+              {sugestoes.map((nome) => (
+                <button
+                  key={nome}
+                  style={sugestaoItemStyle}
+                  onMouseDown={() => selecionarNome(nome)}
+                >
+                  {nome}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -441,6 +476,32 @@ const centerStyle: React.CSSProperties = {
   minHeight: "100vh",
   fontSize: 15,
   color: "rgba(255,255,255,0.4)",
+};
+
+const sugestoesStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "calc(100% + 6px)",
+  left: 0,
+  right: 0,
+  background: "rgba(20,10,35,0.97)",
+  backdropFilter: "blur(16px)",
+  border: "1px solid rgba(255,255,255,0.15)",
+  borderRadius: 14,
+  overflow: "hidden",
+  zIndex: 50,
+};
+
+const sugestaoItemStyle: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  padding: "13px 16px",
+  background: "none",
+  border: "none",
+  borderBottom: "1px solid rgba(255,255,255,0.07)",
+  color: "#fff",
+  fontSize: 15,
+  textAlign: "left",
+  cursor: "pointer",
 };
 
 const toastStyle: React.CSSProperties = {
