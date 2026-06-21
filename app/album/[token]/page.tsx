@@ -9,6 +9,7 @@ type Midia = {
   uploader_nome: string | null;
   criado_em: string;
   curtidas: number;
+  legenda: string | null;
 };
 
 type Evento = {
@@ -21,14 +22,7 @@ type Evento = {
   logo_image?: string | null;
 };
 
-type Aba = "home" | "albuns" | "videos" | "fotos" | "recados" | "compartilhar";
-
-type Mensagem = {
-  id: string;
-  autor_nome: string | null;
-  mensagem: string;
-  criado_em: string;
-};
+type Aba = "home" | "albuns" | "videos" | "fotos" | "compartilhar";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -54,45 +48,18 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [idxUnica, setIdxUnica] = useState(0);
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
   const [origemCamera, setOrigemCamera] = useState(false);
-  const [mensagens, setMensagens] = useState<Mensagem[]>([]);
-  const [novaMensagem, setNovaMensagem] = useState("");
-  const [enviandoMsg, setEnviandoMsg] = useState(false);
+  const [arquivoPendente, setArquivoPendente] = useState<File | null>(null);
+  const [modalLegenda, setModalLegenda] = useState(false);
+  const [legenda, setLegenda] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { carregar(); carregarMensagens(); }, [token]);
+  useEffect(() => { carregar(); }, [token]);
 
   useEffect(() => {
     const saved = localStorage.getItem(`album-curtidas-${token}`);
     if (saved) setCurtidas(new Set(JSON.parse(saved)));
   }, [token]);
-
-  async function carregarMensagens() {
-    const res = await fetch(`/api/album/mensagens?token=${token}`);
-    if (res.ok) {
-      const json = await res.json();
-      setMensagens(json.mensagens || []);
-    }
-  }
-
-  async function enviarMensagem() {
-    if (!novaMensagem.trim()) return;
-    setEnviandoMsg(true);
-    try {
-      const res = await fetch("/api/album/mensagens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, autor_nome: nomeUploader.trim() || null, mensagem: novaMensagem.trim() }),
-      });
-      if (res.ok) {
-        setNovaMensagem("");
-        await carregarMensagens();
-        mostrarToast("Recado enviado!");
-      }
-    } finally {
-      setEnviandoMsg(false);
-    }
-  }
 
   async function carregar() {
     setLoading(true);
@@ -145,18 +112,35 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     if (!files || files.length === 0) return;
     const arquivo = files[0];
     if (arquivo.size > MAX_FILE_SIZE) { mostrarToast("Arquivo muito grande. Máximo 50MB."); return; }
+    // Mostra modal de legenda antes de fazer upload
+    setArquivoPendente(arquivo);
+    setLegenda("");
+    setModalLegenda(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  }
+
+  async function confirmarUpload() {
+    if (!arquivoPendente) return;
+    setModalLegenda(false);
     setUploading(true);
     setUploadProgress(15);
     try {
       const res = await fetch("/api/album/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, nome_arquivo: arquivo.name, tipo_mime: arquivo.type, uploader_nome: nomeUploader.trim() || null }),
+        body: JSON.stringify({
+          token,
+          nome_arquivo: arquivoPendente.name,
+          tipo_mime: arquivoPendente.type,
+          uploader_nome: nomeUploader.trim() || null,
+          legenda: legenda.trim() || null,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setUploadProgress(50);
-      const uploadRes = await fetch(json.signed_url, { method: "PUT", headers: { "Content-Type": arquivo.type }, body: arquivo });
+      const uploadRes = await fetch(json.signed_url, { method: "PUT", headers: { "Content-Type": arquivoPendente.type }, body: arquivoPendente });
       if (!uploadRes.ok) throw new Error("Falha no upload");
       setUploadProgress(90);
       await carregar();
@@ -168,7 +152,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     } finally {
       setUploading(false);
       setUploadProgress(0);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setArquivoPendente(null);
+      setLegenda("");
     }
   }
 
@@ -235,10 +220,10 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         .heart-btn.curtido svg { fill: #fff; transform: scale(1.15); }
         .tab-btn {
           background: none; border: none; cursor: pointer;
-          display: flex; flex-direction: column; align-items: center; gap: 3px;
-          padding: 6px 6px; color: #94a3b8; font-size: 9px; font-weight: 700;
-          letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.15s;
-          font-family: inherit; min-width: 0; flex: 1;
+          display: flex; flex-direction: column; align-items: center; gap: 4px;
+          padding: 8px 10px; color: #94a3b8; font-size: 10px; font-weight: 700;
+          letter-spacing: 0.06em; text-transform: uppercase; transition: color 0.15s;
+          font-family: inherit;
         }
         .tab-btn.active { color: #7c3aed; }
         .action-circle {
@@ -478,7 +463,15 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                     ))}
                   </div>
                   {/* Info */}
-                  {listaVis[idxUnica].uploader_nome && (
+                  {listaVis[idxUnica].legenda && (
+                    <div style={legendaCardStyle}>
+                      <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, fontStyle: "italic" }}>"{listaVis[idxUnica].legenda}"</p>
+                      {listaVis[idxUnica].uploader_nome && (
+                        <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>— {listaVis[idxUnica].uploader_nome}</p>
+                      )}
+                    </div>
+                  )}
+                  {!listaVis[idxUnica].legenda && listaVis[idxUnica].uploader_nome && (
                     <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {listaVis[idxUnica].uploader_nome}</p>
                   )}
                   <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{idxUnica + 1} de {listaVis.length}</p>
@@ -503,76 +496,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             </div>
           );
         })()}
-
-        {/* RECADOS */}
-        {aba === "recados" && (
-          <div>
-            <div style={{ marginBottom: 16 }}>
-              <p style={sectionKickerStyle}>LIVRO DE VISITAS</p>
-              <h2 style={sectionHeadStyle}>Recados</h2>
-              <p style={{ fontSize: 14, color: "#64748b", margin: "3px 0 0" }}>Deixe uma mensagem para os anfitriões e convidados.</p>
-            </div>
-
-            {/* Caixa de envio */}
-            <div style={uploadCardStyle}>
-              {nomeUploader && (
-                <p style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, margin: "0 0 8px" }}>Enviando como: <strong>{nomeUploader}</strong></p>
-              )}
-              <textarea
-                placeholder="Escreva seu recado..."
-                value={novaMensagem}
-                onChange={(e) => setNovaMensagem(e.target.value)}
-                rows={3}
-                style={{ ...inputStyle, resize: "none" as const, width: "100%", marginBottom: 10, lineHeight: 1.5 }}
-              />
-              {!nomeUploader && (
-                <input
-                  type="text"
-                  placeholder="Seu nome (opcional)"
-                  value={nomeUploader}
-                  onChange={(e) => handleNomeChange(e.target.value)}
-                  style={{ ...inputStyle, marginBottom: 10 }}
-                />
-              )}
-              <button
-                style={{ ...uploadBtnStyle, width: "100%", opacity: enviandoMsg || !novaMensagem.trim() ? 0.6 : 1 }}
-                disabled={enviandoMsg || !novaMensagem.trim()}
-                onClick={enviarMensagem}>
-                {enviandoMsg ? "Enviando..." : "Enviar recado ✉️"}
-              </button>
-            </div>
-
-            {/* Lista de mensagens */}
-            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-              {mensagens.length === 0 ? (
-                <div style={emptyCardStyle}>
-                  <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>✉️</div>
-                  <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhum recado ainda</p>
-                  <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 0" }}>Seja o primeiro a deixar uma mensagem!</p>
-                </div>
-              ) : (
-                mensagens.map((msg) => (
-                  <div key={msg.id} style={msgCardStyle}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                      <div style={avatarStyle}>
-                        {(msg.autor_nome || "?")[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
-                          {msg.autor_nome || "Anônimo"}
-                        </p>
-                        <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>
-                          {new Date(msg.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap" as const }}>{msg.mensagem}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
 
         {/* COMPARTILHAR */}
         {aba === "compartilhar" && (
@@ -662,11 +585,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             <polyline points="21 15 16 10 5 21"/>
           </svg>
         </TabBtn>
-        <TabBtn label="RECADOS" ativo={aba === "recados"} onClick={() => setAba("recados")}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-        </TabBtn>
       </nav>
 
       {/* ── LIGHTBOX ── */}
@@ -678,9 +596,15 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               ? <video src={modalMidia.arquivo_url} controls autoPlay playsInline style={lbMediaStyle} />
               : <img src={modalMidia.arquivo_url} alt="" style={lbMediaStyle} />
             }
+            {modalMidia.legenda && (
+              <div style={{ padding: "12px 18px 0", borderTop: "1px solid #f1f5f9" }}>
+                <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, fontStyle: "italic" }}>"{modalMidia.legenda}"</p>
+                {modalMidia.uploader_nome && <p style={{ margin: "4px 0 0", fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>— {modalMidia.uploader_nome}</p>}
+              </div>
+            )}
             <div style={lbFootStyle}>
               <div>
-                {modalMidia.uploader_nome && <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: "#1e293b" }}>por {modalMidia.uploader_nome}</p>}
+                {!modalMidia.legenda && modalMidia.uploader_nome && <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: "#1e293b" }}>por {modalMidia.uploader_nome}</p>}
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>{new Date(modalMidia.criado_em).toLocaleDateString("pt-BR")}</p>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -738,6 +662,36 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </div>
       )}
 
+      {/* ── MODAL LEGENDA ── */}
+      {modalLegenda && arquivoPendente && (
+        <div style={overlayStyle} onClick={() => { setModalLegenda(false); setArquivoPendente(null); }}>
+          <div style={nomeModalStyle} onClick={(e) => e.stopPropagation()}>
+            {/* Preview da foto */}
+            {arquivoPendente.type.startsWith("image") && (
+              <div style={{ width: "100%", height: 180, borderRadius: 12, overflow: "hidden", marginBottom: 16, background: "#0f172a" }}>
+                <img src={URL.createObjectURL(arquivoPendente)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            )}
+            <p style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>Adicionar mensagem</p>
+            <p style={{ fontSize: 14, color: "#64748b", margin: "0 0 14px" }}>Opcional — escreva algo para acompanhar sua foto.</p>
+            <textarea
+              placeholder={`"Que momento incrível! Obrigado pela festa..."`}
+              value={legenda}
+              onChange={(e) => setLegenda(e.target.value)}
+              rows={3}
+              autoFocus
+              style={{ ...inputStyle, resize: "none" as const, width: "100%", lineHeight: 1.6, fontStyle: legenda ? "normal" : "italic" }}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <button style={skipBtnStyle} onClick={confirmarUpload}>Pular</button>
+              <button style={confirmBtnStyle} onClick={confirmarUpload}>
+                {legenda.trim() ? "Enviar com mensagem ✉️" : "Enviar foto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <div style={toastStyle}>{toast}</div>}
     </div>
   );
@@ -754,8 +708,8 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
 }
 
 // ─── MidiaCard ─────────────────────────────────────────────────────────────────
-function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurtir }: {
-  m: Midia; sel: boolean; modoSelecao: boolean; curtido: boolean;
+function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurtir, showLegenda }: {
+  m: Midia; sel: boolean; modoSelecao: boolean; curtido: boolean; showLegenda?: boolean;
   onClick: () => void; onLongPress: () => void; onCurtir: (e: React.MouseEvent) => void;
 }) {
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -781,7 +735,13 @@ function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurti
         </svg>
         {(m.curtidas || 0) > 0 && <span>{m.curtidas}</span>}
       </button>
-      {m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
+      {!m.legenda && m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
+      {m.legenda && (
+        <div style={legendaOverlayStyle}>
+          {m.uploader_nome && <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.8 }}>{m.uploader_nome} · </span>}
+          <span style={{ fontSize: 10, fontStyle: "italic" }}>"{m.legenda}"</span>
+        </div>
+      )}
       {modoSelecao && (
         <div style={{ ...checkStyle, ...(sel ? checkSelStyle : {}) }}>
           {sel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -873,5 +833,5 @@ const bottomNavStyle: React.CSSProperties = {
 
 const toastStyle: React.CSSProperties = { position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", background: "#1e293b", color: "#fff", padding: "11px 22px", borderRadius: 100, fontSize: 13, fontWeight: 500, zIndex: 200, whiteSpace: "nowrap" as const, boxShadow: "0 4px 20px rgba(0,0,0,0.2)" };
 
-const msgCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "16px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" };
-const avatarStyle: React.CSSProperties = { width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg,#7c3aed,#a78bfa)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, flexShrink: 0 };
+const legendaCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", margin: "12px 0 0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" };
+const legendaOverlayStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "18px 7px 5px", fontSize: 10, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.82))", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, lineHeight: 1.4 };
