@@ -42,6 +42,7 @@ export default function AppLayout({
     { name: "Clientes / Fornecedores", href: "/app/cadastros" },
     { name: "Convidados", href: "/app/convidados" },
     { name: "Convite Digital", href: "/app/convite" },
+    { name: "Álbum Compartilhado", href: "/app/album" },
     { name: "Envios", href: "/app/envios" },
     { name: "RSVP", href: "/app/rsvp" },
     { name: "Presentes", href: "/app/presentes" },
