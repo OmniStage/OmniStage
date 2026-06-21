@@ -292,12 +292,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         {/* HOME */}
         {aba === "home" && (
           <div>
-            <div style={{ marginBottom: 16 }}>
-              <p style={sectionKickerStyle}>SOBRE O EVENTO</p>
-              <h2 style={sectionHeadStyle}>{evento?.nome}</h2>
-              {evento?.data_evento && <p style={{ fontSize: 14, color: "#64748b", margin: "3px 0 0" }}>{formatarData(evento.data_evento)}</p>}
-            </div>
-
             <div style={uploadCardStyle}>
               <p style={sectionKickerStyle}>ADICIONAR MÍDIA</p>
               <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Compartilhe um momento</h3>
