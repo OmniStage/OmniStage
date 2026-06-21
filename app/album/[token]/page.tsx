@@ -664,7 +664,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
 
       {/* ── MODAL LEGENDA ── */}
       {modalLegenda && arquivoPendente && (
-        <div style={overlayStyle} onClick={() => { setModalLegenda(false); setArquivoPendente(null); }}>
+        <div style={overlayStyle}>
           <div style={nomeModalStyle} onClick={(e) => e.stopPropagation()}>
             {/* Preview da foto */}
             {arquivoPendente.type.startsWith("image") && (
@@ -672,7 +672,10 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                 <img src={URL.createObjectURL(arquivoPendente)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
             )}
-            <p style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>Adicionar mensagem</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <p style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", margin: 0 }}>Adicionar mensagem</p>
+              <button onClick={() => { setModalLegenda(false); setArquivoPendente(null); }} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", padding: "0 0 0 8px", lineHeight: 1 }}>✕</button>
+            </div>
             <p style={{ fontSize: 14, color: "#64748b", margin: "0 0 14px" }}>Opcional — escreva algo para acompanhar sua foto.</p>
             <textarea
               placeholder={`"Que momento incrível! Obrigado pela festa..."`}
