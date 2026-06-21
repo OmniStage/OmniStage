@@ -136,8 +136,9 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
       } catch (e: any) { toast_show(e.message || "Erro no upload", "error"); }
     }
     await carregarMidias(albumAtivo.id);
-    // atualiza contagem no album
-    setAlbums((prev) => prev.map((a) => a.id === albumAtivo.id ? { ...a, total_midias: a.total_midias + ok } : a));
+    const res2 = await fetch(`/api/albums?evento_id=${eventId}`);
+    const json2 = await res2.json();
+    setAlbums(json2.albums || []);
     setUploading(false);
     if (ok > 0) toast_show(`${ok} ${ok === 1 ? "arquivo enviado" : "arquivos enviados"}!`, "success");
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -152,9 +153,11 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
       body: JSON.stringify({ id: midia.id, arquivo_url: midia.arquivo_url }),
     });
     setMidias((prev) => prev.filter((m) => m.id !== midia.id));
-    setAlbums((prev) => prev.map((a) => a.id === albumAtivo?.id ? { ...a, total_midias: Math.max(0, a.total_midias - 1) } : a));
     setModalMidia(null);
     setDeletando(null);
+    const r = await fetch(`/api/albums?evento_id=${eventId}`);
+    const j = await r.json();
+    setAlbums(j.albums || []);
     toast_show("Mídia removida.", "success");
   }
 
