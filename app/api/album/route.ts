@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const { data: evento } = await supabase
     .from("eventos")
-    .select("id, nome, album_token")
+    .select("id, nome, album_token, background_url, background_image, logo_url, logo_image")
     .eq("album_token", token)
     .maybeSingle();
 
