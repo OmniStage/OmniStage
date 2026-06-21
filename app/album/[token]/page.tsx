@@ -21,7 +21,7 @@ type Evento = {
   logo_image?: string | null;
 };
 
-type Aba = "home" | "fotos" | "videos" | "compartilhar";
+type Aba = "home" | "albuns" | "videos" | "fotos" | "compartilhar";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -206,16 +206,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         }
         .action-circle:hover { border-color: #7c3aed; background: rgba(124,58,237,0.06); }
         .action-circle:active { transform: scale(0.95); }
-        .fab {
-          position: fixed; bottom: 80px; right: 20px;
-          width: 54px; height: 54px; border-radius: 50%;
-          background: #7c3aed; border: none; color: #fff;
-          font-size: 28px; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 4px 20px rgba(124,58,237,0.4); z-index: 55;
-          transition: transform 0.15s; font-family: inherit;
-        }
-        .fab:active { transform: scale(0.92); }
+        .cam-nav-btn:active { transform: scale(0.9); }
       `}</style>
 
       <input ref={fileInputRef} type="file" accept="image/*,video/*" capture="environment"
@@ -317,7 +308,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "20px 0 10px" }}>
                   <p style={{ ...sectionKickerStyle, margin: 0 }}>ÚLTIMAS ADICIONADAS</p>
-                  <button style={verTodosBtnStyle} onClick={() => setAba("fotos")}>Ver todas →</button>
+                  <button style={verTodosBtnStyle} onClick={() => setAba("albuns")}>Ver todas →</button>
                 </div>
                 <div style={gridStyle}>
                   {midias.slice(0, 6).map((m) => (
@@ -340,7 +331,57 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           </div>
         )}
 
-        {/* FOTOS */}
+        {/* ÁLBUNS — todas as mídias */}
+        {aba === "albuns" && (
+          <div>
+            <div style={toolbarStyle}>
+              <span style={toolbarCountStyle}>{midias.length} {midias.length === 1 ? "item" : "itens"}</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {modoSelecao && selecionados.size > 0 && (
+                  <button style={selDlBtnStyle}
+                    onClick={() => selecionados.forEach((id) => {
+                      const m = midias.find((x) => x.id === id);
+                      if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); }
+                    })}>⬇ Baixar {selecionados.size}</button>
+                )}
+                <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}) }}
+                  onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
+                  {modoSelecao ? "Cancelar" : "Selecionar"}
+                </button>
+              </div>
+            </div>
+            {midias.length === 0
+              ? <div style={emptyCardStyle}><div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>📷</div><p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhuma mídia ainda</p></div>
+              : <div style={gridStyle}>{midias.map((m) => (
+                <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
+                  curtido={curtidas.has(m.id)}
+                  onClick={() => modoSelecao ? toggleSelecao(m.id) : setModalMidia(m)}
+                  onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
+                  onCurtir={(e) => curtir(m.id, e)} />
+              ))}</div>
+            }
+          </div>
+        )}
+
+        {/* VÍDEOS */}
+        {aba === "videos" && (
+          <div>
+            <div style={toolbarStyle}>
+              <span style={toolbarCountStyle}>{videos.length} {videos.length === 1 ? "vídeo" : "vídeos"}</span>
+            </div>
+            {videos.length === 0
+              ? <div style={emptyCardStyle}><div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>🎬</div><p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhum vídeo ainda</p></div>
+              : <div style={gridStyle}>{videos.map((m) => (
+                <MidiaCard key={m.id} m={m} sel={false} modoSelecao={false}
+                  curtido={curtidas.has(m.id)}
+                  onClick={() => setModalMidia(m)} onLongPress={() => {}}
+                  onCurtir={(e) => curtir(m.id, e)} />
+              ))}</div>
+            }
+          </div>
+        )}
+
+        {/* FOTOS — só imagens */}
         {aba === "fotos" && (
           <div>
             <div style={toolbarStyle}>
@@ -366,24 +407,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   curtido={curtidas.has(m.id)}
                   onClick={() => modoSelecao ? toggleSelecao(m.id) : setModalMidia(m)}
                   onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
-                  onCurtir={(e) => curtir(m.id, e)} />
-              ))}</div>
-            }
-          </div>
-        )}
-
-        {/* VÍDEOS */}
-        {aba === "videos" && (
-          <div>
-            <div style={toolbarStyle}>
-              <span style={toolbarCountStyle}>{videos.length} {videos.length === 1 ? "vídeo" : "vídeos"}</span>
-            </div>
-            {videos.length === 0
-              ? <div style={emptyCardStyle}><div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>🎬</div><p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhum vídeo ainda</p></div>
-              : <div style={gridStyle}>{videos.map((m) => (
-                <MidiaCard key={m.id} m={m} sel={false} modoSelecao={false}
-                  curtido={curtidas.has(m.id)}
-                  onClick={() => setModalMidia(m)} onLongPress={() => {}}
                   onCurtir={(e) => curtir(m.id, e)} />
               ))}</div>
             }
@@ -438,9 +461,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         )}
       </div>
 
-      {/* FAB */}
-      <button className="fab" onClick={abrirUpload}>+</button>
-
       {/* ── BOTTOM NAV ── */}
       <nav style={bottomNavStyle}>
         <TabBtn label="HOME" ativo={aba === "home"} onClick={() => setAba("home")}>
@@ -449,24 +469,33 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             <polyline points="9 22 9 12 15 12 15 22"/>
           </svg>
         </TabBtn>
-        <TabBtn label="ÁLBUNS" ativo={aba === "fotos"} onClick={() => setAba("fotos")}>
+        <TabBtn label="ÁLBUNS" ativo={aba === "albuns"} onClick={() => setAba("albuns")}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="3"/>
             <circle cx="8.5" cy="8.5" r="1.5"/>
             <polyline points="21 15 16 10 5 21"/>
           </svg>
         </TabBtn>
+
+        {/* Câmera — botão central de ação */}
+        <button onClick={abrirUpload} style={cameraNavBtnStyle}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
+
         <TabBtn label="VÍDEOS" ativo={aba === "videos"} onClick={() => setAba("videos")}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="23 7 16 12 23 17 23 7"/>
             <rect x="1" y="5" width="15" height="14" rx="2"/>
           </svg>
         </TabBtn>
-        <TabBtn label="SHARE" ativo={aba === "compartilhar"} onClick={() => setAba("compartilhar")}>
+        <TabBtn label="FOTOS" ativo={aba === "fotos"} onClick={() => setAba("fotos")}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-            <polyline points="16 6 12 2 8 6"/>
-            <line x1="12" y1="2" x2="12" y2="15"/>
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
           </svg>
         </TabBtn>
       </nav>
@@ -647,6 +676,14 @@ const closeBtnStyle: React.CSSProperties = { position: "absolute", top: 10, righ
 const lbMediaStyle: React.CSSProperties = { width: "100%", maxHeight: "72vh", objectFit: "contain", display: "block", background: "#0f172a" };
 const lbFootStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px" };
 const lbDlBtnStyle: React.CSSProperties = { padding: "8px 14px", borderRadius: 9, background: "#f1f5f9", color: "#0f172a", fontSize: 13, textDecoration: "none", fontWeight: 600 };
+
+const cameraNavBtnStyle: React.CSSProperties = {
+  width: 56, height: 56, borderRadius: "50%",
+  background: "#7c3aed", border: "3px solid #f8fafc",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  cursor: "pointer", boxShadow: "0 4px 16px rgba(124,58,237,0.4)",
+  marginTop: -18, transition: "transform 0.15s", flexShrink: 0,
+};
 
 const bottomNavStyle: React.CSSProperties = {
   position: "fixed", bottom: 0, left: 0, right: 0, height: 68,
