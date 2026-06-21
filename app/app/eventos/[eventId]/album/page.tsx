@@ -10,6 +10,7 @@ type Midia = {
   tipo: "image" | "video";
   uploader_nome: string | null;
   criado_em: string;
+  curtidas: number;
 };
 
 export default function AlbumAdminPage({ params }: { params: { eventId: string } }) {
@@ -56,7 +57,8 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
   }
 
   async function gerarQR(token: string) {
-    const url = `${window.location.origin}/album/${token}`;
+    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const url = `${base}/album/${token}`;
     const dataUrl = await QRCode.toDataURL(url, {
       width: 400,
       margin: 2,
@@ -112,7 +114,8 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
 
   function copiarLink() {
     if (!albumToken) return;
-    navigator.clipboard.writeText(`${window.location.origin}/album/${albumToken}`);
+    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    navigator.clipboard.writeText(`${base}/album/${albumToken}`);
     toast_show("Link copiado!", "success");
   }
 
@@ -126,7 +129,8 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
 
   function imprimirQR() {
     if (!qrDataUrl || !albumToken) return;
-    const url = `${window.location.origin}/album/${albumToken}`;
+    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const url = `${base}/album/${albumToken}`;
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(`
@@ -287,6 +291,11 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                         <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
                       )}
                       {m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
+                      {(m.curtidas || 0) > 0 && (
+                        <div style={curtidasBadgeStyle}>
+                          ♥ {m.curtidas}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -423,6 +432,7 @@ const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: 
 const thumbStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 const playStyle: React.CSSProperties = { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, color: "#fff", background: "rgba(0,0,0,0.28)", pointerEvents: "none" };
 const nameTagStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "5px 8px", fontSize: 11, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.7))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const curtidasBadgeStyle: React.CSSProperties = { position: "absolute", top: 7, left: 7, background: "rgba(225,29,72,0.85)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, backdropFilter: "blur(4px)" };
 
 const qrLayoutStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "auto 1fr", gap: 24, alignItems: "start" };
 const qrCardStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "28px 28px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, width: 280 };

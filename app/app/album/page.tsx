@@ -71,7 +71,8 @@ export default function AlbumListaPage() {
   }
 
   function copiarLink(token: string) {
-    navigator.clipboard.writeText(`${window.location.origin}/album/${token}`);
+    const base = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    navigator.clipboard.writeText(`${base}/album/${token}`);
     mostrarToast("Link copiado!");
   }
 

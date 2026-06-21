@@ -30,6 +30,17 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ evento, midias: midias || [], convidados: (convidados || []).map((c) => c.nome).filter(Boolean) });
 }
 
+export async function PATCH(req: NextRequest) {
+  const { id, descurtir } = await req.json();
+  if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
+
+  const supabase = createServiceClient();
+  const { data: atual } = await supabase.from("event_album").select("curtidas").eq("id", id).single();
+  const novoValor = Math.max(0, (atual?.curtidas || 0) + (descurtir ? -1 : 1));
+  await supabase.from("event_album").update({ curtidas: novoValor }).eq("id", id);
+  return NextResponse.json({ curtidas: novoValor });
+}
+
 export async function DELETE(req: NextRequest) {
   const { id, arquivo_url } = await req.json();
   if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
