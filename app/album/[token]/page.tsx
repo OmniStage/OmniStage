@@ -43,6 +43,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [toast, setToast] = useState("");
   const [modalNome, setModalNome] = useState(false);
   const [aba, setAba] = useState<Aba>("home");
+  const [visModo, setVisModo] = useState<"grade" | "unica" | "favoritas">("grade");
+  const [idxUnica, setIdxUnica] = useState(0);
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
   const [origemCamera, setOrigemCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +214,12 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         .action-circle:hover { border-color: #7c3aed; background: rgba(124,58,237,0.06); }
         .action-circle:active { transform: scale(0.95); }
         .cam-nav-btn:active { transform: scale(0.9); }
+        .vis-btn { background: none; border: none; cursor: pointer; padding: 8px 10px; border-radius: 10px; color: #94a3b8; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+        .vis-btn.ativo { background: rgba(124,58,237,0.1); color: #7c3aed; }
+        .vis-btn:active { transform: scale(0.9); }
+        .carousel-area { position: relative; width: 100%; background: #0f172a; border-radius: 14px; overflow: hidden; }
+        .carousel-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 5; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .carousel-nav:active { background: rgba(255,255,255,0.3); }
       `}</style>
 
       {/* Input galeria — sem capture para abrir seletor completo */}
@@ -340,87 +348,124 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           </div>
         )}
 
-        {/* ÁLBUNS — todas as mídias */}
-        {aba === "albuns" && (
-          <div>
-            <div style={toolbarStyle}>
-              <span style={toolbarCountStyle}>{midias.length} {midias.length === 1 ? "item" : "itens"}</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                {modoSelecao && selecionados.size > 0 && (
-                  <button style={selDlBtnStyle}
-                    onClick={() => selecionados.forEach((id) => {
-                      const m = midias.find((x) => x.id === id);
-                      if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); }
-                    })}>⬇ Baixar {selecionados.size}</button>
-                )}
-                <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}) }}
-                  onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
-                  {modoSelecao ? "Cancelar" : "Selecionar"}
-                </button>
-              </div>
-            </div>
-            {midias.length === 0
-              ? <div style={emptyCardStyle}><div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>📷</div><p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhuma mídia ainda</p></div>
-              : <div style={gridStyle}>{midias.map((m) => (
-                <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
-                  curtido={curtidas.has(m.id)}
-                  onClick={() => modoSelecao ? toggleSelecao(m.id) : setModalMidia(m)}
-                  onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
-                  onCurtir={(e) => curtir(m.id, e)} />
-              ))}</div>
-            }
-          </div>
-        )}
+        {/* ÁLBUNS / VÍDEOS / FOTOS — com barra de modo de visualização */}
+        {(aba === "albuns" || aba === "videos" || aba === "fotos") && (() => {
+          const lista = aba === "albuns" ? midias : aba === "videos" ? videos : fotos;
+          const listaFavs = lista.filter((m) => curtidas.has(m.id));
+          const listaVis = visModo === "favoritas" ? listaFavs : lista;
+          const emptyMsg = aba === "videos" ? "Nenhum vídeo ainda" : aba === "fotos" ? "Nenhuma foto ainda" : "Nenhuma mídia ainda";
+          const emptyIcon = aba === "videos" ? "🎬" : "📷";
+          const countLabel = aba === "videos"
+            ? `${lista.length} ${lista.length === 1 ? "vídeo" : "vídeos"}`
+            : aba === "fotos"
+            ? `${lista.length} ${lista.length === 1 ? "foto" : "fotos"}`
+            : `${lista.length} ${lista.length === 1 ? "item" : "itens"}`;
 
-        {/* VÍDEOS */}
-        {aba === "videos" && (
-          <div>
-            <div style={toolbarStyle}>
-              <span style={toolbarCountStyle}>{videos.length} {videos.length === 1 ? "vídeo" : "vídeos"}</span>
-            </div>
-            {videos.length === 0
-              ? <div style={emptyCardStyle}><div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>🎬</div><p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhum vídeo ainda</p></div>
-              : <div style={gridStyle}>{videos.map((m) => (
-                <MidiaCard key={m.id} m={m} sel={false} modoSelecao={false}
-                  curtido={curtidas.has(m.id)}
-                  onClick={() => setModalMidia(m)} onLongPress={() => {}}
-                  onCurtir={(e) => curtir(m.id, e)} />
-              ))}</div>
-            }
-          </div>
-        )}
-
-        {/* FOTOS — só imagens */}
-        {aba === "fotos" && (
-          <div>
-            <div style={toolbarStyle}>
-              <span style={toolbarCountStyle}>{fotos.length} {fotos.length === 1 ? "foto" : "fotos"}</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                {modoSelecao && selecionados.size > 0 && (
-                  <button style={selDlBtnStyle}
-                    onClick={() => selecionados.forEach((id) => {
-                      const m = midias.find((x) => x.id === id);
-                      if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); }
-                    })}>⬇ Baixar {selecionados.size}</button>
-                )}
-                <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}) }}
-                  onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
-                  {modoSelecao ? "Cancelar" : "Selecionar"}
-                </button>
+          return (
+            <div>
+              {/* Barra de modos */}
+              <div style={visBarStyle}>
+                <span style={toolbarCountStyle}>{visModo === "favoritas" ? `${listaFavs.length} favoritas` : countLabel}</span>
+                <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                  {/* Grade */}
+                  <button className={`vis-btn${visModo === "grade" ? " ativo" : ""}`} onClick={() => setVisModo("grade")} title="Grade">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/>
+                      <rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>
+                    </svg>
+                  </button>
+                  {/* Visualização única */}
+                  <button className={`vis-btn${visModo === "unica" ? " ativo" : ""}`} onClick={() => { setVisModo("unica"); setIdxUnica(0); }} title="Uma por vez">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5" width="18" height="14" rx="2"/>
+                    </svg>
+                  </button>
+                  {/* Favoritas */}
+                  <button className={`vis-btn${visModo === "favoritas" ? " ativo" : ""}`} onClick={() => setVisModo("favoritas")} title="Favoritas">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill={visModo === "favoritas" ? "#e11d48" : "none"} stroke={visModo === "favoritas" ? "#e11d48" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                  </button>
+                  {/* Selecionar (só no modo grade) */}
+                  {visModo === "grade" && aba !== "videos" && (
+                    <>
+                      {modoSelecao && selecionados.size > 0 && (
+                        <button style={{ ...selDlBtnStyle, marginLeft: 4 }}
+                          onClick={() => selecionados.forEach((id) => {
+                            const m = midias.find((x) => x.id === id);
+                            if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); }
+                          })}>⬇ {selecionados.size}</button>
+                      )}
+                      <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}), marginLeft: 4 }}
+                        onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
+                        {modoSelecao ? "Cancelar" : "Selecionar"}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {listaVis.length === 0 ? (
+                <div style={emptyCardStyle}>
+                  <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>{visModo === "favoritas" ? "🤍" : emptyIcon}</div>
+                  <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{visModo === "favoritas" ? "Nenhuma favorita ainda" : emptyMsg}</p>
+                </div>
+              ) : visModo === "unica" ? (
+                /* ── CARROSSEL ── */
+                <div>
+                  <div className="carousel-area" style={{ aspectRatio: "1" }}>
+                    {listaVis[idxUnica].tipo === "video"
+                      ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                      : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                    }
+                    {idxUnica > 0 && (
+                      <button className="carousel-nav" style={{ left: 10 }} onClick={() => setIdxUnica(i => i - 1)}>‹</button>
+                    )}
+                    {idxUnica < listaVis.length - 1 && (
+                      <button className="carousel-nav" style={{ right: 10 }} onClick={() => setIdxUnica(i => i + 1)}>›</button>
+                    )}
+                    {/* Coração no carrossel */}
+                    <button className={`heart-btn${curtidas.has(listaVis[idxUnica].id) ? " curtido" : ""}`}
+                      onClick={(e) => curtir(listaVis[idxUnica].id, e)}
+                      style={{ top: 10, left: 10 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(listaVis[idxUnica].id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                      </svg>
+                      {(listaVis[idxUnica].curtidas || 0) > 0 && <span>{listaVis[idxUnica].curtidas}</span>}
+                    </button>
+                  </div>
+                  {/* Dots */}
+                  <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+                    {listaVis.map((_, i) => (
+                      <button key={i} onClick={() => setIdxUnica(i)} style={{ width: i === idxUnica ? 20 : 7, height: 7, borderRadius: 4, border: "none", background: i === idxUnica ? "#7c3aed" : "#e2e8f0", cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
+                    ))}
+                  </div>
+                  {/* Info */}
+                  {listaVis[idxUnica].uploader_nome && (
+                    <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {listaVis[idxUnica].uploader_nome}</p>
+                  )}
+                  <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{idxUnica + 1} de {listaVis.length}</p>
+                </div>
+              ) : (
+                /* ── GRADE ── */
+                <div style={gridStyle}>
+                  {listaVis.map((m) => (
+                    <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
+                      curtido={curtidas.has(m.id)}
+                      onClick={() => {
+                        if (modoSelecao) { toggleSelecao(m.id); return; }
+                        const idx = listaVis.findIndex(x => x.id === m.id);
+                        setIdxUnica(idx);
+                        setVisModo("unica");
+                      }}
+                      onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
+                      onCurtir={(e) => curtir(m.id, e)} />
+                  ))}
+                </div>
+              )}
             </div>
-            {fotos.length === 0
-              ? <div style={emptyCardStyle}><div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>🖼️</div><p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhuma foto ainda</p></div>
-              : <div style={gridStyle}>{fotos.map((m) => (
-                <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
-                  curtido={curtidas.has(m.id)}
-                  onClick={() => modoSelecao ? toggleSelecao(m.id) : setModalMidia(m)}
-                  onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
-                  onCurtir={(e) => curtir(m.id, e)} />
-              ))}</div>
-            }
-          </div>
-        )}
+          );
+        })()}
 
         {/* COMPARTILHAR */}
         {aba === "compartilhar" && (
@@ -665,6 +710,7 @@ const uploadBtnStyle: React.CSSProperties = { padding: "11px 15px", borderRadius
 const verTodosBtnStyle: React.CSSProperties = { fontSize: 12, color: "#7c3aed", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0 };
 
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
+const visBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "8px 0 10px", borderBottom: "1px solid #e2e8f0" };
 const toolbarCountStyle: React.CSSProperties = { fontSize: 13, color: "#64748b", fontWeight: 600 };
 const selBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer" };
 const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "#7c3aed", borderColor: "rgba(124,58,237,0.3)" };
