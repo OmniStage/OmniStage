@@ -28,6 +28,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 export default function AlbumPage({ params }: { params: { token: string } }) {
   const { token } = params;
   const [evento, setEvento] = useState<Evento | null>(null);
+  const [albumNome, setAlbumNome] = useState("");
   const [midias, setMidias] = useState<Midia[]>([]);
   const [convidados, setConvidados] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +61,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     const json = await res.json();
     if (!res.ok) { setErro(json.error || "Álbum não encontrado"); setLoading(false); return; }
     setEvento(json.evento);
-    setMidias(json.midias);
+    setAlbumNome(json.album?.nome || "");
+    setMidias(json.midias || []);
     setConvidados(json.convidados || []);
     setLoading(false);
   }
@@ -238,8 +240,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               <img src={logoUrl} alt={evento?.nome} style={logoImgStyle} />
             </div>
           )}
-          <p style={kickerStyle}>ÁLBUM COMPARTILHADO</p>
-          <h1 style={heroTitleStyle}>{evento?.nome}</h1>
+          <p style={kickerStyle}>{evento?.nome?.toUpperCase()}</p>
+          <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
           {evento?.data_evento && <p style={heroDateStyle}>{formatarData(evento.data_evento)}</p>}
           <div style={statsRowStyle}>
             <div style={statChipStyle}>

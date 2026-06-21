@@ -10,16 +10,16 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: evento } = await supabase
-    .from("eventos")
-    .select("id, album_token")
+  const { data: album } = await supabase
+    .from("albums")
+    .select("id, evento_id, album_token")
     .eq("album_token", token)
     .maybeSingle();
 
-  if (!evento) return NextResponse.json({ error: "Álbum não encontrado" }, { status: 404 });
+  if (!album) return NextResponse.json({ error: "Álbum não encontrado" }, { status: 404 });
 
   const ext = nome_arquivo.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${evento.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `${album.evento_id}/${album.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
   const { data: uploadData, error } = await supabase.storage
     .from("event-album")
@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
   const { data: midia } = await supabase
     .from("event_album")
     .insert({
-      evento_id: evento.id,
+      evento_id: album.evento_id,
+      album_id: album.id,
       arquivo_url,
       path_storage: path,
       tipo,
@@ -44,10 +45,5 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  return NextResponse.json({
-    signed_url: uploadData.signedUrl,
-    token: uploadData.token,
-    path,
-    midia,
-  });
+  return NextResponse.json({ signed_url: uploadData.signedUrl, token: uploadData.token, path, midia });
 }

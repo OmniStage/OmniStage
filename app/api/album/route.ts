@@ -7,27 +7,38 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: evento } = await supabase
-    .from("eventos")
-    .select("id, nome, album_token, background_url, background_image, logo_url, logo_image")
+  const { data: album } = await supabase
+    .from("albums")
+    .select("id, nome, descricao, album_token, evento_id")
     .eq("album_token", token)
     .maybeSingle();
 
-  if (!evento) return NextResponse.json({ error: "Álbum não encontrado" }, { status: 404 });
+  if (!album) return NextResponse.json({ error: "Álbum não encontrado" }, { status: 404 });
+
+  const { data: evento } = await supabase
+    .from("eventos")
+    .select("id, nome, data_evento, background_url, background_image, logo_url, logo_image")
+    .eq("id", album.evento_id)
+    .maybeSingle();
 
   const { data: midias } = await supabase
     .from("event_album")
     .select("*")
-    .eq("evento_id", evento.id)
+    .eq("album_id", album.id)
     .order("criado_em", { ascending: false });
 
   const { data: convidados } = await supabase
     .from("convidados")
-    .select("id, nome")
-    .eq("evento_id", evento.id)
+    .select("nome")
+    .eq("evento_id", album.evento_id)
     .order("nome", { ascending: true });
 
-  return NextResponse.json({ evento, midias: midias || [], convidados: (convidados || []).map((c) => c.nome).filter(Boolean) });
+  return NextResponse.json({
+    album,
+    evento,
+    midias: midias || [],
+    convidados: (convidados || []).map((c) => c.nome).filter(Boolean),
+  });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -53,6 +64,5 @@ export async function DELETE(req: NextRequest) {
   }
 
   await supabase.from("event_album").delete().eq("id", id);
-
   return NextResponse.json({ ok: true });
 }
