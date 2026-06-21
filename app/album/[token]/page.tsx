@@ -149,31 +149,39 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
       <div style={heroStyle}>
         {bgUrl
           ? <img src={bgUrl} alt="" style={heroBgImgStyle} />
-          : <div style={{ ...heroBgImgStyle, background: "linear-gradient(135deg,#1a0a2e,#2d1060)" }} />
+          : <div style={{ ...heroBgImgStyle, background: "linear-gradient(160deg,#1a0a2e 0%,#2d1060 100%)" }} />
         }
         <div style={heroOverlayStyle} />
+
+        {/* Conteúdo centralizado */}
         <div style={heroContentStyle}>
-          {logoUrl && <img src={logoUrl} alt={evento?.nome} style={heroLogoStyle} />}
+          {logoUrl && (
+            <div style={heroLogoWrapStyle}>
+              <img src={logoUrl} alt={evento?.nome} style={heroLogoStyle} />
+            </div>
+          )}
+          <p style={heroKickerStyle}>ÁLBUM DO EVENTO</p>
           <h1 style={heroTitleStyle}>{evento?.nome}</h1>
           {evento?.data_evento && <p style={heroDateStyle}>{formatarData(evento.data_evento)}</p>}
-        </div>
 
-        {/* Action row */}
-        <div style={heroActionsStyle}>
           <button style={addBtnStyle} onClick={abrirUpload}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Adicionar fotos
+            Adicionar fotos ou vídeos
           </button>
-          <button style={iconBtnStyle} onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          </button>
-          {selecionados.size > 0 && (
-            <button style={{ ...iconBtnStyle, background: "rgba(255,255,255,0.25)" }}
-              onClick={() => { selecionados.forEach((id) => { const m = midias.find((x) => x.id === id); if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); } }); }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </button>
-          )}
         </div>
+
+        {/* Ícone seleção */}
+        <button style={selectIconBtnStyle} onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </button>
+
+        {selecionados.size > 0 && (
+          <button style={dlSelBtnStyle}
+            onClick={() => { selecionados.forEach((id) => { const m = midias.find((x) => x.id === id); if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); } }); }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Baixar {selecionados.size}
+          </button>
+        )}
       </div>
 
       {/* ── TABS ─────────────────────────────────────────── */}
@@ -338,16 +346,18 @@ const shellStyle: React.CSSProperties = { minHeight: "100vh", background: "#0a0a
 const centerStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontSize: 15, color: "rgba(255,255,255,0.4)", fontFamily: "Inter, sans-serif" };
 
 // Hero
-const heroStyle: React.CSSProperties = { position: "relative", height: 260, overflow: "hidden" };
+const heroStyle: React.CSSProperties = { position: "relative", minHeight: 380, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" };
 const heroBgImgStyle: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" };
-const heroOverlayStyle: React.CSSProperties = { position: "absolute", inset: 0, background: "linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.1) 100%)" };
-const heroContentStyle: React.CSSProperties = { position: "absolute", bottom: 60, left: 20, right: 20 };
-const heroLogoStyle: React.CSSProperties = { width: 48, height: 48, objectFit: "contain", borderRadius: 10, marginBottom: 8, filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" };
-const heroTitleStyle: React.CSSProperties = { fontSize: 26, fontWeight: 800, margin: "0 0 2px", textShadow: "0 2px 8px rgba(0,0,0,0.6)" };
-const heroDateStyle: React.CSSProperties = { fontSize: 14, margin: 0, color: "rgba(255,255,255,0.7)", fontWeight: 500 };
-const heroActionsStyle: React.CSSProperties = { position: "absolute", bottom: 16, left: 16, right: 16, display: "flex", alignItems: "center", gap: 8 };
-const addBtnStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 100, border: "none", background: "rgba(255,255,255,0.92)", color: "#1a0a2e", fontSize: 14, fontWeight: 700, cursor: "pointer", flex: 1 };
-const iconBtnStyle: React.CSSProperties = { width: 40, height: 40, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
+const heroOverlayStyle: React.CSSProperties = { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.75) 100%)" };
+const heroContentStyle: React.CSSProperties = { position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "48px 24px 36px", gap: 0 };
+const heroLogoWrapStyle: React.CSSProperties = { width: 100, height: 100, borderRadius: 24, background: "rgba(0,0,0,0.3)", backdropFilter: "blur(10px)", border: "1.5px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, overflow: "hidden" };
+const heroLogoStyle: React.CSSProperties = { width: 90, height: 90, objectFit: "contain", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))" };
+const heroKickerStyle: React.CSSProperties = { fontSize: 11, letterSpacing: "0.2em", color: "rgba(255,255,255,0.5)", fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase" as const };
+const heroTitleStyle: React.CSSProperties = { fontSize: 30, fontWeight: 800, margin: "0 0 6px", textShadow: "0 2px 12px rgba(0,0,0,0.7)", letterSpacing: "-0.02em" };
+const heroDateStyle: React.CSSProperties = { fontSize: 15, margin: "0 0 24px", color: "rgba(255,255,255,0.65)", fontWeight: 500 };
+const addBtnStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "14px 28px", borderRadius: 100, border: "none", background: "rgba(255,255,255,0.95)", color: "#1a0a2e", fontSize: 15, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" };
+const selectIconBtnStyle: React.CSSProperties = { position: "absolute", top: 16, right: 16, zIndex: 3, width: 40, height: 40, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
+const dlSelBtnStyle: React.CSSProperties = { position: "absolute", bottom: 16, right: 16, zIndex: 3, display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 100, border: "none", background: "rgba(124,58,237,0.9)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" };
 
 // Tabs
 const tabBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 0, borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 20px", background: "#0a0a0f" };
