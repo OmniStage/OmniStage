@@ -21,7 +21,14 @@ type Evento = {
   logo_image?: string | null;
 };
 
-type Aba = "home" | "albuns" | "videos" | "fotos" | "compartilhar";
+type Aba = "home" | "albuns" | "videos" | "fotos" | "recados" | "compartilhar";
+
+type Mensagem = {
+  id: string;
+  autor_nome: string | null;
+  mensagem: string;
+  criado_em: string;
+};
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -47,15 +54,45 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [idxUnica, setIdxUnica] = useState(0);
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
   const [origemCamera, setOrigemCamera] = useState(false);
+  const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const [novaMensagem, setNovaMensagem] = useState("");
+  const [enviandoMsg, setEnviandoMsg] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { carregar(); }, [token]);
+  useEffect(() => { carregar(); carregarMensagens(); }, [token]);
 
   useEffect(() => {
     const saved = localStorage.getItem(`album-curtidas-${token}`);
     if (saved) setCurtidas(new Set(JSON.parse(saved)));
   }, [token]);
+
+  async function carregarMensagens() {
+    const res = await fetch(`/api/album/mensagens?token=${token}`);
+    if (res.ok) {
+      const json = await res.json();
+      setMensagens(json.mensagens || []);
+    }
+  }
+
+  async function enviarMensagem() {
+    if (!novaMensagem.trim()) return;
+    setEnviandoMsg(true);
+    try {
+      const res = await fetch("/api/album/mensagens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, autor_nome: nomeUploader.trim() || null, mensagem: novaMensagem.trim() }),
+      });
+      if (res.ok) {
+        setNovaMensagem("");
+        await carregarMensagens();
+        mostrarToast("Recado enviado!");
+      }
+    } finally {
+      setEnviandoMsg(false);
+    }
+  }
 
   async function carregar() {
     setLoading(true);
@@ -198,10 +235,10 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         .heart-btn.curtido svg { fill: #fff; transform: scale(1.15); }
         .tab-btn {
           background: none; border: none; cursor: pointer;
-          display: flex; flex-direction: column; align-items: center; gap: 4px;
-          padding: 8px 12px; color: #94a3b8; font-size: 10px; font-weight: 700;
-          letter-spacing: 0.06em; text-transform: uppercase; transition: color 0.15s;
-          font-family: inherit;
+          display: flex; flex-direction: column; align-items: center; gap: 3px;
+          padding: 6px 6px; color: #94a3b8; font-size: 9px; font-weight: 700;
+          letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.15s;
+          font-family: inherit; min-width: 0; flex: 1;
         }
         .tab-btn.active { color: #7c3aed; }
         .action-circle {
@@ -467,6 +504,76 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           );
         })()}
 
+        {/* RECADOS */}
+        {aba === "recados" && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <p style={sectionKickerStyle}>LIVRO DE VISITAS</p>
+              <h2 style={sectionHeadStyle}>Recados</h2>
+              <p style={{ fontSize: 14, color: "#64748b", margin: "3px 0 0" }}>Deixe uma mensagem para os anfitriões e convidados.</p>
+            </div>
+
+            {/* Caixa de envio */}
+            <div style={uploadCardStyle}>
+              {nomeUploader && (
+                <p style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, margin: "0 0 8px" }}>Enviando como: <strong>{nomeUploader}</strong></p>
+              )}
+              <textarea
+                placeholder="Escreva seu recado..."
+                value={novaMensagem}
+                onChange={(e) => setNovaMensagem(e.target.value)}
+                rows={3}
+                style={{ ...inputStyle, resize: "none" as const, width: "100%", marginBottom: 10, lineHeight: 1.5 }}
+              />
+              {!nomeUploader && (
+                <input
+                  type="text"
+                  placeholder="Seu nome (opcional)"
+                  value={nomeUploader}
+                  onChange={(e) => handleNomeChange(e.target.value)}
+                  style={{ ...inputStyle, marginBottom: 10 }}
+                />
+              )}
+              <button
+                style={{ ...uploadBtnStyle, width: "100%", opacity: enviandoMsg || !novaMensagem.trim() ? 0.6 : 1 }}
+                disabled={enviandoMsg || !novaMensagem.trim()}
+                onClick={enviarMensagem}>
+                {enviandoMsg ? "Enviando..." : "Enviar recado ✉️"}
+              </button>
+            </div>
+
+            {/* Lista de mensagens */}
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+              {mensagens.length === 0 ? (
+                <div style={emptyCardStyle}>
+                  <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>✉️</div>
+                  <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Nenhum recado ainda</p>
+                  <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 0" }}>Seja o primeiro a deixar uma mensagem!</p>
+                </div>
+              ) : (
+                mensagens.map((msg) => (
+                  <div key={msg.id} style={msgCardStyle}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={avatarStyle}>
+                        {(msg.autor_nome || "?")[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
+                          {msg.autor_nome || "Anônimo"}
+                        </p>
+                        <p style={{ margin: 0, fontSize: 11, color: "#94a3b8" }}>
+                          {new Date(msg.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap" as const }}>{msg.mensagem}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* COMPARTILHAR */}
         {aba === "compartilhar" && (
           <div>
@@ -553,6 +660,11 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <circle cx="8.5" cy="8.5" r="1.5"/>
             <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </TabBtn>
+        <TabBtn label="RECADOS" ativo={aba === "recados"} onClick={() => setAba("recados")}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
         </TabBtn>
       </nav>
@@ -760,3 +872,6 @@ const bottomNavStyle: React.CSSProperties = {
 };
 
 const toastStyle: React.CSSProperties = { position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", background: "#1e293b", color: "#fff", padding: "11px 22px", borderRadius: 100, fontSize: 13, fontWeight: 500, zIndex: 200, whiteSpace: "nowrap" as const, boxShadow: "0 4px 20px rgba(0,0,0,0.2)" };
+
+const msgCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "16px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" };
+const avatarStyle: React.CSSProperties = { width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg,#7c3aed,#a78bfa)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, flexShrink: 0 };
