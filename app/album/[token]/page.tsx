@@ -257,6 +257,13 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </div>
       )}
 
+      {/* ── BOTÃO PARTILHAR (canto superior direito) ── */}
+      <button onClick={compartilhar} style={shareTopBtnStyle} title="Compartilhar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+      </button>
+
       {/* ── HERO ── */}
       <div style={heroStyle}>
         {bgUrl
@@ -274,22 +281,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
           {evento?.data_evento && <p style={heroDateStyle}>{formatarData(evento.data_evento)}</p>}
         </div>
-      </div>
-
-      {/* ── ACTION CIRCLES (igual à referência) ── */}
-      <div style={actionRowStyle}>
-        <button className="action-circle" onClick={abrirUpload}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-          </svg>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.1em" }}>FOTO</span>
-        </button>
-        <button className="action-circle" onClick={compartilhar}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-          </svg>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.1em" }}>PARTILHAR</span>
-        </button>
       </div>
 
       {/* ── DIVIDER ── */}
@@ -761,7 +752,7 @@ const statChipStyle: React.CSSProperties = { display: "flex", flexDirection: "co
 const statNumStyle: React.CSSProperties = { fontSize: 18, fontWeight: 800, lineHeight: 1 };
 const statLblStyle: React.CSSProperties = { fontSize: 10, letterSpacing: "0.1em", opacity: 0.6, textTransform: "uppercase" };
 
-const actionRowStyle: React.CSSProperties = { display: "flex", justifyContent: "center", gap: 28, padding: "18px 20px 0" };
+const shareTopBtnStyle: React.CSSProperties = { position: "fixed", top: 16, right: 16, zIndex: 70, width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 
 const contentStyle: React.CSSProperties = { padding: "20px 16px 0", maxWidth: 860, margin: "0 auto" };
 const sectionKickerStyle: React.CSSProperties = { fontSize: 10, letterSpacing: "0.15em", color: "#7c3aed", fontWeight: 800, margin: "0 0 3px" };
