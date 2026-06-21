@@ -273,17 +273,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           <p style={kickerStyle}>{evento?.nome?.toUpperCase()}</p>
           <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
           {evento?.data_evento && <p style={heroDateStyle}>{formatarData(evento.data_evento)}</p>}
-          <div style={statsRowStyle}>
-            <div style={statChipStyle}>
-              <span style={statNumStyle}>{fotos.length}</span>
-              <span style={statLblStyle}>fotos</span>
-            </div>
-            <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.2)" }} />
-            <div style={statChipStyle}>
-              <span style={statNumStyle}>{videos.length}</span>
-              <span style={statLblStyle}>vídeos</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -381,7 +370,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             ? `${lista.length} ${lista.length === 1 ? "vídeo" : "vídeos"}`
             : aba === "fotos"
             ? `${lista.length} ${lista.length === 1 ? "foto" : "fotos"}`
-            : `${lista.length} ${lista.length === 1 ? "item" : "itens"}`;
+            : `${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"} · ${videos.length} ${videos.length === 1 ? "vídeo" : "vídeos"}`;
 
           return (
             <div>
