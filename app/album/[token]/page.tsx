@@ -104,6 +104,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   }
 
   function abrirUpload() {
+    setOrigemCamera(false);
     if (!nomeUploader.trim()) { setModalNome(true); }
     else { fileInputRef.current?.click(); }
   }
