@@ -536,11 +536,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           </svg>
         </TabBtn>
 
-        {/* Câmera — abre câmera diretamente */}
-        <button onClick={() => {
-          if (!nomeUploader.trim()) { setOrigemCamera(true); setModalNome(true); return; }
-          cameraInputRef.current?.click();
-        }} style={cameraNavBtnStyle}>
+        {/* Câmera — abre câmera diretamente sem modal intermediário */}
+        <button onClick={() => { setOrigemCamera(true); cameraInputRef.current?.click(); }} style={cameraNavBtnStyle}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
@@ -652,12 +649,23 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               <button onClick={() => { setModalLegenda(false); setArquivoPendente(null); }} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", padding: "0 0 0 8px", lineHeight: 1 }}>✕</button>
             </div>
             <p style={{ fontSize: 14, color: "#64748b", margin: "0 0 14px" }}>Opcional — escreva algo para acompanhar sua foto.</p>
+            {!nomeUploader.trim() && (
+              <input
+                type="text"
+                placeholder="Seu nome (opcional)"
+                value={nomeUploader}
+                onChange={(e) => handleNomeChange(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 10 }}
+              />
+            )}
+            {nomeUploader.trim() && (
+              <p style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, margin: "0 0 10px" }}>Enviando como: <strong>{nomeUploader}</strong></p>
+            )}
             <textarea
               placeholder={`"Que momento incrível! Obrigado pela festa..."`}
               value={legenda}
               onChange={(e) => setLegenda(e.target.value)}
               rows={3}
-              autoFocus
               style={{ ...inputStyle, resize: "none" as const, width: "100%", lineHeight: 1.6, fontStyle: legenda ? "normal" : "italic" }}
             />
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
