@@ -43,7 +43,9 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [modalNome, setModalNome] = useState(false);
   const [aba, setAba] = useState<Aba>("home");
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
+  const [origemCamera, setOrigemCamera] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { carregar(); }, [token]);
 
@@ -89,7 +91,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     setNomeUploader(nome);
     setSugestoes([]);
     setModalNome(false);
-    setTimeout(() => fileInputRef.current?.click(), 100);
+    const ref = origemCamera ? cameraInputRef : fileInputRef;
+    setTimeout(() => ref.current?.click(), 100);
   }
 
   function abrirUpload() {
@@ -209,7 +212,11 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         .cam-nav-btn:active { transform: scale(0.9); }
       `}</style>
 
-      <input ref={fileInputRef} type="file" accept="image/*,video/*" capture="environment"
+      {/* Input galeria — sem capture para abrir seletor completo */}
+      <input ref={fileInputRef} type="file" accept="image/*,video/*"
+        style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
+      {/* Input câmera — capture força abrir câmera diretamente */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
         style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
 
       {uploading && (
@@ -477,8 +484,11 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           </svg>
         </TabBtn>
 
-        {/* Câmera — botão central de ação */}
-        <button onClick={abrirUpload} style={cameraNavBtnStyle}>
+        {/* Câmera — abre câmera diretamente */}
+        <button onClick={() => {
+          if (!nomeUploader.trim()) { setOrigemCamera(true); setModalNome(true); return; }
+          cameraInputRef.current?.click();
+        }} style={cameraNavBtnStyle}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
@@ -554,8 +564,16 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               )}
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-              <button style={skipBtnStyle} onClick={() => { setModalNome(false); setTimeout(() => fileInputRef.current?.click(), 100); }}>Pular</button>
-              <button style={confirmBtnStyle} onClick={() => { setModalNome(false); setTimeout(() => fileInputRef.current?.click(), 100); }}>Confirmar e escolher foto</button>
+              <button style={skipBtnStyle} onClick={() => {
+                setModalNome(false);
+                const ref = origemCamera ? cameraInputRef : fileInputRef;
+                setTimeout(() => ref.current?.click(), 100);
+              }}>Pular</button>
+              <button style={confirmBtnStyle} onClick={() => {
+                setModalNome(false);
+                const ref = origemCamera ? cameraInputRef : fileInputRef;
+                setTimeout(() => ref.current?.click(), 100);
+              }}>{origemCamera ? "Confirmar e tirar foto" : "Confirmar e escolher foto"}</button>
             </div>
           </div>
         </div>
