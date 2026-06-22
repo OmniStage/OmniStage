@@ -56,8 +56,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const swipeTouchStartX = useRef<number | null>(null);
   const swipeTouchStartY = useRef<number | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [swipeAnimating, setSwipeAnimating] = useState(false);
+  const swipeStripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { carregar(); }, [token]);
 
@@ -439,7 +438,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                     onTouchStart={(e) => {
                       swipeTouchStartX.current = e.touches[0].clientX;
                       swipeTouchStartY.current = e.touches[0].clientY;
-                      setSwipeOffset(0);
+                      if (swipeStripRef.current) swipeStripRef.current.style.transition = "none";
                     }}
                     onTouchMove={(e) => {
                       if (swipeTouchStartX.current === null || swipeTouchStartY.current === null) return;
@@ -447,7 +446,9 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                       const dy = e.touches[0].clientY - swipeTouchStartY.current;
                       if (Math.abs(dx) > Math.abs(dy)) {
                         e.preventDefault();
-                        setSwipeOffset(dx);
+                        if (swipeStripRef.current) {
+                          swipeStripRef.current.style.transform = `translateX(calc(-33.333% + ${dx}px))`;
+                        }
                       }
                     }}
                     onTouchEnd={(e) => {
@@ -455,26 +456,32 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                       const dx = e.changedTouches[0].clientX - swipeTouchStartX.current;
                       swipeTouchStartX.current = null;
                       swipeTouchStartY.current = null;
-                      setSwipeAnimating(true);
+                      const strip = swipeStripRef.current;
+                      if (!strip) return;
+                      strip.style.transition = "transform 0.24s cubic-bezier(.2,.8,.2,1)";
                       if (dx < -60) {
-                        setSwipeOffset(-100);
-                        setTimeout(() => { setIdxUnica(i => (i + 1) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 240);
+                        strip.style.transform = "translateX(-66.666%)";
+                        setTimeout(() => {
+                          setIdxUnica(i => (i + 1) % listaVis.length);
+                          if (strip) { strip.style.transition = "none"; strip.style.transform = "translateX(-33.333%)"; }
+                        }, 240);
                       } else if (dx > 60) {
-                        setSwipeOffset(100);
-                        setTimeout(() => { setIdxUnica(i => (i - 1 + listaVis.length) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 240);
+                        strip.style.transform = "translateX(0%)";
+                        setTimeout(() => {
+                          setIdxUnica(i => (i - 1 + listaVis.length) % listaVis.length);
+                          if (strip) { strip.style.transition = "none"; strip.style.transform = "translateX(-33.333%)"; }
+                        }, 240);
                       } else {
-                        setSwipeOffset(0);
-                        setSwipeAnimating(false);
+                        strip.style.transform = "translateX(-33.333%)";
                       }
                     }}
                   >
                     {/* Tira com 3 slides: prev | atual | next */}
-                    <div style={{
+                    <div ref={swipeStripRef} style={{
                       display: "flex",
                       width: "300%",
                       height: "100%",
-                      transform: `translateX(calc(-33.333% + ${swipeOffset}px))`,
-                      transition: swipeAnimating ? "transform 0.24s cubic-bezier(.2,.8,.2,1)" : "none",
+                      transform: "translateX(-33.333%)",
                       willChange: "transform",
                     }}>
                       <div style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>{renderSlide(prev)}</div>
