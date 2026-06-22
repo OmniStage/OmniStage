@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "lembrete_evento" | "cartao_evento";
+type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "lembrete_evento" | "cartao_evento" | "link_album";
 type FiltroStatusEnvio =
   | "a_enviar"
   | "na_fila"
@@ -50,6 +51,9 @@ type Convidado = {
 
   status_envio_cartao?: string | null;
   data_envio_cartao?: string | null;
+
+  status_envio_album?: string | null;
+  data_envio_album?: string | null;
 };
 
 type Evento = {
@@ -111,6 +115,7 @@ const CAMPAIGN_ASSETS_BUCKET = "campaign-assets";
 const ENVIO_MIDIA_MAX_SIZE_MB = 20;
 
 export default function EnviosPage() {
+  const searchParams = useSearchParams();
   const [tipoEnvio, setTipoEnvio] = useState<TipoEnvio>("convite");
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoAtual, setEventoAtual] = useState<Evento | null>(null);
@@ -122,6 +127,7 @@ export default function EnviosPage() {
     lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
     lembrete_evento: campanhas.lembrete_evento.templatePadrao,
     cartao_evento: campanhas.cartao_evento.templatePadrao,
+    link_album: campanhas.link_album.templatePadrao,
   });
   const [templatesConfigurados, setTemplatesConfigurados] = useState<Record<TipoEnvio, boolean>>({
     save_the_date: false,
@@ -129,6 +135,7 @@ export default function EnviosPage() {
     lembrete_rsvp: false,
     lembrete_evento: false,
     cartao_evento: false,
+    link_album: false,
   });
   const [loading, setLoading] = useState(true);
   const [salvandoTemplate, setSalvandoTemplate] = useState(false);
@@ -175,6 +182,7 @@ export default function EnviosPage() {
     lembrete_rsvp: "",
     lembrete_evento: "",
     cartao_evento: "",
+    link_album: "",
   });
   const [campanhasEnvioIds, setCampanhasEnvioIds] = useState<Record<TipoEnvio, string>>({
     save_the_date: "",
@@ -182,7 +190,9 @@ export default function EnviosPage() {
     lembrete_rsvp: "",
     lembrete_evento: "",
     cartao_evento: "",
+    link_album: "",
   });
+  const [albumUrl, setAlbumUrl] = useState("");
   const [statusMidiaUltimoEnvio, setStatusMidiaUltimoEnvio] = useState<
     "copiada" | "url_copiada" | "erro" | "sem_midia" | null
   >(null);
@@ -330,7 +340,9 @@ export default function EnviosPage() {
         status_envio_lembrete_evento,
         data_envio_lembrete_evento,
         status_envio_cartao,
-        data_envio_cartao
+        data_envio_cartao,
+        status_envio_album,
+        data_envio_album
       `)
       .eq("evento_id", eventoId)
       .order("grupo", { ascending: true, nullsFirst: false })
@@ -480,6 +492,7 @@ export default function EnviosPage() {
       lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
       lembrete_evento: campanhas.lembrete_evento.templatePadrao,
       cartao_evento: campanhas.cartao_evento.templatePadrao,
+      link_album: campanhas.link_album.templatePadrao,
     };
 
     const novosConfigurados: Record<TipoEnvio, boolean> = {
@@ -488,6 +501,7 @@ export default function EnviosPage() {
       lembrete_rsvp: false,
       lembrete_evento: false,
       cartao_evento: false,
+      link_album: false,
     };
 
     const midiasTemplateLegado: Record<TipoEnvio, {
@@ -503,6 +517,7 @@ export default function EnviosPage() {
       lembrete_rsvp: {},
       lembrete_evento: {},
       cartao_evento: {},
+      link_album: {},
     };
 
     (templatesData || []).forEach((template) => {
@@ -527,6 +542,7 @@ export default function EnviosPage() {
       lembrete_rsvp: "",
       lembrete_evento: "",
       cartao_evento: "",
+      link_album: "",
     };
 
     const novosIds: Record<TipoEnvio, string> = {
@@ -535,6 +551,7 @@ export default function EnviosPage() {
       lembrete_rsvp: "",
       lembrete_evento: "",
       cartao_evento: "",
+      link_album: "",
     };
 
     const { data: campanhasData, error: campanhasError } = await supabase
@@ -625,7 +642,16 @@ export default function EnviosPage() {
   }
 
   useEffect(() => {
-    carregarTudo();
+    const tipo = searchParams.get("tipo") as TipoEnvio | null;
+    const albumToken = searchParams.get("album_token");
+    const eventoIdParam = searchParams.get("evento_id");
+
+    if (tipo && tipo in campanhas) setTipoEnvio(tipo);
+    if (albumToken) {
+      const url = `${window.location.origin}/album/${albumToken}`;
+      setAlbumUrl(url);
+    }
+    carregarTudo(eventoIdParam || undefined);
   }, []);
 
   useEffect(() => {
@@ -714,7 +740,7 @@ export default function EnviosPage() {
   }, [previewId, convidados, convidadosFiltrados, publicoCampanha]);
 
   const previewMensagem = convidadoPreview
-    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual, convidados)
+    ? montarMensagem(mensagemAtual, convidadoPreview, eventoAtual, convidados, albumUrl)
     : mensagemAtual;
 
   const stats = useMemo(() => {
@@ -863,7 +889,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl),
       status: agendadoPara ? "agendado" : "pendente",
       agendado_para: agendadoPara,
     }));
@@ -882,7 +908,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl),
       status: "pendente",
       detalhe: agendadoPara
         ? `Agendado para ${new Date(agendadoPara).toLocaleString("pt-BR")}.`
@@ -1211,7 +1237,7 @@ export default function EnviosPage() {
       tipo_envio: tipoEnvio,
       canal: "whatsapp",
       telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados),
+      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl),
       status,
       detalhe: detalhe || null,
     });
@@ -1578,7 +1604,7 @@ export default function EnviosPage() {
       return;
     }
 
-    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados);
+    const mensagem = montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl);
     const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
     const detalheMidia =
       statusMidia === "copiada"
@@ -1631,7 +1657,7 @@ export default function EnviosPage() {
   }
 
   async function copiarMensagem(convidado: Convidado) {
-    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados));
+    await navigator.clipboard.writeText(montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl));
     toast("Mensagem copiada.", "success");
   }
 
@@ -1964,6 +1990,22 @@ export default function EnviosPage() {
             </div>
           )}
 
+          {tipoEnvio === "link_album" && (
+            <div style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 12, padding: "14px 18px", marginBottom: 16 }}>
+              <label style={{ ...fieldLabelStyle, color: "#6d28d9" }}>Link do álbum <span style={{ fontWeight: 400, color: "#7c3aed" }}>(substitui {"{{link_album}}"})</span></label>
+              <input
+                type="text"
+                value={albumUrl}
+                onChange={(e) => setAlbumUrl(e.target.value)}
+                placeholder="https://omnistage.com.br/album/TOKEN"
+                style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1px solid #c4b5fd", background: "#fff", fontSize: 14, outline: "none", color: "#0f172a", boxSizing: "border-box" as const, marginTop: 6 }}
+              />
+              {!albumUrl && (
+                <p style={{ fontSize: 12, color: "#7c3aed", margin: "6px 0 0" }}>Cole aqui o link do álbum ou acesse via botão "Enviar para convidados" na gestão do álbum.</p>
+              )}
+            </div>
+          )}
+
           <div className="envios-editor-grid" style={editorGridStyle}>
             <div style={editorColumnStyle}>
               <label style={fieldLabelStyle}>Mensagem da campanha</label>
@@ -2272,7 +2314,7 @@ export default function EnviosPage() {
                     </span>
                   )}
 
-                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados)}</p>
+                  <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl)}</p>
 
                   {dataEnvio && (
                     <small style={sentDateStyle}>
@@ -2638,6 +2680,27 @@ Apresente este cartão na entrada.
 Com carinho,
 OmniStage`,
   },
+
+  link_album: {
+    key: "link_album",
+    titulo: "6. Álbum Compartilhado",
+    subtitulo: "Envio do álbum",
+    descricao: "Envie o link do álbum de fotos para os convidados adicionarem e verem os registros do evento.",
+    statusColumn: "status_envio_album",
+    dataColumn: "data_envio_album",
+    cor: "#7c3aed",
+    corSuave: "#ede9fe",
+    filtrarPublico: (convidado) => !!getTelefoneEnvio(convidado),
+    templatePadrao: `Olá {{nome}}! 📸
+
+As fotos do evento {{evento}} já estão no álbum compartilhado!
+
+Acesse, adicione suas fotos e veja os registros de todos:
+{{link_album}}
+
+Com carinho,
+OmniStage`,
+  },
 };
 
 const variaveis = [
@@ -2651,6 +2714,7 @@ const variaveis = [
   { key: "{{token}}", description: "Token do convite/cartão" },
   { key: "{{link_convite}}", description: "Link do convite digital" },
   { key: "{{link_cartao}}", description: "Link do cartão de entrada" },
+  { key: "{{link_album}}", description: "Link do álbum compartilhado" },
 ];
 
 function convidadoEstaNaFila(
@@ -3232,7 +3296,8 @@ function montarMensagem(
   template: string,
   convidado: Convidado,
   evento?: Evento | null,
-  todosConvidados: Convidado[] = []
+  todosConvidados: Convidado[] = [],
+  albumUrl?: string
 ) {
   const nomeEvento = evento?.nome || "";
   const tokenConvite = resolverTokenConvite(convidado, todosConvidados);
@@ -3254,7 +3319,8 @@ function montarMensagem(
     .replaceAll("{{email}}", convidado.email || "")
     .replaceAll("{{token}}", tokenConvite)
     .replaceAll("{{link_convite}}", gerarLinkConvite(convidado, todosConvidados))
-    .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado));
+    .replaceAll("{{link_cartao}}", gerarLinkCartao(convidado))
+    .replaceAll("{{link_album}}", albumUrl || "");
 }
 
 

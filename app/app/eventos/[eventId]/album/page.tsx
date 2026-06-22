@@ -252,6 +252,12 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 20 }}>
                 <button style={btnOutlineStyle} onClick={copiarLink}>Copiar link</button>
                 <a href={`/album/${albumAtivo.album_token}`} target="_blank" rel="noreferrer" style={btnPrimaryStyle}>Abrir ↗</a>
+                <a
+                  href={`/app/envios?tipo=link_album&album_token=${albumAtivo.album_token}&evento_id=${eventId}`}
+                  style={{ ...btnOutlineStyle, color: "#7c3aed", borderColor: "#7c3aed", textDecoration: "none" }}
+                >
+                  📤 Enviar para convidados
+                </a>
               </div>
 
               {/* Stats */}
