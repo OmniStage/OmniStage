@@ -40,6 +40,7 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
   const [novaDesc, setNovaDesc] = useState("");
   const [criando, setCriando] = useState(false);
   const [toast, setToast] = useState<{ msg: string; tipo: "success" | "error" } | null>(null);
+  const [baixandoZip, setBaixandoZip] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Slideshow config
@@ -257,6 +258,39 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
     setTimeout(() => setToast(null), 3000);
   }
 
+  async function baixarMidia(url: string, nome: string) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = nome;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch { toast_show("Erro ao baixar arquivo.", "error"); }
+  }
+
+  async function baixarAlbumZip() {
+    if (!albumAtivo) return;
+    setBaixandoZip(true);
+    toast_show("Preparando ZIP...", "success");
+    try {
+      const res = await fetch("/api/album/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ album_id: albumAtivo.id }),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${albumAtivo.nome.replace(/[^a-zA-Z0-9]/g, "_")}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch { toast_show("Erro ao gerar ZIP.", "error"); }
+    setBaixandoZip(false);
+  }
+
   function formatarData(d: string) {
     return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
   }
@@ -417,6 +451,10 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   Abrir álbum
                 </a>
+                <button className="action-btn" style={{ ...btnOutlineStyle, opacity: baixandoZip ? 0.6 : 1 }} disabled={baixandoZip || midias.length === 0} onClick={baixarAlbumZip}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  {baixandoZip ? "Gerando ZIP..." : "Baixar tudo"}
+                </button>
                 <a className="action-btn"
                   href={`/app/envios?tipo=link_album&album_token=${albumAtivo.album_token}&evento_id=${eventId}`}
                   style={{ ...btnOutlineStyle, color: "#7c3aed", borderColor: "rgba(124,58,237,0.35)", textDecoration: "none" }}
@@ -540,7 +578,10 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                 {(modalMidia.curtidas || 0) > 0 && <p style={{ fontSize: 12, color: "#e11d48", margin: "2px 0 0" }}>♥ {modalMidia.curtidas} curtida{modalMidia.curtidas !== 1 ? "s" : ""}</p>}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <a href={modalMidia.arquivo_url} download target="_blank" rel="noreferrer" style={btnOutlineStyle}>⬇ Baixar</a>
+                <button style={btnOutlineStyle} onClick={() => { const ext = modalMidia.arquivo_url.split("?")[0].split(".").pop() || "jpg"; baixarMidia(modalMidia.arquivo_url, `foto.${ext}`); }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Baixar
+                </button>
                 <button style={{ ...btnOutlineStyle, color: "#dc2626", borderColor: "rgba(220,38,38,0.3)", opacity: deletando === modalMidia.id ? 0.5 : 1 }}
                   disabled={deletando === modalMidia.id} onClick={() => deletarMidia(modalMidia)}>
                   {deletando === modalMidia.id ? "..." : "Remover"}
