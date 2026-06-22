@@ -656,14 +656,14 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   placeholder="Seu nome (opcional)"
                   value={nomeUploader}
                   onChange={(e) => handleNomeChange(e.target.value)}
-                  onBlur={() => setTimeout(() => setSugestoes([]), 200)}
                   style={inputStyle}
                 />
                 {sugestoes.length > 0 && (
                   <div style={sugestoesStyle}>
                     {sugestoes.map((nome) => (
                       <button key={nome} className="sug" style={sugItemStyle}
-                        onMouseDown={() => { setNomeUploader(nome); setSugestoes([]); }}>
+                        onMouseDown={(e) => { e.preventDefault(); setNomeUploader(nome); setSugestoes([]); }}
+                        onTouchEnd={(e) => { e.preventDefault(); setNomeUploader(nome); setSugestoes([]); }}>
                         {nome}
                       </button>
                     ))}
