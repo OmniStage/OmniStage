@@ -659,6 +659,7 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
               <div>
                 {modalMidia.uploader_nome && <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>por {modalMidia.uploader_nome}</p>}
                 <p style={{ fontSize: 12, color: "var(--muted)", margin: "2px 0 0" }}>{new Date(modalMidia.criado_em).toLocaleDateString("pt-BR")}</p>
+                {modalMidia.legenda && <p style={{ fontSize: 14, color: "var(--text)", margin: "6px 0 0", fontStyle: "italic" }}>"{modalMidia.legenda}"</p>}
                 {(modalMidia.curtidas || 0) > 0 && <p style={{ fontSize: 12, color: "#e11d48", margin: "2px 0 0" }}>♥ {modalMidia.curtidas} curtida{modalMidia.curtidas !== 1 ? "s" : ""}</p>}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
