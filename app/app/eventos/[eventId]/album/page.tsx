@@ -21,6 +21,7 @@ type Midia = {
   uploader_nome: string | null;
   criado_em: string;
   curtidas: number;
+  legenda: string | null;
 };
 
 export default function AlbumAdminPage({ params }: { params: { eventId: string } }) {

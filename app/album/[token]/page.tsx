@@ -55,8 +55,12 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [legenda, setLegenda] = useState("");
   const [sessaoId, setSessaoId] = useState("");
   const [modalEditar, setModalEditar] = useState<{ midia: Midia; legenda: string } | null>(null);
+  const [modalEmoji, setModalEmoji] = useState(false);
+  const [emojiSelecionado, setEmojiSelecionado] = useState<string | null>(null);
+  const [emojisColocados, setEmojisColocados] = useState<{ emoji: string; x: number; y: number }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const emojiCanvasRef = useRef<HTMLCanvasElement>(null);
   const nomeRef = useRef("");
 
   useEffect(() => { carregar(); }, [token]);
@@ -133,13 +137,37 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     if (!files || files.length === 0) return;
     const arquivo = files[0];
     if (arquivo.size > MAX_FILE_SIZE) { mostrarToast("Arquivo muito grande. Máximo 50MB."); return; }
-    // Mostra modal de legenda antes de fazer upload
     setArquivoPendente(arquivo);
-    setPreviewUrl(arquivo.type.startsWith("image") ? URL.createObjectURL(arquivo) : "");
     setLegenda("");
-    setModalLegenda(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (arquivo.type.startsWith("image")) {
+      setPreviewUrl(URL.createObjectURL(arquivo));
+      setEmojisColocados([]);
+      setEmojiSelecionado(null);
+      setModalEmoji(true);
+    } else {
+      setPreviewUrl("");
+      setModalLegenda(true);
+    }
+  }
+
+  async function confirmarEmojis() {
+    if (!arquivoPendente) return;
+    if (emojisColocados.length === 0) {
+      setModalEmoji(false);
+      setModalLegenda(true);
+      return;
+    }
+    const canvas = emojiCanvasRef.current;
+    if (!canvas) { setModalEmoji(false); setModalLegenda(true); return; }
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.92));
+    if (blob) {
+      const editado = new File([blob], arquivoPendente.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+      setArquivoPendente(editado);
+    }
+    setModalEmoji(false);
+    setModalLegenda(true);
   }
 
   async function confirmarUpload() {
@@ -676,6 +704,61 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
       )}
 
       {/* ── MODAL LEGENDA ── */}
+      {modalEmoji && previewUrl && (
+        <div style={overlayStyle}>
+          <div style={{ background: "#0f172a", borderRadius: 20, width: "min(96vw, 480px)", overflow: "hidden", display: "flex", flexDirection: "column" as const, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
+            {/* Título */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px" }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: 0 }}>Adicionar emojis</p>
+              <button onClick={() => { setModalEmoji(false); setModalLegenda(true); }} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Canvas editor */}
+            <div style={{ position: "relative" as const, width: "100%", background: "#000" }}>
+              <EmojiCanvas
+                canvasRef={emojiCanvasRef}
+                previewUrl={previewUrl}
+                emojisColocados={emojisColocados}
+                emojiSelecionado={emojiSelecionado}
+                onPlace={(x, y) => {
+                  if (!emojiSelecionado) return;
+                  setEmojisColocados((prev) => [...prev, { emoji: emojiSelecionado, x, y }]);
+                }}
+                onRemove={(idx) => setEmojisColocados((prev) => prev.filter((_, i) => i !== idx))}
+              />
+            </div>
+
+            {/* Paleta de emojis */}
+            <div style={{ padding: "12px 12px 6px", background: "#1e293b" }}>
+              <p style={{ fontSize: 11, color: "#64748b", margin: "0 0 8px", fontWeight: 600, letterSpacing: "0.08em" }}>TOQUE UM EMOJI, DEPOIS TOQUE NA FOTO</p>
+              <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+                {["🎉","🎊","🎈","❤️","🥂","😍","🔥","✨","💃","🎂","📸","🌸","💜","🤩","😂","🙌","👏","💫","🫶","🥳","😘","💋","🌟","🎵","🍾"].map((e) => (
+                  <button key={e} onClick={() => setEmojiSelecionado(emojiSelecionado === e ? null : e)}
+                    style={{ fontSize: 26, background: emojiSelecionado === e ? "rgba(124,58,237,0.4)" : "rgba(255,255,255,0.05)", border: emojiSelecionado === e ? "2px solid #7c3aed" : "2px solid transparent", borderRadius: 10, width: 44, height: 44, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+              {emojisColocados.length > 0 && (
+                <button onClick={() => setEmojisColocados([])} style={{ marginTop: 8, fontSize: 12, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                  Limpar tudo
+                </button>
+              )}
+            </div>
+
+            {/* Ações */}
+            <div style={{ display: "flex", gap: 8, padding: "10px 12px 14px", background: "#1e293b" }}>
+              <button onClick={() => { setModalEmoji(false); setModalLegenda(true); }} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#94a3b8", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                Pular
+              </button>
+              <button onClick={confirmarEmojis} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                {emojisColocados.length > 0 ? `Confirmar (${emojisColocados.length} emoji${emojisColocados.length > 1 ? "s" : ""})` : "Continuar →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalLegenda && arquivoPendente && (
         <div style={overlayStyle}>
           <div style={nomeModalStyle} onClick={(e) => e.stopPropagation()}>
@@ -1084,3 +1167,93 @@ const toastStyle: React.CSSProperties = { position: "fixed", bottom: 80, left: "
 
 const legendaCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", margin: "12px 0 0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" };
 const legendaOverlayStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "18px 7px 5px", fontSize: 10, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.82))", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, lineHeight: 1.4 };
+
+// ── Emoji Canvas Component ──
+type EmojiItem = { emoji: string; x: number; y: number };
+function EmojiCanvas({ canvasRef, previewUrl, emojisColocados, emojiSelecionado, onPlace, onRemove }: {
+  canvasRef: React.RefObject<HTMLCanvasElement>;
+  previewUrl: string;
+  emojisColocados: EmojiItem[];
+  emojiSelecionado: string | null;
+  onPlace: (x: number, y: number) => void;
+  onRemove: (idx: number) => void;
+}) {
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      imgRef.current = img;
+      draw();
+    };
+    img.src = previewUrl;
+  }, [previewUrl]);
+
+  useEffect(() => { draw(); }, [emojisColocados]);
+
+  function draw() {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const maxW = canvas.parentElement?.clientWidth || 480;
+    const ratio = img.naturalHeight / img.naturalWidth;
+    canvas.width = maxW;
+    canvas.height = Math.min(maxW * ratio, 420);
+
+    const scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+    const dx = (canvas.width - img.naturalWidth * scale) / 2;
+    const dy = (canvas.height - img.naturalHeight * scale) / 2;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, dx, dy, img.naturalWidth * scale, img.naturalHeight * scale);
+
+    const emojiSize = Math.max(32, canvas.width * 0.11);
+    ctx.font = `${emojiSize}px serif`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    for (const item of emojisColocados) {
+      ctx.fillText(item.emoji, item.x * canvas.width, item.y * canvas.height);
+    }
+  }
+
+  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    let cx: number, cy: number;
+    if ("touches" in e) {
+      cx = e.touches[0].clientX - rect.left;
+      cy = e.touches[0].clientY - rect.top;
+    } else {
+      cx = e.clientX - rect.left;
+      cy = e.clientY - rect.top;
+    }
+    const x = cx / rect.width;
+    const y = cy / rect.height;
+
+    // check if tapping existing emoji to remove
+    const emojiSize = 0.11;
+    const idx = emojisColocados.findIndex((item) => Math.abs(item.x - x) < emojiSize && Math.abs(item.y - y) < emojiSize);
+    if (idx >= 0) { onRemove(idx); return; }
+
+    if (emojiSelecionado) onPlace(x, y);
+  }
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", lineHeight: 0 }}>
+      <canvas
+        ref={canvasRef}
+        style={{ width: "100%", display: "block", cursor: emojiSelecionado ? "crosshair" : "default", touchAction: "none" }}
+        onClick={handleCanvasClick}
+        onTouchStart={handleCanvasClick}
+      />
+    </div>
+  );
+}
