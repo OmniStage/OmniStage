@@ -722,7 +722,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurti
       onTouchEnd={() => clearTimeout(timer.current)}
       onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}>
       {m.tipo === "video"
-        ? <video src={m.arquivo_url} style={thumbStyle} muted playsInline />
+        ? <video src={m.arquivo_url} style={thumbStyle} muted playsInline preload="metadata" />
         : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
       }
       {m.tipo === "video" && (

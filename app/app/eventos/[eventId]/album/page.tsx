@@ -317,7 +317,7 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                       {midias.map((m) => (
                         <div key={m.id} style={gridItemStyle} onClick={() => setModalMidia(m)}>
                           {m.tipo === "video"
-                            ? <div style={{ position: "relative", width: "100%", height: "100%" }}><video src={m.arquivo_url} style={thumbStyle} muted playsInline /><div style={playStyle}>▶</div></div>
+                            ? <div style={{ position: "relative", width: "100%", height: "100%" }}><video src={m.arquivo_url} style={thumbStyle} muted playsInline preload="metadata" /><div style={playStyle}>▶</div></div>
                             : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
                           }
                           {m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
