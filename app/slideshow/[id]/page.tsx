@@ -24,6 +24,7 @@ export default function SlideshowConfigPage({ params }: { params: { id: string }
   const [controlesVisiveis, setControlesVisiveis] = useState(false);
   const [pausado, setPausado] = useState(false);
   const [mutado, setMutado] = useState(true);
+  const [orientacao, setOrientacao] = useState<"horizontal" | "vertical">("horizontal");
   const controleTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const slideTimerRef = useRef<ReturnType<typeof setInterval>>();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -125,15 +126,26 @@ export default function SlideshowConfigPage({ params }: { params: { id: string }
 
       {/* MÍDIA */}
       {midia && (
-        <div key={midia.id} style={{ position: "absolute", inset: 0, transition: "opacity 0.8s ease", opacity: visivel ? 1 : 0 }}>
-          {midia.tipo === "video" ? (
-            <video ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
+        <div key={midia.id} style={{ position: "absolute", inset: 0, transition: "opacity 0.8s ease", opacity: visivel ? 1 : 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {orientacao === "vertical" ? (
+            /* Modo vertical: container 9:16 centralizado */
+            <div style={{ position: "relative", height: "100%", aspectRatio: "9/16", maxWidth: "100%", overflow: "hidden", flexShrink: 0 }}>
+              {midia.tipo === "video"
+                ? <video ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <img className="foto-bg" src={midia.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              }
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 40%)" }} />
+            </div>
           ) : (
-            <img className="foto-bg" src={midia.arquivo_url} alt=""
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            /* Modo horizontal: tela cheia */
+            <>
+              {midia.tipo === "video"
+                ? <video ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
+                : <img className="foto-bg" src={midia.arquivo_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              }
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 40%)" }} />
+            </>
           )}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 40%)" }} />
         </div>
       )}
 
@@ -156,6 +168,13 @@ export default function SlideshowConfigPage({ params }: { params: { id: string }
       <div style={{ position: "absolute", inset: 0, zIndex: 20, pointerEvents: controlesVisiveis ? "auto" : "none", opacity: controlesVisiveis ? 1 : 0, transition: "opacity 0.3s" }}>
         {/* Botões topo direita */}
         <div style={{ position: "absolute", top: 20, right: 20, display: "flex", gap: 10 }}>
+          {/* Orientação */}
+          <button className="ctrl-btn" onClick={(e) => { e.stopPropagation(); setOrientacao(o => o === "horizontal" ? "vertical" : "horizontal"); mostrarControles(); }} style={ctrlBtnStyle} title={orientacao === "horizontal" ? "Modo vertical" : "Modo horizontal"}>
+            {orientacao === "horizontal"
+              ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+            }
+          </button>
           <button className="ctrl-btn" onClick={toggleMudo} style={ctrlBtnStyle} title={mutado ? "Ativar som" : "Silenciar"}>
             {mutado
               ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
