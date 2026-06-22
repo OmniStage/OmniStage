@@ -468,7 +468,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                     >
                       {midiaAtual.tipo === "video"
                         ? <VideoPlayer key={midiaAtual.id} src={midiaAtual.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
-                        : <img key={midiaAtual.id} src={midiaAtual.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                        : <img src={midiaAtual.arquivo_url} alt="" loading="eager" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                       }
                       {/* Coração no carrossel */}
                       <button className={`heart-btn${curtidas.has(midiaAtual.id) ? " curtido" : ""}`}
@@ -500,6 +500,13 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                     <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {midiaAtual.uploader_nome}</p>
                   )}
                   <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{safeIdx + 1} de {listaVis.length}</p>
+                  {/* Pré-carrega fotos adjacentes para eliminar flash */}
+                  <div style={{ display: "none" }}>
+                    {[-2, -1, 1, 2].map(offset => {
+                      const m = listaVis[(safeIdx + offset + listaVis.length) % listaVis.length];
+                      return m && m.tipo === "image" ? <img key={m.id} src={m.arquivo_url} /> : null;
+                    })}
+                  </div>
                 </div>
                 );
               })() : (
