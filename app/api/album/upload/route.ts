@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export async function POST(req: NextRequest) {
-  const { token, nome_arquivo, tipo_mime, uploader_nome, legenda } = await req.json();
+  const { token, nome_arquivo, tipo_mime, uploader_nome, legenda, uploader_session_id } = await req.json();
 
   if (!token || !nome_arquivo || !tipo_mime) {
     return NextResponse.json({ error: "Dados obrigatórios ausentes" }, { status: 400 });
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       tipo,
       uploader_nome: uploader_nome || null,
       legenda: legenda || null,
+      uploader_session_id: uploader_session_id || null,
     })
     .select()
     .single();

@@ -10,6 +10,7 @@ type Midia = {
   criado_em: string;
   curtidas: number;
   legenda: string | null;
+  uploader_session_id: string | null;
 };
 
 type Evento = {
@@ -52,6 +53,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [modalLegenda, setModalLegenda] = useState(false);
   const [legenda, setLegenda] = useState("");
+  const [sessaoId, setSessaoId] = useState("");
+  const [modalEditar, setModalEditar] = useState<{ midia: Midia; legenda: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +66,16 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   useEffect(() => {
     const saved = localStorage.getItem(`album-curtidas-${token}`);
     if (saved) setCurtidas(new Set(JSON.parse(saved)));
+  }, [token]);
+
+  useEffect(() => {
+    const key = `album-sessao-${token}`;
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(key, id);
+    }
+    setSessaoId(id);
   }, [token]);
 
   async function carregar() {
@@ -141,6 +154,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           tipo_mime: arquivoPendente.type,
           uploader_nome: nomeUploader.trim() || null,
           legenda: legenda.trim() || null,
+          uploader_session_id: sessaoId || null,
         }),
       });
       const json = await res.json();
@@ -186,6 +200,38 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   function formatarData(d: string | null | undefined) {
     if (!d) return "";
     return new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  }
+
+  async function salvarEdicao() {
+    if (!modalEditar || !sessaoId) return;
+    const { midia, legenda: novaLegenda } = modalEditar;
+    const res = await fetch("/api/album/midia", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: midia.id, uploader_session_id: sessaoId, legenda: novaLegenda.trim() || null }),
+    });
+    if (res.ok) {
+      setMidias((prev) => prev.map((m) => m.id === midia.id ? { ...m, legenda: novaLegenda.trim() || null } : m));
+      mostrarToast("Legenda atualizada!");
+    } else {
+      mostrarToast("Erro ao salvar");
+    }
+    setModalEditar(null);
+  }
+
+  async function excluirFoto(id: string) {
+    if (!sessaoId) return;
+    const res = await fetch("/api/album/midia", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, uploader_session_id: sessaoId }),
+    });
+    if (res.ok) {
+      setMidias((prev) => prev.filter((m) => m.id !== id));
+      mostrarToast("Foto removida.");
+    } else {
+      mostrarToast("Erro ao remover");
+    }
   }
 
   const bgUrl = evento?.background_url || evento?.background_image || "";
@@ -334,8 +380,11 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   {midias.slice(0, 6).map((m) => (
                     <MidiaCard key={m.id} m={m} sel={false} modoSelecao={false}
                       curtido={curtidas.has(m.id)}
+                      isMinha={!!sessaoId && m.uploader_session_id === sessaoId}
                       onClick={() => setModalMidia(m)} onLongPress={() => {}}
-                      onCurtir={(e) => curtir(m.id, e)} />
+                      onCurtir={(e) => curtir(m.id, e)}
+                      onEditar={() => setModalEditar({ midia: m, legenda: m.legenda || "" })}
+                      onExcluir={() => { if (confirm("Remover esta foto do álbum?")) excluirFoto(m.id); }} />
                   ))}
                 </div>
               </>
@@ -428,6 +477,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   {listaVis.map((m) => (
                     <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
                       curtido={curtidas.has(m.id)}
+                      isMinha={!!sessaoId && m.uploader_session_id === sessaoId}
                       onClick={() => {
                         if (modoSelecao) { toggleSelecao(m.id); return; }
                         const idx = listaVis.findIndex(x => x.id === m.id);
@@ -435,7 +485,9 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                         setVisModo("unica");
                       }}
                       onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
-                      onCurtir={(e) => curtir(m.id, e)} />
+                      onCurtir={(e) => curtir(m.id, e)}
+                      onEditar={() => setModalEditar({ midia: m, legenda: m.legenda || "" })}
+                      onExcluir={() => { if (confirm("Remover esta foto do álbum?")) excluirFoto(m.id); }} />
                   ))}
                 </div>
               )}
@@ -662,6 +714,30 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </div>
       )}
 
+      {/* ── MODAL EDITAR LEGENDA ── */}
+      {modalEditar && (
+        <div style={overlayStyle}>
+          <div style={nomeModalStyle} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <p style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", margin: 0 }}>Editar mensagem</p>
+              <button onClick={() => setModalEditar(null)} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", padding: "0 0 0 8px", lineHeight: 1 }}>✕</button>
+            </div>
+            <textarea
+              placeholder="Escreva uma mensagem..."
+              value={modalEditar.legenda}
+              onChange={(e) => setModalEditar({ ...modalEditar, legenda: e.target.value })}
+              rows={3}
+              autoFocus
+              style={{ ...inputStyle, resize: "none" as const, width: "100%", lineHeight: 1.6, marginBottom: 14 }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={skipBtnStyle} onClick={() => setModalEditar(null)}>Cancelar</button>
+              <button style={confirmBtnStyle} onClick={salvarEdicao}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <div style={toastStyle}>{toast}</div>}
     </div>
   );
@@ -838,9 +914,10 @@ function VideoPlayer({ src, style }: { src: string; style: React.CSSProperties }
 }
 
 // ─── MidiaCard ─────────────────────────────────────────────────────────────────
-function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurtir, showLegenda }: {
-  m: Midia; sel: boolean; modoSelecao: boolean; curtido: boolean; showLegenda?: boolean;
+function MidiaCard({ m, sel, modoSelecao, curtido, isMinha, onClick, onLongPress, onCurtir, onEditar, onExcluir }: {
+  m: Midia; sel: boolean; modoSelecao: boolean; curtido: boolean; isMinha?: boolean;
   onClick: () => void; onLongPress: () => void; onCurtir: (e: React.MouseEvent) => void;
+  onEditar?: () => void; onExcluir?: () => void;
 }) {
   const timer = useRef<ReturnType<typeof setTimeout>>();
   return (
@@ -865,6 +942,30 @@ function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurti
         </svg>
         {(m.curtidas || 0) > 0 && <span>{m.curtidas}</span>}
       </button>
+      {/* Botões editar/excluir — apenas para fotos desta sessão */}
+      {isMinha && !modoSelecao && (
+        <div style={{ position: "absolute", top: 7, right: 7, display: "flex", gap: 5 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEditar?.(); }}
+            style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(0,0,0,0.55)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }}
+            title="Editar legenda">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onExcluir?.(); }}
+            style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(220,38,38,0.7)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }}
+            title="Remover foto">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
+        </div>
+      )}
       {!m.legenda && m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
       {m.legenda && (
         <div style={legendaOverlayStyle}>
