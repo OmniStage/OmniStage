@@ -55,12 +55,10 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [legenda, setLegenda] = useState("");
   const [sessaoId, setSessaoId] = useState("");
   const [modalEditar, setModalEditar] = useState<{ midia: Midia; legenda: string } | null>(null);
-  const [modalEmoji, setModalEmoji] = useState(false);
-  const [emojiSelecionado, setEmojiSelecionado] = useState<string | null>(null);
-  const [emojisColocados, setEmojisColocados] = useState<{ emoji: string; x: number; y: number }[]>([]);
+  const [editorFotos, setEditorFotos] = useState(false);
+  const [modalEditor, setModalEditor] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const emojiCanvasRef = useRef<HTMLCanvasElement>(null);
   const nomeRef = useRef("");
 
   useEffect(() => { carregar(); }, [token]);
@@ -90,6 +88,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     if (!res.ok) { setErro(json.error || "Álbum não encontrado"); setLoading(false); return; }
     setEvento(json.evento);
     setAlbumNome(json.album?.nome || "");
+    setEditorFotos(json.album?.editor_fotos === true);
     setMidias(json.midias || []);
     setConvidados(json.convidados || []);
     setLoading(false);
@@ -141,32 +140,21 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     setLegenda("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
-    if (arquivo.type.startsWith("image")) {
+    if (arquivo.type.startsWith("image") && editorFotos) {
       setPreviewUrl(URL.createObjectURL(arquivo));
-      setEmojisColocados([]);
-      setEmojiSelecionado(null);
-      setModalEmoji(true);
+      setModalEditor(true);
     } else {
-      setPreviewUrl("");
+      setPreviewUrl(arquivo.type.startsWith("image") ? URL.createObjectURL(arquivo) : "");
       setModalLegenda(true);
     }
   }
 
-  async function confirmarEmojis() {
+  async function confirmarEditor(blob: Blob) {
     if (!arquivoPendente) return;
-    if (emojisColocados.length === 0) {
-      setModalEmoji(false);
-      setModalLegenda(true);
-      return;
-    }
-    const canvas = emojiCanvasRef.current;
-    if (!canvas) { setModalEmoji(false); setModalLegenda(true); return; }
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.92));
-    if (blob) {
-      const editado = new File([blob], arquivoPendente.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
-      setArquivoPendente(editado);
-    }
-    setModalEmoji(false);
+    const editado = new File([blob], arquivoPendente.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+    setArquivoPendente(editado);
+    setPreviewUrl(URL.createObjectURL(editado));
+    setModalEditor(false);
     setModalLegenda(true);
   }
 
@@ -703,60 +691,14 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </div>
       )}
 
-      {/* ── MODAL LEGENDA ── */}
-      {modalEmoji && previewUrl && (
-        <div style={overlayStyle}>
-          <div style={{ background: "#0f172a", borderRadius: 20, width: "min(96vw, 480px)", overflow: "hidden", display: "flex", flexDirection: "column" as const, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
-            {/* Título */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px" }}>
-              <p style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: 0 }}>Adicionar emojis</p>
-              <button onClick={() => { setModalEmoji(false); setModalLegenda(true); }} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", lineHeight: 1 }}>✕</button>
-            </div>
-
-            {/* Canvas editor */}
-            <div style={{ position: "relative" as const, width: "100%", background: "#000" }}>
-              <EmojiCanvas
-                canvasRef={emojiCanvasRef}
-                previewUrl={previewUrl}
-                emojisColocados={emojisColocados}
-                emojiSelecionado={emojiSelecionado}
-                onPlace={(x, y) => {
-                  if (!emojiSelecionado) return;
-                  setEmojisColocados((prev) => [...prev, { emoji: emojiSelecionado, x, y }]);
-                }}
-                onRemove={(idx) => setEmojisColocados((prev) => prev.filter((_, i) => i !== idx))}
-              />
-            </div>
-
-            {/* Paleta de emojis */}
-            <div style={{ padding: "12px 12px 6px", background: "#1e293b" }}>
-              <p style={{ fontSize: 11, color: "#64748b", margin: "0 0 8px", fontWeight: 600, letterSpacing: "0.08em" }}>TOQUE UM EMOJI, DEPOIS TOQUE NA FOTO</p>
-              <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
-                {["🎉","🎊","🎈","❤️","🥂","😍","🔥","✨","💃","🎂","📸","🌸","💜","🤩","😂","🙌","👏","💫","🫶","🥳","😘","💋","🌟","🎵","🍾"].map((e) => (
-                  <button key={e} onClick={() => setEmojiSelecionado(emojiSelecionado === e ? null : e)}
-                    style={{ fontSize: 26, background: emojiSelecionado === e ? "rgba(124,58,237,0.4)" : "rgba(255,255,255,0.05)", border: emojiSelecionado === e ? "2px solid #7c3aed" : "2px solid transparent", borderRadius: 10, width: 44, height: 44, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-                    {e}
-                  </button>
-                ))}
-              </div>
-              {emojisColocados.length > 0 && (
-                <button onClick={() => setEmojisColocados([])} style={{ marginTop: 8, fontSize: 12, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
-                  Limpar tudo
-                </button>
-              )}
-            </div>
-
-            {/* Ações */}
-            <div style={{ display: "flex", gap: 8, padding: "10px 12px 14px", background: "#1e293b" }}>
-              <button onClick={() => { setModalEmoji(false); setModalLegenda(true); }} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#94a3b8", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-                Pular
-              </button>
-              <button onClick={confirmarEmojis} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                {emojisColocados.length > 0 ? `Confirmar (${emojisColocados.length} emoji${emojisColocados.length > 1 ? "s" : ""})` : "Continuar →"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ── MODAL EDITOR DE FOTO (Filerobot) ── */}
+      {modalEditor && previewUrl && (
+        <FilerobotEditorModal
+          src={previewUrl}
+          onConfirm={confirmarEditor}
+          onSkip={() => { setModalEditor(false); setModalLegenda(true); }}
+          onClose={() => { setModalEditor(false); setArquivoPendente(null); }}
+        />
       )}
 
       {modalLegenda && arquivoPendente && (
@@ -1168,92 +1110,69 @@ const toastStyle: React.CSSProperties = { position: "fixed", bottom: 80, left: "
 const legendaCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", margin: "12px 0 0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" };
 const legendaOverlayStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "18px 7px 5px", fontSize: 10, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.82))", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, lineHeight: 1.4 };
 
-// ── Emoji Canvas Component ──
-type EmojiItem = { emoji: string; x: number; y: number };
-function EmojiCanvas({ canvasRef, previewUrl, emojisColocados, emojiSelecionado, onPlace, onRemove }: {
-  canvasRef: React.RefObject<HTMLCanvasElement>;
-  previewUrl: string;
-  emojisColocados: EmojiItem[];
-  emojiSelecionado: string | null;
-  onPlace: (x: number, y: number) => void;
-  onRemove: (idx: number) => void;
+// ── Filerobot Image Editor Modal ──
+// Lazy-loaded to avoid SSR issues and reduce bundle size for albums without editor
+function FilerobotEditorModal({ src, onConfirm, onSkip, onClose }: {
+  src: string;
+  onConfirm: (blob: Blob) => void;
+  onSkip: () => void;
+  onClose: () => void;
 }) {
-  const imgRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      imgRef.current = img;
-      draw();
+    let destroyed = false;
+    let instance: { terminate: () => void } | null = null;
+
+    async function init() {
+      const { default: FilerobotImageEditor } = await import("filerobot-image-editor");
+      const TABS = (FilerobotImageEditor as any).TABS;
+      const TOOLS = (FilerobotImageEditor as any).TOOLS;
+
+      if (destroyed || !containerRef.current) return;
+
+      instance = new (FilerobotImageEditor as any)(containerRef.current, {
+        source: src,
+        language: "pt",
+        tabsIds: TABS ? [TABS.ANNOTATE, TABS.FILTERS, TABS.ADJUST] : undefined,
+        defaultTabId: TABS?.ANNOTATE,
+        defaultToolId: TOOLS?.TEXT,
+        annotationsCommon: { fill: "#ffffff" },
+        onSave: async (editedImageObject: { imageCanvas?: HTMLCanvasElement }) => {
+          const canvas = editedImageObject.imageCanvas;
+          if (!canvas) { onSkip(); return; }
+          canvas.toBlob((blob) => {
+            if (blob) onConfirm(blob);
+            else onSkip();
+          }, "image/jpeg", 0.92);
+        },
+        onClose: (closingReason: string) => {
+          if (closingReason === "toolbar-close-button") onSkip();
+          else onClose();
+        },
+        useBackendTranslations: false,
+        showCanvasOnly: false,
+        theme: {
+          palette: { "accent-primary": "#7c3aed", "accent-primary-hover": "#6d28d9" },
+        },
+      });
+    }
+
+    init();
+    return () => {
+      destroyed = true;
+      instance?.terminate();
     };
-    img.src = previewUrl;
-  }, [previewUrl]);
-
-  useEffect(() => { draw(); }, [emojisColocados]);
-
-  function draw() {
-    const canvas = canvasRef.current;
-    const img = imgRef.current;
-    if (!canvas || !img) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const maxW = canvas.parentElement?.clientWidth || 480;
-    const ratio = img.naturalHeight / img.naturalWidth;
-    canvas.width = maxW;
-    canvas.height = Math.min(maxW * ratio, 420);
-
-    const scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
-    const dx = (canvas.width - img.naturalWidth * scale) / 2;
-    const dy = (canvas.height - img.naturalHeight * scale) / 2;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, dx, dy, img.naturalWidth * scale, img.naturalHeight * scale);
-
-    const emojiSize = Math.max(32, canvas.width * 0.11);
-    ctx.font = `${emojiSize}px serif`;
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-    for (const item of emojisColocados) {
-      ctx.fillText(item.emoji, item.x * canvas.width, item.y * canvas.height);
-    }
-  }
-
-  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    let cx: number, cy: number;
-    if ("touches" in e) {
-      cx = e.touches[0].clientX - rect.left;
-      cy = e.touches[0].clientY - rect.top;
-    } else {
-      cx = e.clientX - rect.left;
-      cy = e.clientY - rect.top;
-    }
-    const x = cx / rect.width;
-    const y = cy / rect.height;
-
-    // check if tapping existing emoji to remove
-    const emojiSize = 0.11;
-    const idx = emojisColocados.findIndex((item) => Math.abs(item.x - x) < emojiSize && Math.abs(item.y - y) < emojiSize);
-    if (idx >= 0) { onRemove(idx); return; }
-
-    if (emojiSelecionado) onPlace(x, y);
-  }
+  }, [src]);
 
   return (
-    <div ref={containerRef} style={{ width: "100%", lineHeight: 0 }}>
-      <canvas
-        ref={canvasRef}
-        style={{ width: "100%", display: "block", cursor: emojiSelecionado ? "crosshair" : "default", touchAction: "none" }}
-        onClick={handleCanvasClick}
-        onTouchStart={handleCanvasClick}
-      />
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#0f172a" }}>
+      <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}>
+        <button onClick={onSkip} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>
+          Pular edição →
+        </button>
+      </div>
+      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
     </div>
   );
 }

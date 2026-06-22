@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const { data: albumsData } = await supabase
     .from("albums")
-    .select("id, nome, descricao, album_token, criado_em")
+    .select("id, nome, descricao, album_token, criado_em, editor_fotos")
     .eq("evento_id", evento_id)
     .order("criado_em", { ascending: true });
 
@@ -49,15 +49,20 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ album });
 }
 
-// PATCH /api/albums  — edita nome/descrição
+// PATCH /api/albums  — edita nome/descrição/configurações
 export async function PATCH(req: NextRequest) {
-  const { id, nome, descricao } = await req.json();
+  const { id, nome, descricao, editor_fotos } = await req.json();
   if (!id) return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
+
+  const updates: Record<string, unknown> = {};
+  if (nome !== undefined) updates.nome = nome?.trim();
+  if (descricao !== undefined) updates.descricao = descricao?.trim() || null;
+  if (editor_fotos !== undefined) updates.editor_fotos = editor_fotos;
 
   const supabase = createServiceClient();
   const { data: album, error } = await supabase
     .from("albums")
-    .update({ nome: nome?.trim(), descricao: descricao?.trim() || null })
+    .update(updates)
     .eq("id", id)
     .select()
     .single();

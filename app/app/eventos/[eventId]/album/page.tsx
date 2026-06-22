@@ -12,6 +12,7 @@ type Album = {
   album_token: string;
   criado_em: string;
   total_midias: number;
+  editor_fotos: boolean;
 };
 
 type Midia = {
@@ -169,6 +170,16 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
     await carregar();
     setAlbumAtivo(json.album);
     toast_show("Álbum criado!", "success");
+  }
+
+  async function toggleEditorFotos(album: Album) {
+    const novoValor = !album.editor_fotos;
+    await fetch("/api/albums", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: album.id, editor_fotos: novoValor }),
+    });
+    setAlbums((prev) => prev.map((a) => a.id === album.id ? { ...a, editor_fotos: novoValor } : a));
   }
 
   async function deletarAlbum(album: Album) {
@@ -506,6 +517,19 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   Enviar para convidados
                 </a>
+              </div>
+
+              {/* Configurações do álbum */}
+              <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 14, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: "0 0 2px" }}>Editor de fotos</p>
+                  <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Convidados poderão editar a foto (stickers, texto, filtros) antes de enviar</p>
+                </div>
+                <button
+                  onClick={() => albumAtivo && toggleEditorFotos(albumAtivo)}
+                  style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, border: "none", cursor: "pointer", background: albumAtivo?.editor_fotos ? "#7c3aed" : "var(--line)", transition: "background 0.2s", position: "relative" as const }}>
+                  <span style={{ position: "absolute", top: 3, left: albumAtivo?.editor_fotos ? 25 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", display: "block", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                </button>
               </div>
 
               {/* Stats */}
