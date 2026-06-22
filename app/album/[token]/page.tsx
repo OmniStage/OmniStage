@@ -439,12 +439,12 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                       swipeTouchStartX.current = null;
                       swipeTouchStartY.current = null;
                       setSwipeAnimating(true);
-                      if (dx < -60 && idxUnica < listaVis.length - 1) {
+                      if (dx < -60) {
                         setSwipeOffset(-window.innerWidth);
-                        setTimeout(() => { setIdxUnica(i => i + 1); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
-                      } else if (dx > 60 && idxUnica > 0) {
+                        setTimeout(() => { setIdxUnica(i => (i + 1) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
+                      } else if (dx > 60) {
                         setSwipeOffset(window.innerWidth);
-                        setTimeout(() => { setIdxUnica(i => i - 1); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
+                        setTimeout(() => { setIdxUnica(i => (i - 1 + listaVis.length) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
                       } else {
                         setSwipeOffset(0);
                         setSwipeAnimating(false);
@@ -460,7 +460,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                       }}
                     >
                       {listaVis[idxUnica].tipo === "video"
-                        ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                        ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                         : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                       }
                       {/* Coração no carrossel */}
