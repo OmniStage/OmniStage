@@ -319,8 +319,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
       {/* Input galeria — sem capture para abrir seletor completo */}
       <input ref={fileInputRef} type="file" accept="image/*,video/*"
         style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
-      {/* Input câmera — capture força abrir câmera diretamente */}
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+      {/* Input câmera — capture força abrir câmera diretamente, aceita foto e vídeo */}
+      <input ref={cameraInputRef} type="file" accept="image/*,video/*" capture="environment"
         style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
 
       {uploading && (
@@ -854,6 +854,7 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
           scrollbarWidth: "none" as any,
           msOverflowStyle: "none" as any,
           aspectRatio: "3/4",
+          maxHeight: "60vh",
           position: "relative",
           background: "#111",
         } as React.CSSProperties}
