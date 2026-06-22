@@ -749,6 +749,40 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
   );
 }
 
+// ─── VideoThumb ─────────────────────────────────────────────────────────────────
+function VideoThumb({ src, style }: { src: string; style: React.CSSProperties }) {
+  const [thumb, setThumb] = useState<string | null>(null);
+
+  useEffect(() => {
+    const video = document.createElement("video");
+    video.src = src;
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+
+    video.addEventListener("seeked", () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 568;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          setThumb(canvas.toDataURL("image/jpeg", 0.8));
+        }
+      } catch {}
+    });
+
+    video.addEventListener("loadedmetadata", () => { video.currentTime = 0.5; });
+    video.load();
+    return () => { video.src = ""; };
+  }, [src]);
+
+  if (thumb) return <img src={thumb} alt="" style={style} />;
+  return <video src={src} style={style} muted playsInline preload="metadata" />;
+}
+
 // ─── MidiaCard ─────────────────────────────────────────────────────────────────
 function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurtir, showLegenda }: {
   m: Midia; sel: boolean; modoSelecao: boolean; curtido: boolean; showLegenda?: boolean;
@@ -762,7 +796,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurti
       onTouchEnd={() => clearTimeout(timer.current)}
       onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}>
       {m.tipo === "video"
-        ? <video src={m.arquivo_url} style={thumbStyle} muted playsInline preload="metadata" />
+        ? <VideoThumb src={m.arquivo_url} style={thumbStyle} />
         : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
       }
       {m.tipo === "video" && (
