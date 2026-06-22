@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 type Midia = {
   id: string;
@@ -31,6 +31,8 @@ export default function SlideshowPage({ params }: { params: { token: string } })
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
+  const [controlesVisiveis, setControlesVisiveis] = useState(false);
+  const controleTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const carregar = useCallback(async (silent = false) => {
     const res = await fetch(`/api/album?token=${token}`);
@@ -77,7 +79,16 @@ export default function SlideshowPage({ params }: { params: { token: string } })
     return () => clearTimeout(t);
   }, [novaFoto]);
 
+  function mostrarControles() {
+    setControlesVisiveis(true);
+    clearTimeout(controleTimerRef.current);
+    controleTimerRef.current = setTimeout(() => setControlesVisiveis(false), 3000);
+  }
+
+  const podeFullscreen = typeof document !== "undefined" && !!document.documentElement.requestFullscreen;
+
   function toggleFullscreen() {
+    if (!podeFullscreen) return;
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
       setFullscreen(true);
@@ -113,7 +124,7 @@ export default function SlideshowPage({ params }: { params: { token: string } })
   );
 
   return (
-    <div style={pageStyle}>
+    <div style={pageStyle} onClick={mostrarControles}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #000; overflow: hidden; }
@@ -183,8 +194,9 @@ export default function SlideshowPage({ params }: { params: { token: string } })
         </div>
       )}
 
-      {/* BOTÃO FULLSCREEN */}
-      <button onClick={toggleFullscreen} style={fsBtn} title={fullscreen ? "Sair do fullscreen" : "Fullscreen"}>
+      {/* BOTÃO FULLSCREEN — só no desktop com suporte */}
+      {podeFullscreen && controlesVisiveis && (
+      <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} style={fsBtn} title={fullscreen ? "Sair do fullscreen" : "Fullscreen"}>
         {fullscreen ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
@@ -197,12 +209,17 @@ export default function SlideshowPage({ params }: { params: { token: string } })
           </svg>
         )}
       </button>
+      )}
 
-      {/* NAVEGAÇÃO manual */}
-      <button onClick={() => { setVisivel(false); setTimeout(() => { setIdx(i => (i - 1 + midias.length) % midias.length); setVisivel(true); }, 300); }}
-        style={{ ...navBtn, left: 20 }}>‹</button>
-      <button onClick={() => { setVisivel(false); setTimeout(() => { setIdx(i => (i + 1) % midias.length); setVisivel(true); }, 300); }}
-        style={{ ...navBtn, right: 20 }}>›</button>
+      {/* NAVEGAÇÃO manual — só aparece ao tocar */}
+      {controlesVisiveis && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); setVisivel(false); setTimeout(() => { setIdx(i => (i - 1 + midias.length) % midias.length); setVisivel(true); }, 300); }}
+            style={{ ...navBtn, left: 20 }}>‹</button>
+          <button onClick={(e) => { e.stopPropagation(); setVisivel(false); setTimeout(() => { setIdx(i => (i + 1) % midias.length); setVisivel(true); }, 300); }}
+            style={{ ...navBtn, right: 20 }}>›</button>
+        </>
+      )}
     </div>
   );
 }
