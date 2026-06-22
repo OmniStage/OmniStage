@@ -187,9 +187,9 @@ export default function SlideshowPage({ params }: { params: { token: string } })
               src={midia.arquivo_url}
               autoPlay
               playsInline
-              loop
               muted={mutado}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              onEnded={avancar}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }}
             />
           ) : (
             <img
