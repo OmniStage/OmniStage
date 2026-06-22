@@ -54,9 +54,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [legenda, setLegenda] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const swipeTouchStartX = useRef<number | null>(null);
-  const swipeTouchStartY = useRef<number | null>(null);
-  const swipeStripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { carregar(); }, [token]);
 
@@ -416,113 +413,16 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>{visModo === "favoritas" ? "🤍" : emptyIcon}</div>
                   <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{visModo === "favoritas" ? "Nenhuma favorita ainda" : emptyMsg}</p>
                 </div>
-              ) : visModo === "unica" ? (() => {
-                const safeIdx = Math.min(idxUnica, listaVis.length - 1);
-                if (safeIdx < 0 || !listaVis[safeIdx]) return <div />;
-                const midiaAtual = listaVis[safeIdx];
-                const prev = listaVis[(safeIdx - 1 + listaVis.length) % listaVis.length];
-                const next = listaVis[(safeIdx + 1) % listaVis.length];
-
-                function renderSlide(m: typeof midiaAtual) {
-                  return m.tipo === "video"
-                    ? <VideoPlayer key={m.id} src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
-                    : <img key={m.id} src={m.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
-                }
-
-                return (
-                /* ── CARROSSEL 3-SLIDES SEM FLASH ── */
-                <div>
-                  {/* Viewport: overflow hidden, 1 slide visível */}
-                  <div
-                    style={{ position: "relative", overflow: "hidden", touchAction: "pan-y", userSelect: "none", aspectRatio: "3/4" }}
-                    onTouchStart={(e) => {
-                      swipeTouchStartX.current = e.touches[0].clientX;
-                      swipeTouchStartY.current = e.touches[0].clientY;
-                      if (swipeStripRef.current) swipeStripRef.current.style.transition = "none";
-                    }}
-                    onTouchMove={(e) => {
-                      if (swipeTouchStartX.current === null || swipeTouchStartY.current === null) return;
-                      const dx = e.touches[0].clientX - swipeTouchStartX.current;
-                      const dy = e.touches[0].clientY - swipeTouchStartY.current;
-                      if (Math.abs(dx) > Math.abs(dy)) {
-                        e.preventDefault();
-                        if (swipeStripRef.current) {
-                          swipeStripRef.current.style.transform = `translateX(calc(-33.333% + ${dx}px))`;
-                        }
-                      }
-                    }}
-                    onTouchEnd={(e) => {
-                      if (swipeTouchStartX.current === null) return;
-                      const dx = e.changedTouches[0].clientX - swipeTouchStartX.current;
-                      swipeTouchStartX.current = null;
-                      swipeTouchStartY.current = null;
-                      const strip = swipeStripRef.current;
-                      if (!strip) return;
-                      strip.style.transition = "transform 0.24s cubic-bezier(.2,.8,.2,1)";
-                      if (dx < -60) {
-                        strip.style.transform = "translateX(-66.666%)";
-                        setTimeout(() => {
-                          setIdxUnica(i => (i + 1) % listaVis.length);
-                          if (strip) { strip.style.transition = "none"; strip.style.transform = "translateX(-33.333%)"; }
-                        }, 240);
-                      } else if (dx > 60) {
-                        strip.style.transform = "translateX(0%)";
-                        setTimeout(() => {
-                          setIdxUnica(i => (i - 1 + listaVis.length) % listaVis.length);
-                          if (strip) { strip.style.transition = "none"; strip.style.transform = "translateX(-33.333%)"; }
-                        }, 240);
-                      } else {
-                        strip.style.transform = "translateX(-33.333%)";
-                      }
-                    }}
-                  >
-                    {/* Tira com 3 slides: prev | atual | next */}
-                    <div ref={swipeStripRef} style={{
-                      display: "flex",
-                      width: "300%",
-                      height: "100%",
-                      transform: "translateX(-33.333%)",
-                      willChange: "transform",
-                    }}>
-                      <div style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>{renderSlide(prev)}</div>
-                      <div className="carousel-area" style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>
-                        {renderSlide(midiaAtual)}
-                        {/* Coração */}
-                        <button className={`heart-btn${curtidas.has(midiaAtual.id) ? " curtido" : ""}`}
-                          onClick={(e) => curtir(midiaAtual.id, e)}
-                          style={{ top: 10, left: 10 }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(midiaAtual.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                          </svg>
-                          {(midiaAtual.curtidas || 0) > 0 && <span>{midiaAtual.curtidas}</span>}
-                        </button>
-                      </div>
-                      <div style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>{renderSlide(next)}</div>
-                    </div>
-                  </div>
-
-                  {/* Dots */}
-                  <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-                    {listaVis.map((_, i) => (
-                      <button key={i} onClick={() => setIdxUnica(i)} style={{ width: i === safeIdx ? 20 : 7, height: 7, borderRadius: 4, border: "none", background: i === safeIdx ? "#7c3aed" : "#e2e8f0", cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
-                    ))}
-                  </div>
-                  {/* Info */}
-                  {midiaAtual.legenda && (
-                    <div style={legendaCardStyle}>
-                      <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, fontStyle: "italic" }}>"{midiaAtual.legenda}"</p>
-                      {midiaAtual.uploader_nome && (
-                        <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>— {midiaAtual.uploader_nome}</p>
-                      )}
-                    </div>
-                  )}
-                  {!midiaAtual.legenda && midiaAtual.uploader_nome && (
-                    <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {midiaAtual.uploader_nome}</p>
-                  )}
-                  <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{safeIdx + 1} de {listaVis.length}</p>
-                </div>
-                );
-              })() : (
+              ) : visModo === "unica" ? (
+                /* ── CARROSSEL SCROLL-SNAP NATIVO (sem flash, sem jank) ── */
+                <SnapCarousel
+                  lista={listaVis}
+                  idx={idxUnica}
+                  onIdxChange={setIdxUnica}
+                  curtidas={curtidas}
+                  onCurtir={curtir}
+                />
+              ) : (
                 /* ── GRADE ── */
                 <div style={gridStyle}>
                   {listaVis.map((m) => (
@@ -774,6 +674,98 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
       {children}
       {label}
     </button>
+  );
+}
+
+// ─── SnapCarousel — scroll-snap nativo, zero flash ──────────────────────────────
+function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
+  lista: { id: string; arquivo_url: string; tipo: "image" | "video"; uploader_nome: string | null; legenda: string | null; curtidas: number }[];
+  idx: number;
+  onIdxChange: (i: number) => void;
+  curtidas: Set<string>;
+  onCurtir: (id: string, e: React.MouseEvent) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastIdxRef = useRef(idx);
+  const scrollingRef = useRef(false);
+
+  // Quando idx muda externamente (dots, aba), rola programaticamente
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || lastIdxRef.current === idx) return;
+    lastIdxRef.current = idx;
+    el.scrollTo({ left: idx * el.offsetWidth, behavior: "smooth" });
+  }, [idx]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const newIdx = Math.round(el.scrollLeft / el.offsetWidth);
+    if (newIdx !== lastIdxRef.current && newIdx >= 0 && newIdx < lista.length) {
+      lastIdxRef.current = newIdx;
+      onIdxChange(newIdx);
+    }
+  }
+
+  const safeIdx = Math.min(idx, lista.length - 1);
+  const midiaAtual = lista[safeIdx] || lista[0];
+
+  return (
+    <div>
+      {/* Scroll container com snap */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        style={{
+          display: "flex",
+          overflowX: "scroll",
+          overflowY: "hidden",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch" as any,
+          scrollbarWidth: "none" as any,
+          aspectRatio: "3/4",
+          position: "relative",
+        } as React.CSSProperties}
+      >
+        <style>{`.snap-scroll::-webkit-scrollbar { display: none; }`}</style>
+        {lista.map((m, i) => (
+          <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%" }}>
+            {m.tipo === "video"
+              ? <VideoPlayer src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
+              : <img src={m.arquivo_url} alt="" loading={Math.abs(i - safeIdx) <= 1 ? "eager" : "lazy"} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            }
+            {/* Coração */}
+            <button className={`heart-btn${curtidas.has(m.id) ? " curtido" : ""}`}
+              onClick={(e) => onCurtir(m.id, e)}
+              style={{ top: 10, left: 10 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(m.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              {(m.curtidas || 0) > 0 && <span>{m.curtidas}</span>}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Dots */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+        {lista.map((_, i) => (
+          <button key={i} onClick={() => onIdxChange(i)} style={{ width: i === safeIdx ? 20 : 7, height: 7, borderRadius: 4, border: "none", background: i === safeIdx ? "#7c3aed" : "#e2e8f0", cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
+        ))}
+      </div>
+
+      {/* Info */}
+      {midiaAtual?.legenda && (
+        <div style={legendaCardStyle}>
+          <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, fontStyle: "italic" }}>"{midiaAtual.legenda}"</p>
+          {midiaAtual.uploader_nome && <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>— {midiaAtual.uploader_nome}</p>}
+        </div>
+      )}
+      {!midiaAtual?.legenda && midiaAtual?.uploader_nome && (
+        <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {midiaAtual.uploader_nome}</p>
+      )}
+      <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{safeIdx + 1} de {lista.length}</p>
+    </div>
   );
 }
 
