@@ -349,7 +349,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </div>
         <div style={heroInnerStyle}>
           {logoUrl
-            ? <img src={logoUrl} alt={evento?.nome} style={{ width: 132, height: 132, objectFit: "contain", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} />
+            ? <img src={logoUrl} alt={evento?.nome} style={{ width: 172, height: 172, objectFit: "contain", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} />
             : <>
                 <p style={kickerStyle}>{evento?.nome?.toUpperCase()}</p>
                 <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
@@ -862,8 +862,7 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
           WebkitOverflowScrolling: "touch" as any,
           scrollbarWidth: "none" as any,
           msOverflowStyle: "none" as any,
-          aspectRatio: "3/4",
-          maxHeight: "60vh",
+          height: "70vh",
           position: "relative",
           background: "#111",
         } as React.CSSProperties}
@@ -872,7 +871,7 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
           <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%", background: "#111" }}>
             {m.tipo === "video"
               ? <VideoPlayer src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
-              : <img src={m.arquivo_url} alt="" loading="eager" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              : <img src={m.arquivo_url} alt="" loading="eager" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
             }
             {/* Coração */}
             <button className={`heart-btn${curtidas.has(m.id) ? " curtido" : ""}`}
@@ -1038,7 +1037,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, isMinha, onClick, onLongPress
 const pageStyle: React.CSSProperties = { minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter', -apple-system, sans-serif", color: "#0f172a", paddingBottom: 80 };
 const centerStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontSize: 15, color: "#94a3b8" };
 
-const heroStyle: React.CSSProperties = { position: "relative", height: 200, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" };
+const heroStyle: React.CSSProperties = { position: "relative", height: 220, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" };
 const heroBgStyle: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" };
 const heroOverlayStyle: React.CSSProperties = { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.75) 100%)" };
 const heroInnerStyle: React.CSSProperties = { position: "relative", zIndex: 2, textAlign: "center", padding: "0 20px", display: "flex", flexDirection: "column", alignItems: "center", color: "#fff" };
