@@ -94,10 +94,15 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
     if (ssApenasFlag) candidatas = candidatas.filter((m) => (m.curtidas || 0) > 0);
     if (candidatas.length === 0) { toast_show("Selecione ao menos uma foto.", "error"); return; }
     setSsSalvando(true);
-    const { data, error } = await supabase.from("slideshow_configs").insert({ evento_id: eventId, foto_ids: candidatas.map((m) => m.id) }).select("id").single();
+    const res = await fetch("/api/slideshow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ evento_id: eventId, foto_ids: candidatas.map((m) => m.id) }),
+    });
+    const json = await res.json();
     setSsSalvando(false);
-    if (error || !data) { toast_show("Erro ao salvar configuração.", "error"); return; }
-    window.open(`/slideshow/${data.id}`, "_blank");
+    if (!res.ok || !json.id) { toast_show("Erro ao salvar configuração.", "error"); return; }
+    window.open(`/slideshow/${json.id}`, "_blank");
   }
 
   useEffect(() => {
