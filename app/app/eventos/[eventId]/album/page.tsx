@@ -319,6 +319,16 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                       <button style={btnPrimaryStyle} onClick={imprimirQR}>🖨 Imprimir</button>
                     </div>
                     <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Imprima e deixe nas mesas</p>
+                    <div style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 16 }}>
+                      <p style={{ ...cardSectionTitleStyle, marginBottom: 8 }}>Slideshow para telão</p>
+                      <a href={`/album/${albumAtivo?.album_token}/slideshow`} target="_blank" rel="noreferrer"
+                        style={{ ...btnPrimaryStyle, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", width: "100%" }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                        Abrir Slideshow
+                      </a>
+                    </div>
                   </div>
                   <div style={linkInfoCardStyle}>
                     <p style={cardSectionTitleStyle}>Link direto</p>
