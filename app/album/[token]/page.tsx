@@ -693,11 +693,10 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
 
       {/* ── MODAL EDITOR DE FOTO (Filerobot) ── */}
       {modalEditor && previewUrl && (
-        <FilerobotEditorModal
+        <PhotoEditorModal
           src={previewUrl}
           onConfirm={confirmarEditor}
           onSkip={() => { setModalEditor(false); setModalLegenda(true); }}
-          onClose={() => { setModalEditor(false); setArquivoPendente(null); }}
         />
       )}
 
@@ -1110,67 +1109,165 @@ const toastStyle: React.CSSProperties = { position: "fixed", bottom: 80, left: "
 const legendaCardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "14px 16px", margin: "12px 0 0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" };
 const legendaOverlayStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "18px 7px 5px", fontSize: 10, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.82))", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, lineHeight: 1.4 };
 
-// ── Filerobot Image Editor Modal ──
-// Uses react-filerobot-image-editor@4.9.1, loaded dynamically to avoid SSR issues
-function FilerobotEditorModal({ src, onConfirm, onSkip, onClose }: {
+// ── Photo Editor Modal (canvas-based, no external deps) ──
+const EDITOR_EMOJIS = ["🎉","🎊","🎈","❤️","🥂","😍","🔥","✨","💃","🎂","📸","🌸","💜","🤩","😂","🙌","👏","💫","🫶","🥳","😘","💋","🌟","🎵","🍾","🎤","🎶","🌈","⭐","💍"];
+const FILTERS: { id: string; label: string; css: string }[] = [
+  { id: "normal",  label: "Normal",  css: "none" },
+  { id: "vivido",  label: "Vívido",  css: "saturate(1.8) contrast(1.1)" },
+  { id: "quente",  label: "Quente",  css: "sepia(0.35) saturate(1.4) brightness(1.05)" },
+  { id: "frio",    label: "Frio",    css: "hue-rotate(20deg) saturate(0.9) brightness(1.05)" },
+  { id: "pb",      label: "P&B",     css: "grayscale(1) contrast(1.1)" },
+  { id: "fade",    label: "Fade",    css: "brightness(1.1) saturate(0.7) contrast(0.85)" },
+];
+
+type Sticker = { emoji: string; x: number; y: number };
+
+function PhotoEditorModal({ src, onConfirm, onSkip }: {
   src: string;
   onConfirm: (blob: Blob) => void;
   onSkip: () => void;
-  onClose: () => void;
 }) {
-  const [Editor, setEditor] = useState<React.ComponentType<any> | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+  const [filter, setFilter] = useState("normal");
+  const [aba, setEditorAba] = useState<"stickers" | "filtros">("stickers");
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    import("react-filerobot-image-editor").then((mod) => {
-      setEditor(() => mod.default || mod);
-    });
-  }, []);
-
-  function handleSave(editedImage: any) {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { onSkip(); return; }
-      ctx.drawImage(img, 0, 0);
-      canvas.toBlob((blob) => {
-        if (blob) onConfirm(blob);
-        else onSkip();
-      }, "image/jpeg", 0.92);
-    };
-    img.onerror = () => onSkip();
-    img.src = editedImage.imageBase64 || editedImage.imageCanvas?.toDataURL() || src;
+    img.onload = () => { imgRef.current = img; redraw(); };
+    img.src = src;
+  }, [src]);
+
+  useEffect(() => { redraw(); }, [stickers, filter]);
+
+  function redraw() {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const maxW = Math.min(window.innerWidth, 520);
+    const ratio = img.naturalHeight / img.naturalWidth;
+    canvas.width = maxW;
+    canvas.height = Math.min(maxW * ratio, window.innerHeight * 0.52);
+    // apply filter via offscreen canvas
+    const off = document.createElement("canvas");
+    off.width = canvas.width; off.height = canvas.height;
+    const octx = off.getContext("2d")!;
+    const f = FILTERS.find(f => f.id === filter);
+    octx.filter = f?.css || "none";
+    const scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+    const dx = (canvas.width - img.naturalWidth * scale) / 2;
+    const dy = (canvas.height - img.naturalHeight * scale) / 2;
+    octx.drawImage(img, dx, dy, img.naturalWidth * scale, img.naturalHeight * scale);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(off, 0, 0);
+    // draw stickers
+    const sz = Math.max(28, canvas.width * 0.1);
+    ctx.font = `${sz}px serif`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    for (const s of stickers) {
+      ctx.fillText(s.emoji, s.x * canvas.width, s.y * canvas.height);
+    }
   }
 
-  if (!Editor) {
-    return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "#fff", fontSize: 14 }}>Carregando editor...</p>
-      </div>
-    );
+  function handleCanvasTouch(e: React.TouchEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const cx = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const cy = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const x = (cx - rect.left) / rect.width;
+    const y = (cy - rect.top) / rect.height;
+    // check remove
+    const hit = stickers.findIndex(s => Math.abs(s.x - x) < 0.1 && Math.abs(s.y - y) < 0.1);
+    if (hit >= 0) { setStickers(prev => prev.filter((_, i) => i !== hit)); return; }
+    if (selectedEmoji) setStickers(prev => [...prev, { emoji: selectedEmoji, x, y }]);
   }
+
+  async function handleConfirm() {
+    setExporting(true);
+    await new Promise(r => setTimeout(r, 50));
+    const canvas = canvasRef.current;
+    if (!canvas) { onSkip(); return; }
+    canvas.toBlob(blob => { if (blob) onConfirm(blob); else onSkip(); }, "image/jpeg", 0.93);
+  }
+
+  const filterCss = FILTERS.find(f => f.id === filter)?.css || "none";
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200 }}>
-      <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10 }}>
-        <button onClick={onSkip} style={{ background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>
-          ← Pular edição
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#0f172a", display: "flex", flexDirection: "column" as const }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", flexShrink: 0 }}>
+        <button onClick={onSkip} style={{ background: "none", border: "none", color: "#94a3b8", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}>Pular →</button>
+        <p style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: 0 }}>Editar foto</p>
+        <button onClick={handleConfirm} disabled={exporting} style={{ background: "#7c3aed", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, borderRadius: 8, padding: "7px 14px", cursor: "pointer", opacity: exporting ? 0.6 : 1 }}>
+          {exporting ? "..." : "Usar foto"}
         </button>
       </div>
-      <Editor
-        source={src}
-        onSave={handleSave}
-        onClose={onClose}
-        annotationsCommon={{ fill: "#ffffff" }}
-        tabsIds={["Annotate", "Filters", "Adjust"]}
-        defaultTabId="Annotate"
-        savingPixelRatio={4}
-        previewPixelRatio={2}
-        theme={{ palette: { "accent-primary": "#7c3aed", "accent-primary-active": "#6d28d9", "active-secondary": "#7c3aed" } }}
-      />
+
+      {/* Canvas preview */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "0 8px" }}>
+        <canvas
+          ref={canvasRef}
+          style={{ maxWidth: "100%", maxHeight: "100%", display: "block", cursor: selectedEmoji ? "crosshair" : "default", touchAction: "none", borderRadius: 8 }}
+          onClick={handleCanvasTouch}
+          onTouchStart={handleCanvasTouch}
+        />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ flexShrink: 0, background: "#1e293b" }}>
+        <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          {(["stickers", "filtros"] as const).map(t => (
+            <button key={t} onClick={() => setEditorAba(t)}
+              style={{ flex: 1, padding: "10px", background: "none", border: "none", color: aba === t ? "#a78bfa" : "#64748b", fontSize: 13, fontWeight: 700, cursor: "pointer", borderBottom: aba === t ? "2px solid #7c3aed" : "2px solid transparent", textTransform: "capitalize" as const }}>
+              {t === "stickers" ? "✨ Stickers" : "🎨 Filtros"}
+            </button>
+          ))}
+        </div>
+
+        {aba === "stickers" && (
+          <div style={{ padding: "10px 12px 14px" }}>
+            {selectedEmoji && <p style={{ fontSize: 11, color: "#a78bfa", margin: "0 0 8px", fontWeight: 600 }}>Toque na foto para colocar {selectedEmoji} — toque novamente para remover</p>}
+            <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 5 }}>
+              {EDITOR_EMOJIS.map(e => (
+                <button key={e} onClick={() => setSelectedEmoji(selectedEmoji === e ? null : e)}
+                  style={{ fontSize: 24, width: 42, height: 42, background: selectedEmoji === e ? "rgba(124,58,237,0.4)" : "rgba(255,255,255,0.05)", border: selectedEmoji === e ? "2px solid #7c3aed" : "2px solid transparent", borderRadius: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {e}
+                </button>
+              ))}
+            </div>
+            {stickers.length > 0 && (
+              <button onClick={() => setStickers([])} style={{ marginTop: 8, fontSize: 12, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                Limpar stickers
+              </button>
+            )}
+          </div>
+        )}
+
+        {aba === "filtros" && (
+          <div style={{ padding: "10px 12px 14px" }}>
+            <div style={{ display: "flex", gap: 8, overflowX: "auto" as const, paddingBottom: 4 }}>
+              {FILTERS.map(f => (
+                <button key={f.id} onClick={() => setFilter(f.id)}
+                  style={{ flexShrink: 0, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer" }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", border: filter === f.id ? "2px solid #7c3aed" : "2px solid transparent" }}>
+                    <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: f.css }} />
+                  </div>
+                  <span style={{ fontSize: 10, color: filter === f.id ? "#a78bfa" : "#64748b", fontWeight: 600 }}>{f.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
