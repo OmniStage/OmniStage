@@ -413,7 +413,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               ) : visModo === "unica" ? (
                 /* ── CARROSSEL ── */
                 <div>
-                  <div className="carousel-area" style={{ aspectRatio: "1" }}>
+                  <div className="carousel-area" style={{ aspectRatio: "3/4" }}>
                     {listaVis[idxUnica].tipo === "video"
                       ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                       : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
@@ -791,7 +791,7 @@ const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "
 const selDlBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 };
-const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "1", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#e2e8f0", transition: "opacity 0.15s" };
+const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#e2e8f0", transition: "opacity 0.15s" };
 const gridItemSelStyle: React.CSSProperties = { outline: "3px solid #7c3aed" };
 const thumbStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 const videoBadgeStyle: React.CSSProperties = { position: "absolute", bottom: 5, right: 5, background: "rgba(0,0,0,0.6)", borderRadius: 4, padding: "3px 4px", display: "flex" };
