@@ -164,8 +164,8 @@ export default function SlideshowConfigPage({ params }: { params: { id: string }
         </div>
       )}
 
-      {/* CONTADOR */}
-      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 10, display: "flex", gap: 5 }}>
+      {/* CONTADOR — só aparece com os controles */}
+      <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 10, display: "flex", gap: 5, opacity: controlesVisiveis ? 1 : 0, transition: "opacity 0.3s" }}>
         {midias.map((_, i) => (
           <div key={i} style={{ width: i === idx ? 20 : 6, height: 6, borderRadius: 3, background: i === idx ? "#fff" : "rgba(255,255,255,0.35)", transition: "all 0.3s" }} />
         ))}
