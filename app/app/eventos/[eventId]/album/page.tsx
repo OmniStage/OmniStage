@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabase";
 
@@ -34,7 +35,10 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
   const [modalMidia, setModalMidia] = useState<Midia | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<"fotos" | "qrcode">("fotos");
-  const [secao, setSecao] = useState<"albuns" | "slideshow">("albuns");
+  const searchParams = useSearchParams();
+  const [secao, setSecao] = useState<"albuns" | "slideshow">(
+    searchParams.get("secao") === "slideshow" ? "slideshow" : "albuns"
+  );
   const [modalNovoAlbum, setModalNovoAlbum] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [novaDesc, setNovaDesc] = useState("");
