@@ -749,58 +749,27 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
   );
 }
 
-// ─── capturarFrame ──────────────────────────────────────────────────────────────
-function capturarFrame(src: string, onCaptura: (url: string) => void) {
-  const video = document.createElement("video");
-  video.src = src;
-  video.muted = true;
-  video.playsInline = true;
-  video.preload = "metadata";
-
-  const handleSeeked = () => {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || 320;
-      canvas.height = video.videoHeight || 568;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const url = canvas.toDataURL("image/jpeg", 0.85);
-        // Verifica se o canvas não está em branco (CORS falhou)
-        if (url !== "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==") {
-          onCaptura(url);
-        }
-      }
-    } catch {}
-    video.src = "";
-  };
-
-  video.addEventListener("seeked", handleSeeked, { once: true });
-  video.addEventListener("loadedmetadata", () => { video.currentTime = 0.5; }, { once: true });
-  video.load();
+// ─── VideoThumb — placeholder no grid ───────────────────────────────────────────
+function VideoThumb({ style }: { style: React.CSSProperties }) {
+  return (
+    <div style={{ ...style, background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="rgba(255,255,255,0.5)"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </div>
+  );
 }
 
-// ─── VideoThumb — miniatura no grid ─────────────────────────────────────────────
-function VideoThumb({ src, style }: { src: string; style: React.CSSProperties }) {
-  const [thumb, setThumb] = useState<string | null>(null);
-
-  useEffect(() => { capturarFrame(src, setThumb); }, [src]);
-
-  if (thumb) return <img src={thumb} alt="" style={style} />;
-  return <video src={src} style={{ ...style, background: "#0f172a" }} muted playsInline preload="metadata" />;
-}
-
-// ─── VideoPlayer — visualização única com poster ─────────────────────────────────
+// ─── VideoPlayer — visualização única ────────────────────────────────────────────
 function VideoPlayer({ src, style }: { src: string; style: React.CSSProperties }) {
-  const [thumb, setThumb] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  useEffect(() => { setPlaying(false); capturarFrame(src, setThumb); }, [src]);
+  useEffect(() => { setPlaying(false); }, [src]);
 
   if (playing) {
     return (
       <video
         key={src}
+        ref={videoRef}
         src={src}
         controls
         autoPlay
@@ -812,15 +781,12 @@ function VideoPlayer({ src, style }: { src: string; style: React.CSSProperties }
   }
 
   return (
-    <div style={{ ...style, position: "relative", background: "#0f172a", cursor: "pointer" }} onClick={() => setPlaying(true)}>
-      {thumb
-        ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-        : <div style={{ width: "100%", height: "100%", background: "#0f172a" }} />
-      }
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    <div style={{ ...style, position: "relative", background: "#0f172a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setPlaying(true)}>
+      <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 12 }}>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.15)", backdropFilter: "blur(6px)", border: "2px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
+        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>Toque para reproduzir</span>
       </div>
     </div>
   );
@@ -839,7 +805,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurti
       onTouchEnd={() => clearTimeout(timer.current)}
       onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}>
       {m.tipo === "video"
-        ? <VideoThumb src={m.arquivo_url} style={thumbStyle} />
+        ? <VideoThumb style={thumbStyle} />
         : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
       }
       {m.tipo === "video" && (
@@ -908,7 +874,7 @@ const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "
 const selDlBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 };
-const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#e2e8f0", transition: "opacity 0.15s" };
+const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#d1d5db", transition: "opacity 0.15s" };
 const gridItemSelStyle: React.CSSProperties = { outline: "3px solid #7c3aed" };
 const thumbStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 const videoBadgeStyle: React.CSSProperties = { position: "absolute", bottom: 5, right: 5, background: "rgba(0,0,0,0.6)", borderRadius: 4, padding: "3px 4px", display: "flex" };
