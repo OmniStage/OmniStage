@@ -650,13 +650,26 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             </div>
             <p style={{ fontSize: 14, color: "#64748b", margin: "0 0 14px" }}>Opcional — escreva algo para acompanhar sua foto.</p>
             {!nomeUploader.trim() && (
-              <input
-                type="text"
-                placeholder="Seu nome (opcional)"
-                value={nomeUploader}
-                onChange={(e) => handleNomeChange(e.target.value)}
-                style={{ ...inputStyle, marginBottom: 10 }}
-              />
+              <div style={{ position: "relative", marginBottom: 10 }}>
+                <input
+                  type="text"
+                  placeholder="Seu nome (opcional)"
+                  value={nomeUploader}
+                  onChange={(e) => handleNomeChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setSugestoes([]), 200)}
+                  style={inputStyle}
+                />
+                {sugestoes.length > 0 && (
+                  <div style={sugestoesStyle}>
+                    {sugestoes.map((nome) => (
+                      <button key={nome} className="sug" style={sugItemStyle}
+                        onMouseDown={() => { setNomeUploader(nome); setSugestoes([]); }}>
+                        {nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             {nomeUploader.trim() && (
               <p style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, margin: "0 0 10px" }}>Enviando como: <strong>{nomeUploader}</strong></p>
