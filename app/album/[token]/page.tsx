@@ -57,6 +57,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [modalEditar, setModalEditar] = useState<{ midia: Midia; legenda: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const nomeRef = useRef("");
 
   useEffect(() => { carregar(); }, [token]);
 
@@ -107,22 +108,24 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   }
 
   function handleNomeChange(valor: string) {
+    nomeRef.current = valor;
     setNomeUploader(valor);
     if (valor.trim().length < 2) { setSugestoes([]); return; }
     setSugestoes(convidados.filter((n) => n.toLowerCase().includes(valor.toLowerCase())).slice(0, 6));
   }
 
   function selecionarNome(nome: string) {
+    nomeRef.current = nome;
     setNomeUploader(nome);
     setSugestoes([]);
     setModalNome(false);
     const ref = origemCamera ? cameraInputRef : fileInputRef;
-    setTimeout(() => ref.current?.click(), 100);
+    setTimeout(() => ref.current?.click(), 150);
   }
 
   function abrirUpload() {
     setOrigemCamera(false);
-    if (!nomeUploader.trim()) { setModalNome(true); }
+    if (!nomeRef.current.trim() && !nomeUploader.trim()) { setModalNome(true); }
     else { fileInputRef.current?.click(); }
   }
 
@@ -152,7 +155,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           token,
           nome_arquivo: arquivoPendente.name,
           tipo_mime: arquivoPendente.type,
-          uploader_nome: nomeUploader.trim() || null,
+          uploader_nome: (nomeRef.current || nomeUploader).trim() || null,
           legenda: legenda.trim() || null,
           uploader_session_id: sessaoId || null,
         }),
@@ -357,7 +360,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   {sugestoes.length > 0 && (
                     <div style={sugestoesStyle}>
                       {sugestoes.map((nome) => (
-                        <button key={nome} className="sug" style={sugItemStyle} onPointerDown={(e) => { e.preventDefault(); selecionarNome(nome); }}>{nome}</button>
+                        <button key={nome} className="sug" style={sugItemStyle} onClick={() => selecionarNome(nome)}>{nome}</button>
                       ))}
                     </div>
                   )}
@@ -541,7 +544,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   {sugestoes.length > 0 && (
                     <div style={sugestoesStyle}>
                       {sugestoes.map((nome) => (
-                        <button key={nome} className="sug" style={sugItemStyle} onPointerDown={(e) => { e.preventDefault(); selecionarNome(nome); }}>{nome}</button>
+                        <button key={nome} className="sug" style={sugItemStyle} onClick={() => selecionarNome(nome)}>{nome}</button>
                       ))}
                     </div>
                   )}
@@ -645,11 +648,13 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             <p style={{ fontSize: 14, color: "#64748b", margin: "0 0 16px" }}>Opcional — para identificar suas fotos no álbum.</p>
             <div style={{ position: "relative" }}>
               <input type="text" placeholder="Digite seu nome..." value={nomeUploader}
-                onChange={(e) => handleNomeChange(e.target.value)} autoFocus style={inputStyle} />
+                onChange={(e) => handleNomeChange(e.target.value)}
+                onBlur={() => setTimeout(() => setSugestoes([]), 200)}
+                autoFocus style={inputStyle} />
               {sugestoes.length > 0 && (
                 <div style={sugestoesStyle}>
                   {sugestoes.map((nome) => (
-                    <button key={nome} className="sug" style={sugItemStyle} onPointerDown={(e) => { e.preventDefault(); selecionarNome(nome); }}>{nome}</button>
+                    <button key={nome} className="sug" style={sugItemStyle} onClick={() => selecionarNome(nome)}>{nome}</button>
                   ))}
                 </div>
               )}
@@ -692,13 +697,14 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   placeholder="Seu nome (opcional)"
                   value={nomeUploader}
                   onChange={(e) => handleNomeChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setSugestoes([]), 200)}
                   style={inputStyle}
                 />
                 {sugestoes.length > 0 && (
                   <div style={sugestoesStyle}>
                     {sugestoes.map((nome) => (
                       <button key={nome} className="sug" style={sugItemStyle}
-                        onPointerDown={(e) => { e.preventDefault(); setNomeUploader(nome); setSugestoes([]); }}>
+                        onClick={() => { setNomeUploader(nome); setSugestoes([]); }}>
                         {nome}
                       </button>
                     ))}
