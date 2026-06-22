@@ -1111,68 +1111,66 @@ const legendaCardStyle: React.CSSProperties = { background: "#fff", border: "1px
 const legendaOverlayStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "18px 7px 5px", fontSize: 10, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.82))", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, lineHeight: 1.4 };
 
 // ── Filerobot Image Editor Modal ──
-// Lazy-loaded to avoid SSR issues and reduce bundle size for albums without editor
+// Uses react-filerobot-image-editor@4.9.1, loaded dynamically to avoid SSR issues
 function FilerobotEditorModal({ src, onConfirm, onSkip, onClose }: {
   src: string;
   onConfirm: (blob: Blob) => void;
   onSkip: () => void;
   onClose: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [Editor, setEditor] = useState<React.ComponentType<any> | null>(null);
 
   useEffect(() => {
-    let destroyed = false;
-    let instance: { terminate: () => void } | null = null;
+    import("react-filerobot-image-editor").then((mod) => {
+      setEditor(() => mod.default || mod);
+    });
+  }, []);
 
-    async function init() {
-      const { default: FilerobotImageEditor } = await import("filerobot-image-editor");
-      const TABS = (FilerobotImageEditor as any).TABS;
-      const TOOLS = (FilerobotImageEditor as any).TOOLS;
-
-      if (destroyed || !containerRef.current) return;
-
-      instance = new (FilerobotImageEditor as any)(containerRef.current, {
-        source: src,
-        language: "pt",
-        tabsIds: TABS ? [TABS.ANNOTATE, TABS.FILTERS, TABS.ADJUST] : undefined,
-        defaultTabId: TABS?.ANNOTATE,
-        defaultToolId: TOOLS?.TEXT,
-        annotationsCommon: { fill: "#ffffff" },
-        onSave: async (editedImageObject: { imageCanvas?: HTMLCanvasElement }) => {
-          const canvas = editedImageObject.imageCanvas;
-          if (!canvas) { onSkip(); return; }
-          canvas.toBlob((blob) => {
-            if (blob) onConfirm(blob);
-            else onSkip();
-          }, "image/jpeg", 0.92);
-        },
-        onClose: (closingReason: string) => {
-          if (closingReason === "toolbar-close-button") onSkip();
-          else onClose();
-        },
-        useBackendTranslations: false,
-        showCanvasOnly: false,
-        theme: {
-          palette: { "accent-primary": "#7c3aed", "accent-primary-hover": "#6d28d9" },
-        },
-      });
-    }
-
-    init();
-    return () => {
-      destroyed = true;
-      instance?.terminate();
+  function handleSave(editedImage: any) {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { onSkip(); return; }
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) onConfirm(blob);
+        else onSkip();
+      }, "image/jpeg", 0.92);
     };
-  }, [src]);
+    img.onerror = () => onSkip();
+    img.src = editedImage.imageBase64 || editedImage.imageCanvas?.toDataURL() || src;
+  }
+
+  if (!Editor) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "#fff", fontSize: 14 }}>Carregando editor...</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#0f172a" }}>
-      <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}>
-        <button onClick={onSkip} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>
-          Pular edição →
+    <div style={{ position: "fixed", inset: 0, zIndex: 200 }}>
+      <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10 }}>
+        <button onClick={onSkip} style={{ background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, borderRadius: 8, padding: "8px 14px", cursor: "pointer" }}>
+          ← Pular edição
         </button>
       </div>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      <Editor
+        source={src}
+        onSave={handleSave}
+        onClose={onClose}
+        annotationsCommon={{ fill: "#ffffff" }}
+        tabsIds={["Annotate", "Filters", "Adjust"]}
+        defaultTabId="Annotate"
+        savingPixelRatio={4}
+        previewPixelRatio={2}
+        theme={{ palette: { "accent-primary": "#7c3aed", "accent-primary-active": "#6d28d9", "active-secondary": "#7c3aed" } }}
+      />
     </div>
   );
 }
