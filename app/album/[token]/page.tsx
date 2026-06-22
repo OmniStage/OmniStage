@@ -54,6 +54,10 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [legenda, setLegenda] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const swipeTouchStartX = useRef<number | null>(null);
+  const swipeTouchStartY = useRef<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [swipeAnimating, setSwipeAnimating] = useState(false);
 
   useEffect(() => { carregar(); }, [token]);
 
@@ -411,28 +415,64 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{visModo === "favoritas" ? "Nenhuma favorita ainda" : emptyMsg}</p>
                 </div>
               ) : visModo === "unica" ? (
-                /* ── CARROSSEL ── */
+                /* ── CARROSSEL COM SWIPE ── */
                 <div>
-                  <div className="carousel-area" style={{ aspectRatio: "3/4" }}>
-                    {listaVis[idxUnica].tipo === "video"
-                      ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                      : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                    }
-                    {idxUnica > 0 && (
-                      <button className="carousel-nav" style={{ left: 10 }} onClick={() => setIdxUnica(i => i - 1)}>‹</button>
-                    )}
-                    {idxUnica < listaVis.length - 1 && (
-                      <button className="carousel-nav" style={{ right: 10 }} onClick={() => setIdxUnica(i => i + 1)}>›</button>
-                    )}
-                    {/* Coração no carrossel */}
-                    <button className={`heart-btn${curtidas.has(listaVis[idxUnica].id) ? " curtido" : ""}`}
-                      onClick={(e) => curtir(listaVis[idxUnica].id, e)}
-                      style={{ top: 10, left: 10 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(listaVis[idxUnica].id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                      </svg>
-                      {(listaVis[idxUnica].curtidas || 0) > 0 && <span>{listaVis[idxUnica].curtidas}</span>}
-                    </button>
+                  <div
+                    style={{ position: "relative", overflow: "hidden", touchAction: "pan-y", userSelect: "none" }}
+                    onTouchStart={(e) => {
+                      swipeTouchStartX.current = e.touches[0].clientX;
+                      swipeTouchStartY.current = e.touches[0].clientY;
+                      setSwipeOffset(0);
+                    }}
+                    onTouchMove={(e) => {
+                      if (swipeTouchStartX.current === null || swipeTouchStartY.current === null) return;
+                      const dx = e.touches[0].clientX - swipeTouchStartX.current;
+                      const dy = e.touches[0].clientY - swipeTouchStartY.current;
+                      if (Math.abs(dx) > Math.abs(dy)) {
+                        e.preventDefault();
+                        setSwipeOffset(dx);
+                      }
+                    }}
+                    onTouchEnd={(e) => {
+                      if (swipeTouchStartX.current === null) return;
+                      const dx = e.changedTouches[0].clientX - swipeTouchStartX.current;
+                      swipeTouchStartX.current = null;
+                      swipeTouchStartY.current = null;
+                      setSwipeAnimating(true);
+                      if (dx < -60 && idxUnica < listaVis.length - 1) {
+                        setSwipeOffset(-window.innerWidth);
+                        setTimeout(() => { setIdxUnica(i => i + 1); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
+                      } else if (dx > 60 && idxUnica > 0) {
+                        setSwipeOffset(window.innerWidth);
+                        setTimeout(() => { setIdxUnica(i => i - 1); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
+                      } else {
+                        setSwipeOffset(0);
+                        setSwipeAnimating(false);
+                      }
+                    }}
+                  >
+                    <div
+                      className="carousel-area"
+                      style={{
+                        aspectRatio: "3/4",
+                        transform: `translateX(${swipeOffset}px)`,
+                        transition: swipeAnimating ? "transform 0.22s cubic-bezier(.2,.8,.2,1)" : "none",
+                      }}
+                    >
+                      {listaVis[idxUnica].tipo === "video"
+                        ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                        : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                      }
+                      {/* Coração no carrossel */}
+                      <button className={`heart-btn${curtidas.has(listaVis[idxUnica].id) ? " curtido" : ""}`}
+                        onClick={(e) => curtir(listaVis[idxUnica].id, e)}
+                        style={{ top: 10, left: 10 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(listaVis[idxUnica].id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                        {(listaVis[idxUnica].curtidas || 0) > 0 && <span>{listaVis[idxUnica].curtidas}</span>}
+                      </button>
+                    </div>
                   </div>
                   {/* Dots */}
                   <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
