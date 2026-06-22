@@ -417,7 +417,11 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>{visModo === "favoritas" ? "🤍" : emptyIcon}</div>
                   <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{visModo === "favoritas" ? "Nenhuma favorita ainda" : emptyMsg}</p>
                 </div>
-              ) : visModo === "unica" ? (
+              ) : visModo === "unica" ? (() => {
+                const safeIdx = Math.min(idxUnica, listaVis.length - 1);
+                if (safeIdx < 0 || !listaVis[safeIdx]) return <div />;
+                const midiaAtual = listaVis[safeIdx];
+                return (
                 /* ── CARROSSEL COM SWIPE ── */
                 <div>
                   <div
@@ -462,42 +466,43 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                         transition: swipeAnimating ? "transform 0.22s cubic-bezier(.2,.8,.2,1)" : "none",
                       }}
                     >
-                      {listaVis[idxUnica].tipo === "video"
-                        ? <VideoPlayer key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
-                        : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                      {midiaAtual.tipo === "video"
+                        ? <VideoPlayer key={midiaAtual.id} src={midiaAtual.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
+                        : <img key={midiaAtual.id} src={midiaAtual.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                       }
                       {/* Coração no carrossel */}
-                      <button className={`heart-btn${curtidas.has(listaVis[idxUnica].id) ? " curtido" : ""}`}
-                        onClick={(e) => curtir(listaVis[idxUnica].id, e)}
+                      <button className={`heart-btn${curtidas.has(midiaAtual.id) ? " curtido" : ""}`}
+                        onClick={(e) => curtir(midiaAtual.id, e)}
                         style={{ top: 10, left: 10 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(listaVis[idxUnica].id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(midiaAtual.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                         </svg>
-                        {(listaVis[idxUnica].curtidas || 0) > 0 && <span>{listaVis[idxUnica].curtidas}</span>}
+                        {(midiaAtual.curtidas || 0) > 0 && <span>{midiaAtual.curtidas}</span>}
                       </button>
                     </div>
                   </div>
                   {/* Dots */}
                   <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
                     {listaVis.map((_, i) => (
-                      <button key={i} onClick={() => setIdxUnica(i)} style={{ width: i === idxUnica ? 20 : 7, height: 7, borderRadius: 4, border: "none", background: i === idxUnica ? "#7c3aed" : "#e2e8f0", cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
+                      <button key={i} onClick={() => setIdxUnica(i)} style={{ width: i === safeIdx ? 20 : 7, height: 7, borderRadius: 4, border: "none", background: i === safeIdx ? "#7c3aed" : "#e2e8f0", cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
                     ))}
                   </div>
                   {/* Info */}
-                  {listaVis[idxUnica].legenda && (
+                  {midiaAtual.legenda && (
                     <div style={legendaCardStyle}>
-                      <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, fontStyle: "italic" }}>"{listaVis[idxUnica].legenda}"</p>
-                      {listaVis[idxUnica].uploader_nome && (
-                        <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>— {listaVis[idxUnica].uploader_nome}</p>
+                      <p style={{ margin: 0, fontSize: 15, color: "#334155", lineHeight: 1.6, fontStyle: "italic" }}>"{midiaAtual.legenda}"</p>
+                      {midiaAtual.uploader_nome && (
+                        <p style={{ margin: "6px 0 0", fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>— {midiaAtual.uploader_nome}</p>
                       )}
                     </div>
                   )}
-                  {!listaVis[idxUnica].legenda && listaVis[idxUnica].uploader_nome && (
-                    <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {listaVis[idxUnica].uploader_nome}</p>
+                  {!midiaAtual.legenda && midiaAtual.uploader_nome && (
+                    <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {midiaAtual.uploader_nome}</p>
                   )}
-                  <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{idxUnica + 1} de {listaVis.length}</p>
+                  <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{safeIdx + 1} de {listaVis.length}</p>
                 </div>
-              ) : (
+                );
+              })() : (
                 /* ── GRADE ── */
                 <div style={gridStyle}>
                   {listaVis.map((m) => (
@@ -766,18 +771,17 @@ function VideoThumb({ src, style }: { src: string; style: React.CSSProperties })
   );
 }
 
-// ─── VideoPlayer — visualização única ────────────────────────────────────────────
+// ─── VideoPlayer — visualização única com miniatura real ─────────────────────────
 function VideoPlayer({ src, style }: { src: string; style: React.CSSProperties }) {
   const [playing, setPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const thumbRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => { setPlaying(false); }, [src]);
 
   if (playing) {
     return (
       <video
-        key={src}
-        ref={videoRef}
+        key={src + "-play"}
         src={src}
         controls
         autoPlay
@@ -789,12 +793,21 @@ function VideoPlayer({ src, style }: { src: string; style: React.CSSProperties }
   }
 
   return (
-    <div style={{ ...style, position: "relative", background: "#0f172a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setPlaying(true)}>
-      <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 12 }}>
-        <div style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.15)", backdropFilter: "blur(6px)", border: "2px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    <div style={{ ...style, position: "relative", cursor: "pointer" }} onClick={() => setPlaying(true)}>
+      <video
+        ref={thumbRef}
+        src={src}
+        preload="metadata"
+        muted
+        playsInline
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+        onLoadedMetadata={() => { if (thumbRef.current) thumbRef.current.currentTime = 0.5; }}
+      />
+      {/* Overlay com botão play */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.25)" }}>
+        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", border: "2px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>Toque para reproduzir</span>
       </div>
     </div>
   );
