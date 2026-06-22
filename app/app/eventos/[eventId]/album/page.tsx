@@ -33,7 +33,7 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
   const [deletando, setDeletando] = useState<string | null>(null);
   const [modalMidia, setModalMidia] = useState<Midia | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [abaAtiva, setAbaAtiva] = useState<"fotos" | "qrcode">("fotos");
+  const [abaAtiva, setAbaAtiva] = useState<"fotos" | "slideshow" | "qrcode">("fotos");
   const [modalNovoAlbum, setModalNovoAlbum] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [novaDesc, setNovaDesc] = useState("");
@@ -289,9 +289,9 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
 
               {/* Abas */}
               <div style={tabBarStyle}>
-                {(["fotos", "qrcode"] as const).map((aba) => (
+                {(["fotos", "slideshow", "qrcode"] as const).map((aba) => (
                   <button key={aba} style={{ ...tabStyle, ...(abaAtiva === aba ? tabActiveStyle : {}) }} onClick={() => setAbaAtiva(aba)}>
-                    {aba === "fotos" ? "Fotos e vídeos" : "QR Code / Link"}
+                    {aba === "fotos" ? "Fotos e vídeos" : aba === "slideshow" ? "Slideshow" : "QR Code / Link"}
                   </button>
                 ))}
               </div>
@@ -329,6 +329,36 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                 </div>
               )}
 
+              {/* Slideshow */}
+              {abaAtiva === "slideshow" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: 24 }}>
+                    <p style={cardSectionTitleStyle}>SLIDESHOW PARA TELÃO</p>
+                    <p style={{ fontSize: 14, color: "var(--muted)", margin: "8px 0 20px", lineHeight: 1.6 }}>
+                      Exiba as fotos dos convidados em tempo real numa TV ou projetor. Atualizações automáticas a cada 30 segundos.
+                    </p>
+                    <a href={`/album/${albumAtivo?.album_token}/slideshow`} target="_blank" rel="noreferrer"
+                      style={{ ...btnPrimaryStyle, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none", width: "100%", padding: "14px 20px", fontSize: 15 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                      </svg>
+                      Abrir Slideshow
+                    </a>
+                  </div>
+                  <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: 24 }}>
+                    <p style={cardSectionTitleStyle}>COMO USAR</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+                      {[["1","Abra o slideshow neste dispositivo ou num notebook conectado ao telão"],["2","Toque na tela para ver os controles de play, pausa e navegação"],["3","As fotos novas aparecem automaticamente a cada 30 segundos"],["4","Use o modo tela cheia no desktop para melhor experiência"]].map(([n,t]) => (
+                        <div key={n} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                          <span style={stepNumStyle}>{n}</span>
+                          <span style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.5 }}>{t}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* QR */}
               {abaAtiva === "qrcode" && (
                 <div className="qr-layout" style={qrLayoutStyle}>
@@ -343,16 +373,6 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                       <button style={btnPrimaryStyle} onClick={imprimirQR}>🖨 Imprimir</button>
                     </div>
                     <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Imprima e deixe nas mesas</p>
-                    <div style={{ marginTop: 16, borderTop: "1px solid var(--line)", paddingTop: 16 }}>
-                      <p style={{ ...cardSectionTitleStyle, marginBottom: 8 }}>Slideshow para telão</p>
-                      <a href={`/album/${albumAtivo?.album_token}/slideshow`} target="_blank" rel="noreferrer"
-                        style={{ ...btnPrimaryStyle, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", width: "100%" }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-                        </svg>
-                        Abrir Slideshow
-                      </a>
-                    </div>
                   </div>
                   <div style={linkInfoCardStyle}>
                     <p style={cardSectionTitleStyle}>Link direto</p>
