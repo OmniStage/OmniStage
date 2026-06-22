@@ -296,14 +296,20 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
     setBaixandoZip(false);
   }
 
+  function nomeZip(sufixo?: string) {
+    const ev = eventoNome.replace(/[^a-zA-Z0-9]/g, "_");
+    const alb = albumAtivo?.nome.replace(/[^a-zA-Z0-9]/g, "_") || "album";
+    return `${ev}_${alb}${sufixo ? `_${sufixo}` : ""}.zip`;
+  }
+
   function baixarAlbumZip() {
     if (!albumAtivo) return;
-    baixarZip({ album_id: albumAtivo.id }, `${albumAtivo.nome.replace(/[^a-zA-Z0-9]/g, "_")}.zip`);
+    baixarZip({ album_id: albumAtivo.id }, nomeZip());
   }
 
   function baixarSelecionadas() {
     if (selecionadas.size === 0) return;
-    baixarZip({ foto_ids: [...selecionadas] }, "fotos_selecionadas.zip");
+    baixarZip({ foto_ids: [...selecionadas] }, nomeZip("selecionadas"));
   }
 
   function toggleSelecao(id: string) {
