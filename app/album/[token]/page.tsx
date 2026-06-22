@@ -460,7 +460,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                       }}
                     >
                       {listaVis[idxUnica].tipo === "video"
-                        ? <video key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} controls playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                        ? <VideoPlayer key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
                         : <img key={listaVis[idxUnica].id} src={listaVis[idxUnica].arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
                       }
                       {/* Coração no carrossel */}
@@ -749,38 +749,81 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
   );
 }
 
-// ─── VideoThumb ─────────────────────────────────────────────────────────────────
+// ─── capturarFrame ──────────────────────────────────────────────────────────────
+function capturarFrame(src: string, onCaptura: (url: string) => void) {
+  const video = document.createElement("video");
+  video.src = src;
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+
+  const handleSeeked = () => {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 568;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const url = canvas.toDataURL("image/jpeg", 0.85);
+        // Verifica se o canvas não está em branco (CORS falhou)
+        if (url !== "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==") {
+          onCaptura(url);
+        }
+      }
+    } catch {}
+    video.src = "";
+  };
+
+  video.addEventListener("seeked", handleSeeked, { once: true });
+  video.addEventListener("loadedmetadata", () => { video.currentTime = 0.5; }, { once: true });
+  video.load();
+}
+
+// ─── VideoThumb — miniatura no grid ─────────────────────────────────────────────
 function VideoThumb({ src, style }: { src: string; style: React.CSSProperties }) {
   const [thumb, setThumb] = useState<string | null>(null);
 
-  useEffect(() => {
-    const video = document.createElement("video");
-    video.src = src;
-    video.crossOrigin = "anonymous";
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-
-    video.addEventListener("seeked", () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 320;
-        canvas.height = video.videoHeight || 568;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          setThumb(canvas.toDataURL("image/jpeg", 0.8));
-        }
-      } catch {}
-    });
-
-    video.addEventListener("loadedmetadata", () => { video.currentTime = 0.5; });
-    video.load();
-    return () => { video.src = ""; };
-  }, [src]);
+  useEffect(() => { capturarFrame(src, setThumb); }, [src]);
 
   if (thumb) return <img src={thumb} alt="" style={style} />;
-  return <video src={src} style={style} muted playsInline preload="metadata" />;
+  return <video src={src} style={{ ...style, background: "#0f172a" }} muted playsInline preload="metadata" />;
+}
+
+// ─── VideoPlayer — visualização única com poster ─────────────────────────────────
+function VideoPlayer({ src, style }: { src: string; style: React.CSSProperties }) {
+  const [thumb, setThumb] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => { setPlaying(false); capturarFrame(src, setThumb); }, [src]);
+
+  if (playing) {
+    return (
+      <video
+        key={src}
+        src={src}
+        controls
+        autoPlay
+        playsInline
+        preload="auto"
+        style={style}
+      />
+    );
+  }
+
+  return (
+    <div style={{ ...style, position: "relative", background: "#0f172a", cursor: "pointer" }} onClick={() => setPlaying(true)}>
+      {thumb
+        ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+        : <div style={{ width: "100%", height: "100%", background: "#0f172a" }} />
+      }
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── MidiaCard ─────────────────────────────────────────────────────────────────
