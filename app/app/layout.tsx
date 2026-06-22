@@ -508,6 +508,10 @@ export default function AppLayout({
           {menu.map((item) => {
             const active = item.href === "/app"
             ? pathname === "/app"
+            : item.href === "/app/album"
+            ? pathname === item.href || pathname.startsWith(`${item.href}/`) || /\/eventos\/[^/]+\/album/.test(pathname)
+            : item.href === "/app/eventos"
+            ? (pathname === item.href || pathname.startsWith(`${item.href}/`)) && !/\/album$/.test(pathname)
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
