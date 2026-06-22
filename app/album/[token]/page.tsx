@@ -61,6 +61,9 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
 
   useEffect(() => { carregar(); }, [token]);
 
+  // Reset idx quando troca aba para evitar out-of-bounds crash
+  useEffect(() => { setIdxUnica(0); }, [aba]);
+
   useEffect(() => {
     const saved = localStorage.getItem(`album-curtidas-${token}`);
     if (saved) setCurtidas(new Set(JSON.parse(saved)));
@@ -749,12 +752,17 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
   );
 }
 
-// ─── VideoThumb — placeholder no grid ───────────────────────────────────────────
-function VideoThumb({ style }: { style: React.CSSProperties }) {
+// ─── VideoThumb — miniatura real via seek no DOM ────────────────────────────────
+function VideoThumb({ src, style }: { src: string; style: React.CSSProperties }) {
   return (
-    <div style={{ ...style, background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="rgba(255,255,255,0.5)"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-    </div>
+    <video
+      src={src}
+      preload="metadata"
+      muted
+      playsInline
+      style={style}
+      onLoadedMetadata={(e) => { e.currentTarget.currentTime = 0.5; }}
+    />
   );
 }
 
@@ -805,7 +813,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, onClick, onLongPress, onCurti
       onTouchEnd={() => clearTimeout(timer.current)}
       onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}>
       {m.tipo === "video"
-        ? <VideoThumb style={thumbStyle} />
+        ? <VideoThumb src={m.arquivo_url} style={thumbStyle} />
         : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
       }
       {m.tipo === "video" && (
