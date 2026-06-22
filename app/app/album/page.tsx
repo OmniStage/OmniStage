@@ -14,13 +14,30 @@ type Evento = {
   total_videos: number;
 };
 
+const CACHE_KEY = "album_stats_cache";
+const CACHE_TTL = 60_000; // 1 minuto
+
 export default function AlbumListaPage() {
   const router = useRouter();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    // Mostra cache imediatamente se existir
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, ts } = JSON.parse(cached);
+        if (Date.now() - ts < CACHE_TTL) {
+          setEventos(data);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {}
+    carregar();
+  }, []);
 
   async function carregar() {
     setLoading(true);
@@ -37,8 +54,10 @@ export default function AlbumListaPage() {
 
     const res = await fetch(`/api/albums/stats?tenant_id=${membership.tenant_id}`);
     const json = await res.json();
-    setEventos(json.eventos || []);
+    const data = json.eventos || [];
+    setEventos(data);
     setLoading(false);
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
   }
 
   function formatarData(d: string | null) {
@@ -97,7 +116,22 @@ export default function AlbumListaPage() {
 
       {/* Cards de eventos */}
       {loading ? (
-        <p style={{ color: "var(--muted)", padding: "60px 0", textAlign: "center" as const }}>Carregando...</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: 16 }}>
+          {[1, 2].map((i) => (
+            <div key={i} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "24px 26px" }}>
+              <style>{`@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}.sk{background:linear-gradient(90deg,var(--line) 25%,var(--bg) 50%,var(--line) 75%);background-size:800px 100%;animation:shimmer 1.4s infinite;border-radius:8px}`}</style>
+              <div className="sk" style={{ height: 26, width: "55%", marginBottom: 12 }} />
+              <div className="sk" style={{ height: 18, width: "35%", marginBottom: 24 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 20 }}>
+                {[1,2,3].map((j) => <div key={j} className="sk" style={{ height: 62, borderRadius: 12 }} />)}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div className="sk" style={{ height: 40, borderRadius: 12 }} />
+                <div className="sk" style={{ height: 40, borderRadius: 12 }} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : filtrados.length === 0 ? (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "60px 32px", textAlign: "center" as const }}>
           <p style={{ fontSize: 40, marginBottom: 12 }}>📷</p>
