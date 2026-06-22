@@ -349,13 +349,12 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </div>
         <div style={heroInnerStyle}>
           {logoUrl
-            ? <img src={logoUrl} alt={evento?.nome} style={{ width: 110, height: 110, objectFit: "contain", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))", marginBottom: 6 }} />
+            ? <img src={logoUrl} alt={evento?.nome} style={{ width: 132, height: 132, objectFit: "contain", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }} />
             : <>
                 <p style={kickerStyle}>{evento?.nome?.toUpperCase()}</p>
                 <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
               </>
           }
-          {evento?.data_evento && <p style={heroDateStyle}>{formatarData(evento.data_evento)}</p>}
         </div>
       </div>
 
