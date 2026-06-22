@@ -1029,7 +1029,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, isMinha, onClick, onLongPress
 const pageStyle: React.CSSProperties = { minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter', -apple-system, sans-serif", color: "#0f172a", paddingBottom: 80 };
 const centerStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", fontSize: 15, color: "#94a3b8" };
 
-const heroStyle: React.CSSProperties = { position: "relative", height: 280, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" };
+const heroStyle: React.CSSProperties = { position: "relative", height: 200, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" };
 const heroBgStyle: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" };
 const heroOverlayStyle: React.CSSProperties = { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.75) 100%)" };
 const heroInnerStyle: React.CSSProperties = { position: "relative", zIndex: 2, textAlign: "center", padding: "0 20px", display: "flex", flexDirection: "column", alignItems: "center", color: "#fff" };
@@ -1056,7 +1056,7 @@ const uploadBtnStyle: React.CSSProperties = { padding: "11px 15px", borderRadius
 const verTodosBtnStyle: React.CSSProperties = { fontSize: 12, color: "#7c3aed", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0 };
 
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
-const visBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "8px 0 10px", borderBottom: "1px solid #e2e8f0" };
+const visBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "8px 4px 10px", borderBottom: "1px solid #e2e8f0" };
 const toolbarCountStyle: React.CSSProperties = { fontSize: 13, color: "#64748b", fontWeight: 600 };
 const selBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer" };
 const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "#7c3aed", borderColor: "rgba(124,58,237,0.3)" };
