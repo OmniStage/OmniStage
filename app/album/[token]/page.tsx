@@ -421,11 +421,21 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                 const safeIdx = Math.min(idxUnica, listaVis.length - 1);
                 if (safeIdx < 0 || !listaVis[safeIdx]) return <div />;
                 const midiaAtual = listaVis[safeIdx];
+                const prev = listaVis[(safeIdx - 1 + listaVis.length) % listaVis.length];
+                const next = listaVis[(safeIdx + 1) % listaVis.length];
+
+                function renderSlide(m: typeof midiaAtual) {
+                  return m.tipo === "video"
+                    ? <VideoPlayer key={m.id} src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
+                    : <img key={m.id} src={m.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
+                }
+
                 return (
-                /* ── CARROSSEL COM SWIPE ── */
+                /* ── CARROSSEL 3-SLIDES SEM FLASH ── */
                 <div>
+                  {/* Viewport: overflow hidden, 1 slide visível */}
                   <div
-                    style={{ position: "relative", overflow: "hidden", touchAction: "pan-y", userSelect: "none" }}
+                    style={{ position: "relative", overflow: "hidden", touchAction: "pan-y", userSelect: "none", aspectRatio: "3/4" }}
                     onTouchStart={(e) => {
                       swipeTouchStartX.current = e.touches[0].clientX;
                       swipeTouchStartY.current = e.touches[0].clientY;
@@ -447,40 +457,43 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                       swipeTouchStartY.current = null;
                       setSwipeAnimating(true);
                       if (dx < -60) {
-                        setSwipeOffset(-window.innerWidth);
-                        setTimeout(() => { setIdxUnica(i => (i + 1) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
+                        setSwipeOffset(-100);
+                        setTimeout(() => { setIdxUnica(i => (i + 1) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 240);
                       } else if (dx > 60) {
-                        setSwipeOffset(window.innerWidth);
-                        setTimeout(() => { setIdxUnica(i => (i - 1 + listaVis.length) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 220);
+                        setSwipeOffset(100);
+                        setTimeout(() => { setIdxUnica(i => (i - 1 + listaVis.length) % listaVis.length); setSwipeOffset(0); setSwipeAnimating(false); }, 240);
                       } else {
                         setSwipeOffset(0);
                         setSwipeAnimating(false);
                       }
                     }}
                   >
-                    <div
-                      className="carousel-area"
-                      style={{
-                        aspectRatio: "3/4",
-                        transform: `translateX(${swipeOffset}px)`,
-                        transition: swipeAnimating ? "transform 0.22s cubic-bezier(.2,.8,.2,1)" : "none",
-                      }}
-                    >
-                      {midiaAtual.tipo === "video"
-                        ? <VideoPlayer key={midiaAtual.id} src={midiaAtual.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
-                        : <img src={midiaAtual.arquivo_url} alt="" loading="eager" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-                      }
-                      {/* Coração no carrossel */}
-                      <button className={`heart-btn${curtidas.has(midiaAtual.id) ? " curtido" : ""}`}
-                        onClick={(e) => curtir(midiaAtual.id, e)}
-                        style={{ top: 10, left: 10 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(midiaAtual.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                        </svg>
-                        {(midiaAtual.curtidas || 0) > 0 && <span>{midiaAtual.curtidas}</span>}
-                      </button>
+                    {/* Tira com 3 slides: prev | atual | next */}
+                    <div style={{
+                      display: "flex",
+                      width: "300%",
+                      height: "100%",
+                      transform: `translateX(calc(-33.333% + ${swipeOffset}px))`,
+                      transition: swipeAnimating ? "transform 0.24s cubic-bezier(.2,.8,.2,1)" : "none",
+                      willChange: "transform",
+                    }}>
+                      <div style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>{renderSlide(prev)}</div>
+                      <div className="carousel-area" style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>
+                        {renderSlide(midiaAtual)}
+                        {/* Coração */}
+                        <button className={`heart-btn${curtidas.has(midiaAtual.id) ? " curtido" : ""}`}
+                          onClick={(e) => curtir(midiaAtual.id, e)}
+                          style={{ top: 10, left: 10 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(midiaAtual.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                          </svg>
+                          {(midiaAtual.curtidas || 0) > 0 && <span>{midiaAtual.curtidas}</span>}
+                        </button>
+                      </div>
+                      <div style={{ width: "33.333%", height: "100%", flexShrink: 0, position: "relative" }}>{renderSlide(next)}</div>
                     </div>
                   </div>
+
                   {/* Dots */}
                   <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
                     {listaVis.map((_, i) => (
@@ -500,13 +513,6 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                     <p style={{ textAlign: "center", fontSize: 13, color: "#64748b", margin: "10px 0 0" }}>por {midiaAtual.uploader_nome}</p>
                   )}
                   <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>{safeIdx + 1} de {listaVis.length}</p>
-                  {/* Pré-carrega fotos adjacentes para eliminar flash */}
-                  <div style={{ display: "none" }}>
-                    {[-2, -1, 1, 2].map(offset => {
-                      const m = listaVis[(safeIdx + offset + listaVis.length) % listaVis.length];
-                      return m && m.tipo === "image" ? <img key={m.id} src={m.arquivo_url} /> : null;
-                    })}
-                  </div>
                 </div>
                 );
               })() : (
