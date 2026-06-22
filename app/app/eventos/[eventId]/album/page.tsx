@@ -268,7 +268,10 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
           .qr-layout { grid-template-columns: 1fr; }
           .qr-card-wrap { width: 100% !important; }
         }
+        .album-chip:hover { opacity: 0.85; }
+        .action-btn:hover { opacity: 0.85; }
       `}</style>
+
       {/* Header */}
       <div style={pageHeaderStyle}>
         <div>
@@ -276,16 +279,20 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
           <h1 style={h1Style}>{eventoNome || "Evento"}</h1>
         </div>
         <button style={btnPrimaryStyle} onClick={() => setModalNovoAlbum(true)}>
-          + Novo álbum
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo álbum
         </button>
       </div>
 
-      {/* Abas de nível superior */}
-      <div style={{ display: "flex", gap: 0, marginBottom: 24, borderBottom: "2px solid var(--line)" }}>
-        {(["albuns", "slideshow"] as const).map((s) => (
+      {/* Segmented control Álbuns / Slideshow */}
+      <div style={{ display: "inline-flex", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, padding: 4, gap: 2, marginBottom: 28 }}>
+        {([["albuns", "Álbuns"], ["slideshow", "Slideshow"]] as const).map(([s, label]) => (
           <button key={s} onClick={() => setSecao(s)}
-            style={{ padding: "12px 24px", background: "none", border: "none", borderBottom: `2px solid ${secao === s ? "#7c3aed" : "transparent"}`, marginBottom: -2, fontSize: 14, fontWeight: 700, cursor: "pointer", color: secao === s ? "#7c3aed" : "var(--muted)", transition: "all 0.15s" }}>
-            {s === "albuns" ? "Álbuns" : "Slideshow"}
+            style={{ padding: "8px 22px", borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+              background: secao === s ? "#7c3aed" : "transparent",
+              color: secao === s ? "#fff" : "var(--muted)",
+              boxShadow: secao === s ? "0 2px 8px rgba(124,58,237,0.25)" : "none" }}>
+            {label}
           </button>
         ))}
       </div>
@@ -368,39 +375,66 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
         </div>
       ) : (
         <div>
-          {/* Seletor de álbuns — chips */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 20 }}>
-            {albums.map((a) => (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <button onClick={() => setAlbumAtivo(a)}
-                  style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid", whiteSpace: "nowrap" as const, fontSize: 13, fontWeight: 700, cursor: "pointer", background: albumAtivo?.id === a.id ? "var(--primary,#7c3aed)" : "var(--card)", color: albumAtivo?.id === a.id ? "#fff" : "var(--text)", borderColor: albumAtivo?.id === a.id ? "var(--primary,#7c3aed)" : "var(--line)" }}>
-                  {a.nome} {a.total_midias > 0 && <span style={{ opacity: 0.7, fontWeight: 500 }}>· {a.total_midias}</span>}
-                </button>
-                <button onClick={() => deletarAlbum(a)} title="Remover" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 14, padding: "4px 6px", borderRadius: 6 }}>✕</button>
-              </div>
-            ))}
+          {/* Seletor de álbuns */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 24 }}>
+            {albums.map((a) => {
+              const ativo = albumAtivo?.id === a.id;
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", background: ativo ? "#7c3aed" : "var(--card)", border: `1px solid ${ativo ? "#7c3aed" : "var(--line)"}`, borderRadius: 100, overflow: "hidden" }}>
+                  <button className="album-chip" onClick={() => setAlbumAtivo(a)}
+                    style={{ padding: "9px 16px", border: "none", background: "transparent", whiteSpace: "nowrap" as const, fontSize: 13, fontWeight: 700, cursor: "pointer", color: ativo ? "#fff" : "var(--text)", display: "flex", alignItems: "center", gap: 6 }}>
+                    {a.nome}
+                    {a.total_midias > 0 && (
+                      <span style={{ background: ativo ? "rgba(255,255,255,0.25)" : "rgba(124,58,237,0.1)", color: ativo ? "#fff" : "#7c3aed", fontSize: 11, fontWeight: 800, padding: "1px 7px", borderRadius: 20 }}>
+                        {a.total_midias}
+                      </span>
+                    )}
+                  </button>
+                  <button onClick={() => deletarAlbum(a)} title="Remover"
+                    style={{ background: "transparent", border: "none", borderLeft: `1px solid ${ativo ? "rgba(255,255,255,0.2)" : "var(--line)"}`, color: ativo ? "rgba(255,255,255,0.7)" : "var(--muted)", cursor: "pointer", fontSize: 13, padding: "9px 12px", lineHeight: 1 }}>
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           {/* Conteúdo do álbum ativo */}
           {albumAtivo && (
             <div>
               {/* Ações do álbum */}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 20 }}>
-                <button style={btnOutlineStyle} onClick={copiarLink}>Copiar link</button>
-                <a href={`/album/${albumAtivo.album_token}`} target="_blank" rel="noreferrer" style={btnPrimaryStyle}>Abrir ↗</a>
-                <a
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 24 }}>
+                <button className="action-btn" style={btnOutlineStyle} onClick={copiarLink}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copiar link
+                </button>
+                <a className="action-btn" href={`/album/${albumAtivo.album_token}`} target="_blank" rel="noreferrer" style={btnPrimaryStyle}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  Abrir álbum
+                </a>
+                <a className="action-btn"
                   href={`/app/envios?tipo=link_album&album_token=${albumAtivo.album_token}&evento_id=${eventId}`}
-                  style={{ ...btnOutlineStyle, color: "#7c3aed", borderColor: "#7c3aed", textDecoration: "none" }}
+                  style={{ ...btnOutlineStyle, color: "#7c3aed", borderColor: "rgba(124,58,237,0.35)", textDecoration: "none" }}
                 >
-                  📤 Enviar para convidados
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Enviar para convidados
                 </a>
               </div>
 
               {/* Stats */}
               <div style={statsRowStyle}>
-                <div style={statCardStyle}><span style={statNumStyle}>{midias.length}</span><span style={statLabelStyle}>Total</span></div>
-                <div style={statCardStyle}><span style={statNumStyle}>{totalFotos}</span><span style={statLabelStyle}>Fotos</span></div>
-                <div style={statCardStyle}><span style={statNumStyle}>{totalVideos}</span><span style={statLabelStyle}>Vídeos</span></div>
+                <div style={statCardStyle}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "var(--muted)", textTransform: "uppercase" as const }}>Total</span>
+                  <span style={statNumStyle}>{midias.length}</span>
+                </div>
+                <div style={statCardStyle}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "var(--muted)", textTransform: "uppercase" as const }}>Fotos</span>
+                  <span style={statNumStyle}>{totalFotos}</span>
+                </div>
+                <div style={statCardStyle}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "var(--muted)", textTransform: "uppercase" as const }}>Vídeos</span>
+                  <span style={statNumStyle}>{totalVideos}</span>
+                </div>
               </div>
 
               {/* Abas */}
