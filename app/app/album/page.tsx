@@ -15,7 +15,8 @@ type Evento = {
 export default function AlbumListaPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState("");
+  const [busca, setBusca] = useState("");
+  const [tenantNome, setTenantNome] = useState("");
 
   useEffect(() => { carregar(); }, []);
 
@@ -25,8 +26,17 @@ export default function AlbumListaPage() {
     if (!user) return;
 
     const { data: membership } = await supabase
-      .from("tenant_members").select("tenant_id").eq("user_id", user.id).maybeSingle();
+      .from("tenant_members")
+      .select("tenant_id, tenants:tenant_id(nome)")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
     if (!membership?.tenant_id) { setLoading(false); return; }
+
+    const tenantNomeVal = Array.isArray((membership as any).tenants)
+      ? (membership as any).tenants[0]?.nome
+      : (membership as any).tenants?.nome;
+    setTenantNome(tenantNomeVal || "");
 
     const { data: eventosData } = await supabase
       .from("eventos")
@@ -59,70 +69,77 @@ export default function AlbumListaPage() {
     setLoading(false);
   }
 
-  function mostrarToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 3000);
-  }
-
   function formatarData(d: string | null) {
     if (!d) return "";
-    return new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+    return new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "2-digit" });
   }
 
+  const filtrados = eventos.filter((ev) =>
+    ev.nome.toLowerCase().includes(busca.toLowerCase())
+  );
+
   return (
-    <div style={pageStyle}>
-      <div style={headerStyle}>
-        <p style={kickerStyle}>ÁLBUM COMPARTILHADO</p>
-        <h1 style={tituloStyle}>Álbuns de Fotos</h1>
-        <p style={subStyle}>Crie álbuns por evento e compartilhe com os convidados via QR Code ou link.</p>
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "28px 32px", marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
+        <div>
+          <p style={{ fontSize: 11, letterSpacing: "0.15em", color: "#7c3aed", fontWeight: 700, margin: "0 0 4px", textTransform: "uppercase" as const }}>OMNISTAGE APP</p>
+          <h1 style={{ fontSize: 32, fontWeight: 900, margin: "0 0 6px", color: "var(--text)", letterSpacing: "-0.03em" }}>Álbum Compartilhado</h1>
+          {tenantNome && (
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: 0 }}>
+              Álbuns vinculados ao tenant {tenantNome}.
+            </p>
+          )}
+        </div>
       </div>
 
-      {loading ? (
-        <p style={loadingStyle}>Carregando eventos...</p>
-      ) : eventos.length === 0 ? (
-        <p style={emptyStyle}>Nenhum evento encontrado.</p>
-      ) : (
-        <div style={gridStyle}>
-          {eventos.map((ev) => (
-            <div key={ev.id} style={cardStyle}>
-              <div style={cardTopStyle}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={eventNameStyle}>{ev.nome}</p>
-                  {ev.data_evento && <p style={eventDateStyle}>{formatarData(ev.data_evento)}</p>}
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <div style={badgeStyle}>{ev.total_albums} {ev.total_albums === 1 ? "álbum" : "álbuns"}</div>
-                  {ev.total_midias > 0 && <div style={{ ...badgeStyle, background: "rgba(16,185,129,0.08)", color: "#059669" }}>{ev.total_midias} mídias</div>}
-                </div>
-              </div>
-              <div style={actionsStyle}>
-                <Link href={`/app/eventos/${ev.id}/album`} style={btnPrimStyle}>
-                  Gerenciar álbuns →
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* List */}
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "24px 28px" }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 18px", color: "var(--text)" }}>Meus eventos</h2>
 
-      {toast && <div style={toastStyle}>{toast}</div>}
+        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" as const }}>
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por evento"
+            style={{ flex: 1, minWidth: 200, border: "1px solid var(--line)", borderRadius: 12, padding: "11px 16px", fontSize: 14, color: "var(--text)", background: "var(--bg)", outline: "none" }}
+          />
+          <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "11px 18px", fontSize: 14, fontWeight: 700, color: "var(--muted)", background: "var(--bg)", whiteSpace: "nowrap" as const }}>
+            {filtrados.length} exibidos
+          </div>
+        </div>
+
+        {loading ? (
+          <p style={{ color: "var(--muted)", padding: "40px 0", textAlign: "center" as const }}>Carregando...</p>
+        ) : filtrados.length === 0 ? (
+          <p style={{ color: "var(--muted)", padding: "40px 0", textAlign: "center" as const }}>Nenhum evento encontrado.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+            {filtrados.map((ev) => (
+              <div key={ev.id} style={{ border: "1px solid var(--line)", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" as const }}>
+                <div>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: 0 }}>{ev.nome}</p>
+                  {ev.data_evento && (
+                    <p style={{ fontSize: 13, color: "var(--muted)", margin: "3px 0 0" }}>
+                      Data: {formatarData(ev.data_evento)}
+                      {ev.total_albums > 0 && ` · ${ev.total_albums} ${ev.total_albums === 1 ? "álbum" : "álbuns"}`}
+                      {ev.total_midias > 0 && ` · ${ev.total_midias} mídias`}
+                    </p>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Link
+                    href={`/app/eventos/${ev.id}/album`}
+                    style={{ padding: "9px 18px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                  >
+                    Gerenciar
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-const pageStyle: React.CSSProperties = { maxWidth: 860, margin: "0 auto" };
-const headerStyle: React.CSSProperties = { marginBottom: 32 };
-const kickerStyle: React.CSSProperties = { fontSize: 11, letterSpacing: "0.15em", color: "var(--primary, #7c3aed)", fontWeight: 700, marginBottom: 4 };
-const tituloStyle: React.CSSProperties = { fontSize: 30, fontWeight: 800, margin: "0 0 6px", color: "var(--text)" };
-const subStyle: React.CSSProperties = { fontSize: 14, color: "var(--muted)", margin: 0 };
-const loadingStyle: React.CSSProperties = { color: "var(--muted)", padding: 40 };
-const emptyStyle: React.CSSProperties = { color: "var(--muted)", padding: 60, textAlign: "center" };
-const gridStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 10 };
-const cardStyle: React.CSSProperties = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 18, padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 };
-const cardTopStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" as const };
-const eventNameStyle: React.CSSProperties = { fontSize: 16, fontWeight: 700, color: "var(--text)", margin: 0 };
-const eventDateStyle: React.CSSProperties = { fontSize: 13, color: "var(--muted)", margin: "2px 0 0" };
-const badgeStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "var(--primary, #7c3aed)", background: "rgba(124,58,237,0.08)", borderRadius: 100, padding: "4px 10px", whiteSpace: "nowrap" as const };
-const actionsStyle: React.CSSProperties = { display: "flex", gap: 8 };
-const btnPrimStyle: React.CSSProperties = { padding: "9px 18px", borderRadius: 11, background: "var(--primary, #7c3aed)", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" };
-const toastStyle: React.CSSProperties = { position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#1e1e2e", color: "#fff", padding: "12px 24px", borderRadius: 100, fontSize: 14, fontWeight: 500, boxShadow: "0 4px 20px rgba(0,0,0,0.3)", zIndex: 200, whiteSpace: "nowrap" as const };
