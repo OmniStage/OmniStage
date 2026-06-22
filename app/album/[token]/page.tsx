@@ -1072,7 +1072,7 @@ const selBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10
 const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "#7c3aed", borderColor: "rgba(124,58,237,0.3)" };
 const selDlBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 
-const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 };
+const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 3 };
 const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#d1d5db", transition: "opacity 0.1s, outline 0.1s" };
 const gridItemSelStyle: React.CSSProperties = { outline: "3px solid #7c3aed", opacity: 1 };
 const thumbStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
