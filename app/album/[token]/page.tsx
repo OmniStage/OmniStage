@@ -687,32 +687,43 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastIdxRef = useRef(idx);
-  const scrollingRef = useRef(false);
+  const settleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [localIdx, setLocalIdx] = useState(idx);
 
-  // Quando idx muda externamente (dots, aba), rola programaticamente
+  // Rola programaticamente quando idx muda externamente (dots, aba)
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || lastIdxRef.current === idx) return;
-    lastIdxRef.current = idx;
-    el.scrollTo({ left: idx * el.offsetWidth, behavior: "smooth" });
+    if (!el) return;
+    const target = idx * el.offsetWidth;
+    if (Math.abs(el.scrollLeft - target) > 2) {
+      el.scrollTo({ left: target, behavior: "smooth" });
+      lastIdxRef.current = idx;
+      setLocalIdx(idx);
+    }
   }, [idx]);
 
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
     const newIdx = Math.round(el.scrollLeft / el.offsetWidth);
-    if (newIdx !== lastIdxRef.current && newIdx >= 0 && newIdx < lista.length) {
-      lastIdxRef.current = newIdx;
-      onIdxChange(newIdx);
-    }
+    // Atualiza dots imediatamente (só estado local, sem re-render do pai)
+    if (newIdx !== localIdx) setLocalIdx(newIdx);
+    // Só avisa o pai DEPOIS que o scroll parou (evita re-render durante animação)
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      if (newIdx !== lastIdxRef.current && newIdx >= 0 && newIdx < lista.length) {
+        lastIdxRef.current = newIdx;
+        onIdxChange(newIdx);
+      }
+    }, 120);
   }
 
-  const safeIdx = Math.min(idx, lista.length - 1);
+  const safeIdx = Math.min(localIdx, lista.length - 1);
   const midiaAtual = lista[safeIdx] || lista[0];
 
   return (
     <div>
-      {/* Scroll container com snap */}
+      {/* Scroll container com snap nativo */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -723,16 +734,17 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch" as any,
           scrollbarWidth: "none" as any,
+          msOverflowStyle: "none" as any,
           aspectRatio: "3/4",
           position: "relative",
+          background: "#111",
         } as React.CSSProperties}
       >
-        <style>{`.snap-scroll::-webkit-scrollbar { display: none; }`}</style>
-        {lista.map((m, i) => (
-          <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%" }}>
+        {lista.map((m) => (
+          <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%", background: "#111" }}>
             {m.tipo === "video"
               ? <VideoPlayer src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
-              : <img src={m.arquivo_url} alt="" loading={Math.abs(i - safeIdx) <= 1 ? "eager" : "lazy"} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              : <img src={m.arquivo_url} alt="" loading="eager" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             }
             {/* Coração */}
             <button className={`heart-btn${curtidas.has(m.id) ? " curtido" : ""}`}
