@@ -357,7 +357,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   {sugestoes.length > 0 && (
                     <div style={sugestoesStyle}>
                       {sugestoes.map((nome) => (
-                        <button key={nome} className="sug" style={sugItemStyle} onMouseDown={() => selecionarNome(nome)}>{nome}</button>
+                        <button key={nome} className="sug" style={sugItemStyle} onPointerDown={(e) => { e.preventDefault(); selecionarNome(nome); }}>{nome}</button>
                       ))}
                     </div>
                   )}
@@ -439,14 +439,27 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                     </svg>
                   </button>
                   {/* Selecionar (só no modo grade) */}
-                  {visModo === "grade" && aba !== "videos" && (
+                  {visModo === "grade" && (
                     <>
                       {modoSelecao && selecionados.size > 0 && (
                         <button style={{ ...selDlBtnStyle, marginLeft: 4 }}
-                          onClick={() => selecionados.forEach((id) => {
-                            const m = midias.find((x) => x.id === id);
-                            if (m) { const a = document.createElement("a"); a.href = m.arquivo_url; a.download = ""; a.target = "_blank"; a.click(); }
-                          })}>⬇ {selecionados.size}</button>
+                          onClick={async () => {
+                            for (const id of selecionados) {
+                              const m = midias.find((x) => x.id === id);
+                              if (!m) continue;
+                              try {
+                                const r = await fetch(m.arquivo_url);
+                                const blob = await r.blob();
+                                const ext = m.arquivo_url.split("?")[0].split(".").pop() || (m.tipo === "video" ? "mp4" : "jpg");
+                                const a = document.createElement("a");
+                                a.href = URL.createObjectURL(blob);
+                                a.download = `foto.${ext}`;
+                                a.click();
+                                URL.revokeObjectURL(a.href);
+                                await new Promise((res) => setTimeout(res, 300));
+                              } catch {}
+                            }
+                          }}>⬇ {selecionados.size}</button>
                       )}
                       <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}), marginLeft: 4 }}
                         onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
@@ -528,7 +541,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   {sugestoes.length > 0 && (
                     <div style={sugestoesStyle}>
                       {sugestoes.map((nome) => (
-                        <button key={nome} className="sug" style={sugItemStyle} onMouseDown={() => selecionarNome(nome)}>{nome}</button>
+                        <button key={nome} className="sug" style={sugItemStyle} onPointerDown={(e) => { e.preventDefault(); selecionarNome(nome); }}>{nome}</button>
                       ))}
                     </div>
                   )}
@@ -636,7 +649,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
               {sugestoes.length > 0 && (
                 <div style={sugestoesStyle}>
                   {sugestoes.map((nome) => (
-                    <button key={nome} className="sug" style={sugItemStyle} onMouseDown={() => selecionarNome(nome)}>{nome}</button>
+                    <button key={nome} className="sug" style={sugItemStyle} onPointerDown={(e) => { e.preventDefault(); selecionarNome(nome); }}>{nome}</button>
                   ))}
                 </div>
               )}
@@ -685,8 +698,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   <div style={sugestoesStyle}>
                     {sugestoes.map((nome) => (
                       <button key={nome} className="sug" style={sugItemStyle}
-                        onMouseDown={(e) => { e.preventDefault(); setNomeUploader(nome); setSugestoes([]); }}
-                        onTouchEnd={(e) => { e.preventDefault(); setNomeUploader(nome); setSugestoes([]); }}>
+                        onPointerDown={(e) => { e.preventDefault(); setNomeUploader(nome); setSugestoes([]); }}>
                         {nome}
                       </button>
                     ))}
@@ -921,7 +933,7 @@ function MidiaCard({ m, sel, modoSelecao, curtido, isMinha, onClick, onLongPress
 }) {
   const timer = useRef<ReturnType<typeof setTimeout>>();
   return (
-    <div className="thumb" style={{ ...gridItemStyle, ...(sel ? gridItemSelStyle : {}) }}
+    <div className="thumb" style={{ ...gridItemStyle, ...(sel ? gridItemSelStyle : {}), ...(modoSelecao && !sel ? { opacity: 0.5 } : {}) }}
       onClick={onClick}
       onTouchStart={() => { timer.current = setTimeout(onLongPress, 500); }}
       onTouchEnd={() => clearTimeout(timer.current)}
@@ -1020,8 +1032,8 @@ const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "
 const selDlBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 };
-const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#d1d5db", transition: "opacity 0.15s" };
-const gridItemSelStyle: React.CSSProperties = { outline: "3px solid #7c3aed" };
+const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#d1d5db", transition: "opacity 0.1s, outline 0.1s" };
+const gridItemSelStyle: React.CSSProperties = { outline: "3px solid #7c3aed", opacity: 1 };
 const thumbStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 const videoBadgeStyle: React.CSSProperties = { position: "absolute", bottom: 5, right: 5, background: "rgba(0,0,0,0.6)", borderRadius: 4, padding: "3px 4px", display: "flex" };
 const nameTagStyle: React.CSSProperties = { position: "absolute", bottom: 0, left: 0, right: 0, padding: "4px 6px", fontSize: 10, color: "#fff", background: "linear-gradient(transparent,rgba(0,0,0,0.7))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const };
