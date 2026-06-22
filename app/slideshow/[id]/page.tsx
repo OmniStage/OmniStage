@@ -126,22 +126,29 @@ export default function SlideshowConfigPage({ params }: { params: { id: string }
 
       {/* MÍDIA */}
       {midia && (
-        <div key={midia.id} style={{ position: "absolute", inset: 0, transition: "opacity 0.8s ease", opacity: visivel ? 1 : 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, transition: "opacity 0.8s ease", opacity: visivel ? 1 : 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {orientacao === "vertical" ? (
             /* Modo vertical: container 9:16 centralizado */
             <div style={{ position: "relative", height: "100%", aspectRatio: "9/16", maxWidth: "100%", overflow: "hidden", flexShrink: 0 }}>
               {midia.tipo === "video"
-                ? <video ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <img className="foto-bg" src={midia.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                ? <video key={midia.id} ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <img key={midia.id} className="foto-bg" src={midia.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               }
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 40%)" }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 45%)" }} />
+              {/* INFO dentro do container vertical */}
+              {(midia.legenda || midia.uploader_nome) && (
+                <div style={{ position: "absolute", bottom: 60, left: 20, right: 20, zIndex: 5 }}>
+                  {midia.legenda && <p style={{ fontSize: 18, color: "#fff", fontStyle: "italic", fontWeight: 500, textShadow: "0 2px 12px rgba(0,0,0,0.7)", marginBottom: 4 }}>"{midia.legenda}"</p>}
+                  {midia.uploader_nome && <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", fontWeight: 600 }}>— {midia.uploader_nome}</p>}
+                </div>
+              )}
             </div>
           ) : (
             /* Modo horizontal: tela cheia */
             <>
               {midia.tipo === "video"
-                ? <video ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
-                : <img className="foto-bg" src={midia.arquivo_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                ? <video key={midia.id} ref={videoRef} src={midia.arquivo_url} autoPlay playsInline muted={mutado} onEnded={avancar} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
+                : <img key={midia.id} className="foto-bg" src={midia.arquivo_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               }
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 40%)" }} />
             </>
@@ -149,8 +156,8 @@ export default function SlideshowConfigPage({ params }: { params: { id: string }
         </div>
       )}
 
-      {/* INFO */}
-      {midia && (midia.legenda || midia.uploader_nome) && (
+      {/* INFO — só no modo horizontal */}
+      {orientacao === "horizontal" && midia && (midia.legenda || midia.uploader_nome) && (
         <div style={{ position: "absolute", bottom: 72, left: 32, right: 32, zIndex: 10 }}>
           {midia.legenda && <p style={{ fontSize: 22, color: "#fff", fontStyle: "italic", fontWeight: 500, textShadow: "0 2px 12px rgba(0,0,0,0.7)", marginBottom: 4 }}>"{midia.legenda}"</p>}
           {midia.uploader_nome && <p style={{ fontSize: 15, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>— {midia.uploader_nome}</p>}
