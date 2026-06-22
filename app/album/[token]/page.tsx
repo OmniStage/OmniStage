@@ -49,6 +49,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
   const [origemCamera, setOrigemCamera] = useState(false);
   const [arquivoPendente, setArquivoPendente] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [modalLegenda, setModalLegenda] = useState(false);
   const [legenda, setLegenda] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +116,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
     if (arquivo.size > MAX_FILE_SIZE) { mostrarToast("Arquivo muito grande. Máximo 50MB."); return; }
     // Mostra modal de legenda antes de fazer upload
     setArquivoPendente(arquivo);
+    setPreviewUrl(arquivo.type.startsWith("image") ? URL.createObjectURL(arquivo) : "");
     setLegenda("");
     setModalLegenda(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -154,6 +156,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
       setUploading(false);
       setUploadProgress(0);
       setArquivoPendente(null);
+      setPreviewUrl("");
       setLegenda("");
     }
   }
@@ -639,9 +642,9 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         <div style={overlayStyle}>
           <div style={nomeModalStyle} onClick={(e) => e.stopPropagation()}>
             {/* Preview da foto */}
-            {arquivoPendente.type.startsWith("image") && (
+            {previewUrl && (
               <div style={{ width: "100%", height: 180, borderRadius: 12, overflow: "hidden", marginBottom: 16, background: "#0f172a" }}>
-                <img src={URL.createObjectURL(arquivoPendente)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={previewUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
             )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
