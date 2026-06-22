@@ -45,6 +45,8 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
   const [criando, setCriando] = useState(false);
   const [toast, setToast] = useState<{ msg: string; tipo: "success" | "error" } | null>(null);
   const [baixandoZip, setBaixandoZip] = useState(false);
+  const [modoSelecao, setModoSelecao] = useState(false);
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Slideshow config
@@ -274,25 +276,52 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
     } catch { toast_show("Erro ao baixar arquivo.", "error"); }
   }
 
-  async function baixarAlbumZip() {
-    if (!albumAtivo) return;
+  async function baixarZip(opts: { album_id?: string; foto_ids?: string[] }, nomeArquivo: string) {
     setBaixandoZip(true);
     toast_show("Preparando ZIP...", "success");
     try {
       const res = await fetch("/api/album/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ album_id: albumAtivo.id }),
+        body: JSON.stringify(opts),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `${albumAtivo.nome.replace(/[^a-zA-Z0-9]/g, "_")}.zip`;
+      a.download = nomeArquivo;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch { toast_show("Erro ao gerar ZIP.", "error"); }
     setBaixandoZip(false);
+  }
+
+  function baixarAlbumZip() {
+    if (!albumAtivo) return;
+    baixarZip({ album_id: albumAtivo.id }, `${albumAtivo.nome.replace(/[^a-zA-Z0-9]/g, "_")}.zip`);
+  }
+
+  function baixarSelecionadas() {
+    if (selecionadas.size === 0) return;
+    baixarZip({ foto_ids: [...selecionadas] }, "fotos_selecionadas.zip");
+  }
+
+  function toggleSelecao(id: string) {
+    setSelecionadas((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function entrarModoSelecao() {
+    setModoSelecao(true);
+    setSelecionadas(new Set());
+  }
+
+  function sairModoSelecao() {
+    setModoSelecao(false);
+    setSelecionadas(new Set());
   }
 
   function formatarData(d: string) {
@@ -500,13 +529,45 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
               {/* Fotos */}
               {abaAtiva === "fotos" && (
                 <div>
-                  <div style={uploadBarStyle}>
-                    <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
-                    <button style={{ ...btnPrimaryStyle, opacity: uploading ? 0.6 : 1 }} disabled={uploading}
-                      onClick={() => fileInputRef.current?.click()}>
-                      {uploading ? "Enviando..." : "+ Adicionar fotos / vídeos"}
-                    </button>
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>JPG, PNG, HEIC, MP4 · máx 50MB</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 10, marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
+                      {!modoSelecao && (
+                        <button style={{ ...btnPrimaryStyle, opacity: uploading ? 0.6 : 1 }} disabled={uploading}
+                          onClick={() => fileInputRef.current?.click()}>
+                          {uploading ? "Enviando..." : "+ Adicionar fotos / vídeos"}
+                        </button>
+                      )}
+                      <span style={{ fontSize: 13, color: "var(--muted)" }}>JPG, PNG, HEIC, MP4 · máx 50MB</span>
+                    </div>
+                    {midias.length > 0 && (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {modoSelecao ? (
+                          <>
+                            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>{selecionadas.size} selecionada{selecionadas.size !== 1 ? "s" : ""}</span>
+                            <button style={{ ...btnOutlineStyle, padding: "7px 14px", fontSize: 13 }}
+                              onClick={() => setSelecionadas(new Set(midias.map((m) => m.id)))}>Todas</button>
+                            <button style={{ ...btnOutlineStyle, padding: "7px 14px", fontSize: 13 }}
+                              onClick={() => setSelecionadas(new Set())}>Nenhuma</button>
+                            <button
+                              disabled={selecionadas.size === 0 || baixandoZip}
+                              onClick={baixarSelecionadas}
+                              style={{ ...btnPrimaryStyle, padding: "7px 14px", fontSize: 13, opacity: selecionadas.size === 0 || baixandoZip ? 0.5 : 1 }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                              {baixandoZip ? "Gerando..." : `Baixar ${selecionadas.size > 0 ? `(${selecionadas.size})` : ""}`}
+                            </button>
+                            <button onClick={sairModoSelecao}
+                              style={{ ...btnOutlineStyle, padding: "7px 14px", fontSize: 13 }}>Cancelar</button>
+                          </>
+                        ) : (
+                          <button onClick={entrarModoSelecao}
+                            style={{ ...btnOutlineStyle, padding: "7px 14px", fontSize: 13 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></svg>
+                            Selecionar
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {midias.length === 0 ? (
@@ -515,16 +576,25 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
                     </div>
                   ) : (
                     <div style={gridStyle}>
-                      {midias.map((m) => (
-                        <div key={m.id} style={gridItemStyle} onClick={() => setModalMidia(m)}>
-                          {m.tipo === "video"
-                            ? <div style={{ position: "relative", width: "100%", height: "100%" }}><video src={m.arquivo_url} style={thumbStyle} muted playsInline preload="metadata" /><div style={playStyle}>▶</div></div>
-                            : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
-                          }
-                          {m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
-                          {(m.curtidas || 0) > 0 && <div style={curtidasBadgeStyle}>♥ {m.curtidas}</div>}
-                        </div>
-                      ))}
+                      {midias.map((m) => {
+                        const sel = modoSelecao && selecionadas.has(m.id);
+                        return (
+                          <div key={m.id} style={{ ...gridItemStyle, outline: sel ? "3px solid #7c3aed" : "2px solid transparent", opacity: modoSelecao && !sel ? 0.6 : 1, transition: "all 0.15s" }}
+                            onClick={() => modoSelecao ? toggleSelecao(m.id) : setModalMidia(m)}>
+                            {m.tipo === "video"
+                              ? <div style={{ position: "relative", width: "100%", height: "100%" }}><video src={m.arquivo_url} style={thumbStyle} muted playsInline preload="metadata" /><div style={playStyle}>▶</div></div>
+                              : <img src={m.arquivo_url} alt="" style={thumbStyle} loading="lazy" />
+                            }
+                            {m.uploader_nome && <div style={nameTagStyle}>{m.uploader_nome}</div>}
+                            {(m.curtidas || 0) > 0 && <div style={curtidasBadgeStyle}>♥ {m.curtidas}</div>}
+                            {modoSelecao && sel && (
+                              <div style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
