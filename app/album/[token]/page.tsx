@@ -359,7 +359,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
       </div>
 
       {/* ── DIVIDER ── */}
-      <div style={{ height: 1, background: "#e2e8f0", margin: "18px 20px 0" }} />
+      <div style={{ height: 1, background: "#e2e8f0", margin: "8px 16px 0" }} />
 
       {/* ── CONTENT ── */}
       <div style={contentStyle}>
@@ -831,13 +831,13 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
     clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => {
       if (newIdx !== lastIdxRef.current) {
-        // loop: se passou do último, volta ao primeiro
-        if (newIdx >= lista.length) {
-          el.scrollTo({ left: 0, behavior: "smooth" });
+        if (newIdx === lista.length) {
+          // chegou no clone do primeiro — pula silenciosamente para index 0
+          el.scrollTo({ left: 0, behavior: "instant" as any });
           lastIdxRef.current = 0;
           setLocalIdx(0);
           onIdxChange(0);
-        } else if (newIdx >= 0) {
+        } else if (newIdx >= 0 && newIdx < lista.length) {
           lastIdxRef.current = newIdx;
           onIdxChange(newIdx);
         }
@@ -867,21 +867,23 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
           background: "#111",
         } as React.CSSProperties}
       >
-        {lista.map((m) => (
-          <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%", background: "#111" }}>
+        {/* Clone do primeiro item no final para loop infinito */}
+        {[...lista, lista[0]].map((m, i) => (
+          <div key={`${m.id}-${i}`} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%", background: "#111" }}>
             {m.tipo === "video"
               ? <VideoPlayer src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "contain" as const, display: "block" }} />
               : <img src={m.arquivo_url} alt="" loading="eager" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
             }
-            {/* Coração */}
-            <button className={`heart-btn${curtidas.has(m.id) ? " curtido" : ""}`}
-              onClick={(e) => onCurtir(m.id, e)}
-              style={{ top: 10, left: 10 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(m.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
-              {(m.curtidas || 0) > 0 && <span>{m.curtidas}</span>}
-            </button>
+            {i < lista.length && (
+              <button className={`heart-btn${curtidas.has(m.id) ? " curtido" : ""}`}
+                onClick={(e) => onCurtir(m.id, e)}
+                style={{ top: 10, left: 10 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(m.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                {(m.curtidas || 0) > 0 && <span>{m.curtidas}</span>}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -1053,7 +1055,7 @@ const statLblStyle: React.CSSProperties = { fontSize: 10, letterSpacing: "0.1em"
 
 const shareTopBtnStyle: React.CSSProperties = { position: "fixed", top: 16, right: 16, zIndex: 70, width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 
-const contentStyle: React.CSSProperties = { padding: "20px 16px 0", maxWidth: 860, margin: "0 auto" };
+const contentStyle: React.CSSProperties = { padding: "8px 16px 0", maxWidth: 860, margin: "0 auto" };
 const sectionKickerStyle: React.CSSProperties = { fontSize: 10, letterSpacing: "0.15em", color: "#7c3aed", fontWeight: 800, margin: "0 0 3px" };
 const sectionHeadStyle: React.CSSProperties = { fontSize: 20, fontWeight: 800, margin: 0, color: "#0f172a" };
 
@@ -1064,7 +1066,7 @@ const uploadBtnStyle: React.CSSProperties = { padding: "11px 15px", borderRadius
 const verTodosBtnStyle: React.CSSProperties = { fontSize: 12, color: "#7c3aed", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0 };
 
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 };
-const visBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "8px 4px 10px", borderBottom: "1px solid #e2e8f0" };
+const visBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "6px 4px 8px", borderBottom: "1px solid #e2e8f0" };
 const toolbarCountStyle: React.CSSProperties = { fontSize: 13, color: "#64748b", fontWeight: 600 };
 const selBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer" };
 const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "#7c3aed", borderColor: "rgba(124,58,237,0.3)" };
