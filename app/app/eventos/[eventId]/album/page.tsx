@@ -205,6 +205,20 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
 
   return (
     <div style={pageStyle}>
+      <style>{`
+        .album-layout { display: flex; gap: 24px; align-items: flex-start; }
+        .album-sidebar { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+        .album-sidebar-chips { display: none; }
+        .qr-layout { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 700px) {
+          .album-layout { flex-direction: column; }
+          .album-sidebar { display: none !important; }
+          .album-sidebar-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; scrollbar-width: none; }
+          .album-sidebar-chips::-webkit-scrollbar { display: none; }
+          .qr-layout { grid-template-columns: 1fr; }
+          .qr-card-wrap { width: 100% !important; }
+        }
+      `}</style>
       {/* Header */}
       <div style={pageHeaderStyle}>
         <div>
@@ -224,9 +238,19 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
           <button style={btnPrimaryStyle} onClick={() => setModalNovoAlbum(true)}>Criar primeiro álbum</button>
         </div>
       ) : (
-        <div style={layoutStyle}>
-          {/* Sidebar de álbuns */}
-          <div style={sidebarStyle}>
+        <div className="album-layout">
+          {/* Chips mobile */}
+          <div className="album-sidebar-chips">
+            {albums.map((a) => (
+              <button key={a.id} onClick={() => setAlbumAtivo(a)}
+                style={{ padding: "8px 16px", borderRadius: 100, border: "1px solid", whiteSpace: "nowrap" as const, fontSize: 13, fontWeight: 700, cursor: "pointer", background: albumAtivo?.id === a.id ? "var(--primary,#7c3aed)" : "var(--card)", color: albumAtivo?.id === a.id ? "#fff" : "var(--text)", borderColor: albumAtivo?.id === a.id ? "var(--primary,#7c3aed)" : "var(--line)" }}>
+                {a.nome}
+              </button>
+            ))}
+          </div>
+
+          {/* Sidebar de álbuns — desktop */}
+          <div className="album-sidebar" style={sidebarStyle}>
             <p style={sidebarTitleStyle}>ÁLBUNS ({albums.length})</p>
             {albums.map((a) => (
               <div key={a.id} style={{ ...albumItemStyle, ...(albumAtivo?.id === a.id ? albumItemActiveStyle : {}) }}
@@ -307,8 +331,8 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
 
               {/* QR */}
               {abaAtiva === "qrcode" && (
-                <div style={qrLayoutStyle}>
-                  <div style={qrCardStyle}>
+                <div className="qr-layout" style={qrLayoutStyle}>
+                  <div className="qr-card-wrap" style={qrCardStyle}>
                     <p style={cardSectionTitleStyle}>QR Code</p>
                     {qrDataUrl
                       ? <img src={qrDataUrl} alt="QR Code" style={qrImgStyle} />
