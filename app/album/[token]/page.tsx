@@ -184,8 +184,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
       setUploadProgress(90);
       await carregar();
       setUploadProgress(100);
-      mostrarToast("Foto adicionada ao álbum!");
-      setAba("fotos");
+      mostrarToast(arquivoPendente.type.startsWith("video") ? "Vídeo adicionado ao álbum!" : "Foto adicionada ao álbum!");
+      setAba(arquivoPendente.type.startsWith("video") ? "videos" : "fotos");
     } catch (e: any) {
       mostrarToast(e.message || "Erro no upload");
     } finally {
@@ -343,14 +343,18 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
           : <div style={{ ...heroBgStyle, background: "linear-gradient(135deg,#4c1d95,#7c3aed)" }} />
         }
         <div style={heroOverlayStyle} />
+        {/* Nome do álbum — canto superior direito */}
+        <div style={{ position: "absolute", top: 12, right: 56, zIndex: 3, textAlign: "right" as const }}>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 600, margin: 0, letterSpacing: "0.05em" }}>{albumNome}</p>
+        </div>
         <div style={heroInnerStyle}>
-          {logoUrl && (
-            <div style={logoWrapStyle}>
-              <img src={logoUrl} alt={evento?.nome} style={logoImgStyle} />
-            </div>
-          )}
-          <p style={kickerStyle}>{evento?.nome?.toUpperCase()}</p>
-          <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
+          {logoUrl
+            ? <img src={logoUrl} alt={evento?.nome} style={{ width: 110, height: 110, objectFit: "contain", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))", marginBottom: 6 }} />
+            : <>
+                <p style={kickerStyle}>{evento?.nome?.toUpperCase()}</p>
+                <h1 style={heroTitleStyle}>{albumNome || evento?.nome}</h1>
+              </>
+          }
           {evento?.data_evento && <p style={heroDateStyle}>{formatarData(evento.data_evento)}</p>}
         </div>
       </div>
@@ -824,14 +828,20 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
     const el = scrollRef.current;
     if (!el) return;
     const newIdx = Math.round(el.scrollLeft / el.offsetWidth);
-    // Atualiza dots imediatamente (só estado local, sem re-render do pai)
     if (newIdx !== localIdx) setLocalIdx(newIdx);
-    // Só avisa o pai DEPOIS que o scroll parou (evita re-render durante animação)
     clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => {
-      if (newIdx !== lastIdxRef.current && newIdx >= 0 && newIdx < lista.length) {
-        lastIdxRef.current = newIdx;
-        onIdxChange(newIdx);
+      if (newIdx !== lastIdxRef.current) {
+        // loop: se passou do último, volta ao primeiro
+        if (newIdx >= lista.length) {
+          el.scrollTo({ left: 0, behavior: "smooth" });
+          lastIdxRef.current = 0;
+          setLocalIdx(0);
+          onIdxChange(0);
+        } else if (newIdx >= 0) {
+          lastIdxRef.current = newIdx;
+          onIdxChange(newIdx);
+        }
       }
     }, 120);
   }
