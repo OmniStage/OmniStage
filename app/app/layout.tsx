@@ -26,6 +26,7 @@ export default function AppLayout({
   const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
+  const [permiteAlbum, setPermiteAlbum] = useState(true);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,6 +115,31 @@ export default function AppLayout({
       role: perfilEncontrado.role || "cliente",
       status: perfilEncontrado.status || "ativo",
     });
+
+    const { data: membros } = await supabase
+      .from("tenant_members")
+      .select("tenants:tenant_id(plano_id)")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+
+    const planoId = membros
+      ? (Array.isArray((membros as any).tenants)
+          ? (membros as any).tenants[0]?.plano_id
+          : (membros as any).tenants?.plano_id)
+      : null;
+
+    if (planoId) {
+      const { data: plano } = await supabase
+        .from("planos")
+        .select("permite_album")
+        .eq("id", planoId)
+        .maybeSingle();
+
+      if (plano && plano.permite_album === false) {
+        setPermiteAlbum(false);
+      }
+    }
 
     setLoading(false);
   }
@@ -505,7 +531,7 @@ export default function AppLayout({
         </div>
 
         <nav className="omni-nav">
-          {menu.map((item) => {
+          {menu.filter((item) => item.href !== "/app/album" || permiteAlbum).map((item) => {
             const active = item.href === "/app"
             ? pathname === "/app"
             : item.href === "/app/album"

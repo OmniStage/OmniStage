@@ -22,6 +22,7 @@ type Plano = {
   checkin_qrcode: boolean | null;
   permite_rede: boolean | null;
   permite_multiplos_eventos: boolean | null;
+  permite_album: boolean | null;
   ativo: boolean | null;
 };
 
@@ -42,6 +43,7 @@ type PlanoForm = {
   checkin_qrcode: boolean;
   permite_rede: boolean;
   permite_multiplos_eventos: boolean;
+  permite_album: boolean;
   ativo: boolean;
 };
 
@@ -62,6 +64,7 @@ const planoInicial: PlanoForm = {
   checkin_qrcode: false,
   permite_rede: false,
   permite_multiplos_eventos: false,
+  permite_album: true,
   ativo: true,
 };
 
@@ -130,6 +133,7 @@ export default function AdminPlanosPage() {
       checkin_qrcode: Boolean(plano.checkin_qrcode),
       permite_rede: Boolean(plano.permite_rede),
       permite_multiplos_eventos: Boolean(plano.permite_multiplos_eventos),
+      permite_album: Boolean(plano.permite_album ?? true),
       ativo: Boolean(plano.ativo),
     });
 
@@ -163,6 +167,7 @@ export default function AdminPlanosPage() {
       checkin_qrcode: Boolean(form.checkin_qrcode),
       permite_rede: Boolean(form.permite_rede),
       permite_multiplos_eventos: Boolean(form.permite_multiplos_eventos),
+      permite_album: Boolean(form.permite_album),
       ativo: Boolean(form.ativo),
     };
 
@@ -349,6 +354,12 @@ export default function AdminPlanosPage() {
                 atualizarCampo("permite_multiplos_eventos", value)
               }
             />
+
+            <Toggle
+              label="Álbum Compartilhado"
+              checked={form.permite_album}
+              onChange={(value) => atualizarCampo("permite_album", value)}
+            />
           </div>
 
           <button
@@ -411,6 +422,7 @@ export default function AdminPlanosPage() {
                 ativo={plano.permite_multiplos_eventos}
                 label="Múltiplos eventos"
               />
+              <Recurso ativo={plano.permite_album} label="Álbum Compartilhado" />
             </div>
 
             <div style={actionsStyle}>
