@@ -520,16 +520,17 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
               </div>
 
               {/* Configurações do álbum */}
-              <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 14, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 14, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, opacity: 0.6 }}>
                 <div>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: "0 0 2px" }}>Editor de fotos</p>
-                  <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Convidados poderão editar a foto (stickers, texto, filtros) antes de enviar</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: 0 }}>Editor de fotos</p>
+                    <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b", color: "#fff", borderRadius: 6, padding: "2px 7px", letterSpacing: "0.05em" }}>EM BREVE</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Convidados poderão editar a foto (stickers, filtros) antes de enviar</p>
                 </div>
-                <button
-                  onClick={() => albumAtivo && toggleEditorFotos(albumAtivo)}
-                  style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, border: "none", cursor: "pointer", background: albumAtivo?.editor_fotos ? "#7c3aed" : "var(--line)", transition: "background 0.2s", position: "relative" as const }}>
-                  <span style={{ position: "absolute", top: 3, left: albumAtivo?.editor_fotos ? 25 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", display: "block", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-                </button>
+                <div style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, background: "var(--line)", position: "relative" as const, cursor: "not-allowed" }}>
+                  <span style={{ position: "absolute", top: 3, left: 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", display: "block", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                </div>
               </div>
 
               {/* Stats */}
