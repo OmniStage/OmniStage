@@ -318,6 +318,10 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
       {/* Header */}
       <div style={pageHeaderStyle}>
         <div>
+          <a href="/app/album" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--muted)", textDecoration: "none", marginBottom: 8 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Álbuns
+          </a>
           <p style={kickerStyle}>ÁLBUNS COMPARTILHADOS</p>
           <h1 style={h1Style}>{eventoNome || "Evento"}</h1>
         </div>
