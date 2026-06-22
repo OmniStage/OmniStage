@@ -1055,7 +1055,7 @@ const statLblStyle: React.CSSProperties = { fontSize: 10, letterSpacing: "0.1em"
 
 const shareTopBtnStyle: React.CSSProperties = { position: "fixed", top: 16, right: 16, zIndex: 70, width: 40, height: 40, borderRadius: "50%", background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 
-const contentStyle: React.CSSProperties = { padding: "8px 16px 0", maxWidth: 860, margin: "0 auto" };
+const contentStyle: React.CSSProperties = { padding: "8px 16px 0", maxWidth: 1400, margin: "0 auto" };
 const sectionKickerStyle: React.CSSProperties = { fontSize: 10, letterSpacing: "0.15em", color: "#7c3aed", fontWeight: 800, margin: "0 0 3px" };
 const sectionHeadStyle: React.CSSProperties = { fontSize: 20, fontWeight: 800, margin: 0, color: "#0f172a" };
 
@@ -1072,7 +1072,7 @@ const selBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10
 const selBtnActiveStyle: React.CSSProperties = { background: "#f1f5f9", color: "#7c3aed", borderColor: "rgba(124,58,237,0.3)" };
 const selDlBtnStyle: React.CSSProperties = { padding: "7px 13px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 
-const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 3 };
+const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 3 };
 const gridItemStyle: React.CSSProperties = { position: "relative", aspectRatio: "3/4", overflow: "hidden", borderRadius: 8, cursor: "pointer", background: "#d1d5db", transition: "opacity 0.1s, outline 0.1s" };
 const gridItemSelStyle: React.CSSProperties = { outline: "3px solid #7c3aed", opacity: 1 };
 const thumbStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover", display: "block" };
