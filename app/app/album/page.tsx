@@ -35,35 +35,9 @@ export default function AlbumListaPage() {
 
     if (!membership?.tenant_id) { setLoading(false); return; }
 
-    const { data: eventosData } = await supabase
-      .from("eventos")
-      .select("id, nome, data_evento, tipo_evento")
-      .eq("tenant_id", membership.tenant_id)
-      .order("data_evento", { ascending: false });
-
-    if (!eventosData) { setLoading(false); return; }
-
-    const comContagem = await Promise.all(
-      eventosData.map(async (ev) => {
-        const { data: albs } = await supabase
-          .from("albums").select("id").eq("evento_id", ev.id);
-        const albumIds = (albs || []).map((a) => a.id);
-
-        let total_fotos = 0, total_videos = 0;
-        if (albumIds.length > 0) {
-          const { data: midias } = await supabase
-            .from("event_album")
-            .select("tipo")
-            .in("album_id", albumIds);
-          total_fotos = (midias || []).filter((m) => m.tipo === "image").length;
-          total_videos = (midias || []).filter((m) => m.tipo === "video").length;
-        }
-
-        return { ...ev, total_albums: albumIds.length, total_fotos, total_videos };
-      })
-    );
-
-    setEventos(comContagem);
+    const res = await fetch(`/api/albums/stats?tenant_id=${membership.tenant_id}`);
+    const json = await res.json();
+    setEventos(json.eventos || []);
     setLoading(false);
   }
 
