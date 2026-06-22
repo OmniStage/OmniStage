@@ -268,16 +268,10 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
           {/* Conteúdo do álbum ativo */}
           {albumAtivo && (
             <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Header do álbum */}
-              <div style={albumHeaderStyle}>
-                <div>
-                  <h2 style={albumTitleStyle}>{albumAtivo.nome}</h2>
-                  {albumAtivo.descricao && <p style={{ fontSize: 13, color: "var(--muted)", margin: "2px 0 0" }}>{albumAtivo.descricao}</p>}
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-                  <button style={btnOutlineStyle} onClick={copiarLink}>Copiar link</button>
-                  <a href={`/album/${albumAtivo.album_token}`} target="_blank" rel="noreferrer" style={btnPrimaryStyle}>Abrir ↗</a>
-                </div>
+              {/* Ações do álbum */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 20 }}>
+                <button style={btnOutlineStyle} onClick={copiarLink}>Copiar link</button>
+                <a href={`/album/${albumAtivo.album_token}`} target="_blank" rel="noreferrer" style={btnPrimaryStyle}>Abrir ↗</a>
               </div>
 
               {/* Stats */}
