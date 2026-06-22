@@ -41,7 +41,63 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
   const [toast, setToast] = useState<{ msg: string; tipo: "success" | "error" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Slideshow config
+  const [ssAlbunsSel, setSsAlbunsSel] = useState<Set<string>>(new Set());
+  const [ssFotosMap, setSsFotosMap] = useState<Record<string, Midia[]>>({});
+  const [ssFotosSel, setSsFotosSel] = useState<Set<string>>(new Set());
+  const [ssApenasFlag, setSsApenasFlag] = useState(false);
+  const [ssSalvando, setSsSalvando] = useState(false);
+
   useEffect(() => { carregar(); }, [eventId]);
+
+  // Ao entrar na aba slideshow, inicializa seleção com todos os álbuns e carrega fotos
+  useEffect(() => {
+    if (abaAtiva !== "slideshow" || albums.length === 0) return;
+    const todosIds = new Set(albums.map((a) => a.id));
+    setSsAlbunsSel(todosIds);
+    carregarFotosSlideshow(todosIds);
+  }, [abaAtiva, albums]);
+
+  async function carregarFotosSlideshow(albumIds: Set<string>) {
+    const novo: Record<string, Midia[]> = {};
+    await Promise.all([...albumIds].map(async (id) => {
+      const { data } = await supabase.from("event_album").select("id, arquivo_url, tipo, uploader_nome, criado_em, curtidas, legenda").eq("album_id", id).order("criado_em", { ascending: true });
+      novo[id] = (data || []) as Midia[];
+    }));
+    setSsFotosMap(novo);
+    // Seleciona todas por padrão
+    const todos = Object.values(novo).flat().map((m) => m.id);
+    setSsFotosSel(new Set(todos));
+  }
+
+  function toggleSsAlbum(albumId: string) {
+    setSsAlbunsSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(albumId)) { next.delete(albumId); } else { next.add(albumId); }
+      carregarFotosSlideshow(next);
+      return next;
+    });
+  }
+
+  function toggleSsFoto(id: string) {
+    setSsFotosSel((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function abrirSlideshow() {
+    const todasFotos = Object.values(ssFotosMap).flat();
+    let candidatas = todasFotos.filter((m) => ssFotosSel.has(m.id));
+    if (ssApenasFlag) candidatas = candidatas.filter((m) => (m.curtidas || 0) > 0);
+    if (candidatas.length === 0) { toast_show("Selecione ao menos uma foto.", "error"); return; }
+    setSsSalvando(true);
+    const { data, error } = await supabase.from("slideshow_configs").insert({ evento_id: eventId, foto_ids: candidatas.map((m) => m.id) }).select("id").single();
+    setSsSalvando(false);
+    if (error || !data) { toast_show("Erro ao salvar configuração.", "error"); return; }
+    window.open(`/slideshow/${data.id}`, "_blank");
+  }
 
   useEffect(() => {
     if (albumAtivo) {
@@ -310,34 +366,77 @@ export default function AlbumAdminPage({ params }: { params: { eventId: string }
               )}
 
               {/* Slideshow */}
-              {abaAtiva === "slideshow" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: 24 }}>
-                    <p style={cardSectionTitleStyle}>SLIDESHOW PARA TELÃO</p>
-                    <p style={{ fontSize: 14, color: "var(--muted)", margin: "8px 0 20px", lineHeight: 1.6 }}>
-                      Exiba as fotos dos convidados em tempo real numa TV ou projetor. Atualizações automáticas a cada 30 segundos.
-                    </p>
-                    <a href={`/album/${albumAtivo?.album_token}/slideshow`} target="_blank" rel="noreferrer"
-                      style={{ ...btnPrimaryStyle, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none", width: "100%", padding: "14px 20px", fontSize: 15 }}>
+              {abaAtiva === "slideshow" && (() => {
+                const todasFotos = Object.values(ssFotosMap).flat();
+                const fotosVisiveis = ssApenasFlag ? todasFotos.filter((m) => (m.curtidas || 0) > 0) : todasFotos;
+                const totalSel = fotosVisiveis.filter((m) => ssFotosSel.has(m.id)).length;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {/* Álbuns a incluir */}
+                    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: 24 }}>
+                      <p style={cardSectionTitleStyle}>ÁLBUNS NO SLIDESHOW</p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, marginTop: 12 }}>
+                        {albums.map((a) => (
+                          <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 100, border: `1px solid ${ssAlbunsSel.has(a.id) ? "#7c3aed" : "var(--line)"}`, background: ssAlbunsSel.has(a.id) ? "#ede9fe" : "var(--bg)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: ssAlbunsSel.has(a.id) ? "#6d28d9" : "var(--muted)", userSelect: "none" as const }}>
+                            <input type="checkbox" checked={ssAlbunsSel.has(a.id)} onChange={() => toggleSsAlbum(a.id)} style={{ accentColor: "#7c3aed" }} />
+                            {a.nome} <span style={{ opacity: 0.6, fontWeight: 500 }}>· {a.total_midias}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filtros */}
+                    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 12 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "var(--text)", userSelect: "none" as const }}>
+                        <input type="checkbox" checked={ssApenasFlag} onChange={(e) => { setSsApenasFlag(e.target.checked); setSsFotosSel(new Set(fotosVisiveis.map((m) => m.id))); }} style={{ accentColor: "#e11d48", width: 16, height: 16 }} />
+                        ♥ Apenas favoritas
+                      </label>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <span style={{ fontSize: 13, color: "var(--muted)" }}>{totalSel} de {fotosVisiveis.length} selecionadas</span>
+                        <button onClick={() => setSsFotosSel(new Set(fotosVisiveis.map((m) => m.id)))} style={{ ...btnOutlineStyle, padding: "6px 12px", fontSize: 12 }}>Todas</button>
+                        <button onClick={() => setSsFotosSel(new Set())} style={{ ...btnOutlineStyle, padding: "6px 12px", fontSize: 12 }}>Nenhuma</button>
+                      </div>
+                    </div>
+
+                    {/* Grade de fotos */}
+                    {fotosVisiveis.length === 0 ? (
+                      <div style={{ ...emptyCardStyle, padding: 32 }}>
+                        <p style={{ color: "var(--muted)", fontSize: 14 }}>Nenhuma foto nos álbuns selecionados.</p>
+                      </div>
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 6 }}>
+                        {fotosVisiveis.map((m) => {
+                          const sel = ssFotosSel.has(m.id);
+                          return (
+                            <div key={m.id} onClick={() => toggleSsFoto(m.id)}
+                              style={{ position: "relative", aspectRatio: "1", borderRadius: 10, overflow: "hidden", cursor: "pointer", outline: sel ? "3px solid #7c3aed" : "2px solid transparent", opacity: sel ? 1 : 0.4, transition: "all 0.15s" }}>
+                              {m.tipo === "video"
+                                ? <video src={m.arquivo_url} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onLoadedMetadata={(e) => { e.currentTarget.currentTime = 0.5; }} />
+                                : <img src={m.arquivo_url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              }
+                              {sel && (
+                                <div style={{ position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: "50%", background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                </div>
+                              )}
+                              {(m.curtidas || 0) > 0 && <div style={{ position: "absolute", bottom: 3, left: 4, fontSize: 10, color: "#fff", fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>♥{m.curtidas}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Botão abrir */}
+                    <button onClick={abrirSlideshow} disabled={ssSalvando || totalSel === 0}
+                      style={{ ...btnPrimaryStyle, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", fontSize: 15, opacity: totalSel === 0 ? 0.5 : 1, cursor: totalSel === 0 ? "not-allowed" : "pointer", border: "none", width: "100%" }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
                       </svg>
-                      Abrir Slideshow
-                    </a>
+                      {ssSalvando ? "Preparando..." : `Abrir Slideshow com ${totalSel} foto${totalSel !== 1 ? "s" : ""}`}
+                    </button>
                   </div>
-                  <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: 24 }}>
-                    <p style={cardSectionTitleStyle}>COMO USAR</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-                      {[["1","Abra o slideshow neste dispositivo ou num notebook conectado ao telão"],["2","Toque na tela para ver os controles de play, pausa e navegação"],["3","As fotos novas aparecem automaticamente a cada 30 segundos"],["4","Use o modo tela cheia no desktop para melhor experiência"]].map(([n,t]) => (
-                        <div key={n} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                          <span style={stepNumStyle}>{n}</span>
-                          <span style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.5 }}>{t}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* QR */}
               {abaAtiva === "qrcode" && (
