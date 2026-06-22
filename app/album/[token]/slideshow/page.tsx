@@ -35,7 +35,8 @@ export default function SlideshowPage({ params }: { params: { token: string } })
   const [fullscreen, setFullscreen] = useState(false);
   const [controlesVisiveis, setControlesVisiveis] = useState(false);
   const [pausado, setPausado] = useState(false);
-  const [mutado, setMutado] = useState(false);
+  const [mutado, setMutado] = useState(true); // mudo por padrão para autoplay funcionar no mobile
+  const [isMobile, setIsMobile] = useState(false);
   const controleTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const slideTimerRef = useRef<ReturnType<typeof setInterval>>();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -57,6 +58,10 @@ export default function SlideshowPage({ params }: { params: { token: string } })
   }, [token]);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => carregar(true), INTERVALO_POLL);
@@ -198,14 +203,16 @@ export default function SlideshowPage({ params }: { params: { token: string } })
         </div>
       )}
 
-      {/* TOPO */}
-      <div style={topoStyle}>
-        {logo && <img src={logo} alt="" style={logoStyle} />}
-        <div style={{ flex: 1 }}>
-          <p style={eventoNomeStyle}>{evento?.nome}</p>
-          <p style={albumNomeStyle}>{albumNome}</p>
+      {/* TOPO — oculto no mobile */}
+      {!isMobile && (
+        <div style={topoStyle}>
+          {logo && <img src={logo} alt="" style={logoStyle} />}
+          <div style={{ flex: 1 }}>
+            <p style={eventoNomeStyle}>{evento?.nome}</p>
+            <p style={albumNomeStyle}>{albumNome}</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* CONTROLES — aparecem ao tocar */}
       {controlesVisiveis && (
@@ -271,20 +278,22 @@ export default function SlideshowPage({ params }: { params: { token: string } })
 
       {/* RODAPÉ */}
       {midia && visivel && (
-        <div className="info-box" style={rodapeStyle}>
+        <div className="info-box" style={isMobile ? rodapeMobileStyle : rodapeStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {midia.uploader_nome && <p style={autorStyle}>{midia.uploader_nome}</p>}
-            {midia.legenda && <p style={legendaStyle}>"{midia.legenda}"</p>}
+            {midia.uploader_nome && <p style={isMobile ? autorMobileStyle : autorStyle}>{midia.uploader_nome}</p>}
+            {midia.legenda && <p style={isMobile ? legendaMobileStyle : legendaStyle}>"{midia.legenda}"</p>}
           </div>
-          <div style={contadorStyle}>
-            <span style={idxStyle}>{idx + 1}</span>
-            <span style={totalStyle}>/ {midias.length}</span>
-          </div>
+          {!isMobile && (
+            <div style={contadorStyle}>
+              <span style={idxStyle}>{idx + 1}</span>
+              <span style={totalStyle}>/ {midias.length}</span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* DOTS */}
-      {midias.length <= 20 && (
+      {/* DOTS — oculto no mobile */}
+      {!isMobile && midias.length <= 20 && (
         <div style={dotsStyle}>
           {midias.map((_, i) => (
             <div key={i} style={{ ...dotStyle, ...(i === idx ? dotAtivoStyle : {}) }} />
@@ -329,3 +338,8 @@ const audioBtnStyle: React.CSSProperties = { ...ctrlBase, top: 20, right: 122, w
 const navBtn: React.CSSProperties = { ...ctrlBase, top: "50%", transform: "translateY(-50%)", width: 50, height: 50, fontSize: 28, color: "#fff", lineHeight: 1 };
 const playPauseBtnStyle: React.CSSProperties = { ...ctrlBase, top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 72, height: 72, borderRadius: "50%", animation: "popIn 0.2s ease-out" };
 const pausadoStyle: React.CSSProperties = { position: "absolute", bottom: 100, right: 24, fontSize: 22, opacity: 0.5, zIndex: 10 };
+
+// Mobile
+const rodapeMobileStyle: React.CSSProperties = { position: "absolute", bottom: 40, left: 0, right: 0, padding: "0 24px", zIndex: 10 };
+const autorMobileStyle: React.CSSProperties = { fontSize: 18, fontWeight: 800, color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.7)", marginBottom: 4 };
+const legendaMobileStyle: React.CSSProperties = { fontSize: 15, color: "rgba(255,255,255,0.9)", fontStyle: "italic", lineHeight: 1.5, textShadow: "0 1px 4px rgba(0,0,0,0.7)" };
