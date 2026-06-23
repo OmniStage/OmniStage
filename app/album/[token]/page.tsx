@@ -841,7 +841,7 @@ function DestaqueCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
           scrollbarWidth: "none" as any,
           msOverflowStyle: "none" as any,
           width: "100%",
-          aspectRatio: "1/1",
+          aspectRatio: "3/4",
           background: "#111",
           borderRadius: 12,
         } as React.CSSProperties}
