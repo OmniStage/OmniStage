@@ -809,11 +809,12 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
   onCurtir: (id: string, e: React.MouseEvent) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const thumbStripRef = useRef<HTMLDivElement>(null);
   const lastIdxRef = useRef(idx);
   const settleTimer = useRef<ReturnType<typeof setTimeout>>();
   const [localIdx, setLocalIdx] = useState(idx);
 
-  // Rola programaticamente quando idx muda externamente (dots, aba)
+  // Rola programaticamente quando idx muda externamente
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -824,6 +825,15 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
       setLocalIdx(idx);
     }
   }, [idx]);
+
+  // Auto-scroll da faixa de miniaturas para manter o ativo visível
+  useEffect(() => {
+    const strip = thumbStripRef.current;
+    if (!strip) return;
+    const safeI = Math.min(localIdx, lista.length - 1);
+    const thumbEl = strip.children[safeI] as HTMLElement;
+    if (thumbEl) thumbEl.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [localIdx, lista.length]);
 
   function handleScroll() {
     const el = scrollRef.current;
@@ -890,10 +900,42 @@ function SnapCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
         ))}
       </div>
 
-      {/* Dots */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-        {lista.map((_, i) => (
-          <button key={i} onClick={() => onIdxChange(i)} style={{ width: i === safeIdx ? 20 : 7, height: 7, borderRadius: 4, border: "none", background: i === safeIdx ? "#7c3aed" : "#e2e8f0", cursor: "pointer", padding: 0, transition: "all 0.2s" }} />
+      {/* Faixa de miniaturas estilo iPhone Photos */}
+      <div
+        ref={thumbStripRef}
+        style={{
+          display: "flex",
+          gap: 2,
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollbarWidth: "none" as any,
+          padding: "6px 4px",
+          background: "#0f172a",
+        }}
+      >
+        {lista.map((m, i) => (
+          <button
+            key={m.id}
+            onClick={() => onIdxChange(i)}
+            style={{
+              flex: "0 0 auto",
+              width: 56,
+              height: 56,
+              padding: 0,
+              border: i === safeIdx ? "2.5px solid #7c3aed" : "2.5px solid transparent",
+              borderRadius: 6,
+              overflow: "hidden",
+              cursor: "pointer",
+              opacity: i === safeIdx ? 1 : 0.55,
+              transition: "opacity 0.2s, border-color 0.2s",
+              background: "#111",
+            }}
+          >
+            {m.tipo === "video"
+              ? <VideoThumb src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : <img src={m.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            }
+          </button>
         ))}
       </div>
 
