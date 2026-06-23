@@ -45,7 +45,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [toast, setToast] = useState("");
   const [modalNome, setModalNome] = useState(false);
   const [aba, setAba] = useState<Aba>("home");
-  const [visModo, setVisModo] = useState<"grade" | "unica" | "favoritas">("grade");
+  const [visModo, setVisModo] = useState<"grade" | "favoritas">("grade");
   const [idxUnica, setIdxUnica] = useState(0);
   const [curtidas, setCurtidas] = useState<Set<string>>(new Set());
   const [origemCamera, setOrigemCamera] = useState(false);
@@ -437,60 +437,45 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
             ? `${lista.length} ${lista.length === 1 ? "foto" : "fotos"}`
             : `${fotos.length} ${fotos.length === 1 ? "foto" : "fotos"} · ${videos.length} ${videos.length === 1 ? "vídeo" : "vídeos"}`;
 
+          const destaque = listaVis[idxUnica] || listaVis[0];
+
           return (
             <div>
-              {/* Barra de modos */}
+              {/* Barra */}
               <div style={visBarStyle}>
                 <span style={toolbarCountStyle}>{visModo === "favoritas" ? `${listaFavs.length} favoritas` : countLabel}</span>
                 <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                  {/* Grade */}
-                  <button className={`vis-btn${visModo === "grade" ? " ativo" : ""}`} onClick={() => setVisModo("grade")} title="Grade">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/>
-                      <rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>
-                    </svg>
-                  </button>
-                  {/* Visualização única */}
-                  <button className={`vis-btn${visModo === "unica" ? " ativo" : ""}`} onClick={() => { setVisModo("unica"); setIdxUnica(0); }} title="Uma por vez">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="5" width="18" height="14" rx="2"/>
-                    </svg>
-                  </button>
                   {/* Favoritas */}
-                  <button className={`vis-btn${visModo === "favoritas" ? " ativo" : ""}`} onClick={() => setVisModo("favoritas")} title="Favoritas">
+                  <button className={`vis-btn${visModo === "favoritas" ? " ativo" : ""}`} onClick={() => { setVisModo(visModo === "favoritas" ? "grade" : "favoritas"); setIdxUnica(0); }} title="Favoritas">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill={visModo === "favoritas" ? "#e11d48" : "none"} stroke={visModo === "favoritas" ? "#e11d48" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                     </svg>
                   </button>
-                  {/* Selecionar (só no modo grade) */}
-                  {visModo === "grade" && (
-                    <>
-                      {modoSelecao && selecionados.size > 0 && (
-                        <button style={{ ...selDlBtnStyle, marginLeft: 4 }}
-                          onClick={async () => {
-                            for (const id of selecionados) {
-                              const m = midias.find((x) => x.id === id);
-                              if (!m) continue;
-                              try {
-                                const r = await fetch(m.arquivo_url);
-                                const blob = await r.blob();
-                                const ext = m.arquivo_url.split("?")[0].split(".").pop() || (m.tipo === "video" ? "mp4" : "jpg");
-                                const a = document.createElement("a");
-                                a.href = URL.createObjectURL(blob);
-                                a.download = `foto.${ext}`;
-                                a.click();
-                                URL.revokeObjectURL(a.href);
-                                await new Promise((res) => setTimeout(res, 300));
-                              } catch {}
-                            }
-                          }}>⬇ {selecionados.size}</button>
-                      )}
-                      <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}), marginLeft: 4 }}
-                        onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
-                        {modoSelecao ? "Cancelar" : "Selecionar"}
-                      </button>
-                    </>
+                  {/* Selecionar */}
+                  {modoSelecao && selecionados.size > 0 && (
+                    <button style={{ ...selDlBtnStyle, marginLeft: 4 }}
+                      onClick={async () => {
+                        for (const id of selecionados) {
+                          const m = midias.find((x) => x.id === id);
+                          if (!m) continue;
+                          try {
+                            const r = await fetch(m.arquivo_url);
+                            const blob = await r.blob();
+                            const ext = m.arquivo_url.split("?")[0].split(".").pop() || (m.tipo === "video" ? "mp4" : "jpg");
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `foto.${ext}`;
+                            a.click();
+                            URL.revokeObjectURL(a.href);
+                            await new Promise((res) => setTimeout(res, 300));
+                          } catch {}
+                        }
+                      }}>⬇ {selecionados.size}</button>
                   )}
+                  <button style={{ ...selBtnStyle, ...(modoSelecao ? selBtnActiveStyle : {}), marginLeft: 4 }}
+                    onClick={() => { setModoSelecao(!modoSelecao); setSelecionados(new Set()); }}>
+                    {modoSelecao ? "Cancelar" : "Selecionar"}
+                  </button>
                 </div>
               </div>
 
@@ -499,34 +484,48 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   <div style={{ fontSize: 36, opacity: 0.3, marginBottom: 10 }}>{visModo === "favoritas" ? "🤍" : emptyIcon}</div>
                   <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{visModo === "favoritas" ? "Nenhuma favorita ainda" : emptyMsg}</p>
                 </div>
-              ) : visModo === "unica" ? (
-                /* ── CARROSSEL SCROLL-SNAP NATIVO (sem flash, sem jank) ── */
-                <SnapCarousel
-                  lista={listaVis}
-                  idx={idxUnica}
-                  onIdxChange={setIdxUnica}
-                  curtidas={curtidas}
-                  onCurtir={curtir}
-                />
               ) : (
-                /* ── GRADE ── */
-                <div className="midia-grid">
-                  {listaVis.map((m) => (
-                    <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
-                      curtido={curtidas.has(m.id)}
-                      isMinha={!!sessaoId && m.uploader_session_id === sessaoId}
-                      onClick={() => {
-                        if (modoSelecao) { toggleSelecao(m.id); return; }
-                        const idx = listaVis.findIndex(x => x.id === m.id);
-                        setIdxUnica(idx);
-                        setVisModo("unica");
-                      }}
-                      onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
-                      onCurtir={(e) => curtir(m.id, e)}
-                      onEditar={() => setModalEditar({ midia: m, legenda: m.legenda || "" })}
-                      onExcluir={() => { if (confirm("Remover esta foto do álbum?")) excluirFoto(m.id); }} />
-                  ))}
-                </div>
+                <>
+                  {/* ── FOTO DESTAQUE (topo) ── */}
+                  {destaque && (
+                    <div style={{ position: "relative", width: "100%", background: "#111", borderRadius: 12, overflow: "hidden", marginBottom: 3 }}>
+                      {destaque.tipo === "video"
+                        ? <VideoPlayer key={destaque.id} src={destaque.arquivo_url} style={{ width: "100%", maxHeight: "55vw", minHeight: 220, objectFit: "contain", display: "block" }} />
+                        : <img key={destaque.id} src={destaque.arquivo_url} alt="" style={{ width: "100%", maxHeight: "55vw", minHeight: 220, objectFit: "contain", display: "block" }} />
+                      }
+                      {/* curtir */}
+                      <button className={`heart-btn${curtidas.has(destaque.id) ? " curtido" : ""}`} onClick={(e) => curtir(destaque.id, e)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(destaque.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                      </button>
+                      {/* info */}
+                      {(destaque.legenda || destaque.uploader_nome) && (
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)", padding: "24px 12px 10px" }}>
+                          {destaque.legenda && <p style={{ margin: 0, fontSize: 13, color: "#fff", fontStyle: "italic" }}>"{destaque.legenda}"</p>}
+                          {destaque.uploader_nome && <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 700 }}>— {destaque.uploader_nome}</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── GRADE ── */}
+                  <div className="midia-grid">
+                    {listaVis.map((m, i) => (
+                      <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
+                        curtido={curtidas.has(m.id)}
+                        isMinha={!!sessaoId && m.uploader_session_id === sessaoId}
+                        onClick={() => {
+                          if (modoSelecao) { toggleSelecao(m.id); return; }
+                          setIdxUnica(i);
+                        }}
+                        onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
+                        onCurtir={(e) => curtir(m.id, e)}
+                        onEditar={() => setModalEditar({ midia: m, legenda: m.legenda || "" })}
+                        onExcluir={() => { if (confirm("Remover esta foto do álbum?")) excluirFoto(m.id); }} />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           );
