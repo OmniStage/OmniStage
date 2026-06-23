@@ -314,6 +314,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         .carousel-area { position: relative; width: 100%; background: #0f172a; border-radius: 14px; overflow: hidden; }
         .carousel-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 5; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .carousel-nav:active { background: rgba(255,255,255,0.3); }
+        .midia-grid { display: grid; gap: 3px; grid-template-columns: repeat(3, 1fr); }
+        @media (min-width: 640px) { .midia-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
       `}</style>
 
       {/* Input galeria — sem capture para abrir seletor completo */}
@@ -398,7 +400,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                   <p style={{ ...sectionKickerStyle, margin: 0 }}>ÚLTIMAS ADICIONADAS</p>
                   <button style={verTodosBtnStyle} onClick={() => setAba("albuns")}>Ver todas →</button>
                 </div>
-                <div style={gridStyle}>
+                <div className="midia-grid">
                   {midias.slice(0, 6).map((m) => (
                     <MidiaCard key={m.id} m={m} sel={false} modoSelecao={false}
                       curtido={curtidas.has(m.id)}
@@ -508,7 +510,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                 />
               ) : (
                 /* ── GRADE ── */
-                <div style={gridStyle}>
+                <div className="midia-grid">
                   {listaVis.map((m) => (
                     <MidiaCard key={m.id} m={m} sel={selecionados.has(m.id)} modoSelecao={modoSelecao}
                       curtido={curtidas.has(m.id)}
