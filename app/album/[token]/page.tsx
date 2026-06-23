@@ -486,28 +486,14 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                 </div>
               ) : (
                 <>
-                  {/* ── FOTO DESTAQUE (topo) ── */}
-                  {destaque && (
-                    <div style={{ position: "relative", width: "100%", background: "#111", borderRadius: 12, overflow: "hidden", marginBottom: 3 }}>
-                      {destaque.tipo === "video"
-                        ? <VideoPlayer key={destaque.id} src={destaque.arquivo_url} style={{ width: "100%", maxHeight: "55vw", minHeight: 220, objectFit: "contain", display: "block" }} />
-                        : <img key={destaque.id} src={destaque.arquivo_url} alt="" style={{ width: "100%", maxHeight: "55vw", minHeight: 220, objectFit: "contain", display: "block" }} />
-                      }
-                      {/* curtir */}
-                      <button className={`heart-btn${curtidas.has(destaque.id) ? " curtido" : ""}`} onClick={(e) => curtir(destaque.id, e)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(destaque.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                        </svg>
-                      </button>
-                      {/* info */}
-                      {(destaque.legenda || destaque.uploader_nome) && (
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)", padding: "24px 12px 10px" }}>
-                          {destaque.legenda && <p style={{ margin: 0, fontSize: 13, color: "#fff", fontStyle: "italic" }}>"{destaque.legenda}"</p>}
-                          {destaque.uploader_nome && <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 700 }}>— {destaque.uploader_nome}</p>}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* ── CARROSSEL DESTAQUE (topo, deslizável) ── */}
+                  <DestaqueCarousel
+                    lista={listaVis}
+                    idx={idxUnica}
+                    onIdxChange={setIdxUnica}
+                    curtidas={curtidas}
+                    onCurtir={curtir}
+                  />
 
                   {/* ── GRADE ── */}
                   <div className="midia-grid">
@@ -796,6 +782,94 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
       {children}
       {label}
     </button>
+  );
+}
+
+// ─── DestaqueCarousel — foto grande deslizável no topo ───────────────────────────
+function DestaqueCarousel({ lista, idx, onIdxChange, curtidas, onCurtir }: {
+  lista: { id: string; arquivo_url: string; tipo: "image" | "video"; uploader_nome: string | null; legenda: string | null; curtidas: number }[];
+  idx: number;
+  onIdxChange: (i: number) => void;
+  curtidas: Set<string>;
+  onCurtir: (id: string, e: React.MouseEvent) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const lastIdxRef = useRef(idx);
+  const [localIdx, setLocalIdx] = useState(idx);
+
+  // Rola para o item correto quando idx muda externamente (clique na grade)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = idx * el.offsetWidth;
+    if (Math.abs(el.scrollLeft - target) > 2) {
+      el.scrollTo({ left: target, behavior: "smooth" });
+      lastIdxRef.current = idx;
+      setLocalIdx(idx);
+    }
+  }, [idx]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const newIdx = Math.round(el.scrollLeft / el.offsetWidth);
+    if (newIdx !== localIdx) setLocalIdx(newIdx);
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      if (newIdx !== lastIdxRef.current && newIdx >= 0 && newIdx < lista.length) {
+        lastIdxRef.current = newIdx;
+        onIdxChange(newIdx);
+      }
+    }, 120);
+  }
+
+  const safeIdx = Math.min(localIdx, lista.length - 1);
+  const midiaAtual = lista[safeIdx] || lista[0];
+
+  return (
+    <div style={{ position: "relative", marginBottom: 3 }}>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        style={{
+          display: "flex",
+          overflowX: "scroll",
+          overflowY: "hidden",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch" as any,
+          scrollbarWidth: "none" as any,
+          msOverflowStyle: "none" as any,
+          width: "100%",
+          aspectRatio: "1/1",
+          background: "#111",
+          borderRadius: 12,
+        } as React.CSSProperties}
+      >
+        {lista.map((m) => (
+          <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", position: "relative", height: "100%", background: "#111" }}>
+            {m.tipo === "video"
+              ? <VideoPlayer src={m.arquivo_url} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              : <img src={m.arquivo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            }
+            {(m.legenda || m.uploader_nome) && (
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)", padding: "28px 12px 12px", borderRadius: "0 0 12px 12px" }}>
+                {m.legenda && <p style={{ margin: 0, fontSize: 13, color: "#fff", fontStyle: "italic" }}>"{m.legenda}"</p>}
+                {m.uploader_nome && <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 700 }}>— {m.uploader_nome}</p>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* curtir */}
+      {midiaAtual && (
+        <button className={`heart-btn${curtidas.has(midiaAtual.id) ? " curtido" : ""}`} onClick={(e) => onCurtir(midiaAtual.id, e)} style={{ top: 10, left: 10 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill={curtidas.has(midiaAtual.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+      )}
+    </div>
   );
 }
 
