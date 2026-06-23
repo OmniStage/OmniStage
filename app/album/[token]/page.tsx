@@ -40,6 +40,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
   const [nomeUploader, setNomeUploader] = useState("");
   const [sugestoes, setSugestoes] = useState<string[]>([]);
   const [modalMidia, setModalMidia] = useState<Midia | null>(null);
+  const [lightboxLista, setLightboxLista] = useState<Midia[]>([]);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [modoSelecao, setModoSelecao] = useState(false);
   const [toast, setToast] = useState("");
@@ -503,7 +505,8 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                         isMinha={!!sessaoId && m.uploader_session_id === sessaoId}
                         onClick={() => {
                           if (modoSelecao) { toggleSelecao(m.id); return; }
-                          setIdxUnica(i);
+                          setLightboxLista(listaVis);
+                          setLightboxIdx(i);
                         }}
                         onLongPress={() => { setModoSelecao(true); toggleSelecao(m.id); }}
                         onCurtir={(e) => curtir(m.id, e)}
@@ -604,7 +607,19 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
         </TabBtn>
       </nav>
 
-      {/* ── LIGHTBOX ── */}
+      {/* ── LIGHTBOX DESLIZÁVEL ── */}
+      {lightboxLista.length > 0 && (
+        <LightboxModal
+          lista={lightboxLista}
+          idx={lightboxIdx}
+          onIdxChange={setLightboxIdx}
+          curtidas={curtidas}
+          onCurtir={curtir}
+          onFechar={() => setLightboxLista([])}
+        />
+      )}
+
+      {/* ── LIGHTBOX legado (home) ── */}
       {modalMidia && (
         <div style={overlayStyle} onClick={() => setModalMidia(null)}>
           <div style={lightboxStyle} onClick={(e) => e.stopPropagation()}>
@@ -625,15 +640,7 @@ export default function AlbumPage({ params }: { params: { token: string } }) {
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>{new Date(modalMidia.criado_em).toLocaleDateString("pt-BR")}</p>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button
-                  onClick={(e) => curtir(modalMidia.id, e)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 5,
-                    padding: "8px 14px", borderRadius: 10, border: "none",
-                    background: curtidas.has(modalMidia.id) ? "#fee2e2" : "#f1f5f9",
-                    color: curtidas.has(modalMidia.id) ? "#e11d48" : "#64748b",
-                    fontSize: 14, fontWeight: 700, cursor: curtidas.has(modalMidia.id) ? "default" : "pointer",
-                  }}>
+                <button onClick={(e) => curtir(modalMidia.id, e)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 14px", borderRadius: 10, border: "none", background: curtidas.has(modalMidia.id) ? "#fee2e2" : "#f1f5f9", color: curtidas.has(modalMidia.id) ? "#e11d48" : "#64748b", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill={curtidas.has(modalMidia.id) ? "#e11d48" : "none"} stroke={curtidas.has(modalMidia.id) ? "#e11d48" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                   </svg>
@@ -782,6 +789,100 @@ function TabBtn({ label, ativo, onClick, children }: { label: string; ativo: boo
       {children}
       {label}
     </button>
+  );
+}
+
+// ─── LightboxModal — tela cheia deslizável ───────────────────────────────────────
+function LightboxModal({ lista, idx, onIdxChange, curtidas, onCurtir, onFechar }: {
+  lista: { id: string; arquivo_url: string; tipo: "image" | "video"; uploader_nome: string | null; legenda: string | null; curtidas: number }[];
+  idx: number;
+  onIdxChange: (i: number) => void;
+  curtidas: Set<string>;
+  onCurtir: (id: string, e: React.MouseEvent) => void;
+  onFechar: () => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const lastIdxRef = useRef(idx);
+  const [localIdx, setLocalIdx] = useState(idx);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: idx * el.offsetWidth, behavior: "instant" as any });
+    lastIdxRef.current = idx;
+    setLocalIdx(idx);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = idx * el.offsetWidth;
+    if (Math.abs(el.scrollLeft - target) > 2) {
+      el.scrollTo({ left: target, behavior: "smooth" });
+      lastIdxRef.current = idx;
+      setLocalIdx(idx);
+    }
+  }, [idx]);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const newIdx = Math.round(el.scrollLeft / el.offsetWidth);
+    if (newIdx !== localIdx) setLocalIdx(newIdx);
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      if (newIdx !== lastIdxRef.current && newIdx >= 0 && newIdx < lista.length) {
+        lastIdxRef.current = newIdx;
+        onIdxChange(newIdx);
+      }
+    }, 120);
+  }
+
+  const safeIdx = Math.min(localIdx, lista.length - 1);
+  const atual = lista[safeIdx];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#000", display: "flex", flexDirection: "column" }}>
+      {/* Topo */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 16px", background: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)" }}>
+        <button onClick={onFechar} style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 38, height: 38, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)" }}>✕</button>
+        <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600 }}>{safeIdx + 1} / {lista.length}</span>
+        <a href={atual?.arquivo_url} download target="_blank" rel="noreferrer" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 38, height: 38, color: "#fff", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)", textDecoration: "none" }}>⬇</a>
+      </div>
+
+      {/* Carrossel */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        style={{ flex: 1, display: "flex", overflowX: "scroll", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" as any, scrollbarWidth: "none" as any } as React.CSSProperties}
+      >
+        {lista.map((m) => (
+          <div key={m.id} style={{ flex: "0 0 100%", scrollSnapAlign: "start", display: "flex", alignItems: "center", justifyContent: "center", background: "#000" }}>
+            {m.tipo === "video"
+              ? <video src={m.arquivo_url} controls autoPlay playsInline style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+              : <img src={m.arquivo_url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }} />
+            }
+          </div>
+        ))}
+      </div>
+
+      {/* Rodapé */}
+      {atual && (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)", padding: "40px 16px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            {atual.legenda && <p style={{ margin: 0, fontSize: 14, color: "#fff", fontStyle: "italic", marginBottom: 2 }}>"{atual.legenda}"</p>}
+            {atual.uploader_nome && <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>— {atual.uploader_nome}</p>}
+          </div>
+          <button className={`heart-btn${curtidas.has(atual.id) ? " curtido" : ""}`} onClick={(e) => onCurtir(atual.id, e)} style={{ position: "static", backdropFilter: "blur(8px)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={curtidas.has(atual.id) ? "white" : "none"} stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            {(atual.curtidas || 0) > 0 && <span>{atual.curtidas}</span>}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
