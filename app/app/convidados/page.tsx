@@ -2320,7 +2320,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#ede9fe", color: "#7c3aed", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 600 }}>
                         {tag}
                         <button type="button"
-                          onClick={() => updateForm("relacao_evento", form.relacao_evento.filter((t) => t !== tag))}
+                          onClick={() => setForm((prev) => ({ ...prev, relacao_evento: prev.relacao_evento.filter((t) => t !== tag) }))}
                           style={{ background: "none", border: "none", color: "#7c3aed", cursor: "pointer", fontWeight: 700, fontSize: 15, lineHeight: 1, padding: 0 }}>×</button>
                       </span>
                     ))}
