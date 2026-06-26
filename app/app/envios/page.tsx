@@ -3137,7 +3137,8 @@ function MetricCard({
 }
 
 function getStatusEnvio(convidado: Convidado, campanha: Campanha) {
-  return convidado[campanha.statusColumn] as string | null | undefined;
+  if (!campanha.statusColumn) return undefined;
+  return convidado[campanha.statusColumn as keyof Convidado] as string | null | undefined;
 }
 
 function normalizarStatusEnvio(status: string | null | undefined) {
