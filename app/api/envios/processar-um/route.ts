@@ -42,8 +42,40 @@ export async function POST(req: NextRequest) {
       midiaUrl = campanha?.midia_url || null;
     }
 
-    // Enviar via Z-API
-    await enviarWhatsApp(item, midiaUrl);
+    // Instância correta pelo tag_envio do convidado
+    let instancia = process.env.EVOLUTION_INSTANCE!;
+    if (item.convidado_id && item.evento_id) {
+      const { data: convidado } = await supabase
+        .from("convidados")
+        .select("tag_envio")
+        .eq("id", item.convidado_id)
+        .maybeSingle();
+
+      const tagEnvio = convidado?.tag_envio;
+
+      if (tagEnvio) {
+        const { data: numeroEvento } = await supabase
+          .from("evento_whatsapp_numeros")
+          .select("whatsapp_instance")
+          .eq("evento_id", item.evento_id)
+          .eq("relacao_evento", tagEnvio)
+          .maybeSingle();
+        if (numeroEvento?.whatsapp_instance) instancia = numeroEvento.whatsapp_instance;
+      }
+
+      if (instancia === process.env.EVOLUTION_INSTANCE!) {
+        const { data: numeroGeral } = await supabase
+          .from("evento_whatsapp_numeros")
+          .select("whatsapp_instance")
+          .eq("evento_id", item.evento_id)
+          .is("relacao_evento", null)
+          .maybeSingle();
+        if (numeroGeral?.whatsapp_instance) instancia = numeroGeral.whatsapp_instance;
+      }
+    }
+
+    // Enviar via Evolution API (sem janela de horário — envio manual)
+    await enviarWhatsApp(item, midiaUrl, instancia);
 
     // Marcar como enviado
     await supabase
@@ -57,11 +89,36 @@ export async function POST(req: NextRequest) {
       item.tipo_envio === "convite" ? "status_envio_convite" :
       item.tipo_envio === "lembrete_rsvp" ? "status_envio_lembrete_rsvp" :
       item.tipo_envio === "lembrete_evento" ? "status_envio_lembrete_evento" :
+      item.tipo_envio === "cartao_entrada" ? "status_envio_cartao" :
       item.tipo_envio === "cartao_evento" ? "status_envio_cartao" :
-      item.tipo_envio === "cartao" ? "status_envio_cartao" : null;
+      item.tipo_envio === "cartao" ? "status_envio_cartao" :
+      item.tipo_envio === "link_album" ? "status_envio_album" : null;
 
     if (colunaStatus && item.convidado_id) {
       await supabase.from("convidados").update({ [colunaStatus]: "enviado" }).eq("id", item.convidado_id);
+
+      // Se este convidado é o principal do grupo, marcar também todos os sem telefone do mesmo grupo
+      const { data: principal } = await supabase
+        .from("convidados")
+        .select("grupo, contato_principal, telefone")
+        .eq("id", item.convidado_id)
+        .maybeSingle();
+
+      if (principal?.contato_principal && principal.grupo && principal.telefone) {
+        const { data: dependentes } = await supabase
+          .from("convidados")
+          .select("id")
+          .eq("grupo", principal.grupo)
+          .or("telefone.is.null,telefone.eq.")
+          .neq("id", item.convidado_id);
+
+        if (dependentes && dependentes.length > 0) {
+          await supabase
+            .from("convidados")
+            .update({ [colunaStatus]: "enviado" })
+            .in("id", dependentes.map((d) => d.id));
+        }
+      }
     }
 
     // Histórico
@@ -80,28 +137,32 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function enviarWhatsApp(item: any, midiaUrl?: string | null) {
-  const ZAPI_INSTANCE = process.env.ZAPI_INSTANCE_ID!;
-  const ZAPI_TOKEN = process.env.ZAPI_TOKEN!;
+async function enviarWhatsApp(item: any, midiaUrl?: string | null, instancia?: string) {
+  const BASE_URL = process.env.EVOLUTION_API_URL!;
+  const API_KEY = process.env.EVOLUTION_API_KEY!;
+  const INSTANCE = instancia || process.env.EVOLUTION_INSTANCE!;
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "apikey": API_KEY,
+  };
 
-  if (process.env.ZAPI_CLIENT_TOKEN) {
-    headers["Client-Token"] = process.env.ZAPI_CLIENT_TOKEN;
-  }
+  const numero = item.telefone.replace(/\D/g, "");
 
   if (midiaUrl) {
-    const res = await fetch(
-      `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-image`,
-      { method: "POST", headers, body: JSON.stringify({ phone: item.telefone, image: midiaUrl, caption: item.mensagem }) }
-    );
-    if (!res.ok) throw new Error("Erro Z-API (imagem): " + await res.text());
+    const res = await fetch(`${BASE_URL}/message/sendMedia/${INSTANCE}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ number: numero, mediatype: "image", mediaUrl: midiaUrl, caption: item.mensagem }),
+    });
+    if (!res.ok) throw new Error("Erro Evolution API (imagem): " + await res.text());
   } else {
-    const res = await fetch(
-      `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`,
-      { method: "POST", headers, body: JSON.stringify({ phone: item.telefone, message: item.mensagem }) }
-    );
-    if (!res.ok) throw new Error("Erro Z-API: " + await res.text());
+    const res = await fetch(`${BASE_URL}/message/sendText/${INSTANCE}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ number: numero, text: item.mensagem }),
+    });
+    if (!res.ok) throw new Error("Erro Evolution API: " + await res.text());
   }
 
   return true;

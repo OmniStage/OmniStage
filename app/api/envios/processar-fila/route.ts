@@ -8,14 +8,20 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-    const agora = new Date().toISOString();
+    // Janela de envio: apenas entre 09h e 20h (horário de Brasília, UTC-3)
+    const agora = new Date();
+    const horaBrasilia = agora.getUTCHours() - 3;
+    if (horaBrasilia < 9 || horaBrasilia >= 20) {
+      return NextResponse.json({ ok: true, message: "Fora da janela de envio (09h–20h). Aguardando próximo horário permitido." });
+    }
+    const agoraISO = agora.toISOString();
 
     // 1. Buscar envios pendentes (agendado_para nulo ou já passou)
     const { data: filas, error } = await supabase
       .from("envio_fila")
       .select("*")
       .in("status", ["pendente", "agendado"])
-      .or(`agendado_para.is.null,agendado_para.lte.${agora}`)
+      .or(`agendado_para.is.null,agendado_para.lte.${agoraISO}`)
       .limit(20);
 
     if (error) throw error;
@@ -45,11 +51,56 @@ export async function GET() {
           midiaUrl = campanha?.midia_url || null;
         }
 
-        // 4. Enviar via Z-API (com delay para evitar bloqueio)
-        await new Promise((resolve) => setTimeout(resolve, 4000 + Math.random() * 3000));
-        await enviarWhatsApp(item, midiaUrl);
+        // 4. Buscar instância correta pelo tag_envio do convidado
+        let instancia = process.env.EVOLUTION_INSTANCE!;
+        if (item.convidado_id && item.evento_id) {
+          const { data: convidado } = await supabase
+            .from("convidados")
+            .select("tag_envio")
+            .eq("id", item.convidado_id)
+            .maybeSingle();
 
-        // 5. Marcar como enviado
+          const tagEnvio = convidado?.tag_envio;
+
+          if (tagEnvio) {
+            // Busca regra específica para a tag do convidado
+            const { data: numeroEvento } = await supabase
+              .from("evento_whatsapp_numeros")
+              .select("whatsapp_instance")
+              .eq("evento_id", item.evento_id)
+              .eq("relacao_evento", tagEnvio)
+              .maybeSingle();
+
+            if (numeroEvento?.whatsapp_instance) {
+              instancia = numeroEvento.whatsapp_instance;
+            }
+          }
+
+          if (instancia === process.env.EVOLUTION_INSTANCE!) {
+            // Fallback: regra geral do evento (relacao_evento = null = "Todos os convidados")
+            const { data: numeroGeral } = await supabase
+              .from("evento_whatsapp_numeros")
+              .select("whatsapp_instance")
+              .eq("evento_id", item.evento_id)
+              .is("relacao_evento", null)
+              .maybeSingle();
+
+            if (numeroGeral?.whatsapp_instance) {
+              instancia = numeroGeral.whatsapp_instance;
+            }
+          }
+        }
+
+        // 5. Enviar via Evolution API
+        // Delay anti-bloqueio: 7-15s aleatório por mensagem.
+        // Motivo: WhatsApp detecta padrões de envio em massa e bloqueia números.
+        // Intervalo randomizado simula comportamento humano e reduz risco de ban.
+        // Taxa resultante: ~4-8 msgs/min → ~240-480/hora por número.
+        const delayMs = 7000 + Math.random() * 8000;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await enviarWhatsApp(item, midiaUrl, instancia);
+
+        // 6. Marcar como enviado
         await supabase
           .from("envio_fila")
           .update({
@@ -64,14 +115,39 @@ export async function GET() {
           item.tipo_envio === "convite" ? "status_envio_convite" :
           item.tipo_envio === "lembrete_rsvp" ? "status_envio_lembrete_rsvp" :
           item.tipo_envio === "lembrete_evento" ? "status_envio_lembrete_evento" :
+          item.tipo_envio === "cartao_entrada" ? "status_envio_cartao" :
           item.tipo_envio === "cartao_evento" ? "status_envio_cartao" :
-          item.tipo_envio === "cartao" ? "status_envio_cartao" : null;
+          item.tipo_envio === "cartao" ? "status_envio_cartao" :
+          item.tipo_envio === "link_album" ? "status_envio_album" : null;
 
         if (colunaStatus && item.convidado_id) {
           await supabase
             .from("convidados")
             .update({ [colunaStatus]: "enviado" })
             .eq("id", item.convidado_id);
+
+          // Se este convidado é o principal do grupo, marcar também todos os sem telefone do mesmo grupo
+          const { data: principal } = await supabase
+            .from("convidados")
+            .select("grupo, contato_principal, telefone")
+            .eq("id", item.convidado_id)
+            .maybeSingle();
+
+          if (principal?.contato_principal && principal.grupo && principal.telefone) {
+            const { data: dependentes } = await supabase
+              .from("convidados")
+              .select("id")
+              .eq("grupo", principal.grupo)
+              .or("telefone.is.null,telefone.eq.")
+              .neq("id", item.convidado_id);
+
+            if (dependentes && dependentes.length > 0) {
+              await supabase
+                .from("convidados")
+                .update({ [colunaStatus]: "enviado" })
+                .in("id", dependentes.map((d) => d.id));
+            }
+          }
         }
 
         // 7. Histórico
@@ -114,46 +190,48 @@ export async function GET() {
   }
 }
 
-async function enviarWhatsApp(item: any, midiaUrl?: string | null) {
-  const ZAPI_INSTANCE = process.env.ZAPI_INSTANCE_ID!;
-  const ZAPI_TOKEN = process.env.ZAPI_TOKEN!;
+async function enviarWhatsApp(item: any, midiaUrl?: string | null, instancia?: string) {
+  const BASE_URL = process.env.EVOLUTION_API_URL!;
+  const API_KEY = process.env.EVOLUTION_API_KEY!;
+  const INSTANCE = instancia || process.env.EVOLUTION_INSTANCE!;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "apikey": API_KEY,
   };
 
-  if (process.env.ZAPI_CLIENT_TOKEN) {
-    headers["Client-Token"] = process.env.ZAPI_CLIENT_TOKEN;
-  }
+  // Evolution API espera número no formato 5511999999999 (sem + e sem @)
+  const numero = item.telefone.replace(/\D/g, "");
 
   if (midiaUrl) {
-    const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-image`;
+    const url = `${BASE_URL}/message/sendMedia/${INSTANCE}`;
     const res = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        phone: item.telefone,
-        image: midiaUrl,
+        number: numero,
+        mediatype: "image",
+        mediaUrl: midiaUrl,
         caption: item.mensagem,
       }),
     });
     if (!res.ok) {
       const error = await res.text();
-      throw new Error("Erro Z-API (imagem): " + error);
+      throw new Error("Erro Evolution API (imagem): " + error);
     }
   } else {
-    const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`;
+    const url = `${BASE_URL}/message/sendText/${INSTANCE}`;
     const res = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        phone: item.telefone,
-        message: item.mensagem,
+        number: numero,
+        text: item.mensagem,
       }),
     });
     if (!res.ok) {
       const error = await res.text();
-      throw new Error("Erro Z-API: " + error);
+      throw new Error("Erro Evolution API: " + error);
     }
   }
 

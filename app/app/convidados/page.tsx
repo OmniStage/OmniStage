@@ -52,18 +52,26 @@ type Convidado = {
   responsavel_telefone: string | null;
   idade_crianca: number | null;
   tamanho_chinelo: string | null;
+  relacao_evento: string | null;
+  tag_envio: string | null;
   contato_principal: boolean | null;
   recebe_convite: boolean | null;
   tipo_convite: string | null;
   observacoes: string | null;
   status_rsvp: string | null;
   status_envio: string | null;
+  status_envio_save_the_date?: string | null;
+  data_envio_save_the_date?: string | null;
   status_envio_convite: string | null;
   data_envio_convite: string | null;
   status_envio_lembrete_rsvp: string | null;
   data_envio_lembrete_rsvp: string | null;
+  status_envio_lembrete_evento?: string | null;
+  data_envio_lembrete_evento?: string | null;
   status_envio_cartao: string | null;
   data_envio_cartao: string | null;
+  status_envio_album?: string | null;
+  data_envio_album?: string | null;
   status_checkin: string | null;
   token: string | null;
   evento_id: string | null;
@@ -72,7 +80,9 @@ type Convidado = {
   origem_importacao?: string | null;
   import_batch_id?: string | null;
   data_hora_rsvp?: string | null;
+  data_resposta?: string | null;
   data_hora_envio?: string | null;
+  data_checkin?: string | null;
 };
 
 type ConvidadoForm = {
@@ -86,6 +96,8 @@ type ConvidadoForm = {
   mae: string;
   idade_crianca: string;
   tamanho_chinelo: string;
+  relacao_evento: string[];
+  tag_envio: string;
   contato_principal: boolean;
   recebe_convite: boolean;
   tipo_convite: string;
@@ -155,6 +167,8 @@ const initialForm: ConvidadoForm = {
   mae: "",
   idade_crianca: "",
   tamanho_chinelo: "",
+  relacao_evento: [],
+  tag_envio: "",
   contato_principal: false,
   recebe_convite: false,
   tipo_convite: "individual",
@@ -255,6 +269,9 @@ export default function ConvidadosPage() {
   const [formAberto, setFormAberto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const formReturnScrollYRef = useRef(0);
+  const [relacoesEvento, setRelacoesEvento] = useState<string[]>([]);
+  const [novaTag, setNovaTag] = useState("");
+  const [toast, setToast] = useState<{ mensagem: string; tipo: "sucesso" | "erro" } | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
@@ -274,6 +291,11 @@ export default function ConvidadosPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
   const [importBatchId, setImportBatchId] = useState<string | null>(null);
+
+  function showToast(mensagem: string, tipo: "sucesso" | "erro" = "sucesso") {
+    setToast({ mensagem, tipo });
+    setTimeout(() => setToast(null), 3500);
+  }
 
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -493,6 +515,7 @@ export default function ConvidadosPage() {
   function limparFormulario() {
     setForm(initialForm);
     setEditandoId(null);
+    setNovaTag("");
   }
 
   function restaurarPosicaoLista() {
@@ -1005,12 +1028,18 @@ ${eventoAtual?.nome || "OmniStage"}`);
         observacoes,
         status_rsvp,
         status_envio,
+        status_envio_save_the_date,
+        data_envio_save_the_date,
         status_envio_convite,
         data_envio_convite,
         status_envio_lembrete_rsvp,
         data_envio_lembrete_rsvp,
+        status_envio_lembrete_evento,
+        data_envio_lembrete_evento,
         status_envio_cartao,
         data_envio_cartao,
+        status_envio_album,
+        data_envio_album,
         status_checkin,
         token,
         evento_id,
@@ -1019,7 +1048,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
         origem_importacao,
         import_batch_id,
         data_hora_rsvp,
-        data_hora_envio
+        data_resposta,
+        data_hora_envio,
+        data_checkin,
+        relacao_evento,
+        tag_envio
       `,
       )
       .eq("tenant_id", tenant)
@@ -1036,7 +1069,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
     const convidadosData = (data || []) as Convidado[];
     const contatosBase = await carregarContatosBaseDosConvidados(tenant, convidadosData);
 
-    setConvidados(normalizarConvidadosImportadosDeContatos(convidadosData, contatosBase));
+    const normalized = normalizarConvidadosImportadosDeContatos(convidadosData, contatosBase);
+    setConvidados(normalized);
+    // Coleta relações únicas para sugestão no form
+    const relacoes = [...new Set(normalized.flatMap((c) => c.relacao_evento ? c.relacao_evento.split(",").map((t: string) => t.trim()).filter(Boolean) : []))] as string[];
+    setRelacoesEvento(relacoes);
     await carregarPresentesPreEvento(evento);
   }
 
@@ -1195,6 +1232,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
           ? Number(idadeCriancaNormalizada)
           : null,
         tamanho_chinelo: form.tamanho_chinelo.trim() || null,
+        relacao_evento: form.relacao_evento.length > 0 ? form.relacao_evento.join(",") : null,
+        tag_envio: form.tag_envio || "Convidado(a)",
         contato_principal: conviteEhGrupo && !criancaSemGrupoViaResponsavel ? form.contato_principal : false,
         recebe_convite: criancaFinal && responsavelFinal
           ? true
@@ -1234,11 +1273,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
       setFormAberto(false);
       await carregarConvidados(tenantId, eventoId);
       restaurarPosicaoLista();
-      alert(estavaEditando ? "Convidado atualizado." : "Convidado criado.");
+      showToast(estavaEditando ? "Convidado atualizado com sucesso." : "Convidado criado com sucesso.", "sucesso");
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Erro ao salvar convidado.",
-      );
+      showToast(error instanceof Error ? error.message : "Erro ao salvar convidado.", "erro");
     } finally {
       setLoading(false);
     }
@@ -1438,6 +1475,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
         ? String(convidado.idade_crianca)
         : "",
       tamanho_chinelo: convidado.tamanho_chinelo || "",
+      relacao_evento: convidado.relacao_evento ? convidado.relacao_evento.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+      tag_envio: convidado.tag_envio || "",
       contato_principal: Boolean(contatoPrincipalFinal),
       recebe_convite: Boolean((contatoBaseEhCrianca || convidado.crianca === "sim") && responsavelFinal ? true : recebeConviteFinal),
       tipo_convite: convidado.tipo_convite || "individual",
@@ -1512,19 +1551,84 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
   function getStatusConviteExibicao(convidado: Convidado) {
     const statusAtual = convidado.status_envio_convite || convidado.status_envio;
+    const foiEnviado = statusAtual === "enviado" || statusAtual === "enviado_manual" || !!(convidado.data_envio_convite || convidado.data_hora_envio);
 
-    if (statusAtual === "enviado" || statusAtual === "enviado_manual" || statusAtual === "erro") {
-      return statusAtual;
+    if (statusAtual === "erro") return "erro";
+
+    // Sem telefone próprio → exibir status via quem envia
+    if (!convidado.telefone || !String(convidado.telefone).trim()) {
+      const grupo = String(convidado.grupo || "").trim();
+      if (grupo) {
+        // Caso 1a: contato_principal com telefone no mesmo grupo (campo direto)
+        const principal = convidados.find(
+          (c) => c.id !== convidado.id && c.contato_principal === true && !!c.telefone && String(c.grupo || "").trim() === grupo
+        );
+        if (principal) {
+          const sprincipal = principal.status_envio_convite || principal.status_envio;
+          const principalEnviou = sprincipal === "enviado" || sprincipal === "enviado_manual" || !!(principal.data_envio_convite || principal.data_hora_envio);
+          return principalEnviou ? "enviado_via_principal" : "pendente_via_principal";
+        }
+        // Caso 1b: buscar principal via contato_grupos + contato_grupo_membros
+        const nucleoDoGrupo = nucleosContatos.find((n) => n.nome === grupo);
+        if (nucleoDoGrupo) {
+          const membroPrincipal = vinculosContatos.find(
+            (v) => v.grupo_contato_id === nucleoDoGrupo.id && v.principal_envio === true
+          );
+          if (membroPrincipal) {
+            const principalConvidado = convidados.find(
+              (c) => c.tenant_contato_id === membroPrincipal.tenant_contato_id && !!c.telefone
+            );
+            if (principalConvidado) {
+              const sp = principalConvidado.status_envio_convite || principalConvidado.status_envio;
+              const principalEnviou = sp === "enviado" || sp === "enviado_manual" || !!(principalConvidado.data_envio_convite || principalConvidado.data_hora_envio);
+              return principalEnviou ? "enviado_via_principal" : "pendente_via_principal";
+            }
+            // Principal existe nos contatos mas não está na lista de convidados → usa foiEnviado do próprio
+            return foiEnviado ? "enviado_via_principal" : "pendente_via_principal";
+          }
+        }
+        // Caso 2: responsável externo com grupo
+        const temResponsavelNucleo = !!normalizarTelefone(convidado.responsavel_telefone) || !!String(convidado.responsavel || "").trim();
+        if (temResponsavelNucleo) {
+          return foiEnviado ? "enviado_via_principal" : "pendente_via_principal";
+        }
+      }
+      // Caso 3: criança com responsável externo sem grupo de núcleo
+      const temResponsavelDireto = !!normalizarTelefone(convidado.responsavel_telefone) || !!String(convidado.responsavel || "").trim();
+      if (temResponsavelDireto) {
+        return foiEnviado ? "enviado_via_responsavel" : "pendente_via_responsavel";
+      }
     }
 
-    if (convidado.data_envio_convite || convidado.data_hora_envio) {
-      return "enviado";
-    }
+    if (foiEnviado) return statusAtual === "enviado_manual" ? "enviado_manual" : "enviado";
 
     return statusAtual || "pendente";
   }
 
   function getDataConviteExibicao(convidado: Convidado) {
+    if (!convidado.telefone || !String(convidado.telefone).trim()) {
+      const grupo = String(convidado.grupo || "").trim();
+      if (grupo) {
+        // Principal direto nos convidados
+        const principal = convidados.find(
+          (c) => c.id !== convidado.id && c.contato_principal === true && !!c.telefone && String(c.grupo || "").trim() === grupo
+        );
+        if (principal) return principal.data_envio_convite || principal.data_hora_envio || null;
+        // Principal via contato_grupos
+        const nucleoDoGrupo = nucleosContatos.find((n) => n.nome === grupo);
+        if (nucleoDoGrupo) {
+          const membroPrincipal = vinculosContatos.find(
+            (v) => v.grupo_contato_id === nucleoDoGrupo.id && v.principal_envio === true
+          );
+          if (membroPrincipal) {
+            const principalConvidado = convidados.find(
+              (c) => c.tenant_contato_id === membroPrincipal.tenant_contato_id && !!c.telefone
+            );
+            if (principalConvidado) return principalConvidado.data_envio_convite || principalConvidado.data_hora_envio || null;
+          }
+        }
+      }
+    }
     return convidado.data_envio_convite || convidado.data_hora_envio || null;
   }
 
@@ -1660,6 +1764,21 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
   return (
     <main style={getPageStyle(themeVars)}>
+      <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(16px);} to { opacity:1; transform:translateX(-50%) translateY(0); } }`}</style>
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)",
+          background: toast.tipo === "sucesso" ? "#16a34a" : "#dc2626",
+          color: "#fff", padding: "14px 24px", borderRadius: 14,
+          fontWeight: 600, fontSize: 15, zIndex: 9999,
+          boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
+          display: "flex", alignItems: "center", gap: 10,
+          animation: "fadeInUp 0.3s ease",
+        }}>
+          {toast.tipo === "sucesso" ? "✓" : "✕"} {toast.mensagem}
+        </div>
+      )}
       <section style={heroCardStyle}>
         <div style={pageHeaderStyle}>
           <div>
@@ -2188,12 +2307,73 @@ ${eventoAtual?.nome || "OmniStage"}`);
               <div style={formBlockHeaderStyle}>
                 <span>04</span>
                 <div>
-                  <strong>Extras do evento</strong>
-                  <p>Campos opcionais para brindes, kits, observações internas e detalhes operacionais.</p>
+                  <strong>Relação com o Evento</strong>
+                  <p>Classifique o convidado por seu papel ou relação com o evento (ex: Família da noiva, Amigos do noivo).</p>
                 </div>
               </div>
 
               <div style={formBlockGridStyle}>
+                <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+                  <span>Relação com o evento</span>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8, marginTop: 6 }}>
+                    {form.relacao_evento.map((tag) => (
+                      <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#ede9fe", color: "#7c3aed", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 600 }}>
+                        {tag}
+                        <button type="button"
+                          onClick={() => updateForm("relacao_evento", form.relacao_evento.filter((t) => t !== tag))}
+                          style={{ background: "none", border: "none", color: "#7c3aed", cursor: "pointer", fontWeight: 700, fontSize: 15, lineHeight: 1, padding: 0 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={novaTag}
+                      onChange={(e) => setNovaTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && novaTag.trim()) {
+                          e.preventDefault();
+                          const tag = novaTag.trim();
+                          if (!form.relacao_evento.includes(tag)) updateForm("relacao_evento", [...form.relacao_evento, tag]);
+                          setNovaTag("");
+                        }
+                      }}
+                      placeholder="Digite e pressione Enter para adicionar..."
+                      style={{ ...inputStyle, flex: 1 }}
+                      list="relacoes-sugestoes"
+                    />
+                    <button type="button"
+                      onClick={() => {
+                        const tag = novaTag.trim();
+                        if (tag && !form.relacao_evento.includes(tag)) updateForm("relacao_evento", [...form.relacao_evento, tag]);
+                        setNovaTag("");
+                      }}
+                      style={{ padding: "10px 16px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                      + Adicionar
+                    </button>
+                  </div>
+                  <datalist id="relacoes-sugestoes">
+                    {relacoesEvento.filter((r) => !form.relacao_evento.includes(r)).map((r) => <option key={r} value={r} />)}
+                  </datalist>
+                </label>
+
+                {/* Tag de envio - selecionada dentre as tags do convidado */}
+                <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+                  <span style={{ fontWeight: 600 }}>Tag de envio WhatsApp</span>
+                  <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 8px" }}>
+                    Qual tag define o grupo de envio deste convidado?
+                  </p>
+                  <select
+                    value={form.tag_envio}
+                    onChange={(e) => updateForm("tag_envio", e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">Convidado(a) — padrão</option>
+                    {form.relacao_evento.map((tag) => (
+                      <option key={tag} value={tag}>{tag}</option>
+                    ))}
+                  </select>
+                </label>
+
                 <label style={fieldStyle}>
                   <span>Tamanho do chinelo</span>
                   <input
@@ -2422,6 +2602,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             }}
                           >
                             {convidado.nome}
+                            {convidado.relacao_evento && convidado.relacao_evento.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string) => (
+                              <span key={tag} style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: "#ede9fe", color: "#7c3aed", borderRadius: 20, padding: "2px 10px", verticalAlign: "middle" }}>
+                                {tag}
+                              </span>
+                            ))}
                           </strong>
 
                           <p
@@ -2467,7 +2652,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           )}
 
                           {((mostrarGrupo && convidado.contato_principal) ||
-                            convidado.recebe_convite) && (
+                            convidado.recebe_convite ||
+                            convidado.relacao_evento) && (
                             <div style={sendIdentityStyle}>
                               {mostrarGrupo && convidado.contato_principal && (
                                 <span>Contato principal do grupo</span>
@@ -2609,13 +2795,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           )}
 
                           <div style={quickActionsStyle}>
-                            <button
-                              onClick={() => copiarNome(convidado.nome)}
-                              style={goldButtonStyle}
-                            >
-                              Copiar nome
-                            </button>
-
                             {linkWhatsApp ? (
                               <button
                                 type="button"
@@ -2680,32 +2859,33 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             </a>
 
                             <a
-  href={linkCartao}
-  target="_blank"
-  rel="noreferrer"
-  style={goldButtonStyle}
->
-  Cartão HTML
-</a>
-
-<a
-  href={`/cartao/${encodeURIComponent(convidado.token || "")}`}
-  target="_blank"
-  rel="noreferrer"
-  style={goldButtonStyle}
->
-  Ver cartão
-</a>
+                              href={`/cartao/${encodeURIComponent(convidado.token || "")}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={goldButtonStyle}
+                            >
+                              Ver cartão
+                            </a>
                           </div>
                         </div>
 
                         <div style={eventActionsColumnStyle}>
-                          <span style={getRsvpStyle(convidado.status_rsvp)}>
-                            RSVP: {labelRsvp(convidado.status_rsvp)}
-                          </span>
-
                           <div style={enviosResumoStyle}>
+                            <EnvioLinha
+                              label="RSVP"
+                              status={convidado.status_rsvp === "confirmado" ? "rsvp_confirmado" : convidado.status_rsvp === "nao" ? "rsvp_nao" : "rsvp_pendente"}
+                              data={convidado.data_resposta || convidado.data_hora_rsvp || null}
+                            />
+
                             <strong style={enviosResumoTituloStyle}>Envios</strong>
+
+                            {(convidado.status_envio_save_the_date || convidado.data_envio_save_the_date) && (
+                              <EnvioLinha
+                                label="Save the Date"
+                                status={convidado.status_envio_save_the_date || null}
+                                data={convidado.data_envio_save_the_date || null}
+                              />
+                            )}
 
                             <EnvioLinha
                               label="Convite"
@@ -2728,11 +2908,27 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               }
                             />
 
+                            {(convidado.status_envio_lembrete_evento || convidado.data_envio_lembrete_evento) && (
+                              <EnvioLinha
+                                label="Lembrete Evento"
+                                status={convidado.status_envio_lembrete_evento || null}
+                                data={convidado.data_envio_lembrete_evento || null}
+                              />
+                            )}
+
                             <EnvioLinha
                               label="Cartão"
                               status={convidado.status_envio_cartao}
                               data={convidado.data_envio_cartao}
                             />
+
+                            {(convidado.status_envio_album || convidado.data_envio_album) && (
+                              <EnvioLinha
+                                label="Álbum"
+                                status={convidado.status_envio_album || null}
+                                data={convidado.data_envio_album || null}
+                              />
+                            )}
 
                             {listaPresentesAtiva(convidado) && (
                               <EnvioLinha
@@ -2741,19 +2937,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                 data={null}
                               />
                             )}
-                          </div>
 
-                          <div
-                            style={{
-                              marginTop: 12,
-                              width: "100%",
-                              display: "flex",
-                              justifyContent: "flex-end",
-                            }}
-                          >
-                            <span style={getCheckinStyle(convidado.status_checkin)}>
-                              Check-in: {labelCheckin(convidado.status_checkin)}
-                            </span>
+                            <EnvioLinha
+                              label="Check-in"
+                              status={convidado.status_checkin === "entrou" || convidado.status_checkin === "entrou_excecao" ? "checkin_entrou" : "checkin_nao_entrou"}
+                              data={convidado.data_checkin || null}
+                            />
                           </div>
 
                           <div style={rowActionsStyle}>
@@ -2890,27 +3079,29 @@ function EnvioLinha({
   data: string | null;
   origem?: string;
 }) {
-  const enviado = status === "enviado" || status === "enviado_manual";
+  const enviado = status === "enviado" || status === "enviado_manual" || status === "enviado_via_principal" || status === "enviado_via_responsavel" || status === "rsvp_confirmado" || status === "rsvp_nao" || status === "checkin_entrou";
 
   return (
     <div style={envioLinhaStyle}>
-      <span style={envioLinhaLabelStyle}>{label}</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        <span style={envioLinhaLabelStyle}>{label}</span>
+        {enviado && data && (
+          <small style={envioLinhaDataStyle}>
+            {formatarDataHoraCurta(data)}
+          </small>
+        )}
+      </div>
 
-      <span style={getEnvioStyle(status)}>
-        {labelEnvio(status)}
-      </span>
-
-      {enviado && data && (
-        <small style={envioLinhaDataStyle}>
-          {formatarDataHoraCurta(data)}
-        </small>
-      )}
-
-      {enviado && origem && (
-        <small style={envioOrigemCardStyle}>
-          {origem}
-        </small>
-      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+        <span style={getEnvioStyle(status)}>
+          {labelEnvio(status)}
+        </span>
+        {enviado && origem && (
+          <small style={envioOrigemCardStyle}>
+            {origem}
+          </small>
+        )}
+      </div>
     </div>
   );
 }
@@ -2924,8 +3115,17 @@ function labelRsvp(status: string | null) {
 function labelEnvio(status: string | null) {
   if (status === "enviado") return "Enviado";
   if (status === "enviado_manual") return "Enviado Card Convidado";
+  if (status === "enviado_via_principal") return "Via Principal ✓";
+  if (status === "pendente_via_principal") return "Pendente";
+  if (status === "enviado_via_responsavel") return "Via Responsável ✓";
+  if (status === "pendente_via_responsavel") return "Pendente";
   if (status === "nao_necessario") return "Não necessário";
   if (status === "erro") return "Erro";
+  if (status === "rsvp_confirmado") return "Confirmado";
+  if (status === "rsvp_nao") return "Não vai";
+  if (status === "rsvp_pendente") return "Pendente";
+  if (status === "checkin_entrou") return "Entrou";
+  if (status === "checkin_nao_entrou") return "Não entrou";
   return "Pendente";
 }
 
@@ -3041,6 +3241,30 @@ function getEnvioStyle(status: string | null): CSSProperties {
     };
   }
 
+  if (status === "enviado_via_principal") {
+    return {
+      ...statusStyle,
+      background: "#dbeafe",
+      color: "#1d4ed8",
+    };
+  }
+
+  if (status === "pendente_via_principal") {
+    return { ...statusStyle };
+  }
+
+  if (status === "enviado_via_responsavel") {
+    return {
+      ...statusStyle,
+      background: "#dbeafe",
+      color: "#1d4ed8",
+    };
+  }
+
+  if (status === "pendente_via_responsavel") {
+    return { ...statusStyle };
+  }
+
   if (status === "nao_necessario") {
     return {
       ...statusStyle,
@@ -3050,11 +3274,23 @@ function getEnvioStyle(status: string | null): CSSProperties {
   }
 
   if (status === "erro") {
-    return {
-      ...statusStyle,
-      background: "var(--red-soft)",
-      color: "#b91c1c",
-    };
+    return { ...statusStyle, background: "var(--red-soft)", color: "#b91c1c" };
+  }
+
+  if (status === "rsvp_confirmado") {
+    return { ...statusStyle, background: "#dcfce7", color: "#166534" };
+  }
+  if (status === "rsvp_nao") {
+    return { ...statusStyle, background: "#fee2e2", color: "#b91c1c" };
+  }
+  if (status === "rsvp_pendente") {
+    return { ...statusStyle };
+  }
+  if (status === "checkin_entrou") {
+    return { ...statusStyle, background: "#dcfce7", color: "#166534" };
+  }
+  if (status === "checkin_nao_entrou") {
+    return { ...statusStyle };
   }
 
   return {
@@ -3818,7 +4054,7 @@ const toggleTextStyle: CSSProperties = {
 const importInfoStyle: CSSProperties = {
   display: "grid",
   gap: 0,
-  marginTop: 12,
+  marginTop: 4,
   borderRadius: 16,
   border: "1px solid var(--accent-border)",
   background: "linear-gradient(135deg, var(--group-soft), var(--card-bg))",
@@ -4014,8 +4250,7 @@ const envioLinhaStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "128px auto",
   alignItems: "center",
-  justifyContent: "start",
-  gap: 10,
+  gap: "4px 10px",
 };
 
 const envioLinhaLabelStyle: CSSProperties = {
@@ -4026,25 +4261,23 @@ const envioLinhaLabelStyle: CSSProperties = {
 };
 
 const envioLinhaDataStyle: CSSProperties = {
-  gridColumn: "1 / -1",
   color: "var(--muted)",
   fontSize: 11,
   fontWeight: 700,
-  marginTop: -3,
   textAlign: "left",
 };
 
 const statusStyle: CSSProperties = {
   display: "inline-block",
-  padding: "7px 11px",
+  padding: "4px 10px",
   borderRadius: 999,
   fontWeight: 800,
   fontSize: 12,
+  whiteSpace: "nowrap",
+  lineHeight: "1.4",
 };
 
 const envioOrigemCardStyle: CSSProperties = {
-  gridColumn: "1 / -1",
-  justifySelf: "start",
   display: "inline-flex",
   alignItems: "center",
   width: "fit-content",

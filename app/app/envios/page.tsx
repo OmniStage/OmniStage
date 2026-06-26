@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "lembrete_evento" | "cartao_evento" | "link_album";
+type TipoEnvio = "save_the_date" | "convite" | "lembrete_rsvp" | "lembrete_evento" | "cartao_entrada" | "lista_presentes" | "link_album";
 type FiltroStatusEnvio =
   | "a_enviar"
   | "na_fila"
@@ -54,6 +54,8 @@ type Convidado = {
 
   status_envio_album?: string | null;
   data_envio_album?: string | null;
+
+  tag_envio?: string | null;
 };
 
 type Evento = {
@@ -102,8 +104,8 @@ type Campanha = {
   titulo: string;
   subtitulo: string;
   descricao: string;
-  statusColumn: keyof Convidado;
-  dataColumn: keyof Convidado;
+  statusColumn: keyof Convidado | null;
+  dataColumn: keyof Convidado | null;
   cor: string;
   corSuave: string;
   filtrarPublico: (convidado: Convidado) => boolean;
@@ -126,7 +128,8 @@ export default function EnviosPage() {
     convite: campanhas.convite.templatePadrao,
     lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
     lembrete_evento: campanhas.lembrete_evento.templatePadrao,
-    cartao_evento: campanhas.cartao_evento.templatePadrao,
+    cartao_entrada: campanhas.cartao_entrada.templatePadrao,
+    lista_presentes: campanhas.lista_presentes.templatePadrao,
     link_album: campanhas.link_album.templatePadrao,
   });
   const [templatesConfigurados, setTemplatesConfigurados] = useState<Record<TipoEnvio, boolean>>({
@@ -134,7 +137,8 @@ export default function EnviosPage() {
     convite: false,
     lembrete_rsvp: false,
     lembrete_evento: false,
-    cartao_evento: false,
+    cartao_entrada: false,
+    lista_presentes: false,
     link_album: false,
   });
   const [loading, setLoading] = useState(true);
@@ -150,14 +154,27 @@ export default function EnviosPage() {
     aberto: boolean;
     lista: Convidado[];
     dataHora: string;
+    hora: string;
     agendar: boolean;
+    reagendar?: boolean;
   };
   const [modalAgendamento, setModalAgendamento] = useState<ModalAgendamento>({
     aberto: false,
     lista: [],
     dataHora: "",
+    hora: "09:00",
     agendar: false,
+    reagendar: false,
   });
+
+  const [modalConfirm, setModalConfirm] = useState<{
+    aberto: boolean;
+    titulo: string;
+    mensagem: string;
+    confirmLabel?: string;
+    confirmColor?: string;
+    onConfirm: () => void;
+  }>({ aberto: false, titulo: "", mensagem: "", onConfirm: () => {} });
 
   type ProgressoEnvio = {
     total: number;
@@ -173,15 +190,20 @@ export default function EnviosPage() {
   const [progresso, setProgresso] = useState<ProgressoEnvio | null>(null);
   const cancelarEnvioRef = useRef(false);
   const [filaEnvios, setFilaEnvios] = useState<ItemFila[]>([]);
+  const [numerosEvento, setNumerosEvento] = useState<{ relacao_evento: string | null; whatsapp_instance: string }[]>([]);
+  const [cronograma, setCronograma] = useState<{ tipo_envio: string; ativo: boolean; dias_antes: number | null; hora_envio: string | null }[]>([]);
+  const [dataEvento, setDataEvento] = useState<string | null>(null);
   const [envioPendenteConfirmacao, setEnvioPendenteConfirmacao] = useState<Convidado | null>(null);
   const [confirmandoEnvio, setConfirmandoEnvio] = useState(false);
   const [cancelandoEnvioId, setCancelandoEnvioId] = useState<string | null>(null);
+  const [modalHistorico, setModalHistorico] = useState<{ aberto: boolean; convidado: Convidado | null; registros: any[]; carregando: boolean }>({ aberto: false, convidado: null, registros: [], carregando: false });
   const [midiasCampanha, setMidiasCampanha] = useState<Record<TipoEnvio, string>>({
     save_the_date: "",
     convite: "",
     lembrete_rsvp: "",
     lembrete_evento: "",
-    cartao_evento: "",
+    cartao_entrada: "",
+    lista_presentes: "",
     link_album: "",
   });
   const [campanhasEnvioIds, setCampanhasEnvioIds] = useState<Record<TipoEnvio, string>>({
@@ -189,7 +211,8 @@ export default function EnviosPage() {
     convite: "",
     lembrete_rsvp: "",
     lembrete_evento: "",
-    cartao_evento: "",
+    cartao_entrada: "",
+    lista_presentes: "",
     link_album: "",
   });
   const [albumUrl, setAlbumUrl] = useState("");
@@ -222,6 +245,8 @@ export default function EnviosPage() {
         carregarConvidados(evento.id, evento.tenant_id),
         carregarTemplatesECampanhas(evento.id, evento.tenant_id),
         carregarFila(evento.id),
+        buscarNumerosEvento(evento.id),
+        buscarCronograma(evento.id, evento.tenant_id),
       ]);
     } else {
       setConvidados([]);
@@ -342,7 +367,8 @@ export default function EnviosPage() {
         status_envio_cartao,
         data_envio_cartao,
         status_envio_album,
-        data_envio_album
+        data_envio_album,
+        tag_envio
       `)
       .eq("evento_id", eventoId)
       .order("grupo", { ascending: true, nullsFirst: false })
@@ -475,6 +501,44 @@ export default function EnviosPage() {
     setFilaEnvios((data || []) as ItemFila[]);
   }
 
+  async function buscarCronograma(eventoId: string, tenantId?: string | null) {
+    if (!tenantId) return;
+    try {
+      const res = await fetch(`/api/whatsapp/cronograma?evento_id=${eventoId}&tenant_id=${tenantId}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      setCronograma(json.cronograma || []);
+      setDataEvento(json.data_evento || null);
+    } catch { /* silently ignore */ }
+  }
+
+  async function buscarNumerosEvento(eventoId: string) {
+    try {
+      const res = await fetch(`/api/whatsapp/numeros-evento?evento_id=${eventoId}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      setNumerosEvento(json.regras || []);
+    } catch {
+      // silently ignore
+    }
+  }
+
+  function getDataProgramada(tipo: string): string | null {
+    const item = cronograma.find((c) => c.tipo_envio === tipo && c.ativo);
+    if (!item || !dataEvento || item.dias_antes == null) return null;
+    const d = new Date(dataEvento);
+    d.setDate(d.getDate() - item.dias_antes);
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  function getInstanciaConvidado(convidado: Convidado): string | null {
+    const tag = convidado.tag_envio || "Convidado(a)";
+    const regra = numerosEvento.find((n) => n.relacao_evento === tag);
+    if (regra) return regra.whatsapp_instance;
+    const geral = numerosEvento.find((n) => n.relacao_evento === null);
+    return geral?.whatsapp_instance || null;
+  }
+
   async function carregarTemplatesECampanhas(eventoId: string, tenantId?: string | null) {
     const { data: templatesData, error: templatesError } = await supabase
       .from("envio_templates")
@@ -491,7 +555,8 @@ export default function EnviosPage() {
       convite: campanhas.convite.templatePadrao,
       lembrete_rsvp: campanhas.lembrete_rsvp.templatePadrao,
       lembrete_evento: campanhas.lembrete_evento.templatePadrao,
-      cartao_evento: campanhas.cartao_evento.templatePadrao,
+      cartao_entrada: campanhas.cartao_entrada.templatePadrao,
+      lista_presentes: campanhas.lista_presentes.templatePadrao,
       link_album: campanhas.link_album.templatePadrao,
     };
 
@@ -500,7 +565,8 @@ export default function EnviosPage() {
       convite: false,
       lembrete_rsvp: false,
       lembrete_evento: false,
-      cartao_evento: false,
+      cartao_entrada: false,
+      lista_presentes: false,
       link_album: false,
     };
 
@@ -516,7 +582,8 @@ export default function EnviosPage() {
       convite: {},
       lembrete_rsvp: {},
       lembrete_evento: {},
-      cartao_evento: {},
+      cartao_entrada: {},
+      lista_presentes: {},
       link_album: {},
     };
 
@@ -541,7 +608,8 @@ export default function EnviosPage() {
       convite: "",
       lembrete_rsvp: "",
       lembrete_evento: "",
-      cartao_evento: "",
+      cartao_entrada: "",
+      lista_presentes: "",
       link_album: "",
     };
 
@@ -550,7 +618,8 @@ export default function EnviosPage() {
       convite: "",
       lembrete_rsvp: "",
       lembrete_evento: "",
-      cartao_evento: "",
+      cartao_entrada: "",
+      lista_presentes: "",
       link_album: "",
     };
 
@@ -815,12 +884,19 @@ export default function EnviosPage() {
   }
 
   function restaurarTemplatePadrao() {
-    if (!window.confirm("Restaurar a mensagem padrão desta campanha?")) return;
-
-    setTemplates((current) => ({
-      ...current,
-      [tipoEnvio]: campanha.templatePadrao,
-    }));
+    setModalConfirm({
+      aberto: true,
+      titulo: "Restaurar mensagem padrão?",
+      mensagem: "A mensagem atual será substituída pelo template padrão desta campanha.",
+      confirmLabel: "Restaurar",
+      confirmColor: "#7c3aed",
+      onConfirm: () => {
+        setTemplates((current) => ({
+          ...current,
+          [tipoEnvio]: campanha.templatePadrao,
+        }));
+      },
+    });
   }
 
   function toggleSelecionado(convidadoId: string) {
@@ -856,9 +932,19 @@ export default function EnviosPage() {
       return;
     }
 
+    const jaFila = lista.filter((c) => convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio));
     const elegiveis = lista.filter((convidado) =>
       deveAparecerEmAEnviar(convidado, campanha, filaEnvios, tipoEnvio, convidados)
     );
+
+    if (jaFila.length > 0 && elegiveis.length === 0) {
+      toast(`${jaFila.length === 1 ? `${jaFila[0].nome} já está` : `${jaFila.length} convidados já estão`} na fila desta campanha.`, "warning");
+      return;
+    }
+
+    if (jaFila.length > 0) {
+      toast(`${jaFila.length === 1 ? `${jaFila[0].nome} já está na fila` : `${jaFila.length} já estão na fila`} e ${jaFila.length === 1 ? "foi ignorado" : "foram ignorados"}.`, "warning");
+    }
 
     if (elegiveis.length === 0) {
       toast("Nenhum convidado elegível para adicionar à fila.", "warning");
@@ -867,22 +953,47 @@ export default function EnviosPage() {
 
     const dataHoje = new Date().toISOString().slice(0, 10);
 
-    setModalAgendamento({ aberto: true, lista: elegiveis, dataHora: dataHoje, agendar: false });
+    setModalAgendamento({ aberto: true, lista: elegiveis, dataHora: dataHoje, hora: "09:00", agendar: false });
   }
 
   async function confirmarAdicionarFila() {
     if (!eventoAtual?.id || !eventoAtual.tenant_id) return;
 
-    const { lista, agendar, dataHora } = modalAgendamento;
-    // Converte data escolhida para 09:00 horário de Brasília (UTC-3)
-    const agendadoPara = agendar && dataHora
-      ? new Date(`${dataHora}T09:00:00-03:00`).toISOString()
+    const { lista, agendar, dataHora, hora, reagendar } = modalAgendamento;
+    const horaEnvio = hora || "09:00";
+    const agendadoPara = (agendar || reagendar) && dataHora
+      ? new Date(`${dataHora}T${horaEnvio}:00-03:00`).toISOString()
       : null;
 
     setModalAgendamento((m) => ({ ...m, aberto: false }));
     setProcessandoMassa(true);
 
-    const linhas = lista.map((convidado) => ({
+    // Reagendar: atualiza a data do item existente na fila
+    if (reagendar && lista.length === 1 && agendadoPara) {
+      const convidado = lista[0];
+      const { error } = await supabase
+        .from("envio_fila")
+        .update({ agendado_para: agendadoPara, status: "agendado" })
+        .eq("evento_id", eventoAtual.id)
+        .eq("convidado_id", convidado.id)
+        .eq("tipo_envio", tipoEnvio)
+        .in("status", ["pendente", "agendado"]);
+
+      setProcessandoMassa(false);
+      if (error) { toast("Erro ao reagendar: " + error.message, "error"); return; }
+      await carregarFila(eventoAtual.id);
+      toast(`Reagendado para ${new Date(agendadoPara).toLocaleDateString("pt-BR")} às 09h.`, "success");
+      return;
+    }
+
+    // Expandir lista incluindo todos os dependentes sem telefone do principal
+    const listaExpandida = lista.flatMap((convidado) => {
+      const dependentes = getDependentesViaPrincipal(convidado, convidados);
+      return [convidado, ...dependentes];
+    });
+    const listaUnica = listaExpandida.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
+
+    const linhas = listaUnica.map((convidado) => ({
       tenant_id: eventoAtual.tenant_id,
       evento_id: eventoAtual.id,
       convidado_id: convidado.id,
@@ -893,6 +1004,15 @@ export default function EnviosPage() {
       status: agendadoPara ? "agendado" : "pendente",
       agendado_para: agendadoPara,
     }));
+
+    // Remover entradas pendentes/agendadas existentes para evitar duplicatas
+    await supabase
+      .from("envio_fila")
+      .delete()
+      .eq("evento_id", eventoAtual.id)
+      .eq("tipo_envio", tipoEnvio)
+      .in("convidado_id", listaUnica.map((c) => c.id))
+      .in("status", ["pendente", "agendado"]);
 
     const { error } = await supabase.from("envio_fila").insert(linhas);
 
@@ -955,35 +1075,70 @@ export default function EnviosPage() {
     const nomesPorId: Record<string, string> = {};
     (convidadosNomes || []).forEach((c) => { nomesPorId[c.id] = c.nome || "Sem nome"; });
 
-    if (!confirm(`Disparar ${itensFila.length} envio(s) via WhatsApp agora?\n\nO processo pode levar alguns minutos. Não feche esta janela.`)) return;
+    setModalConfirm({
+      aberto: true,
+      titulo: `Disparar ${itensFila.length} envio${itensFila.length > 1 ? "s" : ""} agora?`,
+      mensagem: `Os envios serão processados via WhatsApp. O processo pode levar alguns minutos — não feche esta janela.`,
+      confirmLabel: "Disparar agora",
+      confirmColor: "#16a34a",
+      onConfirm: () => executarDisparoFila(itensFila, nomesPorId),
+    });
+  }
 
+  async function executarDisparoFila(itensFila: { id: string; telefone: string; convidado_id: string }[], nomesPorId: Record<string, string>) {
     cancelarEnvioRef.current = false;
     setDisparandoFila(true);
-    setProgresso({ total: itensFila.length, atual: 0, nomeAtual: "", telefoneAtual: "", enviados: 0, erros: 0, ativo: true, cancelado: false });
+
+    // Agrupar por telefone efetivo: mesmo número = um único envio
+    const grupos: { principal: typeof itensFila[0]; duplicatas: typeof itensFila[0][] }[] = [];
+    const telefonesVistos = new Map<string, number>();
+
+    for (const item of itensFila) {
+      const tel = (item.telefone || "").replace(/\D/g, "");
+      if (!tel) continue;
+      if (telefonesVistos.has(tel)) {
+        grupos[telefonesVistos.get(tel)!].duplicatas.push(item);
+      } else {
+        telefonesVistos.set(tel, grupos.length);
+        grupos.push({ principal: item, duplicatas: [] });
+      }
+    }
+
+    setProgresso({ total: grupos.length, atual: 0, nomeAtual: "", telefoneAtual: "", enviados: 0, erros: 0, ativo: true, cancelado: false });
 
     let enviados = 0;
     let erros = 0;
 
-    for (let i = 0; i < itensFila.length; i++) {
+    for (let i = 0; i < grupos.length; i++) {
       if (cancelarEnvioRef.current) {
         setProgresso((p) => p ? { ...p, ativo: false, cancelado: true } : null);
         break;
       }
 
-      const item = itensFila[i];
-      const nome = nomesPorId[item.convidado_id] || item.telefone || "Convidado";
+      const { principal, duplicatas } = grupos[i];
+      const nome = nomesPorId[principal.convidado_id] || principal.telefone || "Convidado";
 
-      setProgresso((p) => p ? { ...p, atual: i + 1, nomeAtual: nome, telefoneAtual: item.telefone || "" } : null);
+      setProgresso((p) => p ? { ...p, atual: i + 1, nomeAtual: nome, telefoneAtual: principal.telefone || "" } : null);
 
       try {
+        // Envia para o principal
         const res = await fetch("/api/envios/processar-um", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: item.id }),
+          body: JSON.stringify({ id: principal.id }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error || "Erro desconhecido");
-        enviados++;
+
+        // Marca duplicatas como enviado sem reenviar
+        if (duplicatas.length > 0) {
+          await supabase
+            .from("envio_fila")
+            .update({ status: "enviado", processado_em: new Date().toISOString() })
+            .in("id", duplicatas.map((d) => d.id));
+        }
+
+        enviados += 1 + duplicatas.length;
         setProgresso((p) => p ? { ...p, enviados } : null);
       } catch (err: any) {
         erros++;
@@ -991,7 +1146,7 @@ export default function EnviosPage() {
       }
 
       // Delay aleatório entre 12 e 25 segundos (exceto no último)
-      if (i < itensFila.length - 1 && !cancelarEnvioRef.current) {
+      if (i < grupos.length - 1 && !cancelarEnvioRef.current) {
         const delay = 12000 + Math.random() * 13000;
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
@@ -999,7 +1154,51 @@ export default function EnviosPage() {
 
     setProgresso((p) => p ? { ...p, ativo: false } : null);
     setDisparandoFila(false);
-    if (eventoAtual?.id) await carregarFila(eventoAtual.id);
+    if (eventoAtual?.id) {
+      await carregarFila(eventoAtual.id);
+      await carregarConvidados(eventoAtual.id, eventoAtual.tenant_id);
+    }
+  }
+
+  async function abrirHistorico(convidado: Convidado) {
+    if (!eventoAtual?.id) return;
+    setModalHistorico({ aberto: true, convidado, registros: [], carregando: true });
+
+    const [{ data: historico }, { data: fila }] = await Promise.all([
+      supabase
+        .from("envio_historico")
+        .select("*")
+        .eq("evento_id", eventoAtual.id)
+        .eq("convidado_id", convidado.id)
+        .eq("tipo_envio", tipoEnvio)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("envio_fila")
+        .select("*")
+        .eq("evento_id", eventoAtual.id)
+        .eq("convidado_id", convidado.id)
+        .eq("tipo_envio", tipoEnvio)
+        .order("updated_at", { ascending: false }),
+    ]);
+
+    const registrosHistorico = (historico || []).map((r: any) => ({ ...r, _fonte: "historico" }));
+
+    const idsNoHistorico = new Set(registrosHistorico.map((r: any) => r.id));
+    const registrosFila = (fila || [])
+      .filter((f: any) => !idsNoHistorico.has(f.id))
+      .map((f: any) => ({
+        id: f.id,
+        status: f.status,
+        detalhe: f.erro || null,
+        created_at: f.updated_at || f.created_at,
+        _fonte: "fila",
+      }));
+
+    const todos = [...registrosHistorico, ...registrosFila].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    setModalHistorico((m) => ({ ...m, registros: todos, carregando: false }));
   }
 
   function inserirVariavel(variavel: string) {
@@ -1041,16 +1240,16 @@ export default function EnviosPage() {
     const convidadosParaAtualizar = convidadosRepresentados.length > 0 ? convidadosRepresentados : [convidado];
     const idsParaAtualizar = Array.from(new Set(convidadosParaAtualizar.map((item) => item.id)));
 
-    const payload = {
-      [campanha.statusColumn]: "enviado",
-      [campanha.dataColumn]: agora,
-    };
+    const payload: Record<string, unknown> = {};
+    if (campanha.statusColumn) payload[campanha.statusColumn] = "enviado";
+    if (campanha.dataColumn) payload[campanha.dataColumn] = agora;
 
-    const { error } = await supabase.from("convidados").update(payload).in("id", idsParaAtualizar);
-
-    if (error) {
-      toast("Erro ao marcar como enviado: " + error.message, "error");
-      return;
+    if (Object.keys(payload).length > 0) {
+      const { error } = await supabase.from("convidados").update(payload).in("id", idsParaAtualizar);
+      if (error) {
+        toast("Erro ao marcar como enviado: " + error.message, "error");
+        return;
+      }
     }
 
     setConvidados((current) =>
@@ -1058,8 +1257,8 @@ export default function EnviosPage() {
         idsParaAtualizar.includes(item.id)
           ? {
               ...item,
-              [campanha.statusColumn]: "enviado",
-              [campanha.dataColumn]: agora,
+              ...(campanha.statusColumn ? { [campanha.statusColumn]: "enviado" } : {}),
+              ...(campanha.dataColumn ? { [campanha.dataColumn]: agora } : {}),
             }
           : item
       )
@@ -1094,14 +1293,28 @@ export default function EnviosPage() {
     );
   }
 
-  async function removerDaFila(convidado: Convidado) {
+  function removerDaFila(convidado: Convidado) {
     if (!eventoAtual?.id) return;
 
-    const confirmar = window.confirm(
-      `Retirar ${convidado.nome || "este convidado"} da fila de envio?`
-    );
+    const selecionadosNaFila = Object.entries(selecionados)
+      .filter(([, sel]) => sel)
+      .map(([id]) => convidados.find((c) => c.id === id))
+      .filter((c): c is Convidado => !!c && convidadoEstaNaFila(filaEnvios, c.id, tipoEnvio));
 
-    if (!confirmar) return;
+    const lista = selecionadosNaFila.length > 1 ? selecionadosNaFila : [convidado];
+
+    setModalConfirm({
+      aberto: true,
+      titulo: "Retirar da fila",
+      mensagem: lista.length > 1
+        ? `Retirar ${lista.length} convidados da fila de envio?`
+        : `Retirar ${convidado.nome || "este convidado"} da fila de envio?`,
+      onConfirm: () => Promise.all(lista.map((c) => executarRemocaoDaFila(c))),
+    });
+  }
+
+  async function executarRemocaoDaFila(convidado: Convidado) {
+    if (!eventoAtual?.id) return;
 
     const agora = new Date().toISOString();
 
@@ -1115,7 +1328,7 @@ export default function EnviosPage() {
       .eq("evento_id", eventoAtual.id)
       .eq("convidado_id", convidado.id)
       .eq("tipo_envio", tipoEnvio)
-      .eq("status", "pendente");
+      .in("status", ["pendente", "agendado"]);
 
     if (error) {
       toast("Erro ao retirar da fila: " + error.message, "error");
@@ -1128,7 +1341,7 @@ export default function EnviosPage() {
           !(
             item.convidado_id === convidado.id &&
             item.tipo_envio === tipoEnvio &&
-            item.status === "pendente"
+            (item.status === "pendente" || item.status === "agendado")
           ),
       ),
     );
@@ -1140,6 +1353,15 @@ export default function EnviosPage() {
       "pendente",
       "Convidado removido manualmente da fila de envio."
     );
+  }
+
+  function reagendarEnvio(convidado: Convidado, dataAtual?: string | null) {
+    const d = dataAtual ? new Date(dataAtual) : new Date();
+    const dataHoje = d.toISOString().slice(0, 10);
+    const horaAtual = dataAtual
+      ? `${String(d.getUTCHours() - 3 < 0 ? d.getUTCHours() + 21 : d.getUTCHours() - 3).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`
+      : "09:00";
+    setModalAgendamento({ aberto: true, lista: [convidado], dataHora: dataHoje, hora: horaAtual, agendar: true, reagendar: true });
   }
 
   async function tentarNovamente(convidado: Convidado) {
@@ -1162,42 +1384,31 @@ export default function EnviosPage() {
     toast(`${convidado.nome || "Convidado"} recolocado na fila`, "success");
   }
 
-  async function cancelarEnvioConfirmado(convidado: Convidado) {
+  async function executarCancelamentoEnvio(convidado: Convidado) {
     if (!eventoAtual?.id) return;
-
-    const confirmar = window.confirm(
-      `Cancelar o envio marcado para ${convidado.nome || "este convidado"}? Ele voltará para pendente desta campanha.`
-    );
-
-    if (!confirmar) return;
 
     setCancelandoEnvioId(convidado.id);
 
-    const payload = {
-      [campanha.statusColumn]: "pendente",
-      [campanha.dataColumn]: null,
-    };
+    const payload: Record<string, unknown> = {};
+    if (campanha.statusColumn) payload[campanha.statusColumn] = null;
+    if (campanha.dataColumn) payload[campanha.dataColumn] = null;
 
-    const { error } = await supabase
-      .from("convidados")
-      .update(payload)
-      .eq("id", convidado.id);
+    if (Object.keys(payload).length > 0) {
+      const { error } = await supabase
+        .from("convidados")
+        .update(payload)
+        .eq("id", convidado.id);
 
-    if (error) {
-      setCancelandoEnvioId(null);
-      toast("Erro ao cancelar envio: " + error.message, "error");
-      return;
+      if (error) {
+        setCancelandoEnvioId(null);
+        toast("Erro ao cancelar envio: " + error.message, "error");
+        return;
+      }
     }
-
-    const agora = new Date().toISOString();
 
     await supabase
       .from("envio_fila")
-      .update({
-        status: "pendente",
-        processado_em: null,
-        updated_at: agora,
-      })
+      .delete()
       .eq("evento_id", eventoAtual.id)
       .eq("convidado_id", convidado.id)
       .eq("tipo_envio", tipoEnvio);
@@ -1207,21 +1418,29 @@ export default function EnviosPage() {
         item.id === convidado.id
           ? {
               ...item,
-              [campanha.statusColumn]: "pendente",
-              [campanha.dataColumn]: null,
+              ...(campanha.statusColumn ? { [campanha.statusColumn]: null } : {}),
+              ...(campanha.dataColumn ? { [campanha.dataColumn]: null } : {}),
             }
           : item
       )
     );
 
     await carregarFila(eventoAtual.id);
-    await registrarHistoricoEnvio(
-      convidado,
-      "pendente",
-      "Envio cancelado pelo operador e retornado para pendente."
-    );
-
+    await registrarHistoricoEnvio(convidado, "pendente", "Envio cancelado pelo operador.");
     setCancelandoEnvioId(null);
+  }
+
+  function cancelarEnvioConfirmado(convidado: Convidado) {
+    if (!eventoAtual?.id) return;
+
+    setModalConfirm({
+      aberto: true,
+      titulo: "Cancelar envio confirmado?",
+      mensagem: `${convidado.nome || "Este convidado"} voltará para 'A enviar' — sem fila.`,
+      confirmLabel: "Cancelar envio",
+      confirmColor: "#dc2626",
+      onConfirm: () => executarCancelamentoEnvio(convidado),
+    });
   }
 
   async function registrarHistoricoEnvio(
@@ -1267,7 +1486,7 @@ export default function EnviosPage() {
     }
 
     const dataHoje = new Date().toISOString().slice(0, 10);
-    setModalAgendamento({ aberto: true, lista: [convidado], dataHora: dataHoje, agendar: false });
+    setModalAgendamento({ aberto: true, lista: [convidado], dataHora: dataHoje, hora: "09:00", agendar: false });
   }
 
 
@@ -1441,37 +1660,38 @@ export default function EnviosPage() {
       return;
     }
 
-    const confirmar = window.confirm("Remover a mídia desta campanha de envio?");
+    setModalConfirm({
+      aberto: true,
+      titulo: "Remover mídia?",
+      mensagem: "A imagem desta campanha será removida permanentemente.",
+      confirmLabel: "Remover",
+      confirmColor: "#dc2626",
+      onConfirm: async () => {
+        const campanhaId = await garantirCampanhaEnvioAtual();
+        if (!campanhaId) return;
 
-    if (!confirmar) return;
+        const { error } = await supabase
+          .from("envio_campanhas")
+          .update({
+            midia_url: null,
+            midia_bucket: null,
+            midia_path: null,
+            midia_tipo: null,
+            midia_nome: null,
+            midia_tamanho_bytes: null,
+            atualizado_em: new Date().toISOString(),
+          })
+          .eq("id", campanhaId);
 
-    const campanhaId = await garantirCampanhaEnvioAtual();
+        if (error) {
+          toast("Erro ao remover mídia: " + error.message, "error");
+          return;
+        }
 
-    if (!campanhaId) return;
-
-    const { error } = await supabase
-      .from("envio_campanhas")
-      .update({
-        midia_url: null,
-        midia_bucket: null,
-        midia_path: null,
-        midia_tipo: null,
-        midia_nome: null,
-        midia_tamanho_bytes: null,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("id", campanhaId);
-
-    if (error) {
-      toast("Erro ao remover mídia: " + error.message, "error");
-      return;
-    }
-
-    setMidiasCampanha((current) => ({
-      ...current,
-      [tipoEnvio]: "",
-    }));
-    setStatusMidiaUltimoEnvio(null);
+        setMidiasCampanha((current) => ({ ...current, [tipoEnvio]: "" }));
+        setStatusMidiaUltimoEnvio(null);
+      },
+    });
   }
 
   async function salvarUrlManualMidiaCampanha(url: string) {
@@ -1663,48 +1883,131 @@ export default function EnviosPage() {
 
   return (
     <div style={pageStyle}>
+      {modalHistorico.aberto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", width: 480, maxWidth: "94vw", boxShadow: "0 8px 40px rgba(0,0,0,0.18)", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#111" }}>Histórico de envios</h3>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#666" }}>{modalHistorico.convidado?.nome} · {tipoEnvio.replace(/_/g, " ")}</p>
+              </div>
+              <button onClick={() => setModalHistorico((m) => ({ ...m, aberto: false }))} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#888", lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {modalHistorico.carregando ? (
+                <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: "20px 0" }}>Carregando...</p>
+              ) : modalHistorico.registros.length === 0 ? (
+                <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: "20px 0" }}>Nenhum registro encontrado.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {modalHistorico.registros.map((r: any) => (
+                    <div key={r.id} style={{ padding: "12px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <span style={{
+                          fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 20,
+                          background: r.status === "enviado" ? "#dcfce7" : r.status === "erro" ? "#fee2e2" : "#f1f5f9",
+                          color: r.status === "enviado" ? "#15803d" : r.status === "erro" ? "#dc2626" : "#64748b",
+                        }}>
+                          {r.status === "enviado" ? "✓ Enviado" : r.status === "erro" ? "✕ Erro" : "Pendente"}
+                        </span>
+                        <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                          {new Date(r.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </span>
+                      </div>
+                      {r.detalhe && <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>{r.detalhe}</p>}
+                      {r.erro && <p style={{ margin: 0, fontSize: 12, color: "#dc2626" }}>{r.erro}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalConfirm.aberto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", width: 380, maxWidth: "92vw", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 17, fontWeight: 600, color: "#111" }}>{modalConfirm.titulo}</h3>
+            <p style={{ margin: "0 0 24px", fontSize: 14, color: "#555" }}>{modalConfirm.mensagem}</p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setModalConfirm((m) => ({ ...m, aberto: false }))}
+                style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 14, cursor: "pointer", color: "#444" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setModalConfirm((m) => ({ ...m, aberto: false })); modalConfirm.onConfirm(); }}
+                style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: modalConfirm.confirmColor || "#dc2626", color: "#fff", fontSize: 14, cursor: "pointer", fontWeight: 500 }}
+              >
+                {modalConfirm.confirmLabel || "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalAgendamento.aberto && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", width: 400, maxWidth: "92vw", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 600, color: "#111" }}>Agendar envio</h3>
+            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 600, color: "#111" }}>
+              {modalAgendamento.reagendar ? "Reagendar envio" : "Agendar envio"}
+            </h3>
             <p style={{ margin: "0 0 20px", fontSize: 14, color: "#666" }}>
-              {modalAgendamento.lista.length === 1
-                ? `1 convidado será adicionado à fila.`
-                : `${modalAgendamento.lista.length} convidados serão adicionados à fila.`}
+              {modalAgendamento.reagendar
+                ? `Escolha uma nova data para o envio de ${modalAgendamento.lista[0]?.nome || "este convidado"}. Os outros envios na fila não serão alterados.`
+                : modalAgendamento.lista.length === 1
+                  ? `1 convidado será adicionado à fila.`
+                  : `${modalAgendamento.lista.length} convidados serão adicionados à fila.`}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#111" }}>
-                <input
-                  type="radio"
-                  name="agendamento"
-                  checked={!modalAgendamento.agendar}
-                  onChange={() => setModalAgendamento((m) => ({ ...m, agendar: false }))}
-                  style={{ accentColor: "#6d28d9" }}
-                />
-                Enviar imediatamente
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#111" }}>
-                <input
-                  type="radio"
-                  name="agendamento"
-                  checked={modalAgendamento.agendar}
-                  onChange={() => setModalAgendamento((m) => ({ ...m, agendar: true }))}
-                  style={{ accentColor: "#6d28d9" }}
-                />
-                Agendar para um dia específico
-              </label>
+              {!modalAgendamento.reagendar && (
+                <>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#111" }}>
+                    <input
+                      type="radio"
+                      name="agendamento"
+                      checked={!modalAgendamento.agendar}
+                      onChange={() => setModalAgendamento((m) => ({ ...m, agendar: false }))}
+                      style={{ accentColor: "#6d28d9" }}
+                    />
+                    Enviar imediatamente
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#111" }}>
+                    <input
+                      type="radio"
+                      name="agendamento"
+                      checked={modalAgendamento.agendar}
+                      onChange={() => setModalAgendamento((m) => ({ ...m, agendar: true }))}
+                      style={{ accentColor: "#6d28d9" }}
+                    />
+                    Agendar para um dia específico
+                  </label>
+                </>
+              )}
 
-              {modalAgendamento.agendar && (
-                <div style={{ marginLeft: 24, display: "flex", flexDirection: "column", gap: 6 }}>
-                  <input
-                    type="date"
-                    value={modalAgendamento.dataHora}
-                    onChange={(e) => setModalAgendamento((m) => ({ ...m, dataHora: e.target.value }))}
-                    style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, color: "#111", outline: "none" }}
-                  />
+              {(modalAgendamento.agendar || modalAgendamento.reagendar) && (
+                <div style={{ marginLeft: modalAgendamento.reagendar ? 0 : 24, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="date"
+                      value={modalAgendamento.dataHora}
+                      onChange={(e) => setModalAgendamento((m) => ({ ...m, dataHora: e.target.value }))}
+                      style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, color: "#111", outline: "none" }}
+                    />
+                    <input
+                      type="time"
+                      value={modalAgendamento.hora}
+                      onChange={(e) => setModalAgendamento((m) => ({ ...m, hora: e.target.value }))}
+                      style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, color: "#111", outline: "none" }}
+                    />
+                  </div>
                   <small style={{ color: "#6d28d9", fontSize: 12 }}>
-                    Os envios serão distribuídos automaticamente a partir das 9h com 15s de intervalo entre cada mensagem.
+                    {modalAgendamento.dataHora && modalAgendamento.hora
+                      ? `Agendado para ${new Date(`${modalAgendamento.dataHora}T${modalAgendamento.hora}:00-03:00`).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} (Brasília). Disparos respeitam a janela 09h–20h.`
+                      : "Selecione data e horário."}
                   </small>
                 </div>
               )}
@@ -1719,14 +2022,14 @@ export default function EnviosPage() {
               </button>
               <button
                 onClick={confirmarAdicionarFila}
-                disabled={modalAgendamento.agendar && !modalAgendamento.dataHora}
+                disabled={(modalAgendamento.agendar || modalAgendamento.reagendar) && (!modalAgendamento.dataHora || !modalAgendamento.hora)}
                 style={{
                   padding: "9px 20px", borderRadius: 8, border: "none",
-                  background: modalAgendamento.agendar && !modalAgendamento.dataHora ? "#c4b5fd" : "#6d28d9",
+                  background: (modalAgendamento.agendar || modalAgendamento.reagendar) && (!modalAgendamento.dataHora || !modalAgendamento.hora) ? "#c4b5fd" : "#6d28d9",
                   color: "#fff", fontSize: 14, cursor: "pointer", fontWeight: 500
                 }}
               >
-                {modalAgendamento.agendar ? "Agendar" : "Adicionar à fila"}
+                {modalAgendamento.reagendar ? "Confirmar reagendamento" : modalAgendamento.agendar ? "Agendar" : "Adicionar à fila"}
               </button>
             </div>
           </div>
@@ -1907,6 +2210,7 @@ export default function EnviosPage() {
       <section style={campaignSelectorStyle}>
         {Object.values(campanhas).map((item) => {
           const active = tipoEnvio === item.key;
+          const dataProg = getDataProgramada(item.key);
 
           return (
             <button
@@ -1925,6 +2229,19 @@ export default function EnviosPage() {
             >
               <strong>{item.titulo}</strong>
               <span>{item.subtitulo}</span>
+              {dataProg && (
+                <span style={{
+                  fontSize: 11,
+                  marginTop: 4,
+                  color: active ? "rgba(255,255,255,0.85)" : "#6d28d9",
+                  background: active ? "rgba(255,255,255,0.18)" : "#ede9fe",
+                  borderRadius: 6,
+                  padding: "2px 7px",
+                  fontWeight: 500,
+                }}>
+                  📅 {dataProg}
+                </span>
+              )}
             </button>
           );
         })}
@@ -2285,6 +2602,8 @@ export default function EnviosPage() {
             const estaAgendado = itemNaFila?.status === "agendado";
             const dataAgendamento = itemNaFila?.agendado_para;
             const dataEnvio = getDataEnvio(convidado, campanha);
+            const instanciaConvidado = estaNaFila ? getInstanciaConvidado(convidado) : null;
+            const dataProgramadaCampanha = !enviado && !estaNaFila ? getDataProgramada(tipoEnvio) : null;
             const itemComErro = filaEnvios.find(
               (f) => f.convidado_id === convidado.id && f.tipo_envio === tipoEnvio && f.status === "erro"
             );
@@ -2305,14 +2624,20 @@ export default function EnviosPage() {
                     {convidado.grupo || "Sem grupo"} · {telefoneExibicao || "Sem telefone"}
                   </span>
 
-                  {envioViaResponsavel && (
-                    <span style={responsavelBadgeStyle}>
-                      Envio via responsável: {convidado.responsavel || getPrincipalNucleoEnvio(convidado, convidados)?.nome || "Responsável"}
-                      {getConvidadosVinculadosAoResponsavel(convidado, convidados).length > 1
-                        ? ` · ${getConvidadosVinculadosAoResponsavel(convidado, convidados).length} convidados vinculados`
-                        : ""}
-                    </span>
-                  )}
+                  {envioViaResponsavel && (() => {
+                    const grupo = String(convidado.grupo || "").trim();
+                    const principalConvidado = getPrincipalNucleoEnvio(convidado, convidados);
+                    const nomeResponsavel = convidado.responsavel || principalConvidado?.nome || "Responsável";
+                    const ehPrincipalNucleo = !!principalConvidado || !!grupo;
+                    const labelBadge = ehPrincipalNucleo ? `Envio via Principal Núcleo: ${nomeResponsavel}` : `Envio via responsável: ${nomeResponsavel}`;
+                    const vinculados = getConvidadosVinculadosAoResponsavel(convidado, convidados);
+                    return (
+                      <span style={responsavelBadgeStyle}>
+                        {labelBadge}
+                        {vinculados.length > 1 ? ` · ${vinculados.length} convidados vinculados` : ""}
+                      </span>
+                    );
+                  })()}
 
                   <p style={messagePreviewStyle}>{montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl)}</p>
 
@@ -2322,9 +2647,11 @@ export default function EnviosPage() {
                     </small>
                   )}
 
-                  {estaAgendado && dataAgendamento && (
-                    <small style={{ color: "#7c3aed", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
-                      Agendado para {new Date(dataAgendamento).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+
+
+                  {estaNaFila && instanciaConvidado && (
+                    <small style={{ color: "#0369a1", fontSize: "0.78rem", marginTop: 2, display: "block" }}>
+                      Instância: {instanciaConvidado}
                     </small>
                   )}
 
@@ -2392,13 +2719,24 @@ export default function EnviosPage() {
                   </button>
 
                   {estaNaFila && !enviado ? (
-                    <button
-                      className="envio-action"
-                      onClick={() => removerDaFila(convidado)}
-                      style={removeFilaButtonStyle}
-                    >
-                      Retirar da fila
-                    </button>
+                    <>
+                      {estaAgendado && (
+                        <button
+                          className="envio-action"
+                          onClick={() => reagendarEnvio(convidado, dataAgendamento)}
+                          style={{ ...secondaryButtonStyle, color: "#7c3aed", borderColor: "#c4b5fd" }}
+                        >
+                          Reagendar
+                        </button>
+                      )}
+                      <button
+                        className="envio-action"
+                        onClick={() => removerDaFila(convidado)}
+                        style={removeFilaButtonStyle}
+                      >
+                        Retirar da fila
+                      </button>
+                    </>
                   ) : (
                     <button
                       className="envio-action"
@@ -2446,7 +2784,35 @@ export default function EnviosPage() {
                       Tentar novamente
                     </button>
                   )}
+
+                  <button
+                    className="envio-action"
+                    onClick={() => abrirHistorico(convidado)}
+                    style={{ ...secondaryButtonStyle, color: "#64748b", borderColor: "#e2e8f0", fontSize: "0.8rem" }}
+                  >
+                    Histórico
+                  </button>
                 </div>
+
+                {(dataProgramadaCampanha || (estaAgendado && dataAgendamento) || instanciaConvidado) && (
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, paddingTop: 6, borderTop: "1px solid #f1f5f9", marginTop: 4, flexWrap: "wrap" }}>
+                    {!estaAgendado && dataProgramadaCampanha && (
+                      <small style={{ color: "#7c3aed", fontSize: "0.75rem" }}>
+                        📅 Programado para {dataProgramadaCampanha}
+                      </small>
+                    )}
+                    {estaAgendado && dataAgendamento && (
+                      <small style={{ color: "#6d28d9", fontSize: "0.75rem", fontWeight: 500 }}>
+                        🗓 Agendado: {new Date(dataAgendamento).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} (Brasília)
+                      </small>
+                    )}
+                    {instanciaConvidado && (
+                      <small style={{ color: "#0369a1", fontSize: "0.75rem" }}>
+                        · Instância: {instanciaConvidado}
+                      </small>
+                    )}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -2652,9 +3018,9 @@ Qualquer dúvida, estamos à disposição.
 OmniStage — Gestão de Eventos`,
   },
 
-  cartao_evento: {
-    key: "cartao_evento",
-    titulo: "5. Cartão do evento",
+  cartao_entrada: {
+    key: "cartao_entrada",
+    titulo: "5. Cartão de Entrada",
     subtitulo: "Entrada / QR Code",
     descricao:
       "Envio do cartão de entrada para convidados confirmados.",
@@ -2681,9 +3047,31 @@ Com carinho,
 OmniStage`,
   },
 
+  lista_presentes: {
+    key: "lista_presentes",
+    titulo: "6. Lista de Presentes",
+    subtitulo: "Link da lista",
+    descricao: "Envie o link da lista de presentes para os convidados.",
+    statusColumn: null,
+    dataColumn: null,
+    cor: "#db2777",
+    corSuave: "#fce7f3",
+    filtrarPublico: (convidado) =>
+      isRsvpConfirmado(convidado.status_rsvp) && !!getTelefoneEnvio(convidado),
+    templatePadrao: `Olá {{nome}} ✨
+
+Preparamos uma lista de presentes para o evento {{evento}}.
+
+Acesse e escolha um presente especial:
+{{link_lista_presentes}}
+
+Com carinho,
+OmniStage`,
+  },
+
   link_album: {
     key: "link_album",
-    titulo: "6. Álbum Compartilhado",
+    titulo: "7. Álbum Compartilhado",
     subtitulo: "Envio do álbum",
     descricao: "Envie o link do álbum de fotos para os convidados adicionarem e verem os registros do evento.",
     statusColumn: "status_envio_album",
@@ -3042,6 +3430,18 @@ function isRepresentanteEnvioResponsavelGrupo(convidado: Convidado, todosConvida
   return dependentesMesmoResponsavel[0]?.id === convidado.id;
 }
 
+function getDependentesViaPrincipal(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  if (!normalizarTelefone(convidado.telefone)) return [];
+  if (!convidado.contato_principal) return [];
+  const grupo = String(convidado.grupo || "").trim();
+  if (!grupo) return [];
+  return todosConvidados.filter((dep) => {
+    if (dep.id === convidado.id) return false;
+    if (normalizarTelefone(dep.telefone)) return false;
+    return String(dep.grupo || "").trim() === grupo;
+  });
+}
+
 function getConvidadosVinculadosAoResponsavel(convidado: Convidado, todosConvidados: Convidado[] = []) {
   const chave = getChaveEnvioResponsavelGrupo(convidado, todosConvidados);
 
@@ -3073,6 +3473,11 @@ function getNomesConvidadosVinculados(convidado: Convidado, todosConvidados: Con
 }
 
 function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  // Se este convidado é responsável por dependentes sem telefone, usar "Nome e família"
+  const dependentes = getDependentesViaPrincipal(convidado, todosConvidados);
+  if (dependentes.length >= 2) return `${convidado.nome || ""} e família`;
+  if (dependentes.length === 1) return `${convidado.nome || ""} e ${dependentes[0].nome || ""}`;
+
   const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
 
   if (nomes.length === 0) return convidado.nome || "";
@@ -3083,6 +3488,15 @@ function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: C
 }
 
 function formatarTituloCardEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  // Se este convidado é responsável por outros sem telefone, incluir os dependentes no título
+  const dependentes = getDependentesViaPrincipal(convidado, todosConvidados);
+  if (dependentes.length > 0) {
+    const todosNomes = [convidado.nome, ...dependentes.map((d) => d.nome)].filter(Boolean) as string[];
+    if (todosNomes.length === 1) return todosNomes[0];
+    if (todosNomes.length === 2) return `${todosNomes[0]} e ${todosNomes[1]}`;
+    return `${convidado.nome || "Responsável"} e família`;
+  }
+
   const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
 
   if (nomes.length === 0) return convidado.nome || "Sem nome";
@@ -3140,7 +3554,7 @@ function deveEntrarNoPublicoCampanha(
     );
   }
 
-  if (campanha.key === "cartao_evento") {
+  if (campanha.key === "cartao_entrada") {
     return (
       isRsvpConfirmado(convidado.status_rsvp) &&
       deveReceberCartaoEvento(convidado) &&
@@ -3158,20 +3572,20 @@ function deveAparecerNoModuloEnvios(
   campanha: Campanha,
   todosConvidados: Convidado[] = []
 ) {
-  // Regra de comunicação do evento:
-  // se "Receber comunicação deste evento" estiver desmarcado, este convidado não gera envio próprio.
   if (!recebeComunicacaoNesteEvento(convidado)) {
     return false;
   }
 
-  // Convite individual sem telefone, mas com responsável direto e telefone do responsável,
-  // deve aparecer como card próprio. Esta regra NÃO depende de Visualizar/Agrupar convite no núcleo.
-  if (isConviteIndividualSemTelefoneComResponsavelDireto(convidado)) {
-    return true;
+  // Sem telefone e há contato_principal com telefone no mesmo grupo → recebe via principal
+  if (!normalizarTelefone(convidado.telefone)) {
+    const grupo = String(convidado.grupo || "").trim();
+    const temPrincipalComTelefone = !!grupo && todosConvidados.some(
+      (c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === grupo
+    );
+    if (temPrincipalComTelefone) return false;
   }
 
-  // Crianças/dependentes em convite por núcleo com envio via responsável devem aparecer uma única vez
-  // por responsável + grupo. Assim evita dois cards e duas mensagens para o mesmo WhatsApp.
+  // Sem telefone e é dependente de grupo via responsável → aparece apenas como representante
   if (isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados)) {
     return isRepresentanteEnvioResponsavelGrupo(convidado, todosConvidados);
   }
@@ -3218,7 +3632,7 @@ function deveAparecerEmAEnviar(
     );
   }
 
-  if (campanha.key === "cartao_evento") {
+  if (campanha.key === "cartao_entrada") {
     return isRsvpConfirmado(convidado.status_rsvp) && !!convidado.token;
   }
 
