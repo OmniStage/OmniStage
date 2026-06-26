@@ -2333,7 +2333,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                         if (e.key === "Enter" && novaTag.trim()) {
                           e.preventDefault();
                           const tag = novaTag.trim();
-                          if (!form.relacao_evento.includes(tag)) updateForm("relacao_evento", [...form.relacao_evento, tag]);
+                          if (!form.relacao_evento.includes(tag)) setForm((prev) => ({ ...prev, relacao_evento: [...prev.relacao_evento, tag] }));
                           setNovaTag("");
                         }
                       }}
@@ -2344,7 +2344,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     <button type="button"
                       onClick={() => {
                         const tag = novaTag.trim();
-                        if (tag && !form.relacao_evento.includes(tag)) updateForm("relacao_evento", [...form.relacao_evento, tag]);
+                        if (tag && !form.relacao_evento.includes(tag)) setForm((prev) => ({ ...prev, relacao_evento: [...prev.relacao_evento, tag] }));
                         setNovaTag("");
                       }}
                       style={{ padding: "10px 16px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
