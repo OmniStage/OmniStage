@@ -110,6 +110,36 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
+  // Busca o convidado que está confirmando para verificar grupo
+  const { data: convidadoAtual } = await supabase
+    .from("convidados")
+    .select("id, nome, grupo, evento_id, contato_principal")
+    .eq("token", token)
+    .maybeSingle();
+
+  // Se é contato_principal e tem grupo, verificar se outro principal já confirmou
+  if (convidadoAtual?.contato_principal && convidadoAtual.grupo && status_rsvp === "confirmado") {
+    const { data: outrosMembros } = await supabase
+      .from("convidados")
+      .select("id, nome, status_rsvp, contato_principal, data_resposta")
+      .eq("evento_id", convidadoAtual.evento_id)
+      .eq("grupo", convidadoAtual.grupo)
+      .neq("id", convidadoAtual.id);
+
+    const jaConfirmadoPor = outrosMembros?.find(
+      (m) => m.contato_principal && m.status_rsvp === "confirmado"
+    );
+
+    if (jaConfirmadoPor) {
+      return NextResponse.json({
+        ok: false,
+        ja_confirmado: true,
+        confirmado_por: jaConfirmadoPor.nome,
+        data_confirmacao: jaConfirmadoPor.data_resposta,
+      });
+    }
+  }
+
   if (convidado_ids?.length) {
     const { error } = await supabase
       .from("convidados")

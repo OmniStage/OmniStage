@@ -1683,6 +1683,7 @@ export async function POST(req: Request) {
           responsavel_telefone: isCrianca ? responsavelTelefone : null,
           tenant_contato_id: tenantContatoId,
           relacao_evento: cleanText(item.relacao_evento) || cleanText(raw.relacao_evento) || null,
+          tag_envio: "Convidado(a)",
           token: gerarToken(),
         });
       }

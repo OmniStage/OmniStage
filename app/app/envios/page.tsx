@@ -122,6 +122,7 @@ export default function EnviosPage() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoAtual, setEventoAtual] = useState<Evento | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatusEnvio>("a_enviar");
+  const [filtroTag, setFiltroTag] = useState<string>("todas");
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [templates, setTemplates] = useState<Record<TipoEnvio, string>>({
     save_the_date: campanhas.save_the_date.templatePadrao,
@@ -744,7 +745,7 @@ export default function EnviosPage() {
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
-    return publicoCampanha.filter((convidado) => {
+    const passaFiltro = (convidado: Convidado) => {
       const statusAtual = getStatusEnvio(convidado, campanha);
       const confirmadoSemEnvioConvite = isConfirmadoSemEnvioConvite(convidado, campanha);
       const enviado = isEnvioConsideradoEnviado(convidado, campanha);
@@ -768,10 +769,11 @@ export default function EnviosPage() {
 
       if (!buscaOk) return false;
 
+      const tagOk = filtroTag === "todas" || (convidado.tag_envio || "Convidado(a)") === filtroTag;
+      if (!tagOk) return false;
+
       if (filtroStatus === "todos") return true;
-      if (filtroStatus === "a_enviar") {
-        return deveAparecerEmAEnviar(convidado, campanha, filaEnvios, tipoEnvio, convidados);
-      }
+      if (filtroStatus === "a_enviar") return deveAparecerEmAEnviar(convidado, campanha, filaEnvios, tipoEnvio, convidados);
       if (filtroStatus === "na_fila") return estaNaFila && !enviado;
       if (filtroStatus === "enviados") return enviado;
       if (filtroStatus === "com_erro") return filaEnvios.some((f) => f.convidado_id === convidado.id && f.tipo_envio === tipoEnvio && f.status === "erro");
@@ -779,8 +781,50 @@ export default function EnviosPage() {
       if (filtroStatus === "sem_telefone") return !telefoneLimpo;
 
       return true;
-    });
-  }, [publicoCampanha, busca, filtroStatus, campanha, filaEnvios, tipoEnvio, convidados]);
+    };
+
+    // Primeira passagem: quem passa individualmente
+    const passam = new Set(publicoCampanha.filter(passaFiltro).map((c) => c.id));
+
+    // Se busca ativa: expandir para incluir todos do mesmo grupo quando qualquer membro bate
+    if (termo) {
+      const gruposComMatch = new Set<string>();
+
+      // Grupos de quem já passou com grupo próprio
+      for (const c of publicoCampanha) {
+        const grupo = String(c.grupo || "").trim();
+        if (passam.has(c.id) && grupo) gruposComMatch.add(grupo);
+      }
+
+      // Grupos cujo telefone efetivo de envio bate com alguém que passou (ex: buscar FERNANDA → inclui grupo dela)
+      const telefonesMatch = new Set(
+        publicoCampanha
+          .filter((c) => passam.has(c.id) && !!normalizarTelefone(c.telefone))
+          .map((c) => normalizarTelefone(c.telefone)!)
+      );
+      for (const c of publicoCampanha) {
+        const grupo = String(c.grupo || "").trim();
+        if (!grupo) continue;
+        const telEfetivo = normalizarTelefone(getTelefoneEnvio(c, convidados));
+        const telResp = normalizarTelefone(c.responsavel_telefone);
+        if ((telEfetivo && telefonesMatch.has(telEfetivo)) || (telResp && telefonesMatch.has(telResp))) {
+          gruposComMatch.add(grupo);
+        }
+      }
+
+      for (const c of publicoCampanha) {
+        const grupo = String(c.grupo || "").trim();
+        if (grupo && gruposComMatch.has(grupo)) passam.add(c.id);
+      }
+    }
+
+    return publicoCampanha.filter((c) => passam.has(c.id));
+  }, [publicoCampanha, busca, filtroStatus, filtroTag, campanha, filaEnvios, tipoEnvio, convidados]);
+
+  const tagsDisponíveis = useMemo(() => {
+    const tags = new Set(publicoCampanha.map((c) => c.tag_envio || "Convidado(a)"));
+    return Array.from(tags).sort();
+  }, [publicoCampanha]);
 
   const convidadosSelecionados = useMemo(() => {
     return convidadosFiltrados.filter((convidado) => selecionados[convidado.id]);
@@ -987,11 +1031,8 @@ export default function EnviosPage() {
     }
 
     // Expandir lista incluindo todos os dependentes sem telefone do principal
-    const listaExpandida = lista.flatMap((convidado) => {
-      const dependentes = getDependentesViaPrincipal(convidado, convidados);
-      return [convidado, ...dependentes];
-    });
-    const listaUnica = listaExpandida.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
+    // Só os principais vão para a fila — os dependentes sem telefone são auto-marcados pela API ao processar o principal
+    const listaUnica = lista.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
 
     const linhas = listaUnica.map((convidado) => ({
       tenant_id: eventoAtual.tenant_id,
@@ -2518,12 +2559,23 @@ export default function EnviosPage() {
           })}
         </div>
 
-        <div style={searchRowStyle}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, marginTop: 12 }}>
+          <select
+            value={filtroTag}
+            onChange={(e) => setFiltroTag(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 10, border: "1.5px solid var(--accent-border)", background: "var(--card-bg)", color: "var(--text)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >
+            <option value="todas">Todas as tags</option>
+            {tagsDisponíveis.map((tag) => (
+              <option key={tag} value={tag}>{tag}</option>
+            ))}
+          </select>
+
           <input
             value={busca}
             onChange={(event) => setBusca(event.target.value)}
             placeholder="Buscar por nome, grupo, telefone, e-mail ou token"
-            style={searchInputStyle}
+            style={{ ...searchInputStyle, flex: 1 }}
           />
         </div>
 
@@ -2542,51 +2594,92 @@ export default function EnviosPage() {
               {convidadosSelecionados.length} selecionado(s)
             </span>
 
-            <button
-              className="envio-action"
-              onClick={() => adicionarListaNaFila(convidadosSelecionados)}
-              disabled={processandoMassa || convidadosSelecionados.length === 0}
-              style={
-                convidadosSelecionados.length === 0
-                  ? { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
-                  : filaButtonStyle
-              }
-            >
-              {processandoMassa ? "Processando..." : "Adicionar selecionados à fila"}
-            </button>
+            {filtroStatus !== "enviados" && filtroStatus !== "card_convidado" && (
+              <>
+                <button
+                  className="envio-action"
+                  onClick={() => adicionarListaNaFila(convidadosSelecionados)}
+                  disabled={processandoMassa || convidadosSelecionados.length === 0}
+                  style={
+                    convidadosSelecionados.length === 0
+                      ? { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                      : filaButtonStyle
+                  }
+                >
+                  {processandoMassa ? "Processando..." : "Adicionar selecionados à fila"}
+                </button>
 
-            <button
-              className="envio-action"
-              onClick={() => adicionarListaNaFila(pendentesComTelefoneFiltrados)}
-              disabled={processandoMassa || pendentesComTelefoneFiltrados.length === 0}
-              style={
-                pendentesComTelefoneFiltrados.length === 0
-                  ? { ...primaryButtonStyle, opacity: 0.45, cursor: "not-allowed" }
-                  : primaryButtonStyle
-              }
-            >
-              Adicionar todos pendentes filtrados
-            </button>
-
-            <button
-              className="envio-action"
-              onClick={dispararFila}
-              disabled={disparandoFila || filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0}
-              style={{
-                ...primaryButtonStyle,
-                background: disparandoFila ? "#666" : "#25D366",
-                color: "#fff",
-                opacity: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? 0.45 : 1,
-                cursor: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? "not-allowed" : "pointer",
-              }}
-            >
-              {disparandoFila ? "Enviando..." : `Envio automático (${filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length} na fila)`}
-            </button>
+                <button
+                  className="envio-action"
+                  onClick={dispararFila}
+                  disabled={disparandoFila || filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0}
+                  style={{
+                    ...primaryButtonStyle,
+                    background: disparandoFila ? "#666" : "#25D366",
+                    color: "#fff",
+                    opacity: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? 0.45 : 1,
+                    cursor: filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length === 0 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {disparandoFila ? "Enviando..." : `Envio automático (${filaEnvios.filter((f) => f.status === "pendente" || f.status === "agendado").length} na fila)`}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         <div style={listStyle}>
-          {convidadosFiltrados.map((convidado) => {
+          {(() => {
+            // Agrupar por grupo, mantendo ordem original
+            const grupos: { grupo: string | null; membros: Convidado[] }[] = [];
+            const grupoIndex: Record<string, number> = {};
+
+            // Pré-calcular: para cada convidado sem grupo, verificar se é responsável de algum grupo
+            const grupoDoResponsavel = (convidado: Convidado): string | null => {
+              const tel = normalizarTelefone(convidado.telefone);
+              if (!tel) return null;
+              for (const c of convidadosFiltrados) {
+                const grupoC = String(c.grupo || "").trim();
+                if (!grupoC) continue;
+                const telResp = normalizarTelefone(c.responsavel_telefone);
+                if (telResp === tel) return grupoC;
+              }
+              return null;
+            };
+
+            for (const convidado of convidadosFiltrados) {
+              const grupo = String(convidado.grupo || "").trim() || null;
+              const temGrupoComMultiplos = !!grupo && convidadosFiltrados.filter(
+                (c) => String(c.grupo || "").trim() === grupo
+              ).length > 1;
+
+              // Convidado individual que é responsável de um grupo → agrupa com esse grupo
+              const grupoViaResponsavel = !grupo ? grupoDoResponsavel(convidado) : null;
+              const chaveGrupo = (temGrupoComMultiplos && grupo) ? grupo : grupoViaResponsavel;
+
+              if (chaveGrupo) {
+                if (grupoIndex[chaveGrupo] === undefined) {
+                  grupoIndex[chaveGrupo] = grupos.length;
+                  grupos.push({ grupo: chaveGrupo, membros: [] });
+                }
+                grupos[grupoIndex[chaveGrupo]].membros.push(convidado);
+              } else {
+                grupos.push({ grupo: null, membros: [convidado] });
+              }
+            }
+
+            return grupos.map((entry, gi) => (
+              <div key={entry.grupo ?? `solo-${gi}`} style={entry.grupo && entry.membros.length > 1 ? { background: "var(--card-bg, #f8f8fa)", border: "1px solid var(--border, #e5e7eb)", borderRadius: 14, padding: "14px 14px 10px", marginBottom: 8 } : {}}>
+                {entry.grupo && entry.membros.length > 1 && (
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10, paddingLeft: 2 }}>
+                    {entry.grupo}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: entry.grupo ? 8 : 0 }}>
+                  {entry.membros.map((convidado) => {
+            const ehDependenteViaPrincipal = !normalizarTelefone(convidado.telefone) && !!String(convidado.grupo || "").trim() && convidados.some(
+              (c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === String(convidado.grupo || "").trim()
+            );
             const telefoneOk = !!getTelefoneEnvio(convidado, convidados);
             const envioViaResponsavel = isEnvioViaResponsavel(convidado, convidados);
             const telefoneExibicao = getTelefoneEnvio(convidado, convidados);
@@ -2610,11 +2703,12 @@ export default function EnviosPage() {
 
             return (
               <article key={convidado.id} className="envio-card" style={cardStyle}>
-                <label style={rowCheckboxStyle}>
+                <label style={ehDependenteViaPrincipal ? { ...rowCheckboxStyle, opacity: 0.3, cursor: "not-allowed" } : rowCheckboxStyle}>
                   <input
                     type="checkbox"
                     checked={!!selecionados[convidado.id]}
-                    onChange={() => toggleSelecionado(convidado.id)}
+                    onChange={() => !ehDependenteViaPrincipal && toggleSelecionado(convidado.id)}
+                    disabled={ehDependenteViaPrincipal}
                   />
                 </label>
 
@@ -2636,6 +2730,25 @@ export default function EnviosPage() {
                         {labelBadge}
                         {vinculados.length > 1 ? ` · ${vinculados.length} convidados vinculados` : ""}
                       </span>
+                    );
+                  })()}
+
+                  {(() => {
+                    const dependentesViaPrincipal = getDependentesViaPrincipal(convidado, convidados);
+                    const outrosPrincipais = getOutrosPrincipaisGrupo(convidado, convidados);
+                    return (
+                      <>
+                        {dependentesViaPrincipal.length > 0 && (
+                          <span style={responsavelBadgeStyle}>
+                            Também inclui (via principal): {dependentesViaPrincipal.map((d) => d.nome).join(", ")}
+                          </span>
+                        )}
+                        {outrosPrincipais.length > 0 && (
+                          <span style={{ ...responsavelBadgeStyle, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>
+                            Envio conjunto: {outrosPrincipais.map((d) => d.nome).join(", ")}
+                          </span>
+                        )}
+                      </>
                     );
                   })()}
 
@@ -2680,76 +2793,82 @@ export default function EnviosPage() {
                                 : pendingBadgeStyle
                     }
                   >
-                    {itemComErro
-                      ? "Com erro"
-                      : envioImportado
-                        ? "Envio importado"
-                        : enviadoCardConvidado
-                          ? "Enviado Card Convidado"
-                          : enviado
-                            ? "Enviado"
-                          : estaAgendado
-                            ? "Agendado"
-                          : estaNaFila
-                            ? "Na fila"
-                            : "A enviar"}
+                    {ehDependenteViaPrincipal
+                      ? (enviado ? "Via Principal ✓" : "Via Principal")
+                      : itemComErro
+                        ? "Com erro"
+                        : envioImportado
+                          ? "Envio importado"
+                          : enviadoCardConvidado
+                            ? "Enviado Card Convidado"
+                            : enviado
+                              ? "Enviado"
+                            : estaAgendado
+                              ? "Agendado"
+                            : estaNaFila
+                              ? "Na fila"
+                              : "A enviar"}
                   </span>
 
-                  <button
-                    className="envio-action"
-                    onClick={() => iniciarEnvioWhatsApp(convidado)}
-                    disabled={!telefoneOk}
-                    style={
-                      telefoneOk
-                        ? estaNaFila
-                          ? enviarFilaButtonStyle
-                          : whatsappButtonStyle
-                        : { ...whatsappButtonStyle, opacity: 0.45, cursor: "not-allowed" }
-                    }
-                  >
-                    {estaNaFila ? "Enviar WhatsApp" : "WhatsApp"}
-                  </button>
-
-                  <button
-                    className="envio-action"
-                    onClick={() => copiarMensagem(convidado)}
-                    style={secondaryButtonStyle}
-                  >
-                    Copiar mensagem
-                  </button>
-
-                  {estaNaFila && !enviado ? (
+                  {!enviado && !ehDependenteViaPrincipal && (
                     <>
-                      {estaAgendado && (
-                        <button
-                          className="envio-action"
-                          onClick={() => reagendarEnvio(convidado, dataAgendamento)}
-                          style={{ ...secondaryButtonStyle, color: "#7c3aed", borderColor: "#c4b5fd" }}
-                        >
-                          Reagendar
-                        </button>
-                      )}
                       <button
                         className="envio-action"
-                        onClick={() => removerDaFila(convidado)}
-                        style={removeFilaButtonStyle}
+                        onClick={() => iniciarEnvioWhatsApp(convidado)}
+                        disabled={!telefoneOk}
+                        style={
+                          telefoneOk
+                            ? estaNaFila
+                              ? enviarFilaButtonStyle
+                              : whatsappButtonStyle
+                            : { ...whatsappButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                        }
                       >
-                        Retirar da fila
+                        {estaNaFila ? "Enviar WhatsApp" : "WhatsApp"}
                       </button>
+
+                      <button
+                        className="envio-action"
+                        onClick={() => copiarMensagem(convidado)}
+                        style={secondaryButtonStyle}
+                      >
+                        Copiar mensagem
+                      </button>
+
+                      {estaNaFila ? (
+                        <>
+                          {estaAgendado && (
+                            <button
+                              className="envio-action"
+                              onClick={() => reagendarEnvio(convidado, dataAgendamento)}
+                              style={{ ...secondaryButtonStyle, color: "#7c3aed", borderColor: "#c4b5fd" }}
+                            >
+                              Reagendar
+                            </button>
+                          )}
+                          <button
+                            className="envio-action"
+                            onClick={() => removerDaFila(convidado)}
+                            style={removeFilaButtonStyle}
+                          >
+                            Retirar da fila
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="envio-action"
+                          onClick={() => adicionarFilaEnvio(convidado)}
+                          disabled={!telefoneOk}
+                          style={
+                            telefoneOk
+                              ? filaButtonStyle
+                              : { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
+                          }
+                        >
+                          Adicionar à fila
+                        </button>
+                      )}
                     </>
-                  ) : (
-                    <button
-                      className="envio-action"
-                      onClick={() => adicionarFilaEnvio(convidado)}
-                      disabled={!telefoneOk || enviado}
-                      style={
-                        telefoneOk && !enviado
-                          ? filaButtonStyle
-                          : { ...filaButtonStyle, opacity: 0.45, cursor: "not-allowed" }
-                      }
-                    >
-                      Adicionar à fila
-                    </button>
                   )}
 
                   {enviado ? (
@@ -2816,6 +2935,10 @@ export default function EnviosPage() {
               </article>
             );
           })}
+                </div>
+              </div>
+            ));
+          })()}
 
           {!loading && convidadosFiltrados.length === 0 && (
             <div style={emptyStyle}>Nenhum convidado encontrado com estes filtros.</div>
@@ -3436,10 +3559,22 @@ function getDependentesViaPrincipal(convidado: Convidado, todosConvidados: Convi
   if (!convidado.contato_principal) return [];
   const grupo = String(convidado.grupo || "").trim();
   if (!grupo) return [];
+  // Apenas membros SEM telefone — quem tem telefone recebe envio próprio
   return todosConvidados.filter((dep) => {
     if (dep.id === convidado.id) return false;
     if (normalizarTelefone(dep.telefone)) return false;
     return String(dep.grupo || "").trim() === grupo;
+  });
+}
+
+function getOutrosPrincipaisGrupo(convidado: Convidado, todosConvidados: Convidado[] = []) {
+  if (!normalizarTelefone(convidado.telefone)) return [];
+  if (!convidado.contato_principal) return [];
+  const grupo = String(convidado.grupo || "").trim();
+  if (!grupo) return [];
+  return todosConvidados.filter((dep) => {
+    if (dep.id === convidado.id) return false;
+    return !!dep.contato_principal && !!normalizarTelefone(dep.telefone) && String(dep.grupo || "").trim() === grupo;
   });
 }
 
@@ -3476,8 +3611,7 @@ function getNomesConvidadosVinculados(convidado: Convidado, todosConvidados: Con
 function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: Convidado[] = []) {
   // Se este convidado é responsável por dependentes sem telefone, usar "Nome e família"
   const dependentes = getDependentesViaPrincipal(convidado, todosConvidados);
-  if (dependentes.length >= 2) return `${convidado.nome || ""} e família`;
-  if (dependentes.length === 1) return `${convidado.nome || ""} e ${dependentes[0].nome || ""}`;
+  if (dependentes.length >= 1) return `${convidado.nome || ""} e família`;
 
   const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
 
@@ -3489,22 +3623,16 @@ function formatarNomeConviteInteligente(convidado: Convidado, todosConvidados: C
 }
 
 function formatarTituloCardEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
-  // Se este convidado é responsável por outros sem telefone, incluir os dependentes no título
-  const dependentes = getDependentesViaPrincipal(convidado, todosConvidados);
-  if (dependentes.length > 0) {
-    const todosNomes = [convidado.nome, ...dependentes.map((d) => d.nome)].filter(Boolean) as string[];
-    if (todosNomes.length === 1) return todosNomes[0];
-    if (todosNomes.length === 2) return `${todosNomes[0]} e ${todosNomes[1]}`;
-    return `${convidado.nome || "Responsável"} e família`;
-  }
+  // Principal com dependentes via principal → só o nome dele (tarja "Também inclui" cuida dos outros)
+  const dependentesViaPrincipal = getDependentesViaPrincipal(convidado, todosConvidados);
+  if (dependentesViaPrincipal.length > 0) return convidado.nome || "Sem nome";
 
+  // Representante de grupo via responsável → mostra todos os nomes vinculados
   const nomes = getNomesConvidadosVinculados(convidado, todosConvidados);
-
   if (nomes.length === 0) return convidado.nome || "Sem nome";
   if (nomes.length === 1) return nomes[0];
   if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
-
-  return `${nomes[0]} + ${nomes.length - 1} convidados`;
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
 }
 
 function aplicarPluralizacaoAutomatica(template: string, quantidadeConvidados: number) {
@@ -3577,14 +3705,12 @@ function deveAparecerNoModuloEnvios(
     return false;
   }
 
-  // Sem telefone e há contato_principal com telefone no mesmo grupo → recebe via principal
-  if (!normalizarTelefone(convidado.telefone)) {
-    const grupo = String(convidado.grupo || "").trim();
-    const temPrincipalComTelefone = !!grupo && todosConvidados.some(
-      (c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === grupo
-    );
-    if (temPrincipalComTelefone) return false;
-  }
+  // Dependente sem telefone com contato_principal no grupo → suprimido (aparece representado no card do principal)
+  const grupo = String(convidado.grupo || "").trim();
+  const ehDependenteViaPrincipal = !normalizarTelefone(convidado.telefone) && !!grupo && todosConvidados.some(
+    (c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === grupo
+  );
+  if (ehDependenteViaPrincipal) return false;
 
   // Sem telefone e é dependente de grupo via responsável → aparece apenas como representante
   if (isDependenteGrupoComEnvioViaResponsavel(convidado, todosConvidados)) {
@@ -3604,6 +3730,14 @@ function deveAparecerEmAEnviar(
   const telefoneOk = !!getTelefoneEnvio(convidado, todosConvidados);
   const enviado = isEnvioConsideradoEnviado(convidado, campanha);
   const estaNaFila = convidadoEstaNaFila(filaEnvios, convidado.id, tipoEnvio);
+
+  // Dependente via principal sem telefone: aparece em "A enviar" enquanto o principal não enviou
+  const ehDependenteViaPrincipal = !normalizarTelefone(convidado.telefone) && !!String(convidado.grupo || "").trim() && todosConvidados.some(
+    (c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === String(convidado.grupo || "").trim()
+  );
+  if (ehDependenteViaPrincipal) {
+    return !enviado;
+  }
 
   if (!telefoneOk || enviado || estaNaFila) {
     return false;
@@ -3845,7 +3979,7 @@ const tabStyle: React.CSSProperties = { padding: "9px 14px", borderRadius: 999, 
 const tabActiveStyle: React.CSSProperties = { ...tabStyle, background: "#6d28d9", color: "#fff", border: "1px solid #6d28d9" };
 const searchRowStyle: React.CSSProperties = { display: "flex", gap: 10, marginTop: 16 };
 const searchInputStyle: React.CSSProperties = { flex: 1, minWidth: 260, padding: 13, borderRadius: 14, border: "1px solid var(--line)", background: "var(--card)", color: "var(--text)", outline: "none" };
-const bulkBarStyle: React.CSSProperties = {   display: "flex",   justifyContent: "space-between",   alignItems: "center",   gap: 14,   flexWrap: "wrap",   marginTop: 16,   padding: 14,   borderRadius: 18,   border: "1px solid var(--line)",   background: "var(--card-strong)", };  const selectAllStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 9,   color: "var(--text)",   fontWeight: 850,   cursor: "pointer", };  const bulkActionsStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 8,   flexWrap: "wrap", };  const bulkCountStyle: React.CSSProperties = {   padding: "8px 11px",   borderRadius: 999,   background: "rgba(109,40,217,0.08)",   color: "#6d28d9",   fontSize: 12,   fontWeight: 900, };  const rowCheckboxStyle: React.CSSProperties = {   display: "flex",   alignItems: "flex-start",   paddingTop: 4,   cursor: "pointer", };  const listStyle: React.CSSProperties = {   display: "flex",   flexDirection: "column",   gap: 12,   marginTop: 16, };
+const bulkBarStyle: React.CSSProperties = {   display: "flex",   justifyContent: "space-between",   alignItems: "center",   gap: 10,   flexWrap: "wrap",   marginTop: 8,   padding: "10px 14px",   borderRadius: 18,   border: "1px solid var(--line)",   background: "var(--card-strong)", };  const selectAllStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 9,   color: "var(--text)",   fontWeight: 850,   cursor: "pointer", };  const bulkActionsStyle: React.CSSProperties = {   display: "flex",   alignItems: "center",   gap: 8,   flexWrap: "wrap", };  const bulkCountStyle: React.CSSProperties = {   padding: "8px 11px",   borderRadius: 999,   background: "rgba(109,40,217,0.08)",   color: "#6d28d9",   fontSize: 12,   fontWeight: 900, };  const rowCheckboxStyle: React.CSSProperties = {   display: "flex",   alignItems: "flex-start",   paddingTop: 4,   cursor: "pointer", };  const listStyle: React.CSSProperties = {   display: "flex",   flexDirection: "column",   gap: 12,   marginTop: 16, };
 const cardStyle: React.CSSProperties = { border: "1px solid var(--line)", borderRadius: 18, background: "var(--card)", padding: 16, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" };
 const guestInfoStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 5, flex: 1, minWidth: 280 };
 const guestNameStyle: React.CSSProperties = { color: "var(--text)", fontSize: 17, fontWeight: 900 };

@@ -359,6 +359,21 @@ export default function ConvidadosPage() {
       return rsvpOk && envioOk && perfilConvidadoOk && perfilConviteOk && buscaOk;
     });
 
+    // Se há busca ativa: expandir para incluir todos do mesmo grupo quando qualquer membro bate
+    if (termo) {
+      const gruposComMatch = new Set(
+        filtrados.map((c) => String(c.grupo || "").trim()).filter(Boolean)
+      );
+      if (gruposComMatch.size > 0) {
+        const idsJaIncluidos = new Set(filtrados.map((c) => c.id));
+        const extras = convidados.filter((c) => {
+          const grupo = String(c.grupo || "").trim();
+          return !!grupo && gruposComMatch.has(grupo) && !idsJaIncluidos.has(c.id);
+        });
+        filtrados.push(...extras);
+      }
+    }
+
     return [...filtrados].sort((a, b) => {
       const grupoA = (a.grupo || "Sem grupo").trim().toLowerCase();
       const grupoB = (b.grupo || "Sem grupo").trim().toLowerCase();
@@ -935,7 +950,27 @@ ${eventoAtual?.nome || "OmniStage"}`);
       return;
     }
 
-    setVinculosContatos((data || []) as VinculoContatoNucleo[]);
+    const vinculos = (data || []) as VinculoContatoNucleo[];
+    setVinculosContatos(vinculos);
+
+    // Carrega contatos que são principal_envio em algum núcleo (podem não ser convidados)
+    const idsPrincipais = Array.from(new Set(
+      vinculos.filter((v) => v.principal_envio).map((v) => v.tenant_contato_id).filter(Boolean)
+    ));
+    if (idsPrincipais.length > 0) {
+      const { data: contatosPrincipais } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome, telefone, tipo_contato, responsavel_nome, responsavel_telefone")
+        .eq("tenant_id", tenant)
+        .in("id", idsPrincipais);
+      if (contatosPrincipais?.length) {
+        setContatosBasePorId((prev) => {
+          const novo = new Map(prev);
+          for (const c of contatosPrincipais as ContatoBaseConvidado[]) novo.set(c.id, c);
+          return novo;
+        });
+      }
+    }
   }
 
   async function carregarPresentesPreEvento(evento: string) {
@@ -2095,45 +2130,107 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     </span>
                   </div>
 
-                  <div style={formBlockGridStyle}>
-                    <label style={fieldStyle}>
-                      <span>Nome do responsável</span>
-                      <input
-                        value={form.responsavel}
-                        onChange={(event) => {
-                          const responsavel = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            responsavel,
-                            mae: responsavel,
-                            crianca: "sim",
-                            recebe_convite: Boolean(responsavel.trim() || current.responsavel_telefone.trim()),
-                            contato_principal: false,
-                            tipo_convite: "individual",
-                          }));
-                        }}
-                        placeholder="Ex: Jessica Amaral"
-                        style={inputStyle}
-                      />
-                    </label>
+                  {(() => {
+                    const grupoForm = form.grupo.trim();
+                    const principaisDoGrupo = grupoForm
+                      ? convidados.filter(
+                          (c) => c.contato_principal && normalizarTelefone(c.telefone) &&
+                          String(c.grupo || "").trim() === grupoForm &&
+                          c.id !== editandoId
+                        )
+                      : [];
+                    if (principaisDoGrupo.length === 0) return null;
 
-                    <label style={fieldStyle}>
-                      <span>Telefone do responsável</span>
-                      <input
-                        value={form.responsavel_telefone}
-                        onChange={(event) => {
-                          const responsavelTelefone = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            responsavel_telefone: responsavelTelefone,
-                            recebe_convite: Boolean(current.responsavel.trim() || responsavelTelefone.trim()),
-                          }));
-                        }}
-                        placeholder="Ex: (22) 99999-9999"
-                        style={inputStyle}
-                      />
-                    </label>
-                  </div>
+                    const telesSelecionados = new Set(
+                      (form.responsavel_telefone || "").split(",").map((t) => normalizarTelefone(t)).filter(Boolean)
+                    );
+
+                    const togglePrincipal = (p: Convidado) => {
+                      const tel = normalizarTelefone(p.telefone) || "";
+                      const novosTels = new Set(telesSelecionados);
+                      if (novosTels.has(tel)) novosTels.delete(tel);
+                      else novosTels.add(tel);
+
+                      const selecionados = principaisDoGrupo.filter((pp) => novosTels.has(normalizarTelefone(pp.telefone) || ""));
+                      setForm((current) => ({
+                        ...current,
+                        responsavel: selecionados.map((pp) => pp.nome).join(", "),
+                        mae: selecionados[0]?.nome || current.mae,
+                        responsavel_telefone: [...novosTels].join(","),
+                        recebe_convite: novosTels.size > 0,
+                        contato_principal: false,
+                        tipo_convite: "individual",
+                      }));
+                    };
+
+                    return (
+                      <div style={{ gridColumn: "1 / -1", marginBottom: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>Responsáveis do grupo</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {principaisDoGrupo.map((p) => {
+                            const checked = telesSelecionados.has(normalizarTelefone(p.telefone) || "");
+                            return (
+                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${checked ? "var(--accent)" : "var(--border)"}`, background: checked ? "var(--primary-soft)" : "transparent" }}>
+                                <input type="checkbox" checked={checked} onChange={() => togglePrincipal(p)} style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }} />
+                                <div>
+                                  <strong style={{ fontSize: 13 }}>{p.nome}</strong>
+                                  <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>{p.telefone}</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {(() => {
+                    const grupoForm = form.grupo.trim();
+                    const temPrincipaisNoGrupo = grupoForm
+                      ? convidados.some((c) => c.contato_principal && normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === grupoForm && c.id !== editandoId)
+                      : false;
+                    if (temPrincipaisNoGrupo) return null;
+                    return (
+                      <div style={formBlockGridStyle}>
+                        <label style={fieldStyle}>
+                          <span>Nome do responsável</span>
+                          <input
+                            value={form.responsavel}
+                            onChange={(event) => {
+                              const responsavel = event.target.value;
+                              setForm((current) => ({
+                                ...current,
+                                responsavel,
+                                mae: responsavel,
+                                crianca: "sim",
+                                recebe_convite: Boolean(responsavel.trim() || current.responsavel_telefone.trim()),
+                                contato_principal: false,
+                                tipo_convite: "individual",
+                              }));
+                            }}
+                            placeholder="Ex: Jessica Amaral"
+                            style={inputStyle}
+                          />
+                        </label>
+                        <label style={fieldStyle}>
+                          <span>Telefone do responsável</span>
+                          <input
+                            value={form.responsavel_telefone}
+                            onChange={(event) => {
+                              const responsavelTelefone = event.target.value;
+                              setForm((current) => ({
+                                ...current,
+                                responsavel_telefone: responsavelTelefone,
+                                recebe_convite: Boolean(current.responsavel.trim() || responsavelTelefone.trim()),
+                              }));
+                            }}
+                            placeholder="Ex: (22) 99999-9999"
+                            style={inputStyle}
+                          />
+                        </label>
+                      </div>
+                    );
+                  })()}
 
                   <div style={formBlockGridStyle}>
                     <label style={toggleFieldStyle}>
@@ -2615,7 +2712,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             {convidado.telefone
                               ? convidado.telefone
                               : convidado.responsavel_telefone
-                                ? `Responsável: ${convidado.responsavel_telefone}`
+                                ? `Responsável: ${convidado.responsavel || convidado.mae || convidado.responsavel_telefone.split(",")[0]}`
                                 : "Sem telefone"}
                           </p>
 
@@ -2635,34 +2732,85 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             convidado.responsavel ||
                             convidado.mae ||
                             convidado.idade_crianca) && (
-                            <div
-                              style={{
-                                marginTop: 8,
-                                color: "var(--muted)",
-                                fontSize: 13,
-                              }}
-                            >
-                              Criança: {convidado.crianca || "não"} · Responsável:{" "}
-                              {convidado.responsavel || convidado.mae || "-"}
-                              {convidado.responsavel_telefone
-                                ? ` · Tel. responsável: ${convidado.responsavel_telefone}`
-                                : ""}{" "}
-                              · Idade da criança: {convidado.idade_crianca ?? "-"}
+                            <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted)", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                              <span>Criança: {convidado.crianca || "não"}</span>
+                              {convidado.idade_crianca && <span>· Idade: {convidado.idade_crianca}</span>}
+                              {(convidado.responsavel || convidado.mae) && (() => {
+                                const nomes = (convidado.responsavel || convidado.mae || "").split(",").map(n => n.trim()).filter(Boolean);
+                                const tels = (convidado.responsavel_telefone || "").split(",").map(t => t.trim()).filter(Boolean);
+                                return nomes.map((nome, i) => (
+                                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#92400e", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
+                                    👤 {nome}
+                                    {tels[i] && <span style={{ fontWeight: 400, color: "#b45309" }}>· {tels[i]}</span>}
+                                  </span>
+                                ));
+                              })()}
                             </div>
                           )}
 
-                          {((mostrarGrupo && convidado.contato_principal) ||
-                            convidado.recebe_convite ||
-                            convidado.relacao_evento) && (
-                            <div style={sendIdentityStyle}>
-                              {mostrarGrupo && convidado.contato_principal && (
-                                <span>Contato principal do grupo</span>
-                              )}
-                              {convidado.recebe_convite && (
-                                <span>Recebe comunicação</span>
-                              )}
-                            </div>
-                          )}
+                          {(() => {
+                            const gr = String(convidado.grupo || "").trim();
+                            const semTelefone = !normalizarTelefone(convidado.telefone);
+                            const ehCriancaComResp = convidado.crianca === "sim" && (convidado.responsavel || convidado.mae || convidado.responsavel_telefone);
+
+                            // Principal dentro dos próprios convidados
+                            const principalNoGrupo = semTelefone && !!gr && !ehCriancaComResp
+                              ? convidados.find((c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === gr) || null
+                              : null;
+
+                            // Principal via nucleosContatos (pode ser contato externo não-convidado)
+                            const infoNucleo = semTelefone && !!gr && !ehCriancaComResp && !principalNoGrupo
+                              ? (() => {
+                                  const nucleo = nucleosContatos.find((n) => n.nome === gr);
+                                  if (!nucleo) return null;
+                                  const membroPrincipal = vinculosContatos.find((v) => v.grupo_contato_id === nucleo.id && v.principal_envio === true);
+                                  if (!membroPrincipal) return null;
+                                  // Pode ter ou não dados completos no mapa
+                                  const dados = contatosBasePorId.get(membroPrincipal.tenant_contato_id) || null;
+                                  return { existe: true, dados };
+                                })()
+                              : null;
+
+                            const recebeViaPrincipal = !!principalNoGrupo || !!infoNucleo;
+
+                            const mostrarBloco =
+                              (mostrarGrupo && convidado.contato_principal) ||
+                              convidado.recebe_convite ||
+                              convidado.relacao_evento ||
+                              recebeViaPrincipal ||
+                              ehCriancaComResp;
+
+                            if (!mostrarBloco) return null;
+
+                            return (
+                              <div style={sendIdentityStyle}>
+                                {mostrarGrupo && convidado.contato_principal && (
+                                  <span style={{ background: "var(--accent)", color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 800, letterSpacing: 0.3 }}>
+                                    ★ Contato principal do grupo
+                                  </span>
+                                )}
+                                <span>
+                                  {ehCriancaComResp
+                                    ? "Recebe comunicação via Responsável"
+                                    : recebeViaPrincipal
+                                      ? "Recebe comunicação via Principal"
+                                      : "Recebe comunicação"}
+                                </span>
+                                {principalNoGrupo && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
+                                    👤 {principalNoGrupo.nome}
+                                    {principalNoGrupo.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {principalNoGrupo.telefone}</span>}
+                                  </span>
+                                )}
+                                {infoNucleo?.dados && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
+                                    👤 {infoNucleo.dados.nome}
+                                    {infoNucleo.dados.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {infoNucleo.dados.telefone}</span>}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {convidadoPresenteouPreEvento && (
                             <div style={giftStatusRowStyle}>

@@ -857,6 +857,7 @@ export default function ConvitePublicoPage() {
     useState<ConfirmationEffect>("padrao");
   const [confirmandoPresenca, setConfirmandoPresenca] = useState(false);
   const [convidadosSelecionados, setConvidadosSelecionados] = useState<string[]>([]);
+  const [avisoJaConfirmado, setAvisoJaConfirmado] = useState<{ nome: string; data: string } | null>(null);
 
   function alternarConvidadoSelecionado(id: string) {
     setConvidadosSelecionados((atuais) =>
@@ -1002,7 +1003,28 @@ export default function ConvitePublicoPage() {
 
     const efeitoConfirmacao = getConfirmationEffect(renderState.template);
 
-    // Mostra o efeito imediatamente, sem esperar a API
+    // Se há confirmados, verificar primeiro se o grupo já foi confirmado por outro principal
+    if (idsConfirmados.length) {
+      setConfirmandoPresenca(true);
+      try {
+        const resp = await fetch("/api/convite-publico", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, status_rsvp: "confirmado", convidado_ids: idsConfirmados }),
+        });
+        const data = await resp.json();
+
+        if (data.ja_confirmado) {
+          setConfirmandoPresenca(false);
+          setAvisoJaConfirmado({ nome: data.confirmado_por, data: data.data_confirmacao });
+          return;
+        }
+      } catch {
+        // continua mesmo com erro de rede
+      }
+    }
+
+    // Mostra o efeito de celebração
     executarSomAcao(efeitoConfirmacao);
     setEfeitoConfirmacaoAtivo(efeitoConfirmacao);
     setConfirmacaoAberta(efeitoConfirmacao !== "nenhum");
@@ -1016,38 +1038,18 @@ export default function ConvitePublicoPage() {
       );
     }
 
-    // Fecha o efeito após 3.2s independente da API
     window.setTimeout(() => {
       setConfirmacaoAberta(false);
       setConfirmandoPresenca(false);
     }, 3200);
 
-    // Salva no banco em paralelo (não bloqueia o efeito visual)
-    const chamadas = [];
-
-    if (idsConfirmados.length) {
-      chamadas.push(
-        fetch("/api/convite-publico", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, status_rsvp: "confirmado", convidado_ids: idsConfirmados }),
-        }),
-      );
-    }
-
     if (idsAusentes.length) {
-      chamadas.push(
-        fetch("/api/convite-publico", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, status_rsvp: "ausente", convidado_ids: idsAusentes }),
-        }),
-      );
+      fetch("/api/convite-publico", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, status_rsvp: "ausente", convidado_ids: idsAusentes }),
+      }).catch(() => console.error("Erro ao salvar ausência"));
     }
-
-    Promise.all(chamadas).catch(() => {
-      console.error("Erro ao salvar confirmação no servidor");
-    });
   }
 
   async function carregarConvite(tokenUrl: string) {
@@ -1386,6 +1388,25 @@ export default function ConvitePublicoPage() {
             soundEnabled={false}
             contained
           />
+
+          {avisoJaConfirmado && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+              <div style={{ background: "#fff", borderRadius: 20, padding: "32px 28px", maxWidth: 360, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: "#1a1a2e" }}>Presença já confirmada!</h2>
+                <p style={{ fontSize: 15, color: "#555", lineHeight: 1.5 }}>
+                  A presença da família já foi confirmada por <strong>{avisoJaConfirmado.nome}</strong>
+                  {avisoJaConfirmado.data ? ` em ${new Date(avisoJaConfirmado.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}.
+                </p>
+                <button
+                  onClick={() => setAvisoJaConfirmado(null)}
+                  style={{ marginTop: 24, background: "#7c3aed", color: "#fff", border: "none", borderRadius: 12, padding: "12px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     );
