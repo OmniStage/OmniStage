@@ -3242,7 +3242,7 @@ function isConfirmadoSemEnvioConvite(convidado: Convidado, campanha: Campanha) {
 }
 
 function getDataEnvio(convidado: Convidado, campanha: Campanha) {
-  const dataCampanha = convidado[campanha.dataColumn] as string | null | undefined;
+  const dataCampanha = campanha.dataColumn ? convidado[campanha.dataColumn as keyof Convidado] as string | null | undefined : undefined;
 
   if (dataCampanha) return dataCampanha;
 
