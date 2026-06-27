@@ -23,6 +23,7 @@ type Plano = {
   permite_rede: boolean | null;
   permite_multiplos_eventos: boolean | null;
   permite_album: boolean | null;
+  permite_crm: boolean | null;
   ativo: boolean | null;
 };
 
@@ -44,6 +45,7 @@ type PlanoForm = {
   permite_rede: boolean;
   permite_multiplos_eventos: boolean;
   permite_album: boolean;
+  permite_crm: boolean;
   ativo: boolean;
 };
 
@@ -65,6 +67,7 @@ const planoInicial: PlanoForm = {
   permite_rede: false,
   permite_multiplos_eventos: false,
   permite_album: true,
+  permite_crm: false,
   ativo: true,
 };
 
@@ -134,6 +137,7 @@ export default function AdminPlanosPage() {
       permite_rede: Boolean(plano.permite_rede),
       permite_multiplos_eventos: Boolean(plano.permite_multiplos_eventos),
       permite_album: Boolean(plano.permite_album ?? true),
+      permite_crm: Boolean(plano.permite_crm),
       ativo: Boolean(plano.ativo),
     });
 
@@ -168,6 +172,7 @@ export default function AdminPlanosPage() {
       permite_rede: Boolean(form.permite_rede),
       permite_multiplos_eventos: Boolean(form.permite_multiplos_eventos),
       permite_album: Boolean(form.permite_album),
+      permite_crm: Boolean(form.permite_crm),
       ativo: Boolean(form.ativo),
     };
 
@@ -360,6 +365,11 @@ export default function AdminPlanosPage() {
               checked={form.permite_album}
               onChange={(value) => atualizarCampo("permite_album", value)}
             />
+            <Toggle
+              label="Contatos / CRM"
+              checked={form.permite_crm}
+              onChange={(value) => atualizarCampo("permite_crm", value)}
+            />
           </div>
 
           <button
@@ -423,6 +433,7 @@ export default function AdminPlanosPage() {
                 label="Múltiplos eventos"
               />
               <Recurso ativo={plano.permite_album} label="Álbum Compartilhado" />
+              <Recurso ativo={plano.permite_crm} label="Contatos / CRM" />
             </div>
 
             <div style={actionsStyle}>
