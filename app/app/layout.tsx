@@ -27,19 +27,19 @@ export default function AppLayout({
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
   const [permiteAlbum, setPermiteAlbum] = useState(true);
+  const [permiteCrm, setPermiteCrm] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const menu = [
+  const menuBase = [
     { name: "Início", href: "/app" },
     { name: "Dashboard", href: "/app/dashboard" },
     { name: "Eventos", href: "/app/eventos" },
     { name: "Calendário", href: "/app/calendario" },
     { name: "Organização", href: "/app/organizacao" },
-    { name: "Contatos", href: "/app/contatos" },
     { name: "Clientes / Fornecedores", href: "/app/cadastros" },
     { name: "Convidados", href: "/app/convidados" },
     { name: "Convite Digital", href: "/app/convite" },
@@ -51,6 +51,14 @@ export default function AppLayout({
     { name: "Relatórios", href: "/app/relatorios" },
     { name: "Configurações", href: "/app/configuracoes" },
   ];
+
+  const menu = permiteCrm
+    ? [
+        ...menuBase.slice(0, 5),
+        { name: "Contatos (CRM)", href: "/app/contatos" },
+        ...menuBase.slice(5),
+      ]
+    : menuBase;
 
   useEffect(() => {
     const saved = window.localStorage.getItem("omnistage-theme") as ThemeMode | null;
@@ -132,12 +140,18 @@ export default function AppLayout({
     if (planoId) {
       const { data: plano } = await supabase
         .from("planos")
-        .select("permite_album")
+        .select("permite_album, permite_crm")
         .eq("id", planoId)
         .maybeSingle();
 
       if (plano && plano.permite_album === false) {
         setPermiteAlbum(false);
+      }
+      if (plano?.permite_crm === true) {
+        setPermiteCrm(true);
+        window.localStorage.setItem("omnistage-permite-crm", "true");
+      } else {
+        window.localStorage.removeItem("omnistage-permite-crm");
       }
     }
 
