@@ -11,6 +11,39 @@ type NumeroEvento = { id: string; evento_id: string; relacao_evento: string | nu
 type CronogramaItem = { tipo_envio: string; ativo: boolean; dias_antes: number; hora_envio: string };
 type Plano = { permite_whatsapp?: boolean; permite_lista_presentes?: boolean; permite_album?: boolean; checkin_qrcode?: boolean };
 
+export type ConfiguracaoEnvio = {
+  cartao_por_nucleo: boolean;
+  exigir_recebe_convite_cartao: boolean;
+  envio_via_principal_nucleo: boolean;
+  incluir_criancas_publico: boolean;
+};
+
+const CONFIG_ENVIO_PADRAO: ConfiguracaoEnvio = {
+  cartao_por_nucleo: true,
+  exigir_recebe_convite_cartao: true,
+  envio_via_principal_nucleo: true,
+  incluir_criancas_publico: true,
+};
+
+const CONFIG_ENVIO_LABELS: Record<keyof ConfiguracaoEnvio, { titulo: string; descricao: string }> = {
+  cartao_por_nucleo: {
+    titulo: "Cartão de entrada por núcleo",
+    descricao: "Quando ativado, o cartão mostra todos os nomes do núcleo. Quando desativado, cada convidado recebe seu próprio cartão individual.",
+  },
+  exigir_recebe_convite_cartao: {
+    titulo: 'Exigir "recebe comunicação" para cartão de entrada',
+    descricao: 'Quando ativado, só recebem o cartão quem tem "recebe comunicação" marcado no cadastro. Quando desativado, todos os confirmados recebem.',
+  },
+  envio_via_principal_nucleo: {
+    titulo: "Envio via contato principal do núcleo",
+    descricao: "Quando ativado, convidados sem telefone têm seus envios redirecionados para o contato principal do núcleo.",
+  },
+  incluir_criancas_publico: {
+    titulo: "Incluir crianças no público de envio",
+    descricao: "Quando ativado, crianças aparecem no público de envio com o envio redirecionado para o responsável.",
+  },
+};
+
 const TIPOS_ENVIO: { tipo: string; label: string; descricao: string; feature?: keyof Plano; featureExtra?: keyof Plano }[] = [
   { tipo: "save_the_date", label: "Save the Date", descricao: "Primeiro aviso do evento" },
   { tipo: "convite", label: "Convite", descricao: "Convite digital com link" },
@@ -48,6 +81,10 @@ export default function ConfigEnvioPage() {
   const [plano, setPlano] = useState<Plano>({});
   const [dataEvento, setDataEvento] = useState<string | null>(null);
   const [salvandoCronograma, setSalvandoCronograma] = useState(false);
+
+  // Regras de envio
+  const [configEnvio, setConfigEnvio] = useState<ConfiguracaoEnvio>(CONFIG_ENVIO_PADRAO);
+  const [salvandoConfig, setSalvandoConfig] = useState(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -98,6 +135,16 @@ export default function ConfigEnvioPage() {
       .limit(20);
 
     setEventos(data || []);
+
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("configuracoes_envio")
+      .eq("id", membro.tenant_id)
+      .maybeSingle();
+
+    if (tenant?.configuracoes_envio) {
+      setConfigEnvio({ ...CONFIG_ENVIO_PADRAO, ...tenant.configuracoes_envio });
+    }
   }, [supabase]);
 
   const buscarNumerosEvento = useCallback(async (eventoId: string) => {
@@ -148,6 +195,11 @@ export default function ConfigEnvioPage() {
 
   async function salvarCronogramaItem(item: CronogramaItem) {
     if (!eventoSelecionado || !tenantId) return;
+    setCronograma((prev) =>
+      prev.some((c) => c.tipo_envio === item.tipo_envio)
+        ? prev.map((c) => c.tipo_envio === item.tipo_envio ? item : c)
+        : [...prev, item]
+    );
     await fetch("/api/whatsapp/cronograma", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -162,6 +214,14 @@ export default function ConfigEnvioPage() {
     await Promise.all(ativos.map((item) => salvarCronogramaItem(item)));
     await buscarCronograma(eventoSelecionado, tenantId);
     setSalvandoCronograma(false);
+  }
+
+  async function salvarConfigEnvio(nova: ConfiguracaoEnvio) {
+    if (!tenantId) return;
+    setSalvandoConfig(true);
+    await supabase.from("tenants").update({ configuracoes_envio: nova }).eq("id", tenantId);
+    setConfigEnvio(nova);
+    setSalvandoConfig(false);
   }
 
   function calcularDataEnvio(diasAntes: number): string {
@@ -261,7 +321,12 @@ export default function ConfigEnvioPage() {
   return (
     <div style={pageStyle}>
       <div style={containerStyle}>
-        <h1 style={titleStyle}>Configuração de Envios</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+          <a href="/app/envios" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, background: "var(--card, #fff)", border: "1px solid #e2e8f0", borderRadius: 10, color: "#6d28d9", textDecoration: "none", fontSize: 18, fontWeight: 900, flexShrink: 0 }}>
+            ←
+          </a>
+          <h1 style={{ ...titleStyle, margin: 0 }}>Configuração de Envios</h1>
+        </div>
 
         {/* OMNISTAGE */}
         <div style={cardStyle}>
@@ -531,13 +596,47 @@ export default function ConfigEnvioPage() {
             </div>
           )}
         </div>
+
+        {/* REGRAS DE ENVIO */}
+        <div style={cardStyle}>
+          <h2 style={sectionTitle}>Regras de envio</h2>
+          <p style={descStyle}>Defina o comportamento padrão dos envios para todos os eventos.</p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+            {(Object.keys(CONFIG_ENVIO_LABELS) as (keyof ConfiguracaoEnvio)[]).map((chave) => {
+              const { titulo, descricao } = CONFIG_ENVIO_LABELS[chave];
+              const ativo = configEnvio[chave];
+              return (
+                <div key={chave} style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "14px 16px", border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff" }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 700, fontSize: 14, margin: "0 0 4px" }}>{titulo}</p>
+                    <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>{descricao}</p>
+                  </div>
+                  <div
+                    onClick={() => !salvandoConfig && salvarConfigEnvio({ ...configEnvio, [chave]: !ativo })}
+                    style={{
+                      width: 42, height: 24, borderRadius: 12,
+                      background: ativo ? "#22c55e" : "#cbd5e1",
+                      position: "relative", cursor: salvandoConfig ? "not-allowed" : "pointer",
+                      transition: "background 0.2s", flexShrink: 0, marginTop: 2,
+                    }}
+                  >
+                    <div style={{ position: "absolute", top: 3, left: ativo ? 21 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {salvandoConfig && <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 10 }}>Salvando...</p>}
+        </div>
+
       </div>
     </div>
   );
 }
 
-const pageStyle: React.CSSProperties = { background: "#f1f5f9", minHeight: "100vh", padding: 30 };
-const containerStyle: React.CSSProperties = { maxWidth: 900, margin: "0 auto" };
+const pageStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 24 };
+const containerStyle: React.CSSProperties = {};
 const titleStyle: React.CSSProperties = { fontSize: 28, fontWeight: 800, marginBottom: 20 };
 const cardStyle: React.CSSProperties = { background: "#fff", padding: 20, borderRadius: 16, marginBottom: 20, boxShadow: "0 10px 30px rgba(0,0,0,0.05)" };
 const sectionTitle: React.CSSProperties = { fontSize: 18, fontWeight: 700, marginBottom: 4 };

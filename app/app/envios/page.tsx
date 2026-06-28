@@ -150,6 +150,12 @@ export default function EnviosPage() {
   const [selecionados, setSelecionados] = useState<Record<string, boolean>>({});
   const [processandoMassa, setProcessandoMassa] = useState(false);
   const [disparandoFila, setDisparandoFila] = useState(false);
+  const [configEnvio, setConfigEnvio] = useState({
+    cartao_por_nucleo: true,
+    exigir_recebe_convite_cartao: true,
+    envio_via_principal_nucleo: true,
+    incluir_criancas_publico: true,
+  });
 
   type ModalAgendamento = {
     aberto: boolean;
@@ -299,6 +305,16 @@ export default function EnviosPage() {
 
     const lista = (data || []) as Evento[];
     setEventos(lista);
+
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("configuracoes_envio")
+      .eq("id", membro.tenant_id)
+      .maybeSingle();
+
+    if (tenant?.configuracoes_envio) {
+      setConfigEnvio((prev) => ({ ...prev, ...tenant.configuracoes_envio }));
+    }
 
     if (lista.length === 0) {
       setEventoAtual(null);
@@ -737,10 +753,10 @@ export default function EnviosPage() {
 
       return (
         deveAparecerNoModuloEnvios(convidado, campanha, convidados) &&
-        (confirmadoSemEnvioConvite || deveEntrarNoPublicoCampanha(convidado, campanha, convidados))
+        (confirmadoSemEnvioConvite || deveEntrarNoPublicoCampanha(convidado, campanha, convidados, configEnvio))
       );
     });
-  }, [convidados, campanha]);
+  }, [convidados, campanha, configEnvio]);
 
   const convidadosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -1034,17 +1050,26 @@ export default function EnviosPage() {
     // Só os principais vão para a fila — os dependentes sem telefone são auto-marcados pela API ao processar o principal
     const listaUnica = lista.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
 
-    const linhas = listaUnica.map((convidado) => ({
-      tenant_id: eventoAtual.tenant_id,
-      evento_id: eventoAtual.id,
-      convidado_id: convidado.id,
-      tipo_envio: tipoEnvio,
-      canal: "whatsapp",
-      telefone: getTelefoneEnvio(convidado, convidados),
-      mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl),
-      status: agendadoPara ? "agendado" : "pendente",
-      agendado_para: agendadoPara,
-    }));
+    const linhas = listaUnica.flatMap((convidado) => {
+      const base = {
+        tenant_id: eventoAtual.tenant_id,
+        evento_id: eventoAtual.id,
+        convidado_id: convidado.id,
+        tipo_envio: tipoEnvio,
+        canal: "whatsapp",
+        mensagem: montarMensagem(mensagemAtual, convidado, eventoAtual, convidados, albumUrl),
+        status: agendadoPara ? "agendado" : "pendente",
+        agendado_para: agendadoPara,
+      };
+      const telefoneProprio = normalizarTelefone(convidado.telefone);
+      if (telefoneProprio) return [{ ...base, telefone: telefoneProprio }];
+      // Múltiplos responsáveis: cria uma linha por telefone
+      const telefonesResp = (convidado.responsavel_telefone || "")
+        .split(",").map((t) => normalizarTelefone(t)).filter(Boolean);
+      if (telefonesResp.length > 0) return telefonesResp.map((tel) => ({ ...base, telefone: tel }));
+      // Fallback: principal do núcleo
+      return [{ ...base, telefone: getTelefoneEnvio(convidado, convidados) }];
+    });
 
     // Remover entradas pendentes/agendadas existentes para evitar duplicatas
     await supabase
@@ -2222,9 +2247,14 @@ export default function EnviosPage() {
           </p>
         </div>
 
-        <button onClick={() => carregarTudo(eventoAtual?.id)} style={primaryButtonStyle}>
-          {loading ? "Atualizando..." : "Atualizar lista"}
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => carregarTudo(eventoAtual?.id)} style={primaryButtonStyle}>
+            {loading ? "Atualizando..." : "Atualizar lista"}
+          </button>
+          <a href="/app/envios/config" style={{ ...primaryButtonStyle, background: "var(--card)", color: "var(--text)", border: "1px solid var(--line)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            ⚙ Configurações
+          </a>
+        </div>
       </section>
 
       <section style={eventSelectorPanelStyle}>
@@ -3380,18 +3410,30 @@ function normalizarTelefone(telefone: string | null | undefined) {
   return (telefone || "").replace(/\D/g, "");
 }
 
-function getTelefoneEnvio(convidado: Convidado, todosConvidados: Convidado[] = []) {
+type ConfigEnvio = {
+  cartao_por_nucleo: boolean;
+  exigir_recebe_convite_cartao: boolean;
+  envio_via_principal_nucleo: boolean;
+  incluir_criancas_publico: boolean;
+};
+
+const CONFIG_ENVIO_PADRAO_ENVIOS: ConfigEnvio = {
+  cartao_por_nucleo: true,
+  exigir_recebe_convite_cartao: true,
+  envio_via_principal_nucleo: true,
+  incluir_criancas_publico: true,
+};
+
+function getTelefoneEnvio(convidado: Convidado, todosConvidados: Convidado[] = [], config: ConfigEnvio = CONFIG_ENVIO_PADRAO_ENVIOS) {
   const telefoneProprio = normalizarTelefone(convidado.telefone);
   if (telefoneProprio) return telefoneProprio;
 
-  // Convite individual ou núcleo: quando o convidado não tem telefone,
-  // mas possui responsável direto preenchido, o envio deve ir para o responsável,
-  // mesmo que o núcleo não esteja marcado para visualização/agrupamento.
-  const telefoneResponsavelDireto = normalizarTelefone(convidado.responsavel_telefone);
+  const telefoneResponsavelDireto = (convidado.responsavel_telefone || "")
+    .split(",").map((t) => normalizarTelefone(t)).find((t) => !!t) || "";
   if (telefoneResponsavelDireto) return telefoneResponsavelDireto;
 
-  // Último fallback: convidados adultos/crianças sem telefone e sem responsável direto
-  // usam o principal do núcleo/CRM, mesmo que esse principal não seja convidado do evento.
+  if (!config.envio_via_principal_nucleo) return null;
+
   return normalizarTelefone(getPrincipalNucleoEnvio(convidado, todosConvidados)?.telefone);
 }
 
@@ -3662,9 +3704,12 @@ function aplicarPluralizacaoAutomatica(template: string, quantidadeConvidados: n
 function deveEntrarNoPublicoCampanha(
   convidado: Convidado,
   campanha: Campanha,
-  todosConvidados: Convidado[] = []
+  todosConvidados: Convidado[] = [],
+  config: ConfigEnvio = CONFIG_ENVIO_PADRAO_ENVIOS
 ) {
-  const telefoneOk = !!getTelefoneEnvio(convidado, todosConvidados);
+  if (!config.incluir_criancas_publico && convidado.crianca === "sim") return false;
+
+  const telefoneOk = !!getTelefoneEnvio(convidado, todosConvidados, config);
 
   if (campanha.key === "convite") {
     const envioIndividualViaResponsavel = isConviteIndividualSemTelefoneComResponsavelDireto(convidado);
@@ -3684,10 +3729,11 @@ function deveEntrarNoPublicoCampanha(
   }
 
   if (campanha.key === "cartao_entrada") {
+    const recebeOk = config.exigir_recebe_convite_cartao ? recebeComunicacaoNesteEvento(convidado) : true;
     return (
       isRsvpConfirmado(convidado.status_rsvp) &&
       deveReceberCartaoEvento(convidado) &&
-      recebeComunicacaoNesteEvento(convidado) &&
+      recebeOk &&
       telefoneOk &&
       !!convidado.token
     );

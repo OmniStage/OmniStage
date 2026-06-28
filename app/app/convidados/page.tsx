@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { aplicarMascaraTelefone, telefoneParaExibir, telefoneParaStorage } from "@/lib/phone";
 
 type Evento = {
   id: string;
@@ -46,6 +47,7 @@ type Convidado = {
   email: string | null;
   tenant_contato_id?: string | null;
   grupo: string | null;
+  grupo_envio: string | null;
   crianca: string | null;
   mae: string | null;
   responsavel: string | null;
@@ -90,6 +92,7 @@ type ConvidadoForm = {
   telefone: string;
   email: string;
   grupo: string;
+  grupo_envio: string;
   crianca: string;
   responsavel: string;
   responsavel_telefone: string;
@@ -161,6 +164,7 @@ const initialForm: ConvidadoForm = {
   telefone: "",
   email: "",
   grupo: "",
+  grupo_envio: "",
   crianca: "",
   responsavel: "",
   responsavel_telefone: "",
@@ -255,8 +259,33 @@ function criarLinkWhatsApp({
   return `https://api.whatsapp.com/send?phone=${telefoneFinal}&text=${texto}`;
 }
 
+function EditarRespInline({ nomeInicial, telefoneInicial, onSalvar, onCancelar }: {
+  nomeInicial: string;
+  telefoneInicial: string;
+  onSalvar: (nome: string, telefone: string) => void;
+  onCancelar: () => void;
+}) {
+  const [nome, setNome] = useState(nomeInicial);
+  const [telefone, setTelefone] = useState(() => telefoneParaExibir(telefoneInicial));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "18px 20px", borderRadius: 16, border: "1.5px solid #c4b5fd", background: "#faf5ff" }}>
+      <div style={{ display: "flex", gap: 10 }}>
+        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do responsável" style={{ flex: 2, border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff" }} />
+        <input value={telefone} onChange={(e) => setTelefone(aplicarMascaraTelefone(e.target.value))} placeholder="(11) 99999-9999" style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none", background: "#fff" }} />
+      </div>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button type="button" onClick={onCancelar} style={{ background: "#f1f5f9", color: "#64748b", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancelar</button>
+        <button type="button" onClick={() => onSalvar(nome.trim(), telefoneParaStorage(telefone))} disabled={!nome.trim() && !telefone.trim()} style={{ background: "#6d28d9", color: "#fff", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Salvar</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ConvidadosPage() {
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [permiteCrm, setPermiteCrm] = useState(false);
+  const [novoResp, setNovoResp] = useState<{ nome: string; telefone: string } | null>(null);
+  const [editandoRespIdx, setEditandoRespIdx] = useState<number | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
   const [nucleosContatos, setNucleosContatos] = useState<NucleoContato[]>([]);
@@ -581,6 +610,7 @@ function labelPapelNucleoConvite(papel: string | null | undefined) {
   if (papel === "responsavel") return "Responsável";
   if (papel === "conjuge") return "Cônjuge";
   if (papel === "membro") return "Membro";
+  if (papel === "crianca") return "Criança";
   return papel || "Membro";
 }
 
@@ -1144,7 +1174,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       ((data || []) as ContatoBaseConvidado[]).map((contato) => [contato.id, contato]),
     );
 
-    setContatosBasePorId(mapa);
+    setContatosBasePorId((prev) => new Map([...prev, ...mapa]));
     return mapa;
   }
 
@@ -1256,7 +1286,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
       const payload = {
         nome: form.nome.trim(),
-        telefone: telefonePrincipal || null,
+        telefone: telefoneParaStorage(telefonePrincipal) || null,
         email: form.email.trim() || null,
         grupo: grupoFinal || null,
         crianca: criancaFinal ? "sim" : null,
@@ -1278,6 +1308,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
               ? form.recebe_convite || form.contato_principal
               : true,
         tipo_convite: conviteEhGrupo ? "grupo" : "individual",
+        grupo_envio: form.grupo_envio.trim() || null,
         observacoes: form.observacoes.trim() || null,
         status_rsvp: form.status_rsvp,
         status_envio: form.status_envio,
@@ -1300,6 +1331,23 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      // Sincronizar responsável no tenant_contatos vinculado
+      const convidadoAtual = editandoId
+        ? convidados.find((c) => c.id === editandoId)
+        : null;
+      const contatoIdParaSync = convidadoAtual?.tenant_contato_id;
+      if (criancaFinal && contatoIdParaSync && (responsavelFinal || responsavelTelefoneFinal)) {
+        await supabase
+          .from("tenant_contatos")
+          .update({
+            responsavel_nome: responsavelFinal || null,
+            responsavel_telefone: telefoneParaStorage(responsavelTelefoneFinal) || null,
+            tipo_contato: "crianca",
+          })
+          .eq("id", contatoIdParaSync)
+          .eq("tenant_id", tenantId);
       }
 
       const estavaEditando = Boolean(editandoId);
@@ -1497,9 +1545,10 @@ ${eventoAtual?.nome || "OmniStage"}`);
     setEditandoId(convidado.id);
     setForm({
       nome: convidado.nome || "",
-      telefone: convidado.telefone || "",
+      telefone: telefoneParaExibir(convidado.telefone || ""),
       email: convidado.email || "",
       grupo: grupoFinal,
+      grupo_envio: convidado.grupo_envio || "",
       crianca: contatoBaseEhCrianca || convidado.responsavel || convidado.mae
         ? "sim"
         : convidado.crianca || "",
@@ -1749,6 +1798,10 @@ ${eventoAtual?.nome || "OmniStage"}`);
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    setPermiteCrm(window.localStorage.getItem("omnistage-permite-crm") === "true");
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -2049,8 +2102,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
                   <span>Telefone do convidado</span>
                   <input
                     value={form.telefone}
-                    onChange={(event) => updateForm("telefone", event.target.value)}
-                    placeholder="Ex: (22) 99999-9999"
+                    onChange={(event) => updateForm("telefone", aplicarMascaraTelefone(event.target.value))}
+                    placeholder="(11) 99999-9999"
                     style={inputStyle}
                   />
                 </label>
@@ -2076,35 +2129,42 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 </div>
               </div>
 
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Tipo de convidado</span>
-                  <select
-                    value={form.crianca === "sim" ? "crianca" : "adulto"}
-                    onChange={(event) => {
-                      const isCrianca = event.target.value === "crianca";
-                      setForm((current) => {
-                        const temResponsavel = Boolean(
-                          current.responsavel.trim() || current.responsavel_telefone.trim(),
-                        );
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {(["adulto", "crianca"] as const).map((opcao) => {
+                  const ativo = (form.crianca === "sim") === (opcao === "crianca");
+                  return (
+                    <button
+                      key={opcao}
+                      type="button"
+                      onClick={() => {
+                        const isCrianca = opcao === "crianca";
+                        setForm((current) => {
+                          const temResponsavel = Boolean(current.responsavel.trim() || current.responsavel_telefone.trim());
+                          return {
+                            ...current,
+                            crianca: isCrianca ? "sim" : "",
+                            contato_principal: isCrianca && !current.grupo.trim() ? false : current.contato_principal,
+                            recebe_convite: isCrianca && temResponsavel ? true : current.recebe_convite,
+                          };
+                        });
+                      }}
+                      style={{
+                        display: "inline-flex", alignItems: "center",
+                        border: `1.5px solid ${ativo ? "#7c3aed" : "#e2e8f0"}`,
+                        borderRadius: 999, padding: "10px 20px",
+                        background: ativo ? "#ede9fe" : "var(--card, #fff)",
+                        color: ativo ? "#7c3aed" : "var(--text)",
+                        fontWeight: 700, fontSize: 15, cursor: "pointer",
+                      }}
+                    >
+                      {opcao === "adulto" ? "Adulto" : "Criança"}
+                    </button>
+                  );
+                })}
+              </div>
 
-                        return {
-                          ...current,
-                          crianca: isCrianca ? "sim" : "",
-                          contato_principal:
-                            isCrianca && !current.grupo.trim() ? false : current.contato_principal,
-                          recebe_convite: isCrianca && temResponsavel ? true : current.recebe_convite,
-                        };
-                      });
-                    }}
-                    style={inputStyle}
-                  >
-                    <option value="adulto">Adulto</option>
-                    <option value="crianca">Criança</option>
-                  </select>
-                </label>
-
-                {form.crianca === "sim" && (
+              {form.crianca === "sim" && (
+                <div style={formBlockGridStyle}>
                   <label style={fieldStyle}>
                     <span>Idade da criança</span>
                     <input
@@ -2118,13 +2178,13 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       style={inputStyle}
                     />
                   </label>
-                )}
-              </div>
+                </div>
+              )}
 
               {form.crianca === "sim" && (
                 <div style={responsavelSubBlockStyle}>
                   <div style={subBlockHeaderStyle}>
-                    <strong>Responsável pelo envio</strong>
+                    <strong>Responsável pela criança</strong>
                     <span>
                       Informe o responsável que receberá a comunicação da criança.
                     </span>
@@ -2132,122 +2192,194 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
                   {(() => {
                     const grupoForm = form.grupo.trim();
-                    const principaisDoGrupo = grupoForm
-                      ? convidados.filter(
-                          (c) => c.contato_principal && normalizarTelefone(c.telefone) &&
-                          String(c.grupo || "").trim() === grupoForm &&
-                          c.id !== editandoId
-                        )
-                      : [];
-                    if (principaisDoGrupo.length === 0) return null;
+                    const grupoEnvioForm = form.grupo_envio.trim();
+                    const papeisFamilia = ["filho", "filha", "filho(a)", "criança", "crianca", "neto", "neta", "sobrinho", "sobrinha"];
+                    const papeisEscola = ["aluno", "aluna", "aluno(a)", "estudante"];
 
+                    // Responsáveis externos — só quando grupo_envio está definido
+                    const grupoParaEnvio = grupoEnvioForm;
+                    const principaisConvidados = grupoParaEnvio
+                      ? convidados.filter((c) => c.contato_principal && normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === grupoParaEnvio && c.id !== editandoId)
+                      : [];
+                    const principaisCRM: { id: string; nome: string; telefone: string }[] = [];
+                    const nucleosIds = new Set<string>();
+                    if (grupoEnvioForm) {
+                      // Só busca CRM quando grupo_envio está explicitamente definido
+                      const n = nucleosContatos.find((n) => n.nome === grupoEnvioForm);
+                      if (n) nucleosIds.add(n.id);
+                    }
+                    nucleosIds.forEach((nucleoId) => {
+                      vinculosContatos.filter((v) => v.grupo_contato_id === nucleoId && v.principal_envio).forEach((v) => {
+                        const jaNosConvidados = principaisConvidados.some((pc) => pc.tenant_contato_id === v.tenant_contato_id);
+                        const jaAdicionado = principaisCRM.some((pc) => pc.id === v.tenant_contato_id);
+                        if (!jaNosConvidados && !jaAdicionado) {
+                          const dados = contatosBasePorId.get(v.tenant_contato_id);
+                          if (dados?.telefone) principaisCRM.push({ id: v.tenant_contato_id, nome: dados.nome || "", telefone: dados.telefone });
+                        }
+                      });
+                    });
+                    type OpcaoExterna = { id: string; nome: string; telefone: string };
+                    const opcoesExternas: OpcaoExterna[] = [
+                      ...principaisConvidados.map((c) => ({ id: c.id, nome: c.nome || "", telefone: normalizarTelefone(c.telefone) || "" })),
+                      ...principaisCRM,
+                    ];
+
+                    // Responsáveis manuais — armazenados em form.responsavel / form.responsavel_telefone
+                    const nomesManual = (form.responsavel || "").split(",").map((n) => n.trim()).filter(Boolean);
+                    const telsManual = (form.responsavel_telefone || "").split(",").map((t) => t.trim()).filter(Boolean);
+                    // Remove os que já estão nas opções externas para evitar duplicata
+                    const telsExternos = new Set(opcoesExternas.map((o) => normalizarTelefone(o.telefone) || ""));
+                    const respManuais: { nome: string; telefone: string }[] = nomesManual
+                      .map((nome, i) => ({ nome, telefone: telsManual[i] || "" }))
+                      .filter((r) => !telsExternos.has(normalizarTelefone(r.telefone) || ""));
+
+                    // Telefones selecionados para receber envio
                     const telesSelecionados = new Set(
                       (form.responsavel_telefone || "").split(",").map((t) => normalizarTelefone(t)).filter(Boolean)
                     );
 
-                    const togglePrincipal = (p: Convidado) => {
-                      const tel = normalizarTelefone(p.telefone) || "";
-                      const novosTels = new Set(telesSelecionados);
-                      if (novosTels.has(tel)) novosTels.delete(tel);
-                      else novosTels.add(tel);
-
-                      const selecionados = principaisDoGrupo.filter((pp) => novosTels.has(normalizarTelefone(pp.telefone) || ""));
-                      setForm((current) => ({
-                        ...current,
-                        responsavel: selecionados.map((pp) => pp.nome).join(", "),
-                        mae: selecionados[0]?.nome || current.mae,
-                        responsavel_telefone: [...novosTels].join(","),
-                        recebe_convite: novosTels.size > 0,
+                    const salvarRespManuais = (lista: { nome: string; telefone: string }[]) => {
+                      const nomesExt = opcoesExternas.filter((o) => telesSelecionados.has(normalizarTelefone(o.telefone) || "")).map((o) => o.nome);
+                      const telsExt = opcoesExternas.filter((o) => telesSelecionados.has(normalizarTelefone(o.telefone) || "")).map((o) => normalizarTelefone(o.telefone) || "");
+                      const todosNomes = [...nomesExt, ...lista.map((r) => r.nome)].join(", ");
+                      const todosTels = [...telsExt, ...lista.map((r) => normalizarTelefone(r.telefone) || r.telefone)].filter(Boolean).join(",");
+                      setForm((cur) => ({
+                        ...cur,
+                        responsavel: todosNomes,
+                        mae: todosNomes.split(",")[0]?.trim() || cur.mae,
+                        responsavel_telefone: todosTels,
+                        recebe_convite: todosTels.length > 0 || telsExt.length > 0,
                         contato_principal: false,
                         tipo_convite: "individual",
                       }));
                     };
 
+                    const toggleExterno = (o: OpcaoExterna) => {
+                      const tel = normalizarTelefone(o.telefone) || "";
+                      const novosTels = new Set(telesSelecionados);
+                      if (novosTels.has(tel)) novosTels.delete(tel); else novosTels.add(tel);
+                      const selecionadosExt = opcoesExternas.filter((oe) => novosTels.has(normalizarTelefone(oe.telefone) || ""));
+                      const todosNomes = [...selecionadosExt.map((oe) => oe.nome), ...respManuais.map((r) => r.nome)].join(", ");
+                      const todosTels = [...selecionadosExt.map((oe) => normalizarTelefone(oe.telefone) || ""), ...respManuais.map((r) => normalizarTelefone(r.telefone) || r.telefone)].filter(Boolean).join(",");
+                      setForm((cur) => ({
+                        ...cur,
+                        responsavel: todosNomes,
+                        mae: todosNomes.split(",")[0]?.trim() || cur.mae,
+                        responsavel_telefone: todosTels,
+                        recebe_convite: todosTels.length > 0,
+                        contato_principal: false,
+                        tipo_convite: "individual",
+                      }));
+                    };
+
+                    const excluirManual = (idx: number) => {
+                      const nova = respManuais.filter((_, i) => i !== idx);
+                      setEditandoRespIdx(null);
+                      salvarRespManuais(nova);
+                    };
+
+                    const salvarEdicaoManual = (idx: number, nome: string, telefone: string) => {
+                      const nova = respManuais.map((r, i) => i === idx ? { nome, telefone } : r);
+                      setEditandoRespIdx(null);
+                      salvarRespManuais(nova);
+                    };
+
+                    const adicionarManual = (nome: string, telefone: string) => {
+                      const nova = [...respManuais, { nome, telefone }];
+                      setNovoResp(null);
+                      salvarRespManuais(nova);
+                    };
+
                     return (
                       <div style={{ gridColumn: "1 / -1", marginBottom: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>Responsáveis do grupo</span>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {principaisDoGrupo.map((p) => {
-                            const checked = telesSelecionados.has(normalizarTelefone(p.telefone) || "");
-                            return (
-                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${checked ? "var(--accent)" : "var(--border)"}`, background: checked ? "var(--primary-soft)" : "transparent" }}>
-                                <input type="checkbox" checked={checked} onChange={() => togglePrincipal(p)} style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }} />
-                                <div>
-                                  <strong style={{ fontSize: 13 }}>{p.nome}</strong>
-                                  <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>{p.telefone}</span>
+                        {opcoesExternas.length > 0 && (
+                          <div style={{ marginBottom: 12 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Do grupo / CRM</span>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {opcoesExternas.map((o) => {
+                                const checked = telesSelecionados.has(normalizarTelefone(o.telefone) || "");
+                                return (
+                                  <label key={o.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${checked ? "#6d28d9" : "var(--line)"}`, background: checked ? "#ede9fe" : "transparent" }}>
+                                    <input type="checkbox" checked={checked} onChange={() => toggleExterno(o)} style={{ width: 16, height: 16, accentColor: "#6d28d9", cursor: "pointer" }} />
+                                    <div>
+                                      <strong style={{ fontSize: 13 }}>{o.nome}</strong>
+                                      <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>{o.telefone}</span>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Responsáveis manuais */}
+                        {(respManuais.length > 0 || opcoesExternas.length === 0) && (
+                          <div style={{ marginBottom: 8 }}>
+                            {opcoesExternas.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>Adicionados manualmente</span>}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {respManuais.map((r, idx) => (
+                                <div key={idx}>
+                                  {editandoRespIdx === idx ? (
+                                    <EditarRespInline
+                                      nomeInicial={r.nome}
+                                      telefoneInicial={r.telefone}
+                                      onSalvar={(nome, tel) => salvarEdicaoManual(idx, nome, tel)}
+                                      onCancelar={() => setEditandoRespIdx(null)}
+                                    />
+                                  ) : (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderRadius: 10, border: "1.5px solid var(--line)", background: "transparent" }}>
+                                      <div style={{ flex: 1 }}>
+                                        <strong style={{ fontSize: 15 }}>{r.nome || "(sem nome)"}</strong>
+                                        <span style={{ fontSize: 14, color: "var(--muted)", marginLeft: 8 }}>{telefoneParaExibir(r.telefone)}</span>
+                                      </div>
+                                      <button type="button" onClick={() => setEditandoRespIdx(idx)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#6d28d9", padding: "2px 6px" }} title="Editar">✏️</button>
+                                      <button type="button" onClick={() => excluirManual(idx)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#dc2626", padding: "2px 6px" }} title="Excluir">🗑️</button>
+                                    </div>
+                                  )}
                                 </div>
-                              </label>
-                            );
-                          })}
+                              ))}
+
+                              {novoResp !== null ? (
+                                <EditarRespInline
+                                  nomeInicial={novoResp.nome}
+                                  telefoneInicial={novoResp.telefone}
+                                  onSalvar={(nome, tel) => adicionarManual(nome, tel)}
+                                  onCancelar={() => setNovoResp(null)}
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => { setNovoResp({ nome: "", telefone: "" }); setEditandoRespIdx(null); }}
+                                  style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1.5px dashed var(--line)", borderRadius: 8, padding: "8px 12px", cursor: "pointer", color: "#6d28d9", fontWeight: 700, fontSize: 13, width: "100%" }}
+                                >
+                                  + Adicionar responsável
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {!form.responsavel_telefone && (
+                    <div style={formBlockGridStyle}>
+                      <label style={toggleFieldStyle}>
+                        <input
+                          type="checkbox"
+                          checked={form.recebe_convite}
+                          onChange={(event) =>
+                            updateFormBoolean("recebe_convite", event.target.checked)
+                          }
+                          style={checkboxInputStyle}
+                        />
+                        <div style={toggleTextStyle}>
+                          <strong>Recebe comunicação</strong>
+                          <span>Usado no envio: o responsável recebe o convite/comunicação da criança.</span>
                         </div>
-                      </div>
-                    );
-                  })()}
-
-                  {(() => {
-                    const grupoForm = form.grupo.trim();
-                    const temPrincipaisNoGrupo = grupoForm
-                      ? convidados.some((c) => c.contato_principal && normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === grupoForm && c.id !== editandoId)
-                      : false;
-                    if (temPrincipaisNoGrupo) return null;
-                    return (
-                      <div style={formBlockGridStyle}>
-                        <label style={fieldStyle}>
-                          <span>Nome do responsável</span>
-                          <input
-                            value={form.responsavel}
-                            onChange={(event) => {
-                              const responsavel = event.target.value;
-                              setForm((current) => ({
-                                ...current,
-                                responsavel,
-                                mae: responsavel,
-                                crianca: "sim",
-                                recebe_convite: Boolean(responsavel.trim() || current.responsavel_telefone.trim()),
-                                contato_principal: false,
-                                tipo_convite: "individual",
-                              }));
-                            }}
-                            placeholder="Ex: Jessica Amaral"
-                            style={inputStyle}
-                          />
-                        </label>
-                        <label style={fieldStyle}>
-                          <span>Telefone do responsável</span>
-                          <input
-                            value={form.responsavel_telefone}
-                            onChange={(event) => {
-                              const responsavelTelefone = event.target.value;
-                              setForm((current) => ({
-                                ...current,
-                                responsavel_telefone: responsavelTelefone,
-                                recebe_convite: Boolean(current.responsavel.trim() || responsavelTelefone.trim()),
-                              }));
-                            }}
-                            placeholder="Ex: (22) 99999-9999"
-                            style={inputStyle}
-                          />
-                        </label>
-                      </div>
-                    );
-                  })()}
-
-                  <div style={formBlockGridStyle}>
-                    <label style={toggleFieldStyle}>
-                      <input
-                        type="checkbox"
-                        checked={form.recebe_convite}
-                        onChange={(event) =>
-                          updateFormBoolean("recebe_convite", event.target.checked)
-                        }
-                        style={checkboxInputStyle}
-                      />
-                      <div style={toggleTextStyle}>
-                        <strong>Recebe comunicação</strong>
-                        <span>Usado no envio: o responsável recebe o convite/comunicação da criança.</span>
-                      </div>
-                    </label>
-                  </div>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -2257,152 +2389,188 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 <span>03</span>
                 <div>
                   <strong>Perfil do convite</strong>
-                  <p>Defina se este convite será individual ou se ficará agrupado em um dos núcleos vinculados ao contato.</p>
+                  <p>Define como o nome aparece no convite e no cartão de entrada.</p>
                 </div>
               </div>
 
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Tipo do convite</span>
-                  <select
-                    value={form.tipo_convite}
-                    onChange={(event) => {
-                      const tipo = event.target.value;
-
-                      setForm((current) => ({
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {([
+                  { value: "individual", label: "Individual" },
+                  { value: "grupo", label: "Núcleo" },
+                ] as const).map((opcao) => {
+                  const ativo = form.tipo_convite === opcao.value;
+                  return (
+                    <button
+                      key={opcao.value}
+                      type="button"
+                      onClick={() => setForm((current) => ({
                         ...current,
-                        tipo_convite: tipo,
-                        grupo: current.grupo,
-                        contato_principal: tipo === "grupo" ? current.contato_principal : false,
-                        recebe_convite: tipo === "grupo"
-                          ? current.recebe_convite
-                          : true,
-                      }));
-                    }}
-                    style={inputStyle}
-                  >
-                    <option value="individual">Individual</option>
-                    <option value="grupo">Núcleo</option>
-                  </select>
-                </label>
+                        tipo_convite: opcao.value,
+                        contato_principal: opcao.value === "grupo" ? current.contato_principal : false,
+                        recebe_convite: opcao.value === "grupo" ? current.recebe_convite : true,
+                      }))}
+                      style={{
+                        display: "inline-flex", alignItems: "center",
+                        border: `1.5px solid ${ativo ? "#7c3aed" : "#e2e8f0"}`,
+                        borderRadius: 999, padding: "10px 20px",
+                        background: ativo ? "#ede9fe" : "var(--card, #fff)",
+                        color: ativo ? "#7c3aed" : "var(--text)",
+                        fontWeight: 700, fontSize: 15, cursor: "pointer",
+                      }}
+                    >
+                      {opcao.label}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div style={nucleosVinculadosConviteWrapperStyle}>
-                <div style={nucleosVinculadosConviteHeaderStyle}>
-                  <strong>Núcleos vinculados ao contato</strong>
-                  <span>No convite individual, o núcleo serve apenas para visualização/filtro. No convite por núcleo, ele agrupa convite e cartão.</span>
+              {/* Campo manual de grupo (sem CRM e tipo Núcleo) */}
+              {!permiteCrm && form.tipo_convite === "grupo" && (
+                <div style={formBlockGridStyle}>
+                  <label style={fieldStyle}>
+                    <span>Grupo / Família</span>
+                    <input
+                      list="grupos-sugestoes"
+                      value={form.grupo}
+                      onChange={(e) => setForm((cur) => ({ ...cur, grupo: e.target.value }))}
+                      placeholder="Ex: FAMILIA_SILVA"
+                      style={inputStyle}
+                    />
+                    <datalist id="grupos-sugestoes">
+                      {Array.from(new Set([
+                        ...nucleosContatos.map((n) => n.nome),
+                        ...convidados.map((c) => (c.grupo || "").trim()).filter(Boolean),
+                      ])).sort().map((nome) => (
+                        <option key={nome} value={nome} />
+                      ))}
+                    </datalist>
+                  </label>
+                </div>
+              )}
+            </section>
+
+            {/* Seção 04 — Núcleos */}
+            {permiteCrm && (
+              <section style={formBlockCardStyle}>
+                <div style={formBlockHeaderStyle}>
+                  <span>04</span>
+                  <div>
+                    <strong>Núcleos</strong>
+                    <p>Defina em quais núcleos este convidado aparece e quem recebe a comunicação.</p>
+                  </div>
                 </div>
 
                 {!editandoId && (
-                  <div style={emptyStyle}>Salve ou edite um convidado vinculado a um contato para visualizar os núcleos.</div>
+                  <div style={emptyStyle}>Salve o convidado para visualizar os núcleos vinculados.</div>
                 )}
-
                 {editandoId && !convidadoTemNucleosVinculados && (
-                  <div style={emptyStyle}>Este contato não possui núcleos vinculados.</div>
+                  <div style={emptyStyle}>Este contato não possui núcleos vinculados no CRM.</div>
                 )}
-
                 {convidadoTemNucleosVinculados && (
                   <div style={nucleosVinculadosConviteListStyle}>
                     {vinculosNucleoConvidadoAtual.map((vinculo) => {
                       const nucleo = nucleosContatosPorId.get(vinculo.grupo_contato_id);
                       const nomeNucleo = nucleo?.nome || "Núcleo não encontrado";
-                      const nucleoMarcado =
-                        form.grupo.trim().toLowerCase() === nomeNucleo.trim().toLowerCase();
-                      const convitePorNucleo = form.tipo_convite === "grupo";
-                      const telefoneConvidadoPreenchido =
-                        String(form.telefone || "").replace(/\D/g, "").length > 0;
+                      const convidadoAtualObj = editandoId ? convidados.find(c => c.id === editandoId) : null;
+                      const isIndividual = form.tipo_convite !== "grupo";
+                      const membrosNoNucleo = isIndividual
+                        ? (convidadoAtualObj ? [convidadoAtualObj] : [])
+                        : [
+                            ...(convidadoAtualObj ? [convidadoAtualObj] : []),
+                            ...convidados.filter(
+                              (c) => c.id !== editandoId &&
+                                (c.grupo || "").trim().toLowerCase() === nomeNucleo.trim().toLowerCase()
+                            ),
+                          ];
 
                       return (
-                        <div
-                          key={vinculo.id}
-                          style={{
-                            ...nucleoVinculadoConviteCardStyle,
-                            ...(nucleoMarcado ? nucleoVinculadoConviteCardActiveStyle : {}),
-                          }}
-                        >
-                          <div>
-                            <strong>{nomeNucleo}</strong>
-                            <span style={nucleoVinculadoConviteSubTextStyle}>
-                              Relação no núcleo: {labelPapelNucleoConvite(getPapelVinculoContato(vinculo))}
-                            </span>
-                          </div>
+                        <div key={vinculo.id} style={nucleoVinculadoConviteCardStyle}>
+                          <strong style={{ display: "block", marginBottom: 4 }}>{nomeNucleo}</strong>
+                          <span style={{ ...nucleoVinculadoConviteSubTextStyle, display: "block", marginBottom: 12 }}>
+                            Relação no núcleo: {form.contato_principal ? "Contato principal" : labelPapelNucleoConvite(getPapelVinculoContato(vinculo))}
+                          </span>
 
-                          <div style={nucleoVinculadoConviteFlagsStyle}>
-                            <label style={compactNucleoToggleStyle}>
-                              <input
-                                type="checkbox"
-                                checked={nucleoMarcado}
-                                onChange={(event) => {
-                                  const checked = event.target.checked;
+                          {membrosNoNucleo.length === 0 && (
+                            <div style={{ fontSize: 13, color: "#94a3b8" }}>Nenhum convidado vinculado a este núcleo ainda.</div>
+                          )}
 
-                                  setForm((current) => {
-                                    const convitePorNucleoAtual = current.tipo_convite === "grupo";
-                                    return {
-                                      ...current,
-                                      tipo_convite: current.tipo_convite,
-                                      grupo: checked ? nomeNucleo : "",
-                                      contato_principal: checked && convitePorNucleoAtual
-                                        ? current.contato_principal
-                                        : false,
-                                      recebe_convite: checked && convitePorNucleoAtual
-                                        ? current.recebe_convite
-                                        : true,
-                                    };
-                                  });
-                                }}
-                              />
-                              <span>{convitePorNucleo ? "Agrupar convite neste núcleo" : "Visualizar convite neste núcleo"}</span>
-                            </label>
+                          {membrosNoNucleo.map((membro) => {
+                            const isAtual = membro.id === editandoId;
+                            const membroGrupo = (membro.grupo || "").trim().toLowerCase();
+                            const membroGrupoEnvio = (membro.grupo_envio || "").trim().toLowerCase();
+                            const nucleoLow = nomeNucleo.trim().toLowerCase();
 
-                            {convitePorNucleo && telefoneConvidadoPreenchido && (
-                              <label style={compactNucleoToggleStyle}>
-                                <input
-                                  type="checkbox"
-                                  checked={nucleoMarcado && form.recebe_convite}
-                                  disabled={!nucleoMarcado}
-                                  onChange={(event) =>
-                                    updateFormBoolean("recebe_convite", event.target.checked)
-                                  }
-                                />
-                                <span>Receber comunicação deste evento</span>
-                              </label>
-                            )}
+                            async function quickUpdate(patch: Record<string, unknown>) {
+                              if (isAtual) {
+                                setForm((cur) => ({ ...cur, ...patch }));
+                              } else {
+                                await supabase.from("convidados").update(patch).eq("id", membro.id).eq("tenant_id", tenantId).eq("evento_id", eventoId);
+                                if (tenantId) await carregarConvidados(tenantId, eventoId);
+                              }
+                            }
 
-                            {convitePorNucleo && !telefoneConvidadoPreenchido && nucleoMarcado && (
-                              <span style={nucleoVinculadoConviteSubTextStyle}>
-                                Comunicação pelo principal do núcleo.
-                              </span>
-                            )}
+                            const pillStyle: React.CSSProperties = {
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              border: "1px solid #e2e8f0", borderRadius: 999, padding: "6px 12px",
+                              background: "#fff", fontWeight: 600, fontSize: 12,
+                              color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap",
+                            };
 
-                            {convitePorNucleo && (
-                              <label style={compactNucleoToggleStyle}>
-                                <input
-                                  type="checkbox"
-                                  checked={nucleoMarcado && form.contato_principal}
-                                  disabled={!nucleoMarcado}
-                                  onChange={(event) => {
-                                    const checked = event.target.checked;
-                                    setForm((current) => ({
-                                      ...current,
-                                      contato_principal: checked,
-                                    }));
-                                  }}
-                                />
-                                <span>Principal núcleo</span>
-                              </label>
-                            )}
-                          </div>
+                            return (
+                              <div key={membro.id} style={{
+                                display: "flex", alignItems: "center", gap: 12,
+                                padding: "10px 14px", borderRadius: 10, marginBottom: 6,
+                                background: isAtual ? "#ede9fe" : "#f8fafc",
+                                border: `1px solid ${isAtual ? "#c4b5fd" : "#e2e8f0"}`,
+                                flexWrap: "wrap",
+                              }}>
+                                <strong style={{ minWidth: 140, fontSize: 13, flexShrink: 0 }}>{membro.nome || "(sem nome)"}</strong>
+                                {(() => {
+                                  const isCriancaRow = isAtual ? form.crianca === "sim" : membro.crianca === "sim";
+                                  const recebeEnvioVal = isCriancaRow
+                                    ? true
+                                    : isAtual
+                                      ? form.recebe_convite
+                                      : (membro.recebe_convite ?? true);
+                                  const contatoPrincipalVal = isAtual
+                                    ? form.contato_principal
+                                    : Boolean(membro.contato_principal);
+
+                                  return (
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                      <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
+                                          <span style={{ fontWeight: 700 }}>{(isAtual ? form.crianca === "sim" : membro.crianca === "sim") ? "Recebe comunicação via Responsável" : "Recebe comunicação"}</span>
+                                        </div>
+                                        <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>{contatoPrincipalVal ? "Envio com componentes do núcleo" : "Envio individual com o nome do convidado"}</span>
+                                      </label>
+                                      {membro.crianca !== "sim" && (
+                                        <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => quickUpdate({ contato_principal: e.target.checked })} />
+                                            <span style={{ fontWeight: 700 }}>Contato Principal</span>
+                                          </div>
+                                          <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>Convite com todos os nomes do grupo</span>
+                                        </label>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
                   </div>
                 )}
-              </div>
-            </section>
+              </section>
+            )}
 
             <section style={formBlockCardStyle}>
               <div style={formBlockHeaderStyle}>
-                <span>04</span>
+                <span>{permiteCrm ? "05" : "04"}</span>
                 <div>
                   <strong>Relação com o Evento</strong>
                   <p>Classifique o convidado por seu papel ou relação com o evento (ex: Família da noiva, Amigos do noivo).</p>
@@ -2471,71 +2639,22 @@ ${eventoAtual?.nome || "OmniStage"}`);
                   </select>
                 </label>
 
-                <label style={fieldStyle}>
-                  <span>Tamanho do chinelo</span>
-                  <input
-                    value={form.tamanho_chinelo}
-                    onChange={(event) => updateForm("tamanho_chinelo", event.target.value)}
-                    placeholder="Ex: 35/36"
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-                  <span>Observações</span>
-                  <textarea
-                    value={form.observacoes}
-                    onChange={(event) =>
-                      updateForm("observacoes", event.target.value)
-                    }
-                    placeholder="Observações internas sobre o convidado"
-                    style={textareaStyle}
-                  />
-                </label>
               </div>
             </section>
 
             <section style={formBlockCardStyle}>
               <div style={formBlockHeaderStyle}>
-                <span>05</span>
+                <span>{permiteCrm ? "06" : "05"}</span>
                 <div>
-                  <strong>Status</strong>
-                  <p>Acompanhe o RSVP e o andamento do envio deste convidado.</p>
+                  <strong>Observações</strong>
                 </div>
               </div>
-
-              <div style={formBlockGridStyle}>
-                <label style={fieldStyle}>
-                  <span>Status RSVP</span>
-                  <select
-                    value={form.status_rsvp}
-                    onChange={(event) =>
-                      updateForm("status_rsvp", event.target.value)
-                    }
-                    style={inputStyle}
-                  >
-                    <option value="pendente">Pendente</option>
-                    <option value="confirmado">Confirmado</option>
-                    <option value="nao">Não vai</option>
-                  </select>
-                </label>
-
-                <label style={fieldStyle}>
-                  <span>Status envio</span>
-                  <select
-                    value={form.status_envio}
-                    onChange={(event) =>
-                      updateForm("status_envio", event.target.value)
-                    }
-                    style={inputStyle}
-                  >
-                    <option value="pendente">Pendente</option>
-                    <option value="enviado">Enviado</option>
-                    <option value="enviado_manual">Enviado Card Convidado</option>
-                    <option value="erro">Erro</option>
-                  </select>
-                </label>
-              </div>
+              <textarea
+                value={form.observacoes}
+                onChange={(event) => updateForm("observacoes", event.target.value)}
+                placeholder="Anotações internas sobre este convidado..."
+                style={{ ...textareaStyle, width: "100%", boxSizing: "border-box" }}
+              />
             </section>
           </div>
 
@@ -3672,10 +3791,8 @@ const nucleoVinculadoConviteCardStyle: CSSProperties = {
   padding: 22,
   background: "#f9fafb",
   display: "flex",
-  justifyContent: "space-between",
-  gap: 18,
-  alignItems: "flex-start",
-  flexWrap: "wrap",
+  flexDirection: "column",
+  gap: 12,
 };
 
 const nucleoVinculadoConviteCardActiveStyle: CSSProperties = {
