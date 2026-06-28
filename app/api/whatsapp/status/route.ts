@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const BASE_URL = process.env.EVOLUTION_API_URL!;
   const API_KEY = process.env.EVOLUTION_API_KEY!;
