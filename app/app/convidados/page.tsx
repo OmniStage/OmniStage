@@ -371,7 +371,16 @@ export default function ConvidadosPage() {
   const importacaoConfig = useMemo(() => {
     try {
       const raw = window.localStorage.getItem("omnistage-importacao");
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          permitido: parsed.permitido ?? true,
+          texto: parsed.texto ?? true,
+          excel: parsed.excel ?? true,
+          sheets: parsed.sheets ?? false,
+          vcf: parsed.vcf ?? true,
+        };
+      }
     } catch {}
     return { permitido: true, texto: true, excel: true, sheets: false, vcf: true };
   }, []);
