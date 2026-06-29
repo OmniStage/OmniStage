@@ -138,6 +138,37 @@ type ImportPreviewRow = {
   };
 };
 
+type VcfContact = {
+  nome: string;
+  telefone: string | null;
+  grupo: string | null;
+};
+
+type MappedRow = {
+  legacy_id: string;
+  grupo: string;
+  nome: string;
+  telefone: string;
+  email: string;
+  crianca: string;
+  mae: string;
+  idade_crianca: string;
+  tipo_contato: string;
+  responsavel_nome: string;
+  responsavel_telefone: string;
+  tipo_nucleo: string;
+  nucleo: string;
+  relacao_nucleo: string;
+  relacao_responsavel_nucleo: string;
+  relacao_evento: string;
+  recebe_comunicacao: string;
+  principal_envio: string;
+  status_rsvp: string;
+  status_envio: string;
+  data_hora_rsvp: string;
+  data_hora_envio: string;
+};
+
 type PresentePreEvento = {
   id: string;
   gift_item_id: string | null;
@@ -305,6 +336,8 @@ export default function ConvidadosPage() {
   const [formAberto, setFormAberto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const formReturnScrollYRef = useRef(0);
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const vcfInputRef = useRef<HTMLInputElement | null>(null);
   const [relacoesEvento, setRelacoesEvento] = useState<string[]>([]);
   const [novaTag, setNovaTag] = useState("");
   const [toast, setToast] = useState<{ mensagem: string; tipo: "sucesso" | "erro" } | null>(null);
@@ -328,6 +361,12 @@ export default function ConvidadosPage() {
   const [importConfirmLoading, setImportConfirmLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
   const [importBatchId, setImportBatchId] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState<"texto" | "excel" | "vcf">("texto");
+  const [importVcfContacts, setImportVcfContacts] = useState<VcfContact[]>([]);
+  const [importVcfFileName, setImportVcfFileName] = useState<string | null>(null);
+  const [importExcelFileName, setImportExcelFileName] = useState<string | null>(null);
+  const [importSheetHeaders, setImportSheetHeaders] = useState<string[]>([]);
+  const [importSheetRows, setImportSheetRows] = useState<string[][]>([]);
 
   const importacaoConfig = useMemo(() => {
     try {
@@ -1380,15 +1419,263 @@ ${eventoAtual?.nome || "OmniStage"}`);
     }
   }
 
+  function importNormalizePhone(phone: string | null) {
+    if (!phone) return null;
+    const onlyNumbers = phone.replace(/\D/g, "");
+    return onlyNumbers || null;
+  }
+
+  function importDecodeVcfValue(value: string) {
+    return value.replace(/\\n/g, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\s+/g, " ").trim();
+  }
+
+  function importParseVCF(vcfText: string): VcfContact[] {
+    const contacts: VcfContact[] = [];
+    const normalizedText = vcfText.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+    const blocks = normalizedText.split(/END:VCARD/i).map((b) => b.trim()).filter(Boolean);
+
+    for (const block of blocks) {
+      const lines = block.split(/\r?\n/);
+      const fnLine = lines.find((line) => /^FN/i.test(line));
+      const nLine = lines.find((line) => /^N[:;]/i.test(line));
+      const telLine = lines.find((line) => /^TEL/i.test(line));
+      let rawName = "";
+      if (fnLine) rawName = fnLine.split(":").slice(1).join(":");
+      if (!rawName && nLine) {
+        rawName = nLine.split(":").slice(1).join(":").split(";").filter(Boolean).reverse().join(" ");
+      }
+      const rawPhone = telLine ? telLine.split(":").slice(1).join(":") : "";
+      let nome = importDecodeVcfValue(rawName);
+      let grupo: string | null = null;
+      if (!nome) continue;
+      if (nome.includes(" - ")) {
+        const [possibleGroup, ...rest] = nome.split(" - ");
+        const parsedName = rest.join(" - ").trim();
+        if (possibleGroup.trim() && parsedName) {
+          grupo = possibleGroup.trim();
+          nome = parsedName;
+        }
+      }
+      contacts.push({ nome, telefone: importNormalizePhone(rawPhone), grupo });
+    }
+    return contacts;
+  }
+
+  function importNormalizarTextoBusca(value: string) {
+    return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR").trim();
+  }
+
+  function importLinhaPareceCabecalho(row: string[]) {
+    const termos = ["id", "nome", "convidado", "telefone", "whatsapp", "celular", "mae", "crianca", "idade", "grupo", "familia", "status", "rsvp", "envio"];
+    return row.reduce((score, cell) => {
+      const normalized = importNormalizarTextoBusca(cell);
+      if (!normalized) return score;
+      const exact = termos.includes(normalized);
+      const partial = termos.some((term) => normalized.includes(term));
+      return score + (exact ? 2 : partial ? 1 : 0);
+    }, 0);
+  }
+
+  function importPrepararMatriz(matrix: string[][]) {
+    const validRows = matrix.map((row) => row.map((value) => String(value ?? "").trim())).filter((row) => row.some((v) => v));
+    if (validRows.length === 0) return { headers: [] as string[], rows: [] as string[][] };
+    let headerIndex = 0;
+    let bestScore = -1;
+    validRows.slice(0, 12).forEach((row, index) => {
+      const score = importLinhaPareceCabecalho(row);
+      if (score > bestScore) { bestScore = score; headerIndex = index; }
+    });
+    const headers = validRows[headerIndex].map((h, i) => (h ? h : `Coluna ${i + 1}`));
+    const rows = validRows.slice(headerIndex + 1).filter((row) => row.some((v) => v));
+    return { headers, rows };
+  }
+
+  function importParseCsvLine(line: string) {
+    const values: string[] = [];
+    let current = "";
+    let insideQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const next = line[i + 1];
+      if (char === '"' && next === '"' && insideQuotes) { current += '"'; i++; }
+      else if (char === '"') { insideQuotes = !insideQuotes; }
+      else if ((char === "," || char === ";" || char === "\t") && !insideQuotes) { values.push(current.trim()); current = ""; }
+      else { current += char; }
+    }
+    values.push(current.trim());
+    return values;
+  }
+
+  function importParseCsvText(csvText: string) {
+    const matrix = csvText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map((line) => line.trim()).filter(Boolean).map(importParseCsvLine);
+    return importPrepararMatriz(matrix);
+  }
+
+  function importSugerirMapeamento(headers: string[]) {
+    function findHeader(terms: string[]) {
+      const normalizedTerms = terms.map(importNormalizarTextoBusca);
+      return headers.find((h) => normalizedTerms.some((t) => importNormalizarTextoBusca(h) === t)) ||
+        headers.find((h) => normalizedTerms.some((t) => importNormalizarTextoBusca(h).includes(t))) || "";
+    }
+    return {
+      legacy_id: findHeader(["legacy_id", "id legado", "codigo", "cod"]),
+      grupo: findHeader(["grupo", "familia", "família"]),
+      nome: findHeader(["nome", "convidado"]),
+      telefone: findHeader(["telefone", "whatsapp", "celular"]),
+      email: findHeader(["email", "e-mail"]),
+      crianca: findHeader(["crianca", "criança"]),
+      mae: findHeader(["mae", "mãe"]),
+      idade_crianca: findHeader(["idade_crianca", "idade criança", "idade"]),
+      tipo_contato: findHeader(["tipo_contato", "tipo contato"]),
+      responsavel_nome: findHeader(["responsavel_nome", "responsavel", "responsável"]),
+      responsavel_telefone: findHeader(["responsavel_telefone", "telefone responsavel"]),
+      tipo_nucleo: findHeader(["tipo_nucleo", "tipo de nucleo"]),
+      nucleo: findHeader(["nucleo", "núcleo"]),
+      relacao_nucleo: findHeader(["relacao_nucleo"]),
+      relacao_responsavel_nucleo: findHeader(["relacao_responsavel_nucleo"]),
+      relacao_evento: findHeader(["relacao_evento"]),
+      recebe_comunicacao: findHeader(["recebe_comunicacao", "recebe comunicação", "recebe convite"]),
+      principal_envio: findHeader(["principal_envio", "contato principal"]),
+      status_rsvp: findHeader(["status_rsvp", "rsvp"]),
+      status_envio: findHeader(["status_envio"]),
+      data_hora_rsvp: findHeader(["data_resposta"]),
+      data_hora_envio: findHeader(["data_hora_envio"]),
+    };
+  }
+
+  function importGetColumnValue(row: string[], headers: string[], headerName: string) {
+    if (!headerName) return "";
+    const index = headers.indexOf(headerName);
+    return index < 0 ? "" : row[index] || "";
+  }
+
+  function importMontarMappedRowsExcel(headers: string[], rows: string[][]): MappedRow[] {
+    const mapping = importSugerirMapeamento(headers);
+    if (!mapping.nome) return [];
+    return rows.map((row) => ({
+      legacy_id: importGetColumnValue(row, headers, mapping.legacy_id),
+      grupo: importGetColumnValue(row, headers, mapping.grupo),
+      nome: importGetColumnValue(row, headers, mapping.nome),
+      telefone: importGetColumnValue(row, headers, mapping.telefone),
+      email: importGetColumnValue(row, headers, mapping.email),
+      crianca: importGetColumnValue(row, headers, mapping.crianca),
+      mae: importGetColumnValue(row, headers, mapping.mae),
+      idade_crianca: importGetColumnValue(row, headers, mapping.idade_crianca),
+      tipo_contato: importGetColumnValue(row, headers, mapping.tipo_contato),
+      responsavel_nome: importGetColumnValue(row, headers, mapping.responsavel_nome),
+      responsavel_telefone: importGetColumnValue(row, headers, mapping.responsavel_telefone),
+      tipo_nucleo: importGetColumnValue(row, headers, mapping.tipo_nucleo),
+      nucleo: importGetColumnValue(row, headers, mapping.nucleo),
+      relacao_nucleo: importGetColumnValue(row, headers, mapping.relacao_nucleo),
+      relacao_responsavel_nucleo: importGetColumnValue(row, headers, mapping.relacao_responsavel_nucleo),
+      relacao_evento: importGetColumnValue(row, headers, mapping.relacao_evento),
+      recebe_comunicacao: importGetColumnValue(row, headers, mapping.recebe_comunicacao),
+      principal_envio: importGetColumnValue(row, headers, mapping.principal_envio),
+      status_rsvp: importGetColumnValue(row, headers, mapping.status_rsvp) || "pendente",
+      status_envio: importGetColumnValue(row, headers, mapping.status_envio),
+      data_hora_rsvp: importGetColumnValue(row, headers, mapping.data_hora_rsvp),
+      data_hora_envio: importGetColumnValue(row, headers, mapping.data_hora_envio),
+    })).filter((row) => row.nome.trim().length > 0);
+  }
+
+  function importMontarMappedRowsVcf(contacts: VcfContact[]): MappedRow[] {
+    return contacts.filter((c) => c.nome.trim()).map((c) => ({
+      legacy_id: "", grupo: c.grupo || "", nome: c.nome, telefone: c.telefone || "",
+      email: "", crianca: "", mae: "", idade_crianca: "", tipo_contato: "adulto",
+      responsavel_nome: "", responsavel_telefone: "", tipo_nucleo: "", nucleo: c.grupo || "",
+      relacao_nucleo: "", relacao_responsavel_nucleo: "", relacao_evento: "",
+      recebe_comunicacao: "", principal_envio: "", status_rsvp: "pendente",
+      status_envio: "", data_hora_rsvp: "", data_hora_envio: "",
+    }));
+  }
+
+  async function handleExcelUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const lowerName = file.name.toLowerCase();
+    const isCsv = lowerName.endsWith(".csv");
+    const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls");
+    if (!isCsv && !isExcel) { alert("Envie uma planilha .xlsx, .xls ou .csv."); return; }
+
+    try {
+      let headers: string[] = [];
+      let rows: string[][] = [];
+      if (isCsv) {
+        const content = await file.text();
+        const parsed = importParseCsvText(content);
+        headers = parsed.headers;
+        rows = parsed.rows;
+      } else {
+        const XLSX = await import("xlsx");
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) { alert("Nenhuma aba encontrada na planilha."); return; }
+        const worksheet = workbook.Sheets[firstSheetName];
+        const matrix = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: "", raw: false });
+        const parsed = importPrepararMatriz(matrix);
+        headers = parsed.headers;
+        rows = parsed.rows;
+      }
+      if (headers.length === 0 || rows.length === 0) { alert("Nenhuma linha encontrada na planilha."); return; }
+      const mapping = importSugerirMapeamento(headers);
+      if (!mapping.nome) { alert("Não foi possível identificar a coluna de Nome. Verifique o cabeçalho da planilha."); return; }
+
+      setImportSheetHeaders(headers);
+      setImportSheetRows(rows);
+      setImportExcelFileName(file.name);
+      setImportMode("excel");
+      setImportPreview([]);
+      setImportBatchId(null);
+      if (excelInputRef.current) excelInputRef.current.value = "";
+    } catch {
+      alert("Erro ao ler a planilha. Confira se o arquivo está em .xlsx, .xls ou .csv.");
+    }
+  }
+
+  async function handleVcfUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const isVcf = file.name.toLowerCase().endsWith(".vcf") || file.type === "text/vcard" || file.type === "text/x-vcard" || file.type === "text/plain";
+    if (!isVcf) { alert("Envie um arquivo .vcf válido."); return; }
+
+    try {
+      const content = await file.text();
+      const contacts = importParseVCF(content);
+      if (contacts.length === 0) { alert("Nenhum contato encontrado no arquivo .vcf."); return; }
+
+      setImportVcfContacts(contacts);
+      setImportVcfFileName(file.name);
+      setImportMode("vcf");
+      setImportPreview([]);
+      setImportBatchId(null);
+      if (vcfInputRef.current) vcfInputRef.current.value = "";
+    } catch {
+      alert("Erro ao ler o arquivo .vcf.");
+    }
+  }
+
   async function gerarPreviewImportacao() {
     if (!tenantId || !eventoId) {
       alert("Selecione um evento antes de importar convidados.");
       return;
     }
 
-    if (!importText.trim()) {
-      alert("Cole uma lista de convidados antes de continuar.");
-      return;
+    let payload: Record<string, unknown> = { tenantId, eventoId, action: "preview" };
+
+    if (importMode === "texto") {
+      if (!importText.trim()) { alert("Cole uma lista de convidados antes de continuar."); return; }
+      payload.text = importText;
+    } else if (importMode === "excel") {
+      if (importSheetRows.length === 0) { alert("Carregue uma planilha antes de continuar."); return; }
+      const mappedRows = importMontarMappedRowsExcel(importSheetHeaders, importSheetRows);
+      if (mappedRows.length === 0) { alert("Nenhuma linha válida encontrada. Verifique se a coluna Nome existe."); return; }
+      payload.mappedRows = mappedRows;
+    } else if (importMode === "vcf") {
+      if (importVcfContacts.length === 0) { alert("Carregue um arquivo .vcf antes de continuar."); return; }
+      const mappedRows = importMontarMappedRowsVcf(importVcfContacts);
+      if (mappedRows.length === 0) { alert("Nenhum contato válido no arquivo .vcf."); return; }
+      payload.mappedRows = mappedRows;
     }
 
     setImportLoading(true);
@@ -1396,15 +1683,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
     try {
       const response = await fetch("/api/admin/import-legacy", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId,
-          eventoId,
-          action: "preview",
-          text: importText,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -2007,6 +2287,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 setImportText("");
                 setImportPreview([]);
                 setImportBatchId(null);
+                setImportVcfContacts([]);
+                setImportVcfFileName(null);
+                setImportExcelFileName(null);
+                setImportSheetHeaders([]);
+                setImportSheetRows([]);
+                setImportMode("texto");
               }}
               style={secondaryButtonStyle}
             >
@@ -2014,7 +2300,36 @@ ${eventoAtual?.nome || "OmniStage"}`);
             </button>
           </div>
 
-          {importacaoConfig.texto && (
+          {/* Abas de modo */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
+            {importacaoConfig.texto && (
+              <button
+                onClick={() => { setImportMode("texto"); setImportPreview([]); setImportBatchId(null); }}
+                style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: importMode === "texto" ? "2px solid var(--accent)" : "2px solid transparent", color: importMode === "texto" ? "var(--accent)" : "var(--muted)", fontWeight: importMode === "texto" ? 700 : 400, cursor: "pointer", fontSize: 14 }}
+              >
+                Texto
+              </button>
+            )}
+            {importacaoConfig.excel && (
+              <button
+                onClick={() => { setImportMode("excel"); setImportPreview([]); setImportBatchId(null); }}
+                style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: importMode === "excel" ? "2px solid var(--accent)" : "2px solid transparent", color: importMode === "excel" ? "var(--accent)" : "var(--muted)", fontWeight: importMode === "excel" ? 700 : 400, cursor: "pointer", fontSize: 14 }}
+              >
+                Excel / CSV
+              </button>
+            )}
+            {importacaoConfig.vcf && (
+              <button
+                onClick={() => { setImportMode("vcf"); setImportPreview([]); setImportBatchId(null); }}
+                style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: importMode === "vcf" ? "2px solid var(--accent)" : "2px solid transparent", color: importMode === "vcf" ? "var(--accent)" : "var(--muted)", fontWeight: importMode === "vcf" ? 700 : 400, cursor: "pointer", fontSize: 14 }}
+              >
+                Contatos (.vcf)
+              </button>
+            )}
+          </div>
+
+          {/* Modo texto */}
+          {importMode === "texto" && importacaoConfig.texto && (
             <>
               <p style={{ color: "var(--muted)", marginTop: 0 }}>
                 Cole uma lista com nomes, telefones, grupos ou quantidades. Ex:
@@ -2024,13 +2339,62 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 value={importText}
                 onChange={(event) => setImportText(event.target.value)}
                 placeholder={`Maria Silva\nJoão Santos - 11999990000\nFamília Costa (4)\nAna +1`}
-                style={{
-                  ...textareaStyle,
-                  minHeight: 180,
-                  marginTop: 12,
-                }}
+                style={{ ...textareaStyle, minHeight: 180, marginTop: 12 }}
               />
             </>
+          )}
+
+          {/* Modo Excel/CSV */}
+          {importMode === "excel" && importacaoConfig.excel && (
+            <div style={{ marginTop: 4 }}>
+              <p style={{ color: "var(--muted)", marginTop: 0 }}>
+                Envie uma planilha .xlsx, .xls ou .csv. A coluna de nome será detectada automaticamente.
+              </p>
+              <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleExcelUpload}
+                style={{ display: "none" }}
+              />
+              <button onClick={() => excelInputRef.current?.click()} style={secondaryButtonStyle}>
+                Escolher planilha
+              </button>
+              {importExcelFileName && (
+                <p style={{ color: "var(--muted)", marginTop: 8, fontSize: 13 }}>
+                  ✓ {importExcelFileName} — {importSheetRows.length} linha(s) carregada(s)
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Modo VCF */}
+          {importMode === "vcf" && importacaoConfig.vcf && (
+            <div style={{ marginTop: 4 }}>
+              <p style={{ color: "var(--muted)", marginTop: 0 }}>
+                Exporte seus contatos do celular em .vcf e importe aqui. Nome e telefone são detectados automaticamente.
+              </p>
+              <input
+                ref={vcfInputRef}
+                type="file"
+                accept=".vcf,text/vcard,text/x-vcard"
+                onChange={handleVcfUpload}
+                style={{ display: "none" }}
+              />
+              <button onClick={() => vcfInputRef.current?.click()} style={secondaryButtonStyle}>
+                Escolher arquivo .vcf
+              </button>
+              {importVcfFileName && (
+                <p style={{ color: "var(--muted)", marginTop: 8, fontSize: 13 }}>
+                  ✓ {importVcfFileName} — {importVcfContacts.length} contato(s) carregado(s)
+                  {importVcfContacts.filter((c) => !c.telefone).length > 0 && (
+                    <span style={{ color: "#d97706" }}>
+                      {" "}· {importVcfContacts.filter((c) => !c.telefone).length} sem telefone
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
           )}
 
           <div style={formActionsStyle}>
