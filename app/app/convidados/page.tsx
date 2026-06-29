@@ -321,6 +321,14 @@ export default function ConvidadosPage() {
   const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
   const [importBatchId, setImportBatchId] = useState<string | null>(null);
 
+  const importacaoConfig = useMemo(() => {
+    try {
+      const raw = window.localStorage.getItem("omnistage-importacao");
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { permitido: true, texto: true, excel: true, sheets: false, vcf: true };
+  }, []);
+
   function showToast(mensagem: string, tipo: "sucesso" | "erro" = "sucesso") {
     setToast({ mensagem, tipo });
     setTimeout(() => setToast(null), 3500);
@@ -1916,12 +1924,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
               + Criar convidado
             </button>
 
-            <button
-              onClick={() => setImportAberto((current) => !current)}
-              style={secondaryButtonStyle}
-            >
-              Importar lista inteligente
-            </button>
+            {importacaoConfig.permitido && (
+              <button
+                onClick={() => setImportAberto((current) => !current)}
+                style={secondaryButtonStyle}
+              >
+                Importar lista
+              </button>
+            )}
 
             <button
               onClick={sincronizarEnviosCardPendentes}
@@ -1934,10 +1944,10 @@ ${eventoAtual?.nome || "OmniStage"}`);
         </div>
       </section>
 
-      {importAberto && (
+      {importAberto && importacaoConfig.permitido && (
         <section style={sectionStyle}>
           <div style={sectionHeaderStyle}>
-            <h2 style={cardTitleStyle}>Importar lista inteligente</h2>
+            <h2 style={cardTitleStyle}>Importar lista de convidados</h2>
             <button
               onClick={() => {
                 setImportAberto(false);
@@ -1951,21 +1961,24 @@ ${eventoAtual?.nome || "OmniStage"}`);
             </button>
           </div>
 
-          <p style={{ color: "var(--muted)", marginTop: 0 }}>
-            Cole uma lista com nomes, telefones, grupos ou quantidades. Ex:
-            Maria +1, Família Silva (4), João - 21999999999.
-          </p>
-
-          <textarea
-            value={importText}
-            onChange={(event) => setImportText(event.target.value)}
-            placeholder={`Maria Silva\nJoão Santos - 11999990000\nFamília Costa (4)\nAna +1`}
-            style={{
-              ...textareaStyle,
-              minHeight: 180,
-              marginTop: 12,
-            }}
-          />
+          {importacaoConfig.texto && (
+            <>
+              <p style={{ color: "var(--muted)", marginTop: 0 }}>
+                Cole uma lista com nomes, telefones, grupos ou quantidades. Ex:
+                Maria +1, Família Silva (4), João - 21999999999.
+              </p>
+              <textarea
+                value={importText}
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder={`Maria Silva\nJoão Santos - 11999990000\nFamília Costa (4)\nAna +1`}
+                style={{
+                  ...textareaStyle,
+                  minHeight: 180,
+                  marginTop: 12,
+                }}
+              />
+            </>
+          )}
 
           <div style={formActionsStyle}>
             <button

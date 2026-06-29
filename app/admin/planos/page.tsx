@@ -24,6 +24,11 @@ type Plano = {
   permite_multiplos_eventos: boolean | null;
   permite_album: boolean | null;
   permite_crm: boolean | null;
+  permite_importacao: boolean | null;
+  permite_importacao_excel: boolean | null;
+  permite_importacao_texto: boolean | null;
+  permite_importacao_sheets: boolean | null;
+  permite_importacao_vcf: boolean | null;
   ativo: boolean | null;
 };
 
@@ -46,6 +51,11 @@ type PlanoForm = {
   permite_multiplos_eventos: boolean;
   permite_album: boolean;
   permite_crm: boolean;
+  permite_importacao: boolean;
+  permite_importacao_excel: boolean;
+  permite_importacao_texto: boolean;
+  permite_importacao_sheets: boolean;
+  permite_importacao_vcf: boolean;
   ativo: boolean;
 };
 
@@ -68,6 +78,11 @@ const planoInicial: PlanoForm = {
   permite_multiplos_eventos: false,
   permite_album: true,
   permite_crm: false,
+  permite_importacao: true,
+  permite_importacao_excel: true,
+  permite_importacao_texto: true,
+  permite_importacao_sheets: false,
+  permite_importacao_vcf: true,
   ativo: true,
 };
 
@@ -138,6 +153,11 @@ export default function AdminPlanosPage() {
       permite_multiplos_eventos: Boolean(plano.permite_multiplos_eventos),
       permite_album: Boolean(plano.permite_album ?? true),
       permite_crm: Boolean(plano.permite_crm),
+      permite_importacao: Boolean(plano.permite_importacao ?? true),
+      permite_importacao_excel: Boolean(plano.permite_importacao_excel ?? true),
+      permite_importacao_texto: Boolean(plano.permite_importacao_texto ?? true),
+      permite_importacao_sheets: Boolean(plano.permite_importacao_sheets ?? false),
+      permite_importacao_vcf: Boolean(plano.permite_importacao_vcf ?? true),
       ativo: Boolean(plano.ativo),
     });
 
@@ -173,6 +193,11 @@ export default function AdminPlanosPage() {
       permite_multiplos_eventos: Boolean(form.permite_multiplos_eventos),
       permite_album: Boolean(form.permite_album),
       permite_crm: Boolean(form.permite_crm),
+      permite_importacao: Boolean(form.permite_importacao),
+      permite_importacao_excel: Boolean(form.permite_importacao_excel),
+      permite_importacao_texto: Boolean(form.permite_importacao_texto),
+      permite_importacao_sheets: Boolean(form.permite_importacao_sheets),
+      permite_importacao_vcf: Boolean(form.permite_importacao_vcf),
       ativo: Boolean(form.ativo),
     };
 
@@ -370,6 +395,31 @@ export default function AdminPlanosPage() {
               checked={form.permite_crm}
               onChange={(value) => atualizarCampo("permite_crm", value)}
             />
+            <Toggle
+              label="Importação de convidados"
+              checked={form.permite_importacao}
+              onChange={(value) => atualizarCampo("permite_importacao", value)}
+            />
+            <Toggle
+              label="Importar via texto colado"
+              checked={form.permite_importacao_texto}
+              onChange={(value) => atualizarCampo("permite_importacao_texto", value)}
+            />
+            <Toggle
+              label="Importar via Excel / CSV"
+              checked={form.permite_importacao_excel}
+              onChange={(value) => atualizarCampo("permite_importacao_excel", value)}
+            />
+            <Toggle
+              label="Importar via Google Sheets"
+              checked={form.permite_importacao_sheets}
+              onChange={(value) => atualizarCampo("permite_importacao_sheets", value)}
+            />
+            <Toggle
+              label="Importar via contatos .vcf"
+              checked={form.permite_importacao_vcf}
+              onChange={(value) => atualizarCampo("permite_importacao_vcf", value)}
+            />
           </div>
 
           <button
@@ -434,6 +484,11 @@ export default function AdminPlanosPage() {
               />
               <Recurso ativo={plano.permite_album} label="Álbum Compartilhado" />
               <Recurso ativo={plano.permite_crm} label="Contatos / CRM" />
+              <Recurso ativo={plano.permite_importacao} label="Importação" />
+              <Recurso ativo={plano.permite_importacao_texto} label="Import. texto" />
+              <Recurso ativo={plano.permite_importacao_excel} label="Import. Excel" />
+              <Recurso ativo={plano.permite_importacao_sheets} label="Import. Sheets" />
+              <Recurso ativo={plano.permite_importacao_vcf} label="Import. VCF" />
             </div>
 
             <div style={actionsStyle}>

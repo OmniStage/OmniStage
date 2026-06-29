@@ -28,6 +28,8 @@ export default function AppLayout({
   const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
   const [permiteAlbum, setPermiteAlbum] = useState(true);
   const [permiteCrm, setPermiteCrm] = useState(false);
+  const [permiteImportacao, setPermiteImportacao] = useState(true);
+  const [modesImportacao, setModesImportacao] = useState({ texto: true, excel: true, sheets: false, vcf: true });
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -140,7 +142,7 @@ export default function AppLayout({
     if (planoId) {
       const { data: plano } = await supabase
         .from("planos")
-        .select("permite_album, permite_crm")
+        .select("permite_album, permite_crm, permite_importacao, permite_importacao_texto, permite_importacao_excel, permite_importacao_sheets, permite_importacao_vcf")
         .eq("id", planoId)
         .maybeSingle();
 
@@ -153,6 +155,20 @@ export default function AppLayout({
       } else {
         window.localStorage.removeItem("omnistage-permite-crm");
       }
+      setPermiteImportacao(plano?.permite_importacao !== false);
+      setModesImportacao({
+        texto: plano?.permite_importacao_texto !== false,
+        excel: plano?.permite_importacao_excel !== false,
+        sheets: plano?.permite_importacao_sheets === true,
+        vcf: plano?.permite_importacao_vcf !== false,
+      });
+      window.localStorage.setItem("omnistage-importacao", JSON.stringify({
+        permitido: plano?.permite_importacao !== false,
+        texto: plano?.permite_importacao_texto !== false,
+        excel: plano?.permite_importacao_excel !== false,
+        sheets: plano?.permite_importacao_sheets === true,
+        vcf: plano?.permite_importacao_vcf !== false,
+      }));
     }
 
     setLoading(false);
