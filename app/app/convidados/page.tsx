@@ -2355,10 +2355,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
           {/* Modo Excel/CSV */}
           {importMode === "excel" && importacaoConfig.excel && (
-            <div style={{ marginTop: 4 }}>
-              <p style={{ color: "var(--muted)", marginTop: 0 }}>
-                Envie uma planilha .xlsx, .xls ou .csv. A coluna de nome será detectada automaticamente.
-              </p>
+            <div style={{ marginTop: 8 }}>
               <input
                 ref={excelInputRef}
                 type="file"
@@ -2366,14 +2363,60 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 onChange={handleExcelUpload}
                 style={{ display: "none" }}
               />
-              <button onClick={() => excelInputRef.current?.click()} style={secondaryButtonStyle}>
-                Escolher planilha
-              </button>
-              {importExcelFileName && (
-                <p style={{ color: "var(--muted)", marginTop: 8, fontSize: 13 }}>
-                  ✓ {importExcelFileName} — {importSheetRows.length} linha(s) carregada(s)
-                </p>
-              )}
+
+              {/* Passos guiados */}
+              <div style={{ display: "grid", gap: 12 }}>
+                {/* Passo 1 */}
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 16px", borderRadius: 12, background: "var(--soft-bg)", border: "1px solid var(--border)" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>1</div>
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ display: "block", marginBottom: 4 }}>Baixe o modelo de planilha</strong>
+                    <p style={{ color: "var(--muted)", margin: "0 0 10px", fontSize: 13 }}>
+                      Use nosso modelo com as colunas corretas: Nome, Telefone, Grupo, Família e mais.
+                    </p>
+                    <a
+                      href="/api/import/template"
+                      download="modelo-convidados-omnistage.xlsx"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "var(--accent)", color: "#fff", fontWeight: 600, fontSize: 13, textDecoration: "none" }}
+                    >
+                      ↓ Baixar modelo .xlsx
+                    </a>
+                  </div>
+                </div>
+
+                {/* Passo 2 */}
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 16px", borderRadius: 12, background: "var(--soft-bg)", border: "1px solid var(--border)" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>2</div>
+                  <div>
+                    <strong style={{ display: "block", marginBottom: 4 }}>Preencha os dados</strong>
+                    <p style={{ color: "var(--muted)", margin: 0, fontSize: 13 }}>
+                      Preencha pelo menos a coluna <strong>Nome</strong>. Telefone e grupo são opcionais mas recomendados.
+                      Salve o arquivo no formato <strong>.xlsx</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Passo 3 — upload */}
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 16px", borderRadius: 12, background: "var(--soft-bg)", border: "1px solid var(--border)" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>3</div>
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ display: "block", marginBottom: 4 }}>Envie o arquivo preenchido</strong>
+                    {importExcelFileName ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                        <span style={{ fontSize: 13, color: "var(--muted)" }}>✓ <strong>{importExcelFileName}</strong> — {importSheetRows.length} linha(s)</span>
+                        <button onClick={() => excelInputRef.current?.click()} style={{ ...secondaryButtonStyle, padding: "4px 10px", fontSize: 12 }}>Trocar</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => excelInputRef.current?.click()}
+                        style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "20px 16px", borderRadius: 10, border: "2px dashed var(--border)", background: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14, justifyContent: "center" }}
+                      >
+                        <span style={{ fontSize: 22 }}>📎</span> Selecionar planilha .xlsx / .xls / .csv
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
