@@ -129,6 +129,13 @@ type ImportPreviewRow = {
 
   observacoes?: string | null;
   is_duplicate?: boolean;
+  raw_data?: {
+    crm_status?: string;
+    crm_exists?: boolean;
+    evento_status?: string;
+    event_exists?: boolean;
+    matched_by?: string;
+  };
 };
 
 type PresentePreEvento = {
@@ -318,6 +325,7 @@ export default function ConvidadosPage() {
   const [importAberto, setImportAberto] = useState(false);
   const [importText, setImportText] = useState("");
   const [importLoading, setImportLoading] = useState(false);
+  const [importConfirmLoading, setImportConfirmLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreviewRow[]>([]);
   const [importBatchId, setImportBatchId] = useState<string | null>(null);
 
@@ -1386,7 +1394,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
     setImportLoading(true);
 
     try {
-      const response = await fetch("/api/guests/import-preview", {
+      const response = await fetch("/api/admin/import-legacy", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1394,7 +1402,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         body: JSON.stringify({
           tenantId,
           eventoId,
-          sourceType: "smart_paste",
+          action: "preview",
           text: importText,
         }),
       });
@@ -1407,11 +1415,56 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
       setImportBatchId(result.batchId);
       setImportPreview(result.preview || []);
-      alert(`${result.total || 0} convidados interpretados para revisão.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao importar lista.");
     } finally {
       setImportLoading(false);
+    }
+  }
+
+  async function confirmarImportacao() {
+    if (!importBatchId || !tenantId || !eventoId) return;
+
+    const novosIds = importPreview
+      .filter((row) => !row.is_duplicate)
+      .map((row) => row.id);
+
+    if (novosIds.length === 0) {
+      alert("Todos os convidados desta prévia já existem no evento.");
+      return;
+    }
+
+    setImportConfirmLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/import-legacy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId,
+          eventoId,
+          action: "confirm",
+          batchId: importBatchId,
+          selectedIds: novosIds,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao confirmar importação.");
+      }
+
+      alert(`${result.inserted ?? novosIds.length} convidados importados com sucesso!`);
+      setImportAberto(false);
+      setImportText("");
+      setImportPreview([]);
+      setImportBatchId(null);
+      if (tenantId && eventoId) await carregarConvidados(tenantId, eventoId);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Erro ao confirmar importação.");
+    } finally {
+      setImportConfirmLoading(false);
     }
   }
 
@@ -1992,69 +2045,73 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
           {importPreview.length > 0 && (
             <div style={{ marginTop: 24 }}>
-              <h3 style={{ marginBottom: 12 }}>Prévia da importação</h3>
-
-              <div style={{ display: "grid", gap: 10 }}>
-                {importPreview.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      padding: 14,
-                      borderRadius: 12,
-                      border: item.is_duplicate
-                        ? "1px solid rgba(239,68,68,0.6)"
-                        : "1px solid var(--border)",
-                      background: item.is_duplicate
-                        ? "rgba(239,68,68,0.08)"
-                        : "var(--soft-bg)",
-                    }}
-                  >
-                    <strong>{item.nome || item.name}</strong>
-
-                    <p style={{ color: "var(--muted)", margin: "6px 0 0" }}>
-                      Telefone: {item.telefone || item.phone || "Sem telefone"}{" "}
-                      · Grupo: {item.grupo || "Sem grupo"} · Quantidade:{" "}
-                      {item.quantidade || 1}
-                      {(item.mae || item.idade_crianca) && (
-                        <>
-                          {" "}
-                          · Criança: {item.mae
-                            ? "sim"
-                            : item.crianca || "não"}{" "}
-                          · Responsável: {item.responsavel || item.mae || "-"} · Idade da criança:{" "}
-                          {item.idade_crianca || "-"}
-                        </>
-                      )}
-                    </p>
-
-                    {item.observacoes && (
-                      <p
-                        style={{
-                          color: "var(--muted)",
-                          margin: "6px 0 0",
-                          fontSize: 13,
-                        }}
-                      >
-                        {item.observacoes}
-                      </p>
-                    )}
-
-                    {item.is_duplicate && (
-                      <small style={{ color: "#b91c1c", fontWeight: 800 }}>
-                        Possível duplicado
-                      </small>
-                    )}
-                  </div>
-                ))}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <h3 style={{ margin: 0 }}>
+                  Prévia — {importPreview.filter((r) => !r.is_duplicate).length} novos
+                  {importPreview.filter((r) => r.is_duplicate).length > 0 && (
+                    <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: 14, marginLeft: 8 }}>
+                      · {importPreview.filter((r) => r.is_duplicate).length} já existem
+                    </span>
+                  )}
+                </h3>
+                <button
+                  onClick={confirmarImportacao}
+                  disabled={importConfirmLoading || importPreview.filter((r) => !r.is_duplicate).length === 0}
+                  style={buttonStyle}
+                >
+                  {importConfirmLoading ? "Importando..." : "Confirmar importação"}
+                </button>
               </div>
 
-              {importBatchId && (
-                <p
-                  style={{ color: "var(--muted)", marginTop: 12, fontSize: 13 }}
-                >
-                  Lote de importação: {importBatchId}
-                </p>
-              )}
+              <div style={{ display: "grid", gap: 10 }}>
+                {importPreview.map((item) => {
+                  const crmNovo = !item.raw_data?.crm_exists;
+                  const jaNoEvento = item.is_duplicate;
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: 14,
+                        borderRadius: 12,
+                        border: jaNoEvento
+                          ? "1px solid rgba(239,68,68,0.4)"
+                          : "1px solid var(--border)",
+                        background: jaNoEvento
+                          ? "rgba(239,68,68,0.06)"
+                          : "var(--soft-bg)",
+                        opacity: jaNoEvento ? 0.7 : 1,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <strong>{item.nome || item.name}</strong>
+                        {!jaNoEvento && crmNovo && (
+                          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 6, background: "rgba(34,197,94,0.12)", color: "#166534", fontWeight: 600 }}>
+                            Novo contato
+                          </span>
+                        )}
+                        {!jaNoEvento && !crmNovo && (
+                          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 6, background: "rgba(59,130,246,0.12)", color: "#1d4ed8", fontWeight: 600 }}>
+                            Contato existente
+                          </span>
+                        )}
+                        {jaNoEvento && (
+                          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 6, background: "rgba(239,68,68,0.12)", color: "#b91c1c", fontWeight: 600 }}>
+                            Já no evento
+                          </span>
+                        )}
+                      </div>
+
+                      <p style={{ color: "var(--muted)", margin: "6px 0 0", fontSize: 13 }}>
+                        {item.telefone || item.phone || "Sem telefone"}
+                        {item.grupo && <> · {item.grupo}</>}
+                        {(item.crianca === "sim" || item.mae) && (
+                          <> · Criança{item.responsavel_telefone || item.mae ? ` · Resp: ${item.responsavel_telefone || item.mae}` : ""}</>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>
