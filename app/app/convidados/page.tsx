@@ -1422,7 +1422,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
         const novoNome = form.nome.trim();
         const novoTel = telefoneParaStorage(telefonePrincipal) || "";
         const criancasDoGrupo = convidados.filter(
-          (c) => String(c.grupo || "").trim() === grupoFinal && c.crianca === "sim" && c.id !== editandoId
+          (c) => String(c.grupo || "").trim() === grupoFinal && c.id !== editandoId &&
+            c.crianca !== "" && // não é adulto explícito
+            (c.crianca === "sim" || Boolean(c.mae) || Boolean(c.responsavel))
         );
         for (const crianca of criancasDoGrupo) {
           const nomesAtuais = (crianca.responsavel || crianca.mae || "").split(",").map((n) => n.trim()).filter(Boolean);
