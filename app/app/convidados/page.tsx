@@ -3401,10 +3401,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           </small>
 
                           <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted)", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                            <span>{convidado.crianca === "sim" ? "Criança" : "Adulto"}</span>
-                            {convidado.crianca === "sim" && convidado.idade_crianca && <span>· Idade: {convidado.idade_crianca}</span>}
+                            <span>Perfil do convidado: <strong>{convidado.crianca === "sim" ? "Criança" : "Adulto"}</strong>{convidado.crianca === "sim" && convidado.idade_crianca ? ` · Idade: ${convidado.idade_crianca}` : ""}</span>
                             <span>·</span>
-                            <span>{(convidado.tipo_convite || "individual") === "grupo" ? "Núcleo" : "Individual"}</span>
+                            <span>Perfil do convite: <strong>{(convidado.tipo_convite || "individual") === "grupo" ? "Núcleo" : "Individual"}</strong></span>
                           </div>
 
                           {(() => {
