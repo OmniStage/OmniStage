@@ -2647,7 +2647,17 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               const tel = (telefone || "").replace(/\D/g, "");
                               const nomeKey = nome.trim().toLowerCase();
                               if (!nome.trim()) return;
-                              if (nomesVistos.has(nomeKey)) return;
+                              // Se o nome já existe mas sem telefone, atualizar o telefone
+                              if (nomesVistos.has(nomeKey)) {
+                                if (tel && !telefonesVistos.has(tel)) {
+                                  const idx = responsaveisEncontrados.findIndex((r) => r.nome.toLowerCase() === nomeKey);
+                                  if (idx !== -1 && !responsaveisEncontrados[idx].telefone) {
+                                    responsaveisEncontrados[idx].telefone = tel;
+                                    telefonesVistos.add(tel);
+                                  }
+                                }
+                                return;
+                              }
                               if (tel && telefonesVistos.has(tel)) return;
                               if (tel) telefonesVistos.add(tel);
                               nomesVistos.add(nomeKey);
