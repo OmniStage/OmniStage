@@ -3029,15 +3029,15 @@ ${eventoAtual?.nome || "OmniStage"}`);
               </div>
 
               {/* Campo manual de grupo (sem CRM e tipo Núcleo) */}
-              {!permiteCrm && form.tipo_convite === "grupo" && (
+              {true && (
                 <div style={formBlockGridStyle}>
                   <label style={fieldStyle}>
-                    <span>Grupo / Família</span>
+                    <span>{form.tipo_convite === "grupo" && !permiteCrm ? "Grupo / Família" : "Tag / Turma"}</span>
                     <input
                       list="grupos-sugestoes"
                       value={form.grupo}
                       onChange={(e) => setForm((cur) => ({ ...cur, grupo: e.target.value }))}
-                      placeholder="Ex: FAMILIA_SILVA"
+                      placeholder={form.tipo_convite === "grupo" && !permiteCrm ? "Ex: FAMILIA_SILVA" : "Ex: MAPLE BEAR, Mesa 1..."}
                       style={inputStyle}
                     />
                     <datalist id="grupos-sugestoes">
