@@ -1417,6 +1417,30 @@ ${eventoAtual?.nome || "OmniStage"}`);
           .eq("tenant_id", tenantId);
       }
 
+      // Se adulto + contato_principal + telefone: propagar como responsável nas crianças do grupo
+      if (!criancaFinal && form.contato_principal && telefoneParaStorage(telefonePrincipal) && grupoFinal) {
+        const novoNome = form.nome.trim();
+        const novoTel = telefoneParaStorage(telefonePrincipal) || "";
+        const criancasDoGrupo = convidados.filter(
+          (c) => String(c.grupo || "").trim() === grupoFinal && c.crianca === "sim" && c.id !== editandoId
+        );
+        for (const crianca of criancasDoGrupo) {
+          const nomesAtuais = (crianca.responsavel || crianca.mae || "").split(",").map((n) => n.trim()).filter(Boolean);
+          const telsAtuais = (crianca.responsavel_telefone || "").split(",").map((t) => t.replace(/\D/g, "")).filter(Boolean);
+          const jaTemNome = nomesAtuais.some((n) => n.toLowerCase() === novoNome.toLowerCase());
+          const jaTemTel = novoTel && telsAtuais.some((t) => t === novoTel.replace(/\D/g, ""));
+          if (!jaTemNome && !jaTemTel) {
+            const novosNomes = [...nomesAtuais, novoNome].join(", ");
+            const novosTels = [...telsAtuais, novoTel.replace(/\D/g, "")].join(", ");
+            await supabase
+              .from("evento_convidados")
+              .update({ responsavel: novosNomes, responsavel_telefone: novosTels, mae: novosNomes })
+              .eq("id", crianca.id)
+              .eq("tenant_id", tenantId);
+          }
+        }
+      }
+
       const estavaEditando = Boolean(editandoId);
 
       limparFormulario();
