@@ -3153,7 +3153,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                             <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => {
                                               if (!e.target.checked) {
-                                                const confirmar = window.confirm("Desmarcar Contato Principal significa que este convidado não receberá o convite do núcleo diretamente.\n\nDeseja mudar o Perfil do convite para Individual?");
+                                                const confirmar = window.confirm("Desmarcar Contato Principal significa que este convidado não receberá a comunicação do núcleo diretamente.\n\nDeseja mudar para apenas sua comunicação pessoal (Individual)?");
                                                 if (confirmar) {
                                                   setForm((cur) => ({ ...cur, tipo_convite: "individual", contato_principal: false }));
                                                   return;
