@@ -3425,10 +3425,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             const semTelefone = !normalizarTelefone(convidado.telefone);
                             const ehCriancaComResp = convidado.crianca === "sim" && (convidado.responsavel || convidado.mae || convidado.responsavel_telefone);
 
-                            // Principal dentro dos próprios convidados
-                            const principalNoGrupo = semTelefone && !!gr && !ehCriancaComResp
-                              ? convidados.find((c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === gr) || null
-                              : null;
+                            // Principais dentro dos próprios convidados (pode haver mais de um)
+                            const principaisNoGrupo = semTelefone && !!gr && !ehCriancaComResp
+                              ? convidados.filter((c) => c.id !== convidado.id && !!c.contato_principal && !!normalizarTelefone(c.telefone) && String(c.grupo || "").trim() === gr)
+                              : [];
+                            const principalNoGrupo = principaisNoGrupo[0] || null;
 
                             // Principal via nucleosContatos (pode ser contato externo não-convidado)
                             const infoNucleo = semTelefone && !!gr && !ehCriancaComResp && !principalNoGrupo
@@ -3468,12 +3469,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                       ? "Recebe comunicação via Principal"
                                       : "Recebe comunicação"}
                                 </span>
-                                {principalNoGrupo && (
-                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
-                                    👤 {principalNoGrupo.nome}
-                                    {principalNoGrupo.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {principalNoGrupo.telefone}</span>}
+                                {principaisNoGrupo.map((p) => (
+                                  <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
+                                    👤 {p.nome}
+                                    {p.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(p.telefone)}</span>}
                                   </span>
-                                )}
+                                ))}
                                 {infoNucleo?.dados && (
                                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
                                     👤 {infoNucleo.dados.nome}
