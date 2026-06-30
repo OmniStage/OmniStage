@@ -351,6 +351,7 @@ export default function ConvidadosPage() {
   const [envioConvitePendenteConfirmacao, setEnvioConvitePendenteConfirmacao] =
     useState<Convidado | null>(null);
   const [confirmandoEnvioConvite, setConfirmandoEnvioConvite] = useState(false);
+  const [confirmNucleoDialog, setConfirmNucleoDialog] = useState<{ mensagem: string; onConfirm: () => void } | null>(null);
   const [convidadoPendenteExclusao, setConvidadoPendenteExclusao] =
     useState<Convidado | null>(null);
   const [excluindoConvidado, setExcluindoConvidado] = useState(false);
@@ -2231,6 +2232,23 @@ ${eventoAtual?.nome || "OmniStage"}`);
   return (
     <main style={getPageStyle(themeVars)}>
       <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(16px);} to { opacity:1; transform:translateX(-50%) translateY(0); } }`}</style>
+      {/* Modal de confirmação núcleo */}
+      {confirmNucleoDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--card, #fff)", borderRadius: 16, padding: 28, maxWidth: 380, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <p style={{ margin: "0 0 20px", fontSize: 15, lineHeight: 1.6, color: "var(--text)", whiteSpace: "pre-line" }}>{confirmNucleoDialog.mensagem}</p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => setConfirmNucleoDialog(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "transparent", fontWeight: 600, cursor: "pointer", color: "var(--text)" }}>
+                Cancelar
+              </button>
+              <button onClick={() => { confirmNucleoDialog.onConfirm(); setConfirmNucleoDialog(null); }} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast notification */}
       {toast && (
         <div style={{
@@ -3131,8 +3149,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                           <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow} onChange={(e) => {
                                             if (!e.target.checked) {
-                                              const confirmar = window.confirm("Desmarcar significa que este convidado não receberá nenhuma comunicação.\n\nTem certeza?");
-                                              if (!confirmar) return;
+                                              setConfirmNucleoDialog({
+                                                mensagem: "Desmarcar significa que este convidado não receberá nenhuma comunicação.\n\nTem certeza?",
+                                                onConfirm: () => quickUpdate({ recebe_convite: false }),
+                                              });
+                                              return;
                                             }
                                             quickUpdate({ recebe_convite: e.target.checked });
                                           }} />
@@ -3159,11 +3180,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                             <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => {
                                               if (!e.target.checked) {
-                                                const confirmar = window.confirm("Desmarcar Contato Principal significa que este convidado não receberá a comunicação do núcleo diretamente.\n\nDeseja mudar para apenas sua comunicação pessoal (Individual)?");
-                                                if (confirmar) {
-                                                  setForm((cur) => ({ ...cur, tipo_convite: "individual", contato_principal: false }));
-                                                  return;
-                                                }
+                                                setConfirmNucleoDialog({
+                                                  mensagem: "Desmarcar Contato Principal significa que este convidado não receberá a comunicação do núcleo diretamente.\n\nDeseja mudar para apenas sua comunicação pessoal (Individual)?",
+                                                  onConfirm: () => setForm((cur) => ({ ...cur, tipo_convite: "individual", contato_principal: false })),
+                                                });
+                                                return;
                                               }
                                               quickUpdate({ contato_principal: e.target.checked });
                                             }} />
