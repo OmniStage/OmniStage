@@ -2234,7 +2234,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(16px);} to { opacity:1; transform:translateX(-50%) translateY(0); } }`}</style>
       {/* Modal de confirmação núcleo */}
       {confirmNucleoDialog && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "var(--card, #fff)", borderRadius: 16, padding: 28, maxWidth: 380, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
             <p style={{ margin: "0 0 20px", fontSize: 15, lineHeight: 1.6, color: "var(--text)", whiteSpace: "pre-line" }}>{confirmNucleoDialog.mensagem}</p>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
