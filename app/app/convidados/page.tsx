@@ -3474,19 +3474,21 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                       ? "Recebe comunicação via Principal"
                                       : "Recebe comunicação"}
                                 </span>
-                                {chipsResp}
-                                {principaisNoGrupo.map((p) => (
-                                  <span key={p.id} style={chipStylePrinc}>
-                                    👤 {p.nome}
-                                    {p.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(p.telefone)}</span>}
-                                  </span>
-                                ))}
-                                {infoNucleo?.dados && (
-                                  <span style={chipStylePrinc}>
-                                    👤 {infoNucleo.dados.nome}
-                                    {infoNucleo.dados.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(infoNucleo.dados.telefone)}</span>}
-                                  </span>
-                                )}
+                                <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
+                                  {chipsResp}
+                                  {principaisNoGrupo.map((p) => (
+                                    <span key={p.id} style={chipStylePrinc}>
+                                      👤 {p.nome}
+                                      {p.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(p.telefone)}</span>}
+                                    </span>
+                                  ))}
+                                  {infoNucleo?.dados && (
+                                    <span style={chipStylePrinc}>
+                                      👤 {infoNucleo.dados.nome}
+                                      {infoNucleo.dados.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(infoNucleo.dados.telefone)}</span>}
+                                    </span>
+                                  )}
+                                </span>
                               </div>
                             );
                           })()}
