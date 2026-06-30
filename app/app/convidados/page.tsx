@@ -3080,6 +3080,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                 <strong style={{ minWidth: 140, fontSize: 13, flexShrink: 0 }}>{membro.nome || "(sem nome)"}</strong>
                                 {(() => {
                                   const isCriancaRow = isAtual ? form.crianca === "sim" : membro.crianca === "sim";
+                                  const membroTelefone = isAtual ? normalizarTelefone(form.telefone) : normalizarTelefone(membro.telefone);
+                                  const semTelefoneRow = !membroTelefone;
                                   const recebeEnvioVal = isCriancaRow
                                     ? true
                                     : isAtual
@@ -3088,15 +3090,30 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                   const contatoPrincipalVal = isAtual
                                     ? form.contato_principal
                                     : Boolean(membro.contato_principal);
+                                  const recebeViaPrincipalRow = !isCriancaRow && semTelefoneRow && !contatoPrincipalVal;
 
                                   return (
                                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                       <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
-                                          <span style={{ fontWeight: 700 }}>{(isAtual ? form.crianca === "sim" : membro.crianca === "sim") ? "Recebe comunicação via Responsável" : "Recebe comunicação"}</span>
+                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
+                                          <span style={{ fontWeight: 700 }}>
+                                            {isCriancaRow
+                                              ? "Recebe comunicação via Responsável"
+                                              : recebeViaPrincipalRow
+                                                ? "Recebe comunicação via Principal"
+                                                : "Recebe comunicação"}
+                                          </span>
                                         </div>
-                                        <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>{contatoPrincipalVal ? "Envio com componentes do núcleo" : "Envio individual com o nome do convidado"}</span>
+                                        <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>
+                                          {isCriancaRow
+                                            ? "Envio pelo responsável cadastrado"
+                                            : recebeViaPrincipalRow
+                                              ? "Sem telefone — envio pelo contato principal do grupo"
+                                              : contatoPrincipalVal
+                                                ? "Envio com componentes do núcleo"
+                                                : "Envio individual com o nome do convidado"}
+                                        </span>
                                       </label>
                                       {membro.crianca !== "sim" && (
                                         <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
