@@ -3115,7 +3115,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                                 : "Envio individual com o nome do convidado"}
                                         </span>
                                       </label>
-                                      {membro.crianca !== "sim" && !semTelefoneRow && (
+                                      {membro.crianca !== "sim" && !semTelefoneRow && (isAtual ? form.tipo_convite === "grupo" : (membro.tipo_convite || "individual") === "grupo") && (
                                         <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
                                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                             <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => quickUpdate({ contato_principal: e.target.checked })} />
