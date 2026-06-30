@@ -3129,7 +3129,13 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                       <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
+                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow} onChange={(e) => {
+                                            if (!e.target.checked) {
+                                              const confirmar = window.confirm("Desmarcar significa que este convidado não receberá nenhuma comunicação.\n\nTem certeza?");
+                                              if (!confirmar) return;
+                                            }
+                                            quickUpdate({ recebe_convite: e.target.checked });
+                                          }} />
                                           <span style={{ fontWeight: 700 }}>
                                             {isCriancaRow
                                               ? "Recebe comunicação via Responsável"
