@@ -3485,7 +3485,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                     ? "Recebe comunicação via Responsável"
                                     : recebeViaPrincipal
                                       ? "Recebe comunicação via Principal"
-                                      : "Recebe comunicação individual"}
+                                      : convidado.contato_principal
+                                        ? "Recebe comunicação do Núcleo"
+                                        : "Recebe comunicação individual"}
                                 </span>
                                 <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
                                   {chipsResp}
