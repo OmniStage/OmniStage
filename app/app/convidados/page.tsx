@@ -3407,16 +3407,6 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted)", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                               <span>Criança: {convidado.crianca || "não"}</span>
                               {convidado.idade_crianca && <span>· Idade: {convidado.idade_crianca}</span>}
-                              {(convidado.responsavel || convidado.mae) && (() => {
-                                const nomes = (convidado.responsavel || convidado.mae || "").split(",").map(n => n.trim()).filter(Boolean);
-                                const tels = (convidado.responsavel_telefone || "").split(",").map(t => t.replace(/\D/g, "")).filter(Boolean);
-                                return nomes.map((nome, i) => (
-                                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#92400e", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
-                                    👤 {nome}
-                                    {tels[i] && <span style={{ fontWeight: 400, color: "#b45309" }}>· {telefoneParaExibir(tels[i])}</span>}
-                                  </span>
-                                ));
-                              })()}
                             </div>
                           )}
 
@@ -3455,6 +3445,21 @@ ${eventoAtual?.nome || "OmniStage"}`);
 
                             if (!mostrarBloco) return null;
 
+                            const chipStyleResp = { display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#92400e", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 } as const;
+                            const chipStylePrinc = { display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 } as const;
+
+                            // Chips de responsável (criança)
+                            const chipsResp = ehCriancaComResp ? (() => {
+                              const nomes = (convidado.responsavel || convidado.mae || "").split(",").map(n => n.trim()).filter(Boolean);
+                              const tels = (convidado.responsavel_telefone || "").split(",").map(t => t.replace(/\D/g, "")).filter(Boolean);
+                              return nomes.map((nome, i) => (
+                                <span key={i} style={chipStyleResp}>
+                                  👤 {nome}
+                                  {tels[i] && <span style={{ fontWeight: 400, color: "#b45309" }}>· {telefoneParaExibir(tels[i])}</span>}
+                                </span>
+                              ));
+                            })() : null;
+
                             return (
                               <div style={sendIdentityStyle}>
                                 {mostrarGrupo && convidado.contato_principal && (
@@ -3462,23 +3467,24 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                     ★ Contato principal do grupo
                                   </span>
                                 )}
-                                <span>
+                                <span style={{ whiteSpace: "nowrap" }}>
                                   {ehCriancaComResp
                                     ? "Recebe comunicação via Responsável"
                                     : recebeViaPrincipal
                                       ? "Recebe comunicação via Principal"
                                       : "Recebe comunicação"}
                                 </span>
+                                {chipsResp}
                                 {principaisNoGrupo.map((p) => (
-                                  <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
+                                  <span key={p.id} style={chipStylePrinc}>
                                     👤 {p.nome}
                                     {p.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(p.telefone)}</span>}
                                   </span>
                                 ))}
                                 {infoNucleo?.dados && (
-                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#5b21b6", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
+                                  <span style={chipStylePrinc}>
                                     👤 {infoNucleo.dados.nome}
-                                    {infoNucleo.dados.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {infoNucleo.dados.telefone}</span>}
+                                    {infoNucleo.dados.telefone && <span style={{ fontWeight: 400, color: "#7c3aed" }}>· {telefoneParaExibir(infoNucleo.dados.telefone)}</span>}
                                   </span>
                                 )}
                               </div>
