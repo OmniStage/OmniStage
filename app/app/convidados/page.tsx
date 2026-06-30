@@ -3400,15 +3400,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             {convidado.tamanho_chinelo ? ` · Chinelo: ${convidado.tamanho_chinelo}` : ""}
                           </small>
 
-                          {(convidado.crianca ||
-                            convidado.responsavel ||
-                            convidado.mae ||
-                            convidado.idade_crianca) && (
-                            <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted)", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                              <span>Criança: {convidado.crianca || "não"}</span>
-                              {convidado.idade_crianca && <span>· Idade: {convidado.idade_crianca}</span>}
-                            </div>
-                          )}
+                          <div style={{ marginTop: 8, fontSize: 13, color: "var(--muted)", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                            <span>{convidado.crianca === "sim" ? "Criança" : "Adulto"}</span>
+                            {convidado.crianca === "sim" && convidado.idade_crianca && <span>· Idade: {convidado.idade_crianca}</span>}
+                            <span>·</span>
+                            <span>{(convidado.tipo_convite || "individual") === "grupo" ? "Núcleo" : "Individual"}</span>
+                          </div>
 
                           {(() => {
                             const gr = String(convidado.grupo || "").trim();
