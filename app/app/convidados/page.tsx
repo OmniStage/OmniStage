@@ -3147,7 +3147,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                       <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow || (!isAtual ? (membro.tipo_convite || "individual") === "individual" : form.tipo_convite === "individual")} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
+                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow || contatoPrincipalVal || (!isAtual ? (membro.tipo_convite || "individual") === "individual" : form.tipo_convite === "individual")} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
                                           <span style={{ fontWeight: 700 }}>
                                             {isCriancaRow
                                               ? "Recebe comunicação via Responsável"
