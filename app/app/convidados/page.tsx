@@ -1402,14 +1402,17 @@ ${eventoAtual?.nome || "OmniStage"}`);
         ? convidados.find((c) => c.id === editandoId)
         : null;
       const contatoIdParaSync = convidadoAtual?.tenant_contato_id;
-      if (criancaFinal && contatoIdParaSync && (responsavelFinal || responsavelTelefoneFinal)) {
+      if (contatoIdParaSync) {
+        const updateCrm: Record<string, unknown> = {
+          tipo_contato: criancaFinal ? "crianca" : "adulto",
+        };
+        if (criancaFinal && (responsavelFinal || responsavelTelefoneFinal)) {
+          updateCrm.responsavel_nome = responsavelFinal || null;
+          updateCrm.responsavel_telefone = telefoneParaStorage(responsavelTelefoneFinal) || null;
+        }
         await supabase
           .from("tenant_contatos")
-          .update({
-            responsavel_nome: responsavelFinal || null,
-            responsavel_telefone: telefoneParaStorage(responsavelTelefoneFinal) || null,
-            tipo_contato: "crianca",
-          })
+          .update(updateCrm)
           .eq("id", contatoIdParaSync)
           .eq("tenant_id", tenantId);
       }
@@ -1899,14 +1902,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
       email: convidado.email || "",
       grupo: grupoFinal,
       grupo_envio: convidado.grupo_envio || "",
-      crianca: (() => {
-        // Se o evento já tem crianca definido explicitamente, respeitar
-        if (convidado.crianca === "sim") return "sim";
-        if (convidado.crianca !== null && convidado.crianca !== undefined) return "";
-        // Sem definição no evento: usar mae (legado) ou CRM como fallback
-        if (Boolean(convidado.mae) || contatoBaseEhCrianca) return "sim";
-        return "";
-      })(),
+      crianca: convidado.crianca === "sim" || Boolean(convidado.mae) ? "sim" : "",
       responsavel: responsavelFinal,
       responsavel_telefone: responsavelTelefoneFinal,
       mae: convidado.mae || "",
