@@ -1899,9 +1899,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
       email: convidado.email || "",
       grupo: grupoFinal,
       grupo_envio: convidado.grupo_envio || "",
-      crianca: contatoBaseEhCrianca || convidado.responsavel || convidado.mae
+      crianca: contatoBaseEhCrianca || convidado.crianca === "sim" || Boolean(convidado.mae)
         ? "sim"
-        : convidado.crianca || "",
+        : "",
       responsavel: responsavelFinal,
       responsavel_telefone: responsavelTelefoneFinal,
       mae: convidado.mae || "",
