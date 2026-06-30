@@ -2983,12 +2983,18 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     <button
                       key={opcao.value}
                       type="button"
-                      onClick={() => setForm((current) => ({
-                        ...current,
-                        tipo_convite: opcao.value,
-                        contato_principal: opcao.value === "grupo" ? current.contato_principal : false,
-                        recebe_convite: opcao.value === "grupo" ? current.recebe_convite : true,
-                      }))}
+                      onClick={() => setForm((current) => {
+                        const temTelefone = Boolean(normalizarTelefone(current.telefone));
+                        return {
+                          ...current,
+                          tipo_convite: opcao.value,
+                          // Ao entrar em Núcleo: marcar Contato Principal automaticamente se tem telefone
+                          contato_principal: opcao.value === "grupo"
+                            ? (temTelefone ? true : current.contato_principal)
+                            : false,
+                          recebe_convite: opcao.value === "grupo" ? current.recebe_convite : true,
+                        };
+                      })}
                       style={{
                         display: "inline-flex", alignItems: "center",
                         border: `1.5px solid ${ativo ? "#7c3aed" : "#e2e8f0"}`,
@@ -3145,7 +3151,16 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                       {membro.crianca !== "sim" && !semTelefoneRow && (isAtual ? form.tipo_convite === "grupo" : (membro.tipo_convite || "individual") === "grupo") && (
                                         <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
                                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => quickUpdate({ contato_principal: e.target.checked })} />
+                                            <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => {
+                                              if (!e.target.checked) {
+                                                const confirmar = window.confirm("Desmarcar Contato Principal significa que este convidado não receberá o convite do núcleo diretamente.\n\nDeseja mudar o Perfil do convite para Individual?");
+                                                if (confirmar) {
+                                                  setForm((cur) => ({ ...cur, tipo_convite: "individual", contato_principal: false }));
+                                                  return;
+                                                }
+                                              }
+                                              quickUpdate({ contato_principal: e.target.checked });
+                                            }} />
                                             <span style={{ fontWeight: 700 }}>Contato Principal</span>
                                           </div>
                                           <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>Convite com todos os nomes do grupo</span>
