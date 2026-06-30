@@ -2630,16 +2630,27 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           let autoResponsavel = current.responsavel;
                           let autoResponsavelTel = current.responsavel_telefone;
 
-                          if (isCrianca && !temResponsavel) {
+                          if (isCrianca) {
                             // Coleta responsáveis de todas as fontes, sem duplicar por telefone
-                            const responsaveisEncontrados: { nome: string; telefone: string }[] = [];
-                            const telefonesVistos = new Set<string>();
+                            // Parte dos já existentes no form (para ser aditivo)
+                            const nomesExistentes = (current.responsavel || "").split(",").map((n) => n.trim()).filter(Boolean);
+                            const telsExistentes = (current.responsavel_telefone || "").split(",").map((t) => t.replace(/\D/g, "")).filter(Boolean);
+
+                            const responsaveisEncontrados: { nome: string; telefone: string }[] = nomesExistentes.map((nome, i) => ({
+                              nome,
+                              telefone: telsExistentes[i] || "",
+                            }));
+                            const telefonesVistos = new Set<string>(telsExistentes.filter(Boolean));
+                            const nomesVistos = new Set<string>(nomesExistentes.map((n) => n.toLowerCase()));
 
                             const adicionarResponsavel = (nome: string, telefone: string | null) => {
                               const tel = (telefone || "").replace(/\D/g, "");
+                              const nomeKey = nome.trim().toLowerCase();
                               if (!nome.trim()) return;
+                              if (nomesVistos.has(nomeKey)) return;
                               if (tel && telefonesVistos.has(tel)) return;
                               if (tel) telefonesVistos.add(tel);
+                              nomesVistos.add(nomeKey);
                               responsaveisEncontrados.push({ nome: nome.trim(), telefone: tel });
                             };
 
@@ -3387,11 +3398,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
                               {convidado.idade_crianca && <span>· Idade: {convidado.idade_crianca}</span>}
                               {(convidado.responsavel || convidado.mae) && (() => {
                                 const nomes = (convidado.responsavel || convidado.mae || "").split(",").map(n => n.trim()).filter(Boolean);
-                                const tels = (convidado.responsavel_telefone || "").split(",").map(t => t.trim()).filter(Boolean);
+                                const tels = (convidado.responsavel_telefone || "").split(",").map(t => t.replace(/\D/g, "")).filter(Boolean);
                                 return nomes.map((nome, i) => (
                                   <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#92400e", borderRadius: 6, padding: "2px 8px", fontWeight: 700, fontSize: 12 }}>
                                     👤 {nome}
-                                    {tels[i] && <span style={{ fontWeight: 400, color: "#b45309" }}>· {tels[i]}</span>}
+                                    {tels[i] && <span style={{ fontWeight: 400, color: "#b45309" }}>· {telefoneParaExibir(tels[i])}</span>}
                                   </span>
                                 ));
                               })()}
