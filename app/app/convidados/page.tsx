@@ -1433,10 +1433,11 @@ ${eventoAtual?.nome || "OmniStage"}`);
             const novosNomes = [...nomesAtuais, novoNome].join(", ");
             const novosTels = [...telsAtuais, novoTel.replace(/\D/g, "")].join(", ");
             await supabase
-              .from("evento_convidados")
+              .from("convidados")
               .update({ responsavel: novosNomes, responsavel_telefone: novosTels, mae: novosNomes })
               .eq("id", crianca.id)
-              .eq("tenant_id", tenantId);
+              .eq("tenant_id", tenantId)
+              .eq("evento_id", eventoId);
           }
         }
       }
