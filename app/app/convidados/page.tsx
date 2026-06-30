@@ -2626,11 +2626,55 @@ ${eventoAtual?.nome || "OmniStage"}`);
                         const isCrianca = opcao === "crianca";
                         setForm((current) => {
                           const temResponsavel = Boolean(current.responsavel.trim() || current.responsavel_telefone.trim());
+
+                          let autoResponsavel = current.responsavel;
+                          let autoResponsavelTel = current.responsavel_telefone;
+
+                          if (isCrianca && !temResponsavel) {
+                            // 1. Tentar via CRM (tenant_contato_id do convidado em edição)
+                            const tenantContatoId = convidadoEmEdicao?.tenant_contato_id;
+                            const contatoCrm = tenantContatoId ? contatosBasePorId.get(tenantContatoId) : null;
+                            if (contatoCrm?.responsavel_nome) {
+                              autoResponsavel = contatoCrm.responsavel_nome;
+                              autoResponsavelTel = contatoCrm.responsavel_telefone || "";
+                            } else {
+                              // 2. Tentar via adulto principal do mesmo grupo
+                              const grupoAtual = current.grupo.trim();
+                              if (grupoAtual) {
+                                const principalGrupo = convidados.find(
+                                  (c) => String(c.grupo || "").trim() === grupoAtual &&
+                                    c.crianca !== "sim" &&
+                                    c.contato_principal &&
+                                    c.telefone &&
+                                    c.id !== editandoId
+                                );
+                                if (principalGrupo) {
+                                  autoResponsavel = principalGrupo.nome;
+                                  autoResponsavelTel = principalGrupo.telefone || "";
+                                } else {
+                                  // 3. Qualquer adulto com telefone no mesmo grupo
+                                  const adultoGrupo = convidados.find(
+                                    (c) => String(c.grupo || "").trim() === grupoAtual &&
+                                      c.crianca !== "sim" &&
+                                      c.telefone &&
+                                      c.id !== editandoId
+                                  );
+                                  if (adultoGrupo) {
+                                    autoResponsavel = adultoGrupo.nome;
+                                    autoResponsavelTel = adultoGrupo.telefone || "";
+                                  }
+                                }
+                              }
+                            }
+                          }
+
                           return {
                             ...current,
                             crianca: isCrianca ? "sim" : "",
                             contato_principal: isCrianca && !current.grupo.trim() ? false : current.contato_principal,
-                            recebe_convite: isCrianca && temResponsavel ? true : current.recebe_convite,
+                            recebe_convite: isCrianca ? true : current.recebe_convite,
+                            responsavel: autoResponsavel,
+                            responsavel_telefone: autoResponsavelTel,
                           };
                         });
                       }}
