@@ -3153,7 +3153,9 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                               ? "Recebe comunicação via Responsável"
                                               : recebeViaPrincipalRow
                                                 ? "Recebe comunicação via Principal"
-                                                : "Recebe comunicação individual"}
+                                                : contatoPrincipalVal
+                                                  ? "Recebe comunicação do Núcleo"
+                                                  : "Recebe comunicação individual"}
                                           </span>
                                         </div>
                                         <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>
