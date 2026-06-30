@@ -1353,7 +1353,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         telefone: telefoneParaStorage(telefonePrincipal) || null,
         email: form.email.trim() || null,
         grupo: grupoFinal || null,
-        crianca: criancaFinal ? "sim" : null,
+        crianca: criancaFinal ? "sim" : "",
         mae: criancaFinal ? maeNormalizada || responsavelFinal || null : null,
         responsavel: criancaFinal ? responsavelFinal || null : null,
         responsavel_telefone: criancaFinal ? responsavelTelefoneFinal || null : null,
