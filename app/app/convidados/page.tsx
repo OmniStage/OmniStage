@@ -1899,9 +1899,14 @@ ${eventoAtual?.nome || "OmniStage"}`);
       email: convidado.email || "",
       grupo: grupoFinal,
       grupo_envio: convidado.grupo_envio || "",
-      crianca: contatoBaseEhCrianca || convidado.crianca === "sim" || Boolean(convidado.mae)
-        ? "sim"
-        : "",
+      crianca: (() => {
+        // Se o evento já tem crianca definido explicitamente, respeitar
+        if (convidado.crianca === "sim") return "sim";
+        if (convidado.crianca !== null && convidado.crianca !== undefined) return "";
+        // Sem definição no evento: usar mae (legado) ou CRM como fallback
+        if (Boolean(convidado.mae) || contatoBaseEhCrianca) return "sim";
+        return "";
+      })(),
       responsavel: responsavelFinal,
       responsavel_telefone: responsavelTelefoneFinal,
       mae: convidado.mae || "",
