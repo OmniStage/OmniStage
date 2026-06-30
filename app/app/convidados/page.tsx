@@ -2631,40 +2631,41 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           let autoResponsavelTel = current.responsavel_telefone;
 
                           if (isCrianca && !temResponsavel) {
-                            // 1. Tentar via CRM (tenant_contato_id do convidado em edição)
+                            // Coleta responsáveis de todas as fontes, sem duplicar por telefone
+                            const responsaveisEncontrados: { nome: string; telefone: string }[] = [];
+                            const telefonesVistos = new Set<string>();
+
+                            const adicionarResponsavel = (nome: string, telefone: string | null) => {
+                              const tel = (telefone || "").replace(/\D/g, "");
+                              if (!nome.trim()) return;
+                              if (tel && telefonesVistos.has(tel)) return;
+                              if (tel) telefonesVistos.add(tel);
+                              responsaveisEncontrados.push({ nome: nome.trim(), telefone: tel });
+                            };
+
+                            // 1. Adultos principais do grupo no evento atual (prioridade máxima)
+                            const grupoAtual = current.grupo.trim();
+                            if (grupoAtual) {
+                              convidados
+                                .filter((c) => String(c.grupo || "").trim() === grupoAtual && c.crianca !== "sim" && c.contato_principal && c.telefone && c.id !== editandoId)
+                                .forEach((c) => adicionarResponsavel(c.nome, c.telefone));
+
+                              // 2. Demais adultos com telefone no grupo
+                              convidados
+                                .filter((c) => String(c.grupo || "").trim() === grupoAtual && c.crianca !== "sim" && !c.contato_principal && c.telefone && c.id !== editandoId)
+                                .forEach((c) => adicionarResponsavel(c.nome, c.telefone));
+                            }
+
+                            // 3. CRM — adiciona apenas responsáveis ainda não presentes (evita dados de outros eventos)
                             const tenantContatoId = convidadoEmEdicao?.tenant_contato_id;
                             const contatoCrm = tenantContatoId ? contatosBasePorId.get(tenantContatoId) : null;
                             if (contatoCrm?.responsavel_nome) {
-                              autoResponsavel = contatoCrm.responsavel_nome;
-                              autoResponsavelTel = contatoCrm.responsavel_telefone || "";
-                            } else {
-                              // 2. Tentar via adulto principal do mesmo grupo
-                              const grupoAtual = current.grupo.trim();
-                              if (grupoAtual) {
-                                const principalGrupo = convidados.find(
-                                  (c) => String(c.grupo || "").trim() === grupoAtual &&
-                                    c.crianca !== "sim" &&
-                                    c.contato_principal &&
-                                    c.telefone &&
-                                    c.id !== editandoId
-                                );
-                                if (principalGrupo) {
-                                  autoResponsavel = principalGrupo.nome;
-                                  autoResponsavelTel = principalGrupo.telefone || "";
-                                } else {
-                                  // 3. Qualquer adulto com telefone no mesmo grupo
-                                  const adultoGrupo = convidados.find(
-                                    (c) => String(c.grupo || "").trim() === grupoAtual &&
-                                      c.crianca !== "sim" &&
-                                      c.telefone &&
-                                      c.id !== editandoId
-                                  );
-                                  if (adultoGrupo) {
-                                    autoResponsavel = adultoGrupo.nome;
-                                    autoResponsavelTel = adultoGrupo.telefone || "";
-                                  }
-                                }
-                              }
+                              adicionarResponsavel(contatoCrm.responsavel_nome, contatoCrm.responsavel_telefone);
+                            }
+
+                            if (responsaveisEncontrados.length > 0) {
+                              autoResponsavel = responsaveisEncontrados.map((r) => r.nome).join(", ");
+                              autoResponsavelTel = responsaveisEncontrados.map((r) => r.telefone).join(", ");
                             }
                           }
 
