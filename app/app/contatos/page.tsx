@@ -32,6 +32,7 @@ type Pessoa = {
   responsavel_telefone: string | null;
   origem: string | null;
   created_at: string | null;
+  contato_principal: boolean | null;
 };
 
 type Nucleo = {
@@ -105,7 +106,10 @@ type PessoaForm = {
   tipo_contato: string;
   responsavel_nome: string;
   responsavel_telefone: string;
+  idade_crianca: string;
   consentimento_comunicacao: boolean;
+  agrupamento_familia: string;
+  contato_principal: boolean;
 };
 
 type NucleoForm = {
@@ -121,7 +125,10 @@ const pessoaFormVazio: PessoaForm = {
   tipo_contato: "adulto",
   responsavel_nome: "",
   responsavel_telefone: "",
+  idade_crianca: "",
   consentimento_comunicacao: false,
+  agrupamento_familia: "",
+  contato_principal: false,
 };
 
 const nucleoFormVazio: NucleoForm = {
@@ -149,6 +156,7 @@ export default function ContatosPage() {
   const [busca, setBusca] = useState("");
   const [tipoNucleoFiltro, setTipoNucleoFiltro] = useState("todos");
   const [visualizacaoNucleos, setVisualizacaoNucleos] = useState<VisualizacaoNucleo>("cards");
+  const [nucleosExpandidos, setNucleosExpandidos] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [acaoLoading, setAcaoLoading] = useState(false);
 
@@ -157,6 +165,9 @@ export default function ContatosPage() {
   const [membros, setMembros] = useState<MembroNucleo[]>([]);
   const [historico, setHistorico] = useState<HistoricoEvento[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [agrupamentoPorContatoId, setAgrupamentoPorContatoId] = useState<Map<string, string>>(new Map());
+  const [nucleoPorContatoId, setNucleoPorContatoId] = useState<Map<string, string>>(new Map());
+  const [contatoPrincipalPorContatoId, setContatoPrincipalPorContatoId] = useState<Map<string, boolean>>(new Map());
 
   const [modal, setModal] = useState<ModalTipo>(null);
   const [pessoaSelecionada, setPessoaSelecionada] = useState<Pessoa | null>(null);
@@ -328,6 +339,9 @@ export default function ContatosPage() {
         status_checkin,
         relacao_evento,
         created_at,
+        grupo,
+        grupo_envio,
+        contato_principal,
         eventos (
           nome,
           data_evento
@@ -344,6 +358,32 @@ export default function ContatosPage() {
     }
 
     setHistorico((data || []) as HistoricoEvento[]);
+
+    // Monta mapas tenant_contato_id → grupo (agrupamento) e → grupo_envio (núcleo)
+    // Usa o registro mais recente (created_at desc) como valor canônico
+    const mapaAgrup = new Map<string, string>();
+    const mapaNucleo = new Map<string, string>();
+    const mapaData = new Map<string, string>();
+    const mapaPrincipal = new Map<string, boolean>();
+    for (const row of (data || [])) {
+      const id = (row as any).tenant_contato_id;
+      const grupo = (row as any).grupo;
+      const grupoEnvio = (row as any).grupo_envio;
+      const rowDate = (row as any).created_at || "";
+      const principal = Boolean((row as any).contato_principal);
+      if (id && grupo) {
+        const dataAtual = mapaData.get(id) || "";
+        if (rowDate >= dataAtual) {
+          mapaAgrup.set(id, grupo);
+          mapaData.set(id, rowDate);
+          if (principal) mapaPrincipal.set(id, true);
+        }
+      }
+      if (id && grupoEnvio && !mapaNucleo.has(id)) mapaNucleo.set(id, grupoEnvio);
+    }
+    setAgrupamentoPorContatoId(mapaAgrup);
+    setNucleoPorContatoId(mapaNucleo);
+    setContatoPrincipalPorContatoId(mapaPrincipal);
   }
 
   async function carregarEventos(tenant: string) {
@@ -497,8 +537,11 @@ export default function ContatosPage() {
       email: pessoa.email || "",
       tipo_contato: perfilContato,
       responsavel_nome: perfilContato === "crianca" ? pessoa.responsavel_nome?.trim() || "" : "",
-      responsavel_telefone: perfilContato === "crianca" ? telefoneParaExibir(pessoa.responsavel_telefone?.trim() || "") : "",
+      responsavel_telefone: perfilContato === "crianca" ? pessoa.responsavel_telefone?.trim() || "" : "",
+      idade_crianca: "",
       consentimento_comunicacao: Boolean(pessoa.consentimento_comunicacao),
+      agrupamento_familia: agrupamentoPorContatoId.get(pessoa.id) || "",
+      contato_principal: contatoPrincipalPorContatoId.get(pessoa.id) || Boolean(pessoa.contato_principal),
     });
 
     if (vinculoAtual) {
@@ -804,9 +847,7 @@ export default function ContatosPage() {
       const responsavelFinalTelefone = isCrianca
         ? pessoaForm.responsavel_telefone.trim() || responsavelDoNucleo?.telefone?.trim() || ""
         : "";
-      const recebeComunicacaoFinal = isCrianca && (responsavelFinalNome || responsavelFinalTelefone)
-        ? true
-        : vinculoRecebeComunicacao;
+      const recebeComunicacaoFinal = true;
 
       if (contatoExistente) {
         mostrarInfo(
@@ -897,7 +938,24 @@ export default function ContatosPage() {
         }
       }
 
-      await Promise.all([carregarPessoas(tenantId), carregarMembros(tenantId)]);
+      // CRM → convidados: propagar dados do contato para todos os convidados vinculados
+      const updateConvidados: Record<string, unknown> = {
+        nome: pessoaForm.nome.trim(),
+        telefone: telefoneParaStorage(pessoaForm.telefone.trim()) || null,
+        email: pessoaForm.email.trim() || null,
+        contato_principal: isCrianca ? false : pessoaForm.contato_principal,
+        recebe_convite: recebeComunicacaoFinal,
+      };
+      if (pessoaForm.agrupamento_familia.trim()) {
+        updateConvidados.grupo = pessoaForm.agrupamento_familia.trim();
+      }
+      await supabase
+        .from("convidados")
+        .update(updateConvidados)
+        .eq("tenant_contato_id", pessoaIdSalva)
+        .eq("tenant_id", tenantId);
+
+      await Promise.all([carregarPessoas(tenantId), carregarMembros(tenantId), carregarHistorico(tenantId)]);
       const mensagemSucesso = pessoaSelecionada ? "Pessoa atualizada." : "Pessoa criada.";
       fecharModal();
       mostrarFeedback("sucesso", mensagemSucesso, "As informações foram salvas com segurança.");
@@ -1131,9 +1189,7 @@ export default function ContatosPage() {
     const responsavelDoNucleo = isCrianca
       ? getResponsavelPrincipalDoNucleo(vinculoNucleoId, pessoaSelecionada.id)
       : null;
-    const recebeComunicacaoFinal = isCrianca && responsavelDoNucleo
-      ? true
-      : vinculoRecebeComunicacao;
+    const recebeComunicacaoFinal = true;
 
     setAcaoLoading(true);
 
@@ -1181,6 +1237,46 @@ export default function ContatosPage() {
     }
   }
 
+  // Recalcula responsavel_nome/telefone de todos os filhos de um núcleo
+  // baseado nos membros com principal_envio=true que não são crianças
+  async function sincronizarResponsaveisDoNucleo(grupoId: string) {
+    if (!tenantId) return;
+
+    const { data: membrosNucleo } = await supabase
+      .from("contato_grupo_membros")
+      .select("papel, principal_envio, tenant_contato_id, tenant_contatos(id, nome, telefone, tipo_contato)")
+      .eq("grupo_contato_id", grupoId)
+      .eq("tenant_id", tenantId);
+
+    if (!membrosNucleo) return;
+
+    const responsaveis = membrosNucleo.filter(
+      (m) => m.principal_envio && (m as any).tenant_contatos?.tipo_contato !== "crianca"
+    );
+    const filhos = membrosNucleo.filter(
+      (m) => m.papel === "filho(a)" || (m as any).tenant_contatos?.tipo_contato === "crianca"
+    );
+
+    if (filhos.length === 0) return;
+
+    const nomesResp = responsaveis
+      .map((m) => (m as any).tenant_contatos?.nome || "")
+      .filter(Boolean)
+      .join(", ");
+    const telsResp = responsaveis
+      .map((m) => (m as any).tenant_contatos?.telefone || "")
+      .filter(Boolean)
+      .join(",");
+
+    for (const filho of filhos) {
+      await supabase
+        .from("tenant_contatos")
+        .update({ responsavel_nome: nomesResp || null, responsavel_telefone: telsResp || null })
+        .eq("id", filho.tenant_contato_id)
+        .eq("tenant_id", tenantId);
+    }
+  }
+
   async function atualizarFlagsVinculoNucleo(
     membro: MembroNucleo,
     updates: { recebe_comunicacao?: boolean; principal_envio?: boolean },
@@ -1217,6 +1313,34 @@ export default function ContatosPage() {
 
       if (error) throw new Error(error.message);
 
+      // CRM → convidados: propagar principal_envio e recebe_comunicacao
+      if (updates.principal_envio !== undefined) {
+        await supabase
+          .from("convidados")
+          .update({ contato_principal: updates.principal_envio })
+          .eq("tenant_contato_id", membro.tenant_contato_id)
+          .eq("tenant_id", tenantId);
+
+        // Se marcando como principal, atualizar papel para responsavel
+        const pessoa = pessoasPorId.get(membro.tenant_contato_id);
+        const ehCrianca = normalizarPerfilContato(pessoa?.tipo_contato) === "crianca";
+        if (updates.principal_envio === true && !ehCrianca) {
+          await supabase
+            .from("contato_grupo_membros")
+            .update({ papel: "responsavel", papel_nucleo: "responsavel" })
+            .eq("id", membro.id)
+            .eq("tenant_id", tenantId);
+        }
+      }
+      if (updates.recebe_comunicacao !== undefined) {
+        await supabase
+          .from("convidados")
+          .update({ recebe_convite: updates.recebe_comunicacao })
+          .eq("tenant_contato_id", membro.tenant_contato_id)
+          .eq("tenant_id", tenantId);
+      }
+
+      await sincronizarResponsaveisDoNucleo(membro.grupo_contato_id);
       await carregarMembros(tenantId);
     } catch (error) {
       mostrarErro("Erro ao atualizar vínculo.", error);
@@ -1265,6 +1389,7 @@ export default function ContatosPage() {
 
       if (error) throw new Error(error.message);
 
+      await sincronizarResponsaveisDoNucleo(nucleoSelecionado.id);
       await carregarMembros(tenantId);
       limparFormularioVinculo();
       mostrarFeedback("sucesso", "Membro adicionado ao núcleo.");
@@ -1298,9 +1423,7 @@ export default function ContatosPage() {
       const responsavelFinalTelefone = isCrianca
         ? dados.responsavel_telefone.trim() || responsavelDoNucleo?.telefone?.trim() || ""
         : "";
-      const recebeComunicacaoFinal = isCrianca && (responsavelFinalNome || responsavelFinalTelefone)
-        ? true
-        : vinculoRecebeComunicacao;
+      const recebeComunicacaoFinal = true;
       const contatoExistente = await buscarContatoExistente({
         nome: dados.nome,
         telefoneNormalizado,
@@ -1799,72 +1922,165 @@ export default function ContatosPage() {
         )}
 
         {!loading && aba === "nucleos" && (
-          <div style={visualizacaoNucleos === "lista" ? compactListStyle : listStyle}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {nucleosFiltrados.map((nucleo) => {
               const vinculos = membrosPorNucleo.get(nucleo.id) || [];
               const responsaveis = vinculos.filter((membro) => getPapelMembro(membro) === "responsavel");
               const membrosComPessoa = vinculos
                 .map((membro) => ({ membro, pessoa: pessoasPorId.get(membro.tenant_contato_id) }))
                 .filter((item) => item.pessoa);
+              const expandido = nucleosExpandidos.has(nucleo.id);
 
               return (
-                <article key={nucleo.id} style={visualizacaoNucleos === "lista" ? compactRowCardStyle : rowCardStyle}>
-                  <div style={visualizacaoNucleos === "lista" ? compactRowCardMainStyle : rowCardMainStyle}>
-                    <div style={nucleoIconStyle}>{getInitials(labelTipoNucleo(getTipoNucleo(nucleo)))}</div>
-
-                    <div style={rowContentStyle}>
-                      <h3 style={itemTitleStyle}>{nucleo.nome}</h3>
-                      <p style={mutedStyle}>
-                        Tipo: {labelTipoNucleo(getTipoNucleo(nucleo))} · {vinculos.length} membro(s) · {responsaveis.length} responsável(is)
-                      </p>
-
-                      {nucleo.descricao && <p style={smallMutedStyle}>{nucleo.descricao}</p>}
-
-                      <div style={badgesStyle}>
-                        <Badge>{labelTipoNucleo(getTipoNucleo(nucleo))}</Badge>
-                        <Badge>{vinculos.length} membro(s)</Badge>
-                        <Badge>{responsaveis.length} responsável(is)</Badge>
-                      </div>
-
-                      <div style={miniListStyle}>
-                        {membrosComPessoa.slice(0, visualizacaoNucleos === "lista" ? 3 : 6).map(({ membro, pessoa }) => {
-                          const pessoaCrianca = normalizarPerfilContato(pessoa?.tipo_contato) === "crianca";
-                          const responsavelNome = pessoa?.responsavel_nome?.trim() || "Não informado";
-                          const responsavelTelefone = pessoa?.responsavel_telefone?.trim() || "Não informado";
-
-                          return (
-                            <span key={membro.id} style={pessoaCrianca ? miniItemDetailedStyle : miniItemStyle}>
-                              <span>
-                                {pessoa?.nome} · {labelPapel(getPapelMembro(membro))}
-                              </span>
-
-                              {pessoaCrianca && (
-                                <span style={miniItemDetailStyle}>
-                                  Responsável: {responsavelNome} · Telefone: {responsavelTelefone}
-                                </span>
-                              )}
-                            </span>
-                          );
-                        })}
+                <div key={nucleo.id} style={{ borderRadius: 14, overflow: "hidden", border: "1.5px solid #ede9fe" }}>
+                  {/* Header colapsável */}
+                  <div
+                    onClick={() => setNucleosExpandidos((prev) => {
+                      const next = new Set(prev);
+                      expandido ? next.delete(nucleo.id) : next.add(nucleo.id);
+                      return next;
+                    })}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: expandido ? "#ede9fe" : "#f5f3ff", cursor: "pointer", userSelect: "none" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 16, color: "#7c3aed" }}>{expandido ? "▾" : "▸"}</span>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: "#3b0764" }}>{nucleo.nome}</span>
+                      <span style={{ fontSize: 13, color: "#7c3aed" }}>{vinculos.length} membro(s)</span>
+                      {nucleo.descricao && <span style={{ fontSize: 12, color: "#94a3b8" }}>{nucleo.descricao}</span>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#16a34a" }}>{responsaveis.length} responsável(is)</span>
+                      <span style={{ fontSize: 12, color: "#94a3b8", background: "#f1f5f9", borderRadius: 8, padding: "3px 10px" }}>{labelTipoNucleo(getTipoNucleo(nucleo))}</span>
+                      <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                        <button type="button" onClick={() => abrirEditarNucleo(nucleo)} style={{ ...secondaryButtonStyle, padding: "6px 14px", fontSize: 13 }}>Editar</button>
+                        <button type="button" onClick={() => excluirNucleo(nucleo)} style={{ ...dangerButtonStyle, padding: "6px 14px", fontSize: 13 }}>Excluir</button>
                       </div>
                     </div>
                   </div>
 
-                  <div style={visualizacaoNucleos === "lista" ? compactRowActionsStyle : rowActionsStyle}>
-                    <button type="button" onClick={() => abrirMembrosNucleo(nucleo)} style={secondaryButtonStyle}>
-                      Membros
-                    </button>
-                    <button type="button" onClick={() => abrirImportarNucleo(nucleo)} style={secondaryButtonStyle}>
-                      Importar
-                    </button>
-                    <button type="button" onClick={() => abrirEditarNucleo(nucleo)} style={secondaryButtonStyle}>
-                      Editar
-                    </button>
-                    <button type="button" onClick={() => excluirNucleo(nucleo)} style={dangerButtonStyle}>
-                      Excluir
-                    </button>
-                  </div>
-                </article>
+                  {/* Membros expandidos — cards individuais por pessoa, agrupados por agrupamento */}
+                  {expandido && (
+                    <div style={{ background: "var(--card, #fff)", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 20 }}>
+                      {membrosComPessoa.length === 0 && <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>Nenhum membro encontrado.</p>}
+                      {(() => {
+                        // Agrupar membros por família:
+                        // - Adulto: chave = telefone normalizado
+                        // - Criança: chave = primeiro telefone do responsável normalizado
+                        // Fallback: agrupamento do convidado ou sem grupo
+                        const normalizar = (t: string | null | undefined) => (t || "").replace(/\D/g, "");
+
+                        const chaveGrupo = (item: { membro: MembroNucleo; pessoa: Pessoa | undefined }) => {
+                          const pessoa = item.pessoa;
+                          const ehCrianca = normalizarPerfilContato(pessoa?.tipo_contato) === "crianca" || getPapelMembro(item.membro) === "filho(a)";
+                          if (ehCrianca && pessoa?.responsavel_telefone) {
+                            return normalizar(pessoa.responsavel_telefone.split(",")[0]) || "__sem_grupo__";
+                          }
+                          if (!ehCrianca && pessoa?.telefone) {
+                            return normalizar(pessoa.telefone);
+                          }
+                          return agrupamentoPorContatoId.get(item.membro.tenant_contato_id) || "__sem_grupo__";
+                        };
+
+                        const grupos = new Map<string, typeof membrosComPessoa>();
+                        for (const item of membrosComPessoa) {
+                          const key = chaveGrupo(item);
+                          if (!grupos.has(key)) grupos.set(key, []);
+                          grupos.get(key)!.push(item);
+                        }
+
+                        // Ordenar: filhos primeiro, responsáveis depois
+                        for (const itens of grupos.values()) {
+                          itens.sort((a, b) => {
+                            const aEhCrianca = normalizarPerfilContato(a.pessoa?.tipo_contato) === "crianca";
+                            const bEhCrianca = normalizarPerfilContato(b.pessoa?.tipo_contato) === "crianca";
+                            return Number(bEhCrianca) - Number(aEhCrianca);
+                          });
+                        }
+
+                        return Array.from(grupos.values()).map((itens, gi) => {
+                          const nomeGrupo = itens.reduce<string | null>((acc, item) => acc || agrupamentoPorContatoId.get(item.membro.tenant_contato_id) || null, null);
+                          return (
+                          <div key={gi} style={itens.length > 1 ? { background: "#f1f5f9", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "10px", display: "flex", flexDirection: "column", gap: 8 } : {}}>
+                            {itens.length > 1 && nomeGrupo && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", textTransform: "uppercase", letterSpacing: 1, padding: "2px 4px" }}>{nomeGrupo}</div>
+                            )}
+                            {itens.map(({ membro, pessoa }, ii) => {
+                              const naoUltimo = ii < itens.length - 1; void naoUltimo;
+                        const papel = getPapelMembro(membro);
+                        const ehCrianca = normalizarPerfilContato(pessoa?.tipo_contato) === "crianca" || papel === "filho(a)";
+                        const telFormatado = pessoa?.telefone ? telefoneParaExibir(pessoa.telefone) : null;
+                        const respNome = pessoa?.responsavel_nome?.trim();
+                        const respTel = pessoa?.responsavel_telefone?.trim();
+                        const dataCadastro = pessoa?.created_at ? new Date(pessoa.created_at).toLocaleDateString("pt-BR") : null;
+                        const origem = pessoa?.origem ? pessoa.origem.replace(/_/g, " ") : null;
+                        const chipColor = papel === "responsavel" ? { bg: "#ede9fe", color: "#6d28d9" }
+                          : papel === "filho(a)" || ehCrianca ? { bg: "#fef3c7", color: "#92400e" }
+                          : papel === "conjuge" ? { bg: "#fce7f3", color: "#9d174d" }
+                          : { bg: "#f1f5f9", color: "#475569" };
+
+                        return (
+                          <div key={membro.id} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+                            {/* Linha 1: nome + papel + principal + ações */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 800, fontSize: 16, color: "var(--text)" }}>{pessoa?.nome}</span>
+                              <span style={{ fontSize: 12, background: chipColor.bg, color: chipColor.color, borderRadius: 8, padding: "2px 10px", fontWeight: 700 }}>{labelPapel(papel)}</span>
+                              {membro.principal_envio && (
+                                <span style={{ fontSize: 11, background: "#7c3aed", color: "#fff", borderRadius: 8, padding: "2px 10px", fontWeight: 700 }}>★ Contato principal</span>
+                              )}
+                              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                                {pessoa && (
+                                  <button type="button" onClick={() => abrirEditarPessoa(pessoa)} style={{ ...secondaryButtonStyle, padding: "4px 12px", fontSize: 12 }}>Alterar</button>
+                                )}
+                                <button type="button" onClick={() => removerVinculoNucleo(membro)} style={{ ...dangerButtonStyle, padding: "4px 12px", fontSize: 12 }}>Remover</button>
+                              </div>
+                            </div>
+
+                            {/* Linha 2: telefone + email */}
+                            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+                              {telFormatado
+                                ? <span style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>{telFormatado}</span>
+                                : <span style={{ fontSize: 13, color: "#94a3b8" }}>Sem telefone</span>}
+                              {pessoa?.email
+                                ? <span style={{ fontSize: 13, color: "#64748b" }}>{pessoa.email}</span>
+                                : <span style={{ fontSize: 13, color: "#94a3b8" }}>Sem e-mail</span>}
+                            </div>
+
+                            {/* Linha 3: perfil */}
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                              <span style={{ fontSize: 12, color: "#64748b" }}>
+                                Perfil: <strong>{ehCrianca ? "Criança" : "Adulto"}</strong>
+                              </span>
+                              {origem && <span style={{ fontSize: 11, color: "#94a3b8" }}>· {origem}</span>}
+                              {dataCadastro && <span style={{ fontSize: 11, color: "#94a3b8" }}>· desde {dataCadastro}</span>}
+                              {nucleoPorContatoId.get(membro.tenant_contato_id) && (
+                                <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 600 }}>· {nucleoPorContatoId.get(membro.tenant_contato_id)}</span>
+                              )}
+                            </div>
+
+                            {/* Linha 4: responsável (para crianças) */}
+                            {ehCrianca && respNome && (
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 6, borderTop: "1px solid #e2e8f0" }}>
+                                <span style={{ fontSize: 12, color: "#64748b" }}>Responsável:</span>
+                                {respNome.split(",").map((n, ni) => {
+                                  const tel = respTel ? respTel.split(",")[ni]?.trim() : null;
+                                  return (
+                                    <span key={ni} style={{ fontSize: 12, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "2px 10px", color: "#334155", fontWeight: 600 }}>
+                                      👤 {n.trim()}{tel ? ` · ${telefoneParaExibir(tel)}` : ""}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                          </div>
+                        );});
+                      })()}
+
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1895,6 +2111,10 @@ export default function ContatosPage() {
             {(modal === "criarPessoa" || modal === "editarPessoa") && (
               <PessoaFormModal
                 pessoaForm={pessoaForm}
+                pessoas={pessoas}
+                pessoaSelecionadaId={pessoaSelecionada?.id || null}
+                agrupamentoPorContatoId={agrupamentoPorContatoId}
+                contatoPrincipalPorContatoId={contatoPrincipalPorContatoId}
                 nucleos={nucleos}
                 nucleosPorId={nucleosPorId}
                 vinculosPessoa={pessoaSelecionada ? membrosPorPessoa.get(pessoaSelecionada.id) || [] : []}
@@ -2082,8 +2302,34 @@ function ConfirmacaoAcaoModal({
   );
 }
 
+function EditarRespInlineContatos({ nomeInicial, telefoneInicial, onSalvar, onCancelar }: {
+  nomeInicial: string;
+  telefoneInicial: string;
+  onSalvar: (nome: string, telefone: string) => void;
+  onCancelar: () => void;
+}) {
+  const [nome, setNome] = useState(nomeInicial);
+  const [telefone, setTelefone] = useState(() => telefoneParaExibir(telefoneInicial));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "18px 20px", borderRadius: 16, border: "1.5px solid #c4b5fd", background: "#faf5ff" }}>
+      <div style={{ display: "flex", gap: 10 }}>
+        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do responsável" style={{ flex: 2, border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff" }} />
+        <input value={telefone} onChange={(e) => setTelefone(aplicarMascaraTelefone(e.target.value))} placeholder="(11) 99999-9999" style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none", background: "#fff" }} />
+      </div>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button type="button" onClick={onCancelar} style={{ background: "#f1f5f9", color: "#64748b", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancelar</button>
+        <button type="button" onClick={() => onSalvar(nome.trim(), telefoneParaStorage(telefone) || telefone)} disabled={!nome.trim() && !telefone.trim()} style={{ background: "#6d28d9", color: "#fff", border: "none", borderRadius: 10, padding: "9px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Salvar</button>
+      </div>
+    </div>
+  );
+}
+
 function PessoaFormModal({
   pessoaForm,
+  pessoas,
+  pessoaSelecionadaId,
+  agrupamentoPorContatoId,
+  contatoPrincipalPorContatoId,
   nucleos,
   nucleosPorId,
   vinculosPessoa,
@@ -2104,6 +2350,10 @@ function PessoaFormModal({
   submitLabel,
 }: {
   pessoaForm: PessoaForm;
+  pessoas: Pessoa[];
+  pessoaSelecionadaId: string | null;
+  agrupamentoPorContatoId: Map<string, string>;
+  contatoPrincipalPorContatoId: Map<string, boolean>;
   nucleos: Nucleo[];
   nucleosPorId: Map<string, Nucleo>;
   vinculosPessoa: MembroNucleo[];
@@ -2126,6 +2376,25 @@ function PessoaFormModal({
   const isCrianca = pessoaForm.tipo_contato === "crianca";
   const [mostrarFormularioNucleo, setMostrarFormularioNucleo] = useState(false);
   const [editandoVinculoId, setEditandoVinculoId] = useState<string | null>(null);
+  const [editandoRespIdx, setEditandoRespIdx] = useState<number | null>(null);
+  const [novoResp, setNovoResp] = useState<{ nome: string; telefone: string } | null>(null);
+
+  const nomesResp = (pessoaForm.responsavel_nome || "").split(",").map((n) => n.trim()).filter(Boolean);
+  const telsResp = (pessoaForm.responsavel_telefone || "").split(",").map((t) => t.trim()).filter(Boolean);
+  const responsaveis = nomesResp.map((nome, i) => {
+    const telefone = telsResp[i] || "";
+    // Se sem telefone, tenta buscar pelo nome na lista de pessoas do CRM
+    if (!telefone) {
+      const match = pessoas.find((p) => p.nome?.trim().toLowerCase() === nome.trim().toLowerCase());
+      return { nome, telefone: match?.telefone ? telefoneParaExibir(match.telefone) : "" };
+    }
+    return { nome, telefone: telefoneParaExibir(telefone) };
+  });
+
+  function salvarResponsaveis(lista: { nome: string; telefone: string }[]) {
+    onChange("responsavel_nome", lista.map((r) => r.nome).join(", "));
+    onChange("responsavel_telefone", lista.map((r) => r.telefone).filter(Boolean).join(","));
+  }
 
   function abrirFormularioNovoNucleo() {
     onNucleoChange("");
@@ -2188,7 +2457,83 @@ function PessoaFormModal({
               style={inputStyle}
             />
           </label>
+
+          <label style={fieldStyle}>
+            <span>Agrupamento <span style={{ fontWeight: 400, color: "#94a3b8" }}>(família nuclear)</span></span>
+            <input
+              value={pessoaForm.agrupamento_familia}
+              onChange={(event) => onChange("agrupamento_familia", event.target.value)}
+              placeholder="Ex: FAMILIA VITOR JOSÉ"
+              style={inputStyle}
+            />
+            {pessoaForm.agrupamento_familia && (
+              <span style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                {pessoas.filter((p) => (agrupamentoPorContatoId.get(p.id) || "").trim() === pessoaForm.agrupamento_familia.trim()).length} membro(s) neste agrupamento
+              </span>
+            )}
+
+          </label>
         </div>
+
+        {/* Contato principal do agrupamento */}
+        {pessoaForm.agrupamento_familia && pessoaForm.tipo_contato !== "crianca" && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={fieldStyle}>
+              <span>Contato principal</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, padding: "10px 12px", background: "var(--input-bg, #f8fafc)", border: "1.5px solid #e2e8f0", borderRadius: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={pessoaForm.contato_principal}
+                  onChange={(e) => onChange("contato_principal", e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: "#7c3aed", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 13 }}>Principal do agrupamento</span>
+              </div>
+            </label>
+          </div>
+        )}
+
+        {/* Membros do agrupamento */}
+        {pessoaForm.agrupamento_familia && (() => {
+          const membrosAgrupamento = pessoas.filter(
+            (p) => (agrupamentoPorContatoId.get(p.id) || "").trim() === pessoaForm.agrupamento_familia.trim()
+          );
+          if (membrosAgrupamento.length === 0) return null;
+          return (
+            <div style={{ marginTop: 8, marginBottom: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", margin: "0 0 8px" }}>
+                Membros do agrupamento {pessoaForm.agrupamento_familia}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {membrosAgrupamento.map((membro) => {
+                  const isAtual = membro.id === pessoaSelecionadaId;
+                  const ehPrincipal = isAtual ? pessoaForm.contato_principal : contatoPrincipalPorContatoId.get(membro.id) || Boolean(membro.contato_principal);
+                  const ehCrianca = normalizarPerfilContato(membro.tipo_contato) === "crianca";
+                  return (
+                    <div key={membro.id} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 12px", borderRadius: 8,
+                      background: isAtual ? "#ede9fe" : "var(--card, #f8fafc)",
+                      border: `1px solid ${isAtual ? "#c4b5fd" : "#e2e8f0"}`,
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: isAtual ? 700 : 400 }}>
+                        {membro.nome}{isAtual ? " (você)" : ""}
+                      </span>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {ehCrianca && (
+                          <span style={{ fontSize: 11, background: "#fef9c3", color: "#854d0e", borderRadius: 20, padding: "2px 8px", fontWeight: 600 }}>Criança</span>
+                        )}
+                        {ehPrincipal && (
+                          <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", borderRadius: 20, padding: "2px 8px", fontWeight: 600 }}>★ Principal</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       <section style={formSectionStyle}>
@@ -2197,50 +2542,106 @@ function PessoaFormModal({
           <div>
             <h3 style={formSectionTitleStyle}>Perfil do contato</h3>
             <p style={formSectionDescriptionStyle}>
-              Defina se o contato é adulto ou criança. Quando for criança, informe quem receberá a comunicação.
+              Defina se o contato é adulto ou criança. Quando for criança, o responsável do núcleo receberá a comunicação automaticamente.
             </p>
           </div>
         </div>
 
-        <div style={modalFormStyle}>
-          <label style={fieldStyle}>
-            <span>Perfil do contato</span>
-            <select value={pessoaForm.tipo_contato} onChange={(event) => onChange("tipo_contato", event.target.value)} style={inputStyle}>
-              <option value="adulto">Adulto</option>
-              <option value="crianca">Criança</option>
-            </select>
-          </label>
+        <div style={{ display: "flex", gap: 10 }}>
+          {(["adulto", "crianca"] as const).map((opcao) => {
+            const ativo = pessoaForm.tipo_contato === opcao;
+            return (
+              <button
+                key={opcao}
+                type="button"
+                onClick={() => onChange("tipo_contato", opcao)}
+                style={{
+                  display: "inline-flex", alignItems: "center",
+                  border: `1.5px solid ${ativo ? "#7c3aed" : "#e2e8f0"}`,
+                  borderRadius: 999, padding: "10px 20px",
+                  background: ativo ? "#ede9fe" : "var(--card, #fff)",
+                  color: ativo ? "#7c3aed" : "var(--text)",
+                  fontWeight: 700, fontSize: 15, cursor: "pointer",
+                }}
+              >
+                {opcao === "adulto" ? "Adulto" : "Criança"}
+              </button>
+            );
+          })}
         </div>
 
         {isCrianca && (
-          <div style={responsavelBoxStyle}>
-            <h4 style={responsavelTitleStyle}>Responsável pela Criança (Recebe a comunicação)</h4>
-            <p style={formSectionDescriptionStyle}>
-              Criança sem núcleo: a comunicação será enviada para este responsável.
-            </p>
-
-            <div style={modalFormStyle}>
+          <>
+            <div style={{ marginTop: 8, marginBottom: 4 }}>
               <label style={fieldStyle}>
-                <span>Nome do responsável</span>
+                <span>Idade da criança</span>
                 <input
-                  value={pessoaForm.responsavel_nome}
-                  onChange={(event) => onChange("responsavel_nome", event.target.value)}
-                  placeholder="Ex: Jessica Amaral"
-                  style={inputStyle}
-                />
-              </label>
-
-              <label style={fieldStyle}>
-                <span>Telefone do responsável</span>
-                <input
-                  value={pessoaForm.responsavel_telefone}
-                  onChange={(event) => onChange("responsavel_telefone", aplicarMascaraTelefone(event.target.value))}
-                  placeholder="(11) 99999-9999"
+                  value={pessoaForm.idade_crianca}
+                  onChange={(e) => onChange("idade_crianca", e.target.value)}
+                  placeholder="Ex: 7"
+                  type="number"
+                  min="0"
                   style={inputStyle}
                 />
               </label>
             </div>
-          </div>
+
+            <div style={{ display: "grid", gap: 16, padding: 20, borderRadius: 24, border: "1px solid var(--accent-border, #c4b5fd)", background: "linear-gradient(135deg, #f5f3ff, #fff)", marginTop: 12 }}>
+              <div style={{ display: "grid", gap: 4 }}>
+                <strong>Responsável pela criança</strong>
+                <span style={{ fontSize: 13, color: "var(--muted, #64748b)" }}>Informe o responsável que receberá a comunicação da criança.</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {responsaveis.map((r, idx) => (
+                  <div key={idx}>
+                    {editandoRespIdx === idx ? (
+                      <EditarRespInlineContatos
+                        nomeInicial={r.nome}
+                        telefoneInicial={r.telefone}
+                        onSalvar={(nome, tel) => {
+                          const nova = responsaveis.map((x, i) => i === idx ? { nome, telefone: tel } : x);
+                          setEditandoRespIdx(null);
+                          salvarResponsaveis(nova);
+                        }}
+                        onCancelar={() => setEditandoRespIdx(null)}
+                      />
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderRadius: 10, border: "1.5px solid var(--line, #e2e8f0)", background: "transparent" }}>
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ fontSize: 15 }}>{r.nome || "(sem nome)"}</strong>
+                          <span style={{ fontSize: 14, color: "var(--muted, #64748b)", marginLeft: 8 }}>{telefoneParaExibir(r.telefone)}</span>
+                        </div>
+                        <button type="button" onClick={() => { setEditandoRespIdx(idx); setNovoResp(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 6px" }} title="Editar">✏️</button>
+                        <button type="button" onClick={() => { const nova = responsaveis.filter((_, i) => i !== idx); setEditandoRespIdx(null); salvarResponsaveis(nova); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: "2px 6px" }} title="Excluir">🗑️</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {novoResp !== null ? (
+                  <EditarRespInlineContatos
+                    nomeInicial={novoResp.nome}
+                    telefoneInicial={novoResp.telefone}
+                    onSalvar={(nome, tel) => {
+                      const nova = [...responsaveis, { nome, telefone: tel }];
+                      setNovoResp(null);
+                      salvarResponsaveis(nova);
+                    }}
+                    onCancelar={() => setNovoResp(null)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setNovoResp({ nome: "", telefone: "" }); setEditandoRespIdx(null); }}
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1.5px dashed var(--line, #e2e8f0)", borderRadius: 8, padding: "8px 12px", cursor: "pointer", color: "#6d28d9", fontWeight: 700, fontSize: 13, width: "100%" }}
+                  >
+                    + Adicionar responsável
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </section>
 
@@ -2248,163 +2649,59 @@ function PessoaFormModal({
         <div style={formSectionHeaderStyle}>
           <span style={formStepStyle}>03</span>
           <div>
-            <h3 style={formSectionTitleStyle}>Núcleos vinculados</h3>
+            <h3 style={formSectionTitleStyle}>Núcleos</h3>
             <p style={formSectionDescriptionStyle}>
-              A pessoa pode estar em mais de um núcleo. Altere um vínculo existente ou adicione um novo núcleo.
+              Grupos de envio aos quais esta pessoa pertence.
             </p>
           </div>
         </div>
 
-        <div style={stackStyle}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          {vinculosPessoa.map((vinculo) => {
+            const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
+            const nome = nucleo?.nome || "Núcleo não encontrado";
+            const principal = Boolean(vinculo.principal_envio);
+            return (
+              <span key={vinculo.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: principal ? "#ede9fe" : "#f1f5f9", color: principal ? "#6d28d9" : "#334155", border: `1.5px solid ${principal ? "#c4b5fd" : "#e2e8f0"}`, borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>
+                {principal && <span style={{ fontSize: 11 }}>★</span>}
+                {nome}
+                <button type="button" onClick={() => onRemover(vinculo)} disabled={acaoLoading} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", opacity: 0.6, fontWeight: 700, fontSize: 15, lineHeight: 1, padding: 0, marginLeft: 2 }}>×</button>
+              </span>
+            );
+          })}
           {vinculosPessoa.length === 0 && (
-            <div style={emptyStyle}>Nenhum núcleo vinculado a esta pessoa.</div>
-          )}
-
-          {vinculosPessoa.length > 0 && (
-            <div style={stackStyle}>
-              {vinculosPessoa.map((vinculo) => {
-                const nucleo = nucleosPorId.get(vinculo.grupo_contato_id);
-
-                return (
-                  <div key={vinculo.id} style={editandoVinculoId === vinculo.id ? { ...memberManageRowStyle, flexDirection: "column", alignItems: "stretch" } : memberManageRowStyle}>
-                    {editandoVinculoId === vinculo.id ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <strong>{nucleo?.nome || "Núcleo não encontrado"}</strong>
-                        <label style={fieldStyle}>
-                          <span>Relação no núcleo</span>
-                          <input
-                            value={vinculoRelacao}
-                            onChange={(event) => onRelacaoChange(event.target.value)}
-                            placeholder={isCrianca ? "Ex: Filho, Filha, Neto" : "Ex: Mãe, Pai, Financeiro, Diretor"}
-                            style={inputStyle}
-                          />
-                        </label>
-                        <div style={vinculoInlineFlagsStyle}>
-                          <label style={compactToggleStyle}>
-                            <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(e) => onRecebeChange(e.target.checked)} />
-                            <span>Recebe comunicação neste núcleo</span>
-                          </label>
-                          {!isCrianca && (
-                            <label style={compactToggleStyle}>
-                              <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(e) => onPrincipalChange(e.target.checked)} />
-                              <span>Contato principal núcleo</span>
-                            </label>
-                          )}
-                        </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button type="button" onClick={() => setEditandoVinculoId(null)} style={secondaryButtonStyle} disabled={acaoLoading}>Cancelar</button>
-                          <button type="button" onClick={() => { onSubmit(); setEditandoVinculoId(null); }} style={buttonStyle} disabled={acaoLoading || !vinculoNucleoId}>{acaoLoading ? "Salvando..." : "Salvar"}</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong>{nucleo?.nome || "Núcleo não encontrado"}</strong>
-                          <span style={memberSubTextStyle}>
-                            Relação no núcleo: {labelPapel(getPapelMembro(vinculo))}
-                          </span>
-                          <div style={{ ...vinculoInlineFlagsStyle, marginTop: 12 }}>
-                            <label style={compactToggleStyle}>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(vinculo.recebe_comunicacao)}
-                                onChange={(event) => {
-                                  const checked = event.target.checked;
-                                  if (vinculo.grupo_contato_id === vinculoNucleoId) onRecebeChange(checked);
-                                  onQuickUpdateVinculo(vinculo, { recebe_comunicacao: checked });
-                                }}
-                                disabled={acaoLoading}
-                              />
-                              <span>Recebe comunicação neste núcleo</span>
-                            </label>
-                            {!isCrianca && (
-                              <label style={compactToggleStyle}>
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(vinculo.principal_envio)}
-                                  onChange={(event) => {
-                                    const checked = event.target.checked;
-                                    if (vinculo.grupo_contato_id === vinculoNucleoId) onPrincipalChange(checked);
-                                    onQuickUpdateVinculo(vinculo, { principal_envio: checked });
-                                  }}
-                                  disabled={acaoLoading}
-                                />
-                                <span>Contato principal núcleo</span>
-                              </label>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexShrink: 0, alignSelf: "flex-start" }}>
-                          <button type="button" onClick={() => abrirFormularioAlterarNucleo(vinculo)} style={secondaryButtonStyle} disabled={acaoLoading}>Alterar</button>
-                          <button type="button" onClick={() => onRemover(vinculo)} style={dangerButtonStyle} disabled={acaoLoading}>Remover</button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {!mostrarFormularioNucleo && !editandoVinculoId && (
-            <div style={modalActionsStyle}>
-              <button
-                type="button"
-                onClick={abrirFormularioNovoNucleo}
-                style={secondaryButtonStyle}
-                disabled={acaoLoading}
-              >
-                + Adicionar núcleo
-              </button>
-            </div>
-          )}
-
-          {mostrarFormularioNucleo && (
-            <div style={historyRowStyle}>
-              <div style={modalFormStyle}>
-                <NucleoSearchSelector
-                  nucleos={nucleos}
-                  value={vinculoNucleoId}
-                  onChange={onNucleoChange}
-                  placeholder="Buscar núcleo pelo nome..."
-                  allowClear
-                  clearLabel="Sem núcleo selecionado"
-                />
-
-                <label style={fieldStyle}>
-                  <span>Relação no núcleo</span>
-                  <input
-                    value={vinculoRelacao}
-                    onChange={(event) => onRelacaoChange(event.target.value)}
-                    placeholder={isCrianca ? "Ex: Filho, Filha, Neto" : "Ex: Mãe, Pai, Financeiro, Diretor"}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={toggleStyle}>
-                  <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
-                  <span>Recebe comunicação por este núcleo</span>
-                </label>
-
-                <label style={toggleStyle}>
-                  <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
-                  <span>Principal para envio neste núcleo</span>
-                </label>
-
-                <div style={modalActionsStyle}>
-                  <button
-                    type="button"
-                    onClick={() => setMostrarFormularioNucleo(false)}
-                    style={secondaryButtonStyle}
-                    disabled={acaoLoading}
-                  >
-                    Ocultar vínculo
-                  </button>
-                </div>
-              </div>
-            </div>
+            <span style={{ fontSize: 13, color: "#94a3b8" }}>Nenhum núcleo vinculado.</span>
           )}
         </div>
+
+        {!mostrarFormularioNucleo && (
+          <button type="button" onClick={abrirFormularioNovoNucleo} style={{ ...secondaryButtonStyle, fontSize: 13 }} disabled={acaoLoading}>
+            + Adicionar núcleo
+          </button>
+        )}
+
+        {mostrarFormularioNucleo && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px", background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+            <NucleoSearchSelector
+              nucleos={nucleos}
+              value={vinculoNucleoId}
+              onChange={onNucleoChange}
+              placeholder="Buscar núcleo pelo nome..."
+              allowClear
+              clearLabel="Sem núcleo selecionado"
+            />
+            {!isCrianca && (
+              <label style={compactToggleStyle}>
+                <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(e) => onPrincipalChange(e.target.checked)} />
+                <span>Contato principal neste núcleo</span>
+              </label>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => setMostrarFormularioNucleo(false)} style={secondaryButtonStyle} disabled={acaoLoading}>Cancelar</button>
+              <button type="button" onClick={() => { onSubmit(); setMostrarFormularioNucleo(false); }} style={buttonStyle} disabled={acaoLoading || !vinculoNucleoId}>{acaoLoading ? "Salvando..." : "Adicionar"}</button>
+            </div>
+          </div>
+        )}
       </section>
 
       <div style={modalActionsStyle}>
@@ -2866,13 +3163,8 @@ function VinculosPessoaModal({
                 </label>
 
                 <label style={toggleStyle}>
-                  <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
-                  <span>Recebe comunicação por este núcleo</span>
-                </label>
-
-                <label style={toggleStyle}>
                   <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
-                  <span>Principal para envio neste núcleo</span>
+                  <span>Contato principal neste núcleo</span>
                 </label>
 
                 <div style={modalActionsStyle}>
@@ -3067,13 +3359,8 @@ function MembrosNucleoModal({
               </label>
 
               <label style={toggleStyle}>
-                <input type="checkbox" checked={vinculoRecebeComunicacao} onChange={(event) => onRecebeChange(event.target.checked)} />
-                <span>Recebe comunicação por este núcleo</span>
-              </label>
-
-              <label style={toggleStyle}>
                 <input type="checkbox" checked={vinculoPrincipalEnvio} onChange={(event) => onPrincipalChange(event.target.checked)} />
-                <span>Principal para envio neste núcleo</span>
+                <span>Contato principal neste núcleo</span>
               </label>
 
               <div style={modalActionsStyle}>
@@ -3315,14 +3602,15 @@ function labelTipoNucleo(tipo: string | null) {
 }
 
 function labelPapel(papel: string | null) {
-  if (papel === "responsavel") return "Responsável";
-  if (papel === "crianca") return "Criança";
-  if (papel === "filho") return "Filho";
-  if (papel === "filha") return "Filha";
-  if (papel === "conjuge") return "Cônjuge";
-  if (papel === "lider") return "Líder";
-  if (papel === "financeiro") return "Financeiro";
-  return papel ? titleCase(papel) : "Membro";
+  if (!papel) return "Membro";
+  const p = papel.trim().toLowerCase();
+  if (p === "responsavel") return "Responsável";
+  if (p === "crianca" || p === "filho(a)" || p === "filho" || p === "filha") return "Filho(a)";
+  if (p === "conjuge") return "Cônjuge";
+  if (p === "lider") return "Líder";
+  if (p === "financeiro") return "Financeiro";
+  if (p === "membro") return "Membro";
+  return titleCase(papel);
 }
 
 function labelRsvp(status: string | null) {
@@ -3950,6 +4238,7 @@ const modalFormStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
   gap: 14,
+  alignItems: "start",
 };
 
 const modalContentStyle: CSSProperties = {

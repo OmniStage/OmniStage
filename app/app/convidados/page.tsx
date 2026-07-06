@@ -340,18 +340,27 @@ export default function ConvidadosPage() {
   const vcfInputRef = useRef<HTMLInputElement | null>(null);
   const [relacoesEvento, setRelacoesEvento] = useState<string[]>([]);
   const [novaTag, setNovaTag] = useState("");
+  const [novoNucleo, setNovoNucleo] = useState("");
   const [toast, setToast] = useState<{ mensagem: string; tipo: "sucesso" | "erro" } | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroRsvp, setFiltroRsvp] = useState("todos");
   const [filtroEnvio, setFiltroEnvio] = useState("todos");
   const [filtroPerfilConvidado, setFiltroPerfilConvidado] = useState("todos");
   const [filtroPerfilConvite, setFiltroPerfilConvite] = useState("todos");
+  const [filtroNucleo, setFiltroNucleo] = useState("");
+  const [nucleosExpandidos, setNucleosExpandidos] = useState<Set<string>>(new Set());
+  const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(new Set());
   const [themeMode, setThemeMode] = useState<ThemeMode>("auto");
   const [systemDark, setSystemDark] = useState(false);
   const [envioConvitePendenteConfirmacao, setEnvioConvitePendenteConfirmacao] =
     useState<Convidado | null>(null);
   const [confirmandoEnvioConvite, setConfirmandoEnvioConvite] = useState(false);
-  const [confirmNucleoDialog, setConfirmNucleoDialog] = useState<{ mensagem: string; onConfirm: () => void } | null>(null);
+  const [confirmNucleoDialog, setConfirmNucleoDialog] = useState<{ mensagem: string; onConfirm: () => void; onCancel?: () => void; labelConfirm?: string; labelCancel?: string } | null>(null);
+  const [matchCrmDialog, setMatchCrmDialog] = useState<{
+    contatoCrm: { id: string; nome: string; telefone: string | null; tipo_contato: string | null };
+    onVincular: (id: string) => void;
+    onCriarNovo: () => void;
+  } | null>(null);
   const [convidadoPendenteExclusao, setConvidadoPendenteExclusao] =
     useState<Convidado | null>(null);
   const [excluindoConvidado, setExcluindoConvidado] = useState(false);
@@ -450,7 +459,9 @@ export default function ConvidadosPage() {
           .filter(Boolean)
           .some((valor) => String(valor).toLowerCase().includes(termo));
 
-      return rsvpOk && envioOk && perfilConvidadoOk && perfilConviteOk && buscaOk;
+      const nucleoOk = !filtroNucleo || String(convidado.grupo_envio || "").trim() === filtroNucleo;
+
+      return rsvpOk && envioOk && perfilConvidadoOk && perfilConviteOk && buscaOk && nucleoOk;
     });
 
     // Se há busca ativa: expandir para incluir todos do mesmo grupo quando qualquer membro bate
@@ -488,7 +499,7 @@ export default function ConvidadosPage() {
 
       return nomeA.localeCompare(nomeB, "pt-BR");
     });
-  }, [convidados, busca, filtroRsvp, filtroEnvio, filtroPerfilConvidado, filtroPerfilConvite]);
+  }, [convidados, busca, filtroRsvp, filtroEnvio, filtroPerfilConvidado, filtroPerfilConvite, filtroNucleo]);
 
   const nucleoSelecionadoConvite = useMemo(() => {
     const grupoAtual = form.grupo.trim().toLowerCase();
@@ -560,6 +571,22 @@ export default function ConvidadosPage() {
     }));
   }, [convidadosFiltrados]);
 
+  // Agrupa grupos por Núcleo (grupo_envio) para visualização em dois níveis
+  const nucleosAgrupados = useMemo(() => {
+    const mapa: Record<string, typeof gruposConvidados> = {};
+    for (const g of gruposConvidados) {
+      const nucleo = g.integrantes[0]?.grupo_envio?.trim() || "__sem_nucleo__";
+      if (!mapa[nucleo]) mapa[nucleo] = [];
+      mapa[nucleo].push(g);
+    }
+    // Ordena: núcleos com nome primeiro, sem núcleo por último
+    return Object.entries(mapa).sort(([a], [b]) => {
+      if (a === "__sem_nucleo__") return 1;
+      if (b === "__sem_nucleo__") return -1;
+      return a.localeCompare(b, "pt-BR");
+    });
+  }, [gruposConvidados]);
+
   const presentesDiretosPorConvidado = useMemo(() => {
     const mapa = new Map<string, PresentePreEventoCard[]>();
 
@@ -625,6 +652,33 @@ export default function ConvidadosPage() {
     setForm(initialForm);
     setEditandoId(null);
     setNovaTag("");
+    setNovoNucleo("");
+  }
+
+  function adicionarNucleo(digitado: string) {
+    const exato = nucleosContatos.find((n) => n.nome.trim().toLowerCase() === digitado.toLowerCase());
+    if (exato) {
+      setForm((cur) => ({ ...cur, grupo_envio: exato.nome }));
+      setNovoNucleo("");
+      return;
+    }
+    const parecidos = nucleosContatos.filter((n) => {
+      const a = n.nome.trim().toLowerCase();
+      const b = digitado.toLowerCase();
+      return a !== b && (a.includes(b) || b.includes(a) || (b.length >= 5 && a.startsWith(b.slice(0, 5))) || (a.length >= 5 && b.startsWith(a.slice(0, 5))));
+    });
+    if (parecidos.length > 0) {
+      setConfirmNucleoDialog({
+        mensagem: `Já existe(m) núcleo(s) com nome parecido:\n\n${parecidos.map((n) => `• ${n.nome}`).join("\n")}\n\nDeseja usar "${parecidos[0].nome}" (existente) ou criar "${digitado}" como novo núcleo?`,
+        onConfirm: () => { setForm((cur) => ({ ...cur, grupo_envio: digitado })); setNovoNucleo(""); },
+        onCancel: () => { setForm((cur) => ({ ...cur, grupo_envio: parecidos[0].nome })); setNovoNucleo(""); },
+        labelConfirm: `Criar "${digitado}"`,
+        labelCancel: `Usar "${parecidos[0].nome}"`,
+      });
+    } else {
+      setForm((cur) => ({ ...cur, grupo_envio: digitado }));
+      setNovoNucleo("");
+    }
   }
 
   function restaurarPosicaoLista() {
@@ -1182,7 +1236,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
         data_hora_envio,
         data_checkin,
         relacao_evento,
-        tag_envio
+        tag_envio,
+        grupo_envio
       `,
       )
       .eq("tenant_id", tenant)
@@ -1290,6 +1345,199 @@ ${eventoAtual?.nome || "OmniStage"}`);
     }
   }
 
+  // Retorna o tenant_contato_id a usar: existente, vinculado silencioso, criado novo, ou null (modal aberto)
+  async function resolverContatoCRM(opts: {
+    tenantId: string;
+    convidadoId: string | null;
+    convidadoAtualTenantContatoId: string | null | undefined;
+    nome: string;
+    telefone: string | null; // normalizado para storage
+    telefonePrincipal: string; // raw
+    crianca: boolean;
+    responsavelTelefone: string | null;
+    grupoEnvio: string;
+    grupo: string;
+  }): Promise<{ tenantContatoId: string | null; aguardandoModal: boolean }> {
+    const { tenantId, convidadoAtualTenantContatoId, nome, telefone, crianca, responsavelTelefone, grupoEnvio, grupo } = opts;
+
+    // Se já tem vínculo, mantém
+    if (convidadoAtualTenantContatoId) {
+      return { tenantContatoId: convidadoAtualTenantContatoId, aguardandoModal: false };
+    }
+
+    const telNorm = telefone?.replace(/\D/g, "") || null;
+    const respTelNorm = responsavelTelefone?.replace(/\D/g, "") || null;
+
+    // Adulto com telefone → busca por telefone (identificador único)
+    if (!crianca && telNorm) {
+      const { data } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome, telefone, tipo_contato")
+        .eq("tenant_id", tenantId)
+        .eq("telefone_normalizado", telNorm)
+        .maybeSingle();
+
+      if (data) {
+        // Match exato por telefone → vincula silencioso
+        return { tenantContatoId: data.id, aguardandoModal: false };
+      }
+
+      // Não encontrou → cria novo contato silencioso
+      const { data: novo } = await supabase
+        .from("tenant_contatos")
+        .insert({
+          tenant_id: tenantId,
+          nome: nome.trim(),
+          telefone: telefone,
+          telefone_normalizado: telNorm,
+          tipo_contato: "adulto",
+          origem: "convidado",
+          consentimento_comunicacao: true,
+        })
+        .select("id")
+        .single();
+
+      return { tenantContatoId: novo?.id || null, aguardandoModal: false };
+    }
+
+    // Adulto sem telefone → busca por nome + núcleo/grupo
+    if (!crianca && !telNorm) {
+      const { data: candidatos } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome, telefone, tipo_contato")
+        .eq("tenant_id", tenantId)
+        .neq("tipo_contato", "crianca")
+        .ilike("nome", `%${nome.trim().split(" ")[0]}%`)
+        .limit(5);
+
+      const match = candidatos?.find(
+        (c) => c.nome.trim().toUpperCase() === nome.trim().toUpperCase()
+      );
+
+      if (match) {
+        // Nome exato encontrado → pergunta
+        return new Promise((resolve) => {
+          setMatchCrmDialog({
+            contatoCrm: match,
+            onVincular: (id) => {
+              setMatchCrmDialog(null);
+              resolve({ tenantContatoId: id, aguardandoModal: false });
+            },
+            onCriarNovo: async () => {
+              setMatchCrmDialog(null);
+              const { data: novo } = await supabase
+                .from("tenant_contatos")
+                .insert({ tenant_id: tenantId, nome: nome.trim(), tipo_contato: "adulto", origem: "convidado" })
+                .select("id").single();
+              resolve({ tenantContatoId: novo?.id || null, aguardandoModal: false });
+            },
+          });
+        });
+      }
+
+      // Sem match → cria novo sem telefone
+      const { data: novo } = await supabase
+        .from("tenant_contatos")
+        .insert({ tenant_id: tenantId, nome: nome.trim(), tipo_contato: "adulto", origem: "convidado" })
+        .select("id").single();
+
+      return { tenantContatoId: novo?.id || null, aguardandoModal: false };
+    }
+
+    // Criança → busca pelo telefone do responsável
+    if (crianca && respTelNorm) {
+      const { data: responsavelCrm } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome, telefone, tipo_contato")
+        .eq("tenant_id", tenantId)
+        .eq("telefone_normalizado", respTelNorm)
+        .maybeSingle();
+
+      // Busca a criança pelo nome vinculada ao responsável
+      if (responsavelCrm) {
+        const { data: criancasCrm } = await supabase
+          .from("tenant_contatos")
+          .select("id, nome, telefone, tipo_contato")
+          .eq("tenant_id", tenantId)
+          .eq("tipo_contato", "crianca")
+          .ilike("nome", `%${nome.trim().split(" ")[0]}%`)
+          .limit(10);
+
+        const matchCrianca = criancasCrm?.find(
+          (c) => c.nome.trim().toUpperCase() === nome.trim().toUpperCase()
+        );
+
+        if (matchCrianca) {
+          return new Promise((resolve) => {
+            setMatchCrmDialog({
+              contatoCrm: matchCrianca,
+              onVincular: (id) => {
+                setMatchCrmDialog(null);
+                resolve({ tenantContatoId: id, aguardandoModal: false });
+              },
+              onCriarNovo: async () => {
+                setMatchCrmDialog(null);
+                const { data: novo } = await supabase
+                  .from("tenant_contatos")
+                  .insert({
+                    tenant_id: tenantId, nome: nome.trim(), tipo_contato: "crianca", origem: "convidado",
+                    responsavel_nome: opts.nome, responsavel_telefone: responsavelTelefone,
+                  })
+                  .select("id").single();
+                resolve({ tenantContatoId: novo?.id || null, aguardandoModal: false });
+              },
+            });
+          });
+        }
+
+        // Criança não encontrada → cria nova
+        const { data: novo } = await supabase
+          .from("tenant_contatos")
+          .insert({
+            tenant_id: tenantId, nome: nome.trim(), tipo_contato: "crianca", origem: "convidado",
+            responsavel_telefone: responsavelTelefone,
+          })
+          .select("id").single();
+        return { tenantContatoId: novo?.id || null, aguardandoModal: false };
+      }
+    }
+
+    // Criança sem telefone de responsável ou nenhum match → não cria (sem identificador)
+    // Verifica por nome + grupo como último recurso
+    if (grupoEnvio || grupo) {
+      const nomeGrupo = grupoEnvio || grupo;
+      const { data: candidatos } = await supabase
+        .from("tenant_contatos")
+        .select("id, nome, telefone, tipo_contato")
+        .eq("tenant_id", tenantId)
+        .ilike("nome", `%${nome.trim().split(" ")[0]}%`)
+        .limit(5);
+
+      const match = candidatos?.find(
+        (c) => c.nome.trim().toUpperCase() === nome.trim().toUpperCase()
+      );
+
+      if (match) {
+        return new Promise((resolve) => {
+          setMatchCrmDialog({
+            contatoCrm: match,
+            onVincular: (id) => { setMatchCrmDialog(null); resolve({ tenantContatoId: id, aguardandoModal: false }); },
+            onCriarNovo: async () => {
+              setMatchCrmDialog(null);
+              const { data: novo } = await supabase
+                .from("tenant_contatos")
+                .insert({ tenant_id: tenantId, nome: nome.trim(), tipo_contato: crianca ? "crianca" : "adulto", origem: "convidado" })
+                .select("id").single();
+              resolve({ tenantContatoId: novo?.id || null, aguardandoModal: false });
+            },
+          });
+        });
+      }
+    }
+
+    return { tenantContatoId: null, aguardandoModal: false };
+  }
+
   async function salvarConvidado() {
     if (!form.nome.trim()) {
       alert("Digite o nome do convidado.");
@@ -1349,9 +1597,24 @@ ${eventoAtual?.nome || "OmniStage"}`);
         responsavelDoNucleo?.telefone ||
         "";
 
+      // Resolver vínculo com CRM (buscar/criar tenant_contatos)
+      const { tenantContatoId: resolvedContatoId } = await resolverContatoCRM({
+        tenantId,
+        convidadoId: editandoId,
+        convidadoAtualTenantContatoId: convidadoEditando?.tenant_contato_id,
+        nome: form.nome.trim(),
+        telefone: telefoneParaStorage(telefonePrincipal) || null,
+        telefonePrincipal,
+        crianca: criancaFinal,
+        responsavelTelefone: telefoneParaStorage(responsavelTelefoneFinal) || null,
+        grupoEnvio: form.grupo_envio.trim(),
+        grupo: grupoFinal,
+      });
+
       const payload = {
         nome: form.nome.trim(),
         telefone: telefoneParaStorage(telefonePrincipal) || null,
+        tenant_contato_id: resolvedContatoId || convidadoEditando?.tenant_contato_id || null,
         email: form.email.trim() || null,
         grupo: grupoFinal || null,
         crianca: criancaFinal ? "sim" : "",
@@ -1364,7 +1627,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
         tamanho_chinelo: form.tamanho_chinelo.trim() || null,
         relacao_evento: form.relacao_evento.length > 0 ? form.relacao_evento.join(",") : null,
         tag_envio: form.tag_envio || "Convidado(a)",
-        contato_principal: conviteEhGrupo && !criancaSemGrupoViaResponsavel ? form.contato_principal : false,
+        contato_principal: (conviteEhGrupo || !!form.grupo_envio.trim() || !!grupoFinal) && !criancaSemGrupoViaResponsavel ? form.contato_principal : false,
         recebe_convite: criancaFinal && responsavelFinal
           ? true
           : criancaSemGrupoViaResponsavel
@@ -1399,12 +1662,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
       }
 
       // Sincronizar responsável no tenant_contatos vinculado
-      const convidadoAtual = editandoId
-        ? convidados.find((c) => c.id === editandoId)
-        : null;
-      const contatoIdParaSync = convidadoAtual?.tenant_contato_id;
+      const contatoIdParaSync = resolvedContatoId || (editandoId ? convidados.find((c) => c.id === editandoId)?.tenant_contato_id : null);
       if (contatoIdParaSync) {
         const updateCrm: Record<string, unknown> = {
+          nome: form.nome.trim(),
+          telefone: telefoneParaStorage(telefonePrincipal) || null,
+          email: form.email.trim() || null,
           tipo_contato: criancaFinal ? "crianca" : "adulto",
         };
         if (criancaFinal && (responsavelFinal || responsavelTelefoneFinal)) {
@@ -1416,6 +1679,59 @@ ${eventoAtual?.nome || "OmniStage"}`);
           .update(updateCrm)
           .eq("id", contatoIdParaSync)
           .eq("tenant_id", tenantId);
+      }
+
+      // Propagar contato_principal → principal_envio em todos os vínculos CRM do contato
+      if (contatoIdParaSync && !criancaFinal) {
+        await supabase
+          .from("contato_grupo_membros")
+          .update({ principal_envio: form.contato_principal })
+          .eq("tenant_contato_id", contatoIdParaSync)
+          .eq("tenant_id", tenantId);
+      }
+
+      // Sincronizar Núcleo (grupo_envio) com contato_grupos / contato_grupo_membros do CRM
+      const nucleoNome = form.grupo_envio.trim();
+      if (nucleoNome && contatoIdParaSync) {
+        // Busca ou cria o núcleo no CRM
+        let nucleoId: string | null = null;
+        const nucleoExistente = nucleosContatos.find((n) => n.nome.trim().toLowerCase() === nucleoNome.toLowerCase());
+        if (nucleoExistente) {
+          nucleoId = nucleoExistente.id;
+        } else {
+          const { data: novoNucleo } = await supabase
+            .from("contato_grupos")
+            .insert({ tenant_id: tenantId, nome: nucleoNome, tipo: "manual" })
+            .select("id")
+            .single();
+          if (novoNucleo) {
+            nucleoId = novoNucleo.id;
+            await carregarNucleosContatos(tenantId);
+          }
+        }
+        if (nucleoId) {
+          // Verifica se vínculo já existe
+          const vinculoExistente = vinculosContatos.find(
+            (v) => v.grupo_contato_id === nucleoId && v.tenant_contato_id === contatoIdParaSync
+          );
+          if (!vinculoExistente) {
+            await supabase.from("contato_grupo_membros").insert({
+              tenant_id: tenantId,
+              grupo_contato_id: nucleoId,
+              tenant_contato_id: contatoIdParaSync,
+              papel: form.crianca === "sim" ? "filho(a)" : "membro",
+              principal_envio: form.contato_principal && !criancaFinal,
+              recebe_comunicacao: true,
+            });
+            await carregarVinculosContatos(tenantId);
+          } else {
+            // Atualiza principal_envio se mudou
+            await supabase.from("contato_grupo_membros")
+              .update({ principal_envio: form.contato_principal && !criancaFinal })
+              .eq("id", vinculoExistente.id)
+              .eq("tenant_id", tenantId);
+          }
+        }
       }
 
       // Se adulto + contato_principal + telefone: propagar como responsável nas crianças do grupo
@@ -1775,6 +2091,98 @@ ${eventoAtual?.nome || "OmniStage"}`);
         throw new Error(result.error || "Erro ao confirmar importação.");
       }
 
+      // Sync CRM para cada convidado importado
+      const { data: importados } = await supabase
+        .from("convidados")
+        .select("id, nome, telefone, email, crianca, responsavel, responsavel_telefone, grupo_envio, contato_principal, tenant_contato_id")
+        .in("id", novosIds)
+        .eq("tenant_id", tenantId);
+
+      if (importados && importados.length > 0) {
+        for (const conv of importados) {
+          const telefoneNorm = telefoneParaStorage(conv.telefone) || null;
+          const ehCrianca = conv.crianca === "sim";
+
+          // 1. Resolver tenant_contatos (encontrar ou criar)
+          let contatoId = conv.tenant_contato_id || null;
+          if (!contatoId) {
+            if (telefoneNorm) {
+              const { data: existente } = await supabase
+                .from("tenant_contatos")
+                .select("id")
+                .eq("telefone_normalizado", telefoneNorm.replace(/\D/g, ""))
+                .eq("tenant_id", tenantId)
+                .maybeSingle();
+              contatoId = existente?.id || null;
+            }
+            if (!contatoId) {
+              const { data: novo } = await supabase
+                .from("tenant_contatos")
+                .insert({
+                  tenant_id: tenantId,
+                  nome: conv.nome,
+                  telefone: telefoneNorm,
+                  telefone_normalizado: telefoneNorm ? telefoneNorm.replace(/\D/g, "") : null,
+                  tipo_contato: ehCrianca ? "crianca" : "adulto",
+                  responsavel_nome: ehCrianca ? conv.responsavel || null : null,
+                  responsavel_telefone: ehCrianca ? telefoneParaStorage(conv.responsavel_telefone) || null : null,
+                  origem: "importacao_planilha",
+                })
+                .select("id")
+                .single();
+              contatoId = novo?.id || null;
+            }
+            if (contatoId) {
+              await supabase
+                .from("convidados")
+                .update({ tenant_contato_id: contatoId })
+                .eq("id", conv.id)
+                .eq("tenant_id", tenantId);
+            }
+          }
+
+          // 2. Vincular ao núcleo (grupo_envio) no CRM
+          const nucleoNome = conv.grupo_envio?.trim();
+          if (nucleoNome && contatoId) {
+            let nucleoId: string | null = null;
+            const { data: nucleoExistente } = await supabase
+              .from("contato_grupos")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .ilike("nome", nucleoNome)
+              .maybeSingle();
+            nucleoId = nucleoExistente?.id || null;
+            if (!nucleoId) {
+              const { data: novoNucleo } = await supabase
+                .from("contato_grupos")
+                .insert({ tenant_id: tenantId, nome: nucleoNome, tipo: "manual" })
+                .select("id")
+                .single();
+              nucleoId = novoNucleo?.id || null;
+            }
+            if (nucleoId) {
+              const { data: vinculoExistente } = await supabase
+                .from("contato_grupo_membros")
+                .select("id")
+                .eq("grupo_contato_id", nucleoId)
+                .eq("tenant_contato_id", contatoId)
+                .eq("tenant_id", tenantId)
+                .maybeSingle();
+              if (!vinculoExistente) {
+                await supabase.from("contato_grupo_membros").insert({
+                  tenant_id: tenantId,
+                  grupo_contato_id: nucleoId,
+                  tenant_contato_id: contatoId,
+                  papel: ehCrianca ? "filho(a)" : "responsavel",
+                  principal_envio: !ehCrianca && Boolean(conv.contato_principal),
+                  recebe_comunicacao: !ehCrianca,
+                });
+              }
+            }
+          }
+        }
+      }
+
       alert(`${result.inserted ?? novosIds.length} convidados importados com sucesso!`);
       setImportAberto(false);
       setImportText("");
@@ -1923,13 +2331,23 @@ ${eventoAtual?.nome || "OmniStage"}`);
       responsavelDoNucleo?.telefone ||
       "";
 
+    // Se grupo_envio não está no convidado mas o contato tem núcleo no CRM, pré-preenche
+    let grupoEnvioFinal = convidado.grupo_envio || "";
+    if (!grupoEnvioFinal && convidado.tenant_contato_id) {
+      const vinculoCrm = vinculosContatos.find((v) => v.tenant_contato_id === convidado.tenant_contato_id);
+      if (vinculoCrm) {
+        const nucleoCrm = nucleosContatosPorId.get(vinculoCrm.grupo_contato_id);
+        if (nucleoCrm?.nome) grupoEnvioFinal = nucleoCrm.nome;
+      }
+    }
+
     setEditandoId(convidado.id);
     setForm({
       nome: convidado.nome || "",
       telefone: telefoneParaExibir(convidado.telefone || ""),
       email: convidado.email || "",
       grupo: grupoFinal,
-      grupo_envio: convidado.grupo_envio || "",
+      grupo_envio: grupoEnvioFinal,
       crianca: convidado.crianca === "sim" || Boolean(convidado.mae) ? "sim" : "",
       responsavel: responsavelFinal,
       responsavel_telefone: responsavelTelefoneFinal,
@@ -2237,12 +2655,51 @@ ${eventoAtual?.nome || "OmniStage"}`);
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "var(--card, #fff)", borderRadius: 16, padding: 28, maxWidth: 380, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
             <p style={{ margin: "0 0 20px", fontSize: 15, lineHeight: 1.6, color: "var(--text)", whiteSpace: "pre-line" }}>{confirmNucleoDialog.mensagem}</p>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => setConfirmNucleoDialog(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "transparent", fontWeight: 600, cursor: "pointer", color: "var(--text)" }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button onClick={() => setConfirmNucleoDialog(null)} style={{ padding: "10px 20px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "transparent", fontWeight: 600, cursor: "pointer", color: "#94a3b8" }}>
                 Cancelar
               </button>
+              <button onClick={() => { confirmNucleoDialog?.onCancel?.(); setConfirmNucleoDialog(null); }} style={{ padding: "10px 20px", borderRadius: 10, border: "1.5px solid #7c3aed", background: "transparent", fontWeight: 600, cursor: "pointer", color: "#7c3aed" }}>
+                {confirmNucleoDialog.labelCancel || "Usar existente"}
+              </button>
               <button onClick={() => { confirmNucleoDialog.onConfirm(); setConfirmNucleoDialog(null); }} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                Confirmar
+                {confirmNucleoDialog.labelConfirm || "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {matchCrmDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--card, #fff)", borderRadius: 16, padding: 28, maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, color: "#7c3aed", textTransform: "uppercase", letterSpacing: 1 }}>Contato encontrado no CRM</p>
+            <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--text-muted, #64748b)" }}>
+              Encontramos um possível match. É a mesma pessoa?
+            </p>
+            <div style={{ background: "var(--bg, #f8fafc)", borderRadius: 12, padding: "14px 16px", marginBottom: 20, border: "1.5px solid #e2e8f0" }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: "var(--text)" }}>{matchCrmDialog.contatoCrm.nome}</p>
+              {matchCrmDialog.contatoCrm.telefone && (
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted, #64748b)" }}>
+                  Tel: {telefoneParaExibir(matchCrmDialog.contatoCrm.telefone)}
+                </p>
+              )}
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted, #64748b)", textTransform: "capitalize" }}>
+                {matchCrmDialog.contatoCrm.tipo_contato || "contato"}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={matchCrmDialog.onCriarNovo}
+                style={{ flex: 1, padding: "11px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "transparent", fontWeight: 600, cursor: "pointer", color: "var(--text)", fontSize: 14 }}
+              >
+                Criar novo contato
+              </button>
+              <button
+                onClick={() => matchCrmDialog.onVincular(matchCrmDialog.contatoCrm.id)}
+                style={{ flex: 1, padding: "11px 16px", borderRadius: 10, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+              >
+                Sim, vincular
               </button>
             </div>
           </div>
@@ -2649,7 +3106,158 @@ ${eventoAtual?.nome || "OmniStage"}`);
                     style={inputStyle}
                   />
                 </label>
+
+                <label style={fieldStyle}>
+                  <span>Agrupamento <span style={{ fontWeight: 400, color: "var(--muted)" }}>(família nuclear)</span></span>
+                  <input
+                    list="grupos-sugestoes-01"
+                    value={form.grupo}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((cur) => {
+                        const temTelefone = Boolean(normalizarTelefone(cur.telefone));
+                        const ehNucleo = val.trim().length > 0;
+                        return {
+                          ...cur,
+                          grupo: val,
+                          tipo_convite: ehNucleo ? "grupo" : "individual",
+                          contato_principal: ehNucleo && temTelefone ? true : (ehNucleo ? cur.contato_principal : false),
+                          recebe_convite: ehNucleo ? cur.recebe_convite : true,
+                        };
+                      });
+                    }}
+                    onBlur={async (e) => {
+                      const novoGrupo = e.target.value.trim();
+                      if (!novoGrupo) return;
+                      const contatoId = editandoId
+                        ? convidados.find((c) => c.id === editandoId)?.tenant_contato_id
+                        : null;
+                      if (!contatoId) return;
+                      const { data: outrosConvidados } = await supabase
+                        .from("convidados")
+                        .select("grupo")
+                        .eq("tenant_contato_id", contatoId)
+                        .not("grupo", "is", null)
+                        .neq("id", editandoId || "");
+                      const gruposExistentes = [...new Set(
+                        (outrosConvidados || []).map((c) => (c.grupo || "").trim()).filter(Boolean)
+                      )];
+                      const grupoOriginal = gruposExistentes[0];
+                      if (grupoOriginal && grupoOriginal.toLowerCase() !== novoGrupo.toLowerCase()) {
+                        setConfirmNucleoDialog({
+                          mensagem: `Este convidado já pertence ao agrupamento familiar "${grupoOriginal}".\n\nDeseja realmente alterar para "${novoGrupo}"?`,
+                          onConfirm: () => {},
+                          onCancel: () => setForm((cur) => ({ ...cur, grupo: grupoOriginal })),
+                        });
+                      }
+                    }}
+                    placeholder="Ex: FAMILIA VITOR JOSÉ"
+                    style={inputStyle}
+                  />
+                  <datalist id="grupos-sugestoes-01">
+                    {Array.from(new Set(
+                      convidados.map((c) => (c.grupo || "").trim()).filter(Boolean)
+                    )).sort().map((nome) => (
+                      <option key={nome} value={nome} />
+                    ))}
+                  </datalist>
+                  {form.grupo && (
+                    <span style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                      {convidados.filter((c) => (c.grupo || "").trim() === form.grupo.trim()).length} membro(s) neste agrupamento
+                    </span>
+                  )}
+                </label>
               </div>
+
+              {/* Contato principal do agrupamento */}
+              {form.grupo && form.crianca !== "sim" && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={fieldStyle}>
+                    <span>Contato principal</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, padding: "10px 12px", background: "var(--input-bg, #f8fafc)", border: "1.5px solid #e2e8f0", borderRadius: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.contato_principal}
+                        onChange={(e) => {
+                          if (!e.target.checked) {
+                            setConfirmNucleoDialog({
+                              mensagem: "Desmarcar Contato Principal significa que este convidado não receberá a comunicação do agrupamento diretamente.\n\nDeseja continuar?",
+                              onConfirm: async () => {
+                                setForm((cur) => ({ ...cur, contato_principal: false }));
+                                const grupoAtual = form.grupo.trim();
+                                const nomeAtual = form.nome.trim().toLowerCase();
+                                const telAtual = telefoneParaStorage(form.telefone) || "";
+                                if (!grupoAtual || !tenantId || !eventoId) return;
+                                const criancasDoGrupo = convidados.filter(
+                                  (c) => String(c.grupo || "").trim() === grupoAtual && c.id !== editandoId &&
+                                    (c.crianca === "sim" || Boolean(c.mae) || Boolean(c.responsavel))
+                                );
+                                for (const crianca of criancasDoGrupo) {
+                                  const nomesAtuais = (crianca.responsavel || crianca.mae || "").split(",").map((n) => n.trim()).filter(Boolean);
+                                  const telsAtuais = (crianca.responsavel_telefone || "").split(",").map((t) => t.replace(/\D/g, "")).filter(Boolean);
+                                  const novosNomes = nomesAtuais.filter((n) => n.toLowerCase() !== nomeAtual);
+                                  const novosTels = telsAtuais.filter((t) => t !== telAtual.replace(/\D/g, ""));
+                                  if (novosNomes.length !== nomesAtuais.length || novosTels.length !== telsAtuais.length) {
+                                    await supabase.from("convidados")
+                                      .update({ responsavel: novosNomes.join(", ") || null, mae: novosNomes.join(", ") || null, responsavel_telefone: novosTels.join(",") || null })
+                                      .eq("id", crianca.id).eq("tenant_id", tenantId).eq("evento_id", eventoId);
+                                  }
+                                }
+                                if (tenantId) await carregarConvidados(tenantId, eventoId);
+                              },
+                            });
+                            return;
+                          }
+                          setForm((cur) => ({ ...cur, contato_principal: true }));
+                        }}
+                        style={checkboxInputStyle}
+                      />
+                      <span style={{ fontSize: 13 }}>Principal do agrupamento</span>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              {/* Membros do agrupamento */}
+              {form.grupo && (() => {
+                const membrosAgrupamento = convidados.filter(
+                  (c) => (c.grupo || "").trim() === form.grupo.trim()
+                );
+                if (membrosAgrupamento.length === 0) return null;
+                return (
+                  <div style={{ marginTop: 8 }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", margin: "0 0 8px" }}>
+                      Membros do agrupamento {form.grupo}
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {membrosAgrupamento.map((membro) => {
+                        const isAtual = membro.id === editandoId;
+                        const ehPrincipal = isAtual ? form.contato_principal : Boolean(membro.contato_principal);
+                        return (
+                          <div key={membro.id} style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "8px 12px", borderRadius: 8,
+                            background: isAtual ? "#ede9fe" : "var(--card, #f8fafc)",
+                            border: `1px solid ${isAtual ? "#c4b5fd" : "#e2e8f0"}`,
+                          }}>
+                            <span style={{ fontSize: 13, fontWeight: isAtual ? 700 : 400 }}>
+                              {membro.nome}{isAtual ? " (você)" : ""}
+                            </span>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                              {membro.crianca === "sim" && (
+                                <span style={{ fontSize: 11, background: "#fef9c3", color: "#854d0e", borderRadius: 20, padding: "2px 8px", fontWeight: 600 }}>Criança</span>
+                              )}
+                              {ehPrincipal && (
+                                <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", borderRadius: 20, padding: "2px 8px", fontWeight: 600 }}>★ Principal</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
             <section style={formBlockCardStyle}>
@@ -2657,7 +3265,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                 <span>02</span>
                 <div>
                   <strong>Perfil do convidado</strong>
-                  <p>Defina se é adulto ou criança. Quando for criança, informe quem receberá a comunicação.</p>
+                  <p>Defina se é adulto ou criança. Quando for criança, o responsável do núcleo receberá a comunicação automaticamente.</p>
                 </div>
               </div>
 
@@ -2723,11 +3331,43 @@ ${eventoAtual?.nome || "OmniStage"}`);
                                 .forEach((c) => adicionarResponsavel(c.nome, c.telefone));
                             }
 
-                            // 3. CRM — adiciona apenas responsáveis ainda não presentes (evita dados de outros eventos)
+                            // 3. CRM do próprio convidado (responsavel_nome já registrado)
                             const tenantContatoId = convidadoEmEdicao?.tenant_contato_id;
                             const contatoCrm = tenantContatoId ? contatosBasePorId.get(tenantContatoId) : null;
                             if (contatoCrm?.responsavel_nome) {
                               adicionarResponsavel(contatoCrm.responsavel_nome, contatoCrm.responsavel_telefone);
+                            }
+
+                            // 4. Busca no CRM geral (tenant_contatos) por nome parecido com o agrupamento
+                            if (responsaveisEncontrados.length === 0 && current.grupo.trim() && tenantId) {
+                              // Busca assíncrona — dispara sem bloquear (resultado aparece após re-render)
+                              supabase
+                                .from("tenant_contatos")
+                                .select("id, nome, telefone, tipo_contato, responsavel_nome, responsavel_telefone")
+                                .eq("tenant_id", tenantId)
+                                .neq("tipo_contato", "crianca")
+                                .ilike("nome", `%${current.grupo.trim().split(/[\s_]/)[0]}%`)
+                                .limit(5)
+                                .then(({ data }) => {
+                                  if (data?.length) {
+                                    setForm((prev) => {
+                                      const nomesAtuais = (prev.responsavel || "").split(",").map((n) => n.trim()).filter(Boolean);
+                                      const telsAtuais = (prev.responsavel_telefone || "").split(",").map((t) => t.replace(/\D/g, "")).filter(Boolean);
+                                      const novosNomes = [...nomesAtuais];
+                                      const novosTels = [...telsAtuais];
+                                      for (const c of data) {
+                                        if (!c.nome || !c.telefone) continue;
+                                        const tel = c.telefone.replace(/\D/g, "");
+                                        if (novosTels.includes(tel)) continue;
+                                        if (novosNomes.map((n) => n.toLowerCase()).includes(c.nome.toLowerCase())) continue;
+                                        novosNomes.push(c.nome);
+                                        novosTels.push(tel);
+                                      }
+                                      if (novosNomes.join() === nomesAtuais.join()) return prev;
+                                      return { ...prev, responsavel: novosNomes.join(", "), mae: novosNomes[0] || prev.mae, responsavel_telefone: novosTels.join(",") };
+                                    });
+                                  }
+                                });
                             }
 
                             if (responsaveisEncontrados.length > 0) {
@@ -2986,223 +3626,63 @@ ${eventoAtual?.nome || "OmniStage"}`);
               <div style={formBlockHeaderStyle}>
                 <span>03</span>
                 <div>
-                  <strong>Perfil do convite</strong>
-                  <p>Define como o nome aparece no convite e no cartão de entrada.</p>
+                  <strong>Núcleo</strong>
+                  <p>Grupo de envio ao qual este convidado pertence — pode ser uma família estendida, escola ou qualquer agrupamento usado para organizar os convites.</p>
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {([
-                  { value: "individual", label: "Individual" },
-                  { value: "grupo", label: "Núcleo" },
-                ] as const).map((opcao) => {
-                  const ativo = form.tipo_convite === opcao.value;
-                  return (
-                    <button
-                      key={opcao.value}
-                      type="button"
-                      onClick={() => setForm((current) => {
-                        const temTelefone = Boolean(normalizarTelefone(current.telefone));
-                        return {
-                          ...current,
-                          tipo_convite: opcao.value,
-                          // Ao entrar em Núcleo: marcar Contato Principal automaticamente se tem telefone
-                          contato_principal: opcao.value === "grupo"
-                            ? (temTelefone ? true : current.contato_principal)
-                            : false,
-                          recebe_convite: opcao.value === "grupo" ? current.recebe_convite : true,
-                        };
-                      })}
-                      style={{
-                        display: "inline-flex", alignItems: "center",
-                        border: `1.5px solid ${ativo ? "#7c3aed" : "#e2e8f0"}`,
-                        borderRadius: 999, padding: "10px 20px",
-                        background: ativo ? "#ede9fe" : "var(--card, #fff)",
-                        color: ativo ? "#7c3aed" : "var(--text)",
-                        fontWeight: 700, fontSize: 15, cursor: "pointer",
-                      }}
-                    >
-                      {opcao.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Campo manual de grupo (sem CRM e tipo Núcleo) */}
-              {true && (
-                <div style={formBlockGridStyle}>
-                  <label style={fieldStyle}>
-                    <span>{form.tipo_convite === "grupo" && !permiteCrm ? "Grupo / Família" : "Tag / Turma"}</span>
-                    <input
-                      list="grupos-sugestoes"
-                      value={form.grupo}
-                      onChange={(e) => setForm((cur) => ({ ...cur, grupo: e.target.value }))}
-                      placeholder={form.tipo_convite === "grupo" && !permiteCrm ? "Ex: FAMILIA_SILVA" : "Ex: MAPLE BEAR, Mesa 1..."}
-                      style={inputStyle}
-                    />
-                    <datalist id="grupos-sugestoes">
-                      {Array.from(new Set([
-                        ...nucleosContatos.map((n) => n.nome),
-                        ...convidados.map((c) => (c.grupo || "").trim()).filter(Boolean),
-                      ])).sort().map((nome) => (
-                        <option key={nome} value={nome} />
-                      ))}
-                    </datalist>
-                  </label>
+              {/* Núcleo atual como tag */}
+              {form.grupo_envio && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  {(() => {
+                    const n = nucleosContatos.find((n) => n.nome.trim().toLowerCase() === form.grupo_envio.trim().toLowerCase());
+                    const tipo = n?.tipo_nucleo || n?.tipo;
+                    const labelTipo: Record<string, string> = { FAMILIA: "Família", ESCOLA: "Escola", LOJA: "Loja" };
+                    const tipoLabel = tipo ? (labelTipo[tipo] || tipo) : "Novo";
+                    const isNovo = !n;
+                    return (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: isNovo ? "#f1f5f9" : "#ede9fe", color: isNovo ? "#64748b" : "#7c3aed", border: `1.5px solid ${isNovo ? "#e2e8f0" : "#c4b5fd"}`, borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>
+                        {form.grupo_envio}
+                        <span style={{ fontSize: 11, opacity: 0.7 }}>· {tipoLabel}</span>
+                        <button type="button" onClick={() => { setForm((cur) => ({ ...cur, grupo_envio: "" })); setNovoNucleo(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 15, lineHeight: 1, padding: 0, color: "inherit" }}>×</button>
+                      </span>
+                    );
+                  })()}
                 </div>
               )}
+
+              {/* Input para adicionar/trocar núcleo */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  list="nucleos-sugestoes"
+                  value={novoNucleo}
+                  onChange={(e) => setNovoNucleo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && novoNucleo.trim()) {
+                      e.preventDefault();
+                      adicionarNucleo(novoNucleo.trim());
+                    }
+                  }}
+                  placeholder="Digite ou escolha um núcleo..."
+                  style={{ ...inputStyle, flex: "1 1 160px", minWidth: 0 }}
+                />
+                <datalist id="nucleos-sugestoes">
+                  {nucleosContatos.map((n) => (
+                    <option key={n.id} value={n.nome} />
+                  ))}
+                </datalist>
+                <button type="button"
+                  onClick={() => { if (novoNucleo.trim()) adicionarNucleo(novoNucleo.trim()); }}
+                  style={{ padding: "10px 16px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  + Adicionar
+                </button>
+              </div>
+
             </section>
-
-            {/* Seção 04 — Núcleos */}
-            {permiteCrm && (
-              <section style={formBlockCardStyle}>
-                <div style={formBlockHeaderStyle}>
-                  <span>04</span>
-                  <div>
-                    <strong>Núcleos</strong>
-                    <p>Defina em quais núcleos este convidado aparece e quem recebe a comunicação.</p>
-                  </div>
-                </div>
-
-                {!editandoId && (
-                  <div style={emptyStyle}>Salve o convidado para visualizar os núcleos vinculados.</div>
-                )}
-                {editandoId && !convidadoTemNucleosVinculados && (
-                  <div style={emptyStyle}>Este contato não possui núcleos vinculados no CRM.</div>
-                )}
-                {convidadoTemNucleosVinculados && (
-                  <div style={nucleosVinculadosConviteListStyle}>
-                    {vinculosNucleoConvidadoAtual.map((vinculo) => {
-                      const nucleo = nucleosContatosPorId.get(vinculo.grupo_contato_id);
-                      const nomeNucleo = nucleo?.nome || "Núcleo não encontrado";
-                      const convidadoAtualObj = editandoId ? convidados.find(c => c.id === editandoId) : null;
-                      const isIndividual = form.tipo_convite !== "grupo";
-                      const membrosNoNucleo = isIndividual
-                        ? (convidadoAtualObj ? [convidadoAtualObj] : [])
-                        : [
-                            ...(convidadoAtualObj ? [convidadoAtualObj] : []),
-                            ...convidados.filter(
-                              (c) => c.id !== editandoId &&
-                                (c.grupo || "").trim().toLowerCase() === nomeNucleo.trim().toLowerCase()
-                            ),
-                          ];
-
-                      return (
-                        <div key={vinculo.id} style={nucleoVinculadoConviteCardStyle}>
-                          <strong style={{ display: "block", marginBottom: 4 }}>{nomeNucleo}</strong>
-                          <span style={{ ...nucleoVinculadoConviteSubTextStyle, display: "block", marginBottom: 12 }}>
-                            Relação no núcleo: {form.contato_principal ? "Contato principal" : labelPapelNucleoConvite(getPapelVinculoContato(vinculo))}
-                          </span>
-
-                          {membrosNoNucleo.length === 0 && (
-                            <div style={{ fontSize: 13, color: "#94a3b8" }}>Nenhum convidado vinculado a este núcleo ainda.</div>
-                          )}
-
-                          {membrosNoNucleo.map((membro) => {
-                            const isAtual = membro.id === editandoId;
-                            const membroGrupo = (membro.grupo || "").trim().toLowerCase();
-                            const membroGrupoEnvio = (membro.grupo_envio || "").trim().toLowerCase();
-                            const nucleoLow = nomeNucleo.trim().toLowerCase();
-
-                            async function quickUpdate(patch: Record<string, unknown>) {
-                              if (isAtual) {
-                                setForm((cur) => ({ ...cur, ...patch }));
-                              } else {
-                                await supabase.from("convidados").update(patch).eq("id", membro.id).eq("tenant_id", tenantId).eq("evento_id", eventoId);
-                                if (tenantId) await carregarConvidados(tenantId, eventoId);
-                              }
-                            }
-
-                            const pillStyle: React.CSSProperties = {
-                              display: "inline-flex", alignItems: "center", gap: 6,
-                              border: "1px solid #e2e8f0", borderRadius: 999, padding: "6px 12px",
-                              background: "#fff", fontWeight: 600, fontSize: 12,
-                              color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap",
-                            };
-
-                            return (
-                              <div key={membro.id} style={{
-                                display: "flex", alignItems: "center", gap: 12,
-                                padding: "10px 14px", borderRadius: 10, marginBottom: 6,
-                                background: isAtual ? "#ede9fe" : "#f8fafc",
-                                border: `1px solid ${isAtual ? "#c4b5fd" : "#e2e8f0"}`,
-                                flexWrap: "wrap",
-                              }}>
-                                <strong style={{ minWidth: 140, fontSize: 13, flexShrink: 0 }}>{membro.nome || "(sem nome)"}</strong>
-                                {(() => {
-                                  const isCriancaRow = isAtual ? form.crianca === "sim" : membro.crianca === "sim";
-                                  const membroTelefone = isAtual ? normalizarTelefone(form.telefone) : normalizarTelefone(membro.telefone);
-                                  const semTelefoneRow = !membroTelefone;
-                                  const recebeEnvioVal = isCriancaRow
-                                    ? true
-                                    : isAtual
-                                      ? form.recebe_convite
-                                      : (membro.recebe_convite ?? true);
-                                  const contatoPrincipalVal = isAtual
-                                    ? form.contato_principal
-                                    : Boolean(membro.contato_principal);
-                                  const recebeViaPrincipalRow = !isCriancaRow && semTelefoneRow && !contatoPrincipalVal;
-
-                                  return (
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                      <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                          <input type="checkbox" checked={recebeEnvioVal} disabled={isCriancaRow || recebeViaPrincipalRow || contatoPrincipalVal || (!isAtual ? (membro.tipo_convite || "individual") === "individual" : form.tipo_convite === "individual")} onChange={(e) => quickUpdate({ recebe_convite: e.target.checked })} />
-                                          <span style={{ fontWeight: 700 }}>
-                                            {isCriancaRow
-                                              ? "Recebe comunicação via Responsável"
-                                              : recebeViaPrincipalRow
-                                                ? "Recebe comunicação via Principal"
-                                                : contatoPrincipalVal
-                                                  ? "Recebe comunicação do Núcleo"
-                                                  : "Recebe comunicação individual"}
-                                          </span>
-                                        </div>
-                                        <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>
-                                          {isCriancaRow
-                                            ? "Envio pelo responsável cadastrado"
-                                            : recebeViaPrincipalRow
-                                              ? "Sem telefone — envio pelo contato principal do grupo"
-                                              : contatoPrincipalVal
-                                                ? "Envio com componentes do núcleo"
-                                                : "Envio individual com o nome do convidado"}
-                                        </span>
-                                      </label>
-                                      {membro.crianca !== "sim" && !semTelefoneRow && (isAtual ? form.tipo_convite === "grupo" : (membro.tipo_convite || "individual") === "grupo") && (
-                                        <label style={{ ...pillStyle, flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: "8px 14px" }}>
-                                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <input type="checkbox" checked={contatoPrincipalVal} onChange={(e) => {
-                                              if (!e.target.checked) {
-                                                setConfirmNucleoDialog({
-                                                  mensagem: "Desmarcar Contato Principal significa que este convidado não receberá a comunicação do núcleo diretamente.\n\nDeseja mudar para apenas sua comunicação pessoal (Individual)?",
-                                                  onConfirm: () => setForm((cur) => ({ ...cur, tipo_convite: "individual", contato_principal: false })),
-                                                });
-                                                return;
-                                              }
-                                              quickUpdate({ contato_principal: e.target.checked });
-                                            }} />
-                                            <span style={{ fontWeight: 700 }}>Contato Principal</span>
-                                          </div>
-                                          <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, paddingLeft: 20 }}>Convite com todos os nomes do grupo</span>
-                                        </label>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            )}
 
             <section style={formBlockCardStyle}>
               <div style={formBlockHeaderStyle}>
-                <span>{permiteCrm ? "05" : "04"}</span>
+                <span>04</span>
                 <div>
                   <strong>Relação com o Evento</strong>
                   <p>Classifique o convidado por seu papel ou relação com o evento (ex: Família da noiva, Amigos do noivo).</p>
@@ -3222,7 +3702,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       </span>
                     ))}
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <input
                       value={novaTag}
                       onChange={(e) => setNovaTag(e.target.value)}
@@ -3234,8 +3714,8 @@ ${eventoAtual?.nome || "OmniStage"}`);
                           setNovaTag("");
                         }
                       }}
-                      placeholder="Digite e pressione Enter para adicionar..."
-                      style={{ ...inputStyle, flex: 1 }}
+                      placeholder="Digite e pressione Enter..."
+                      style={{ ...inputStyle, flex: "1 1 160px", minWidth: 0 }}
                       list="relacoes-sugestoes"
                     />
                     <button type="button"
@@ -3244,7 +3724,7 @@ ${eventoAtual?.nome || "OmniStage"}`);
                         if (tag && !form.relacao_evento.includes(tag)) setForm((prev) => ({ ...prev, relacao_evento: [...prev.relacao_evento, tag] }));
                         setNovaTag("");
                       }}
-                      style={{ padding: "10px 16px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}>
+                      style={{ padding: "10px 16px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
                       + Adicionar
                     </button>
                   </div>
@@ -3253,30 +3733,13 @@ ${eventoAtual?.nome || "OmniStage"}`);
                   </datalist>
                 </label>
 
-                {/* Tag de envio - selecionada dentre as tags do convidado */}
-                <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-                  <span style={{ fontWeight: 600 }}>Tag de envio WhatsApp</span>
-                  <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 8px" }}>
-                    Qual tag define o grupo de envio deste convidado?
-                  </p>
-                  <select
-                    value={form.tag_envio}
-                    onChange={(e) => updateForm("tag_envio", e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Convidado(a) — padrão</option>
-                    {form.relacao_evento.map((tag) => (
-                      <option key={tag} value={tag}>{tag}</option>
-                    ))}
-                  </select>
-                </label>
 
               </div>
             </section>
 
             <section style={formBlockCardStyle}>
               <div style={formBlockHeaderStyle}>
-                <span>{permiteCrm ? "06" : "05"}</span>
+                <span>05</span>
                 <div>
                   <strong>Observações</strong>
                 </div>
@@ -3370,6 +3833,24 @@ ${eventoAtual?.nome || "OmniStage"}`);
             <option value="individual">Convite individual</option>
             <option value="grupo">Convite por núcleo</option>
           </select>
+
+          {(() => {
+            const nucleosUsados = Array.from(new Set(
+              convidados.map((c) => (c.grupo_envio || "").trim()).filter(Boolean)
+            )).sort();
+            if (nucleosUsados.length === 0) return null;
+            return (
+              <select
+                value={filtroNucleo}
+                onChange={(e) => setFiltroNucleo(e.target.value)}
+                style={{ ...inputStyle, color: filtroNucleo ? "#7c3aed" : undefined, fontWeight: filtroNucleo ? 700 : undefined }}
+                aria-label="Filtrar por núcleo"
+              >
+                <option value="">Todos os núcleos</option>
+                {nucleosUsados.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            );
+          })()}
         </div>
 
         <div style={{ display: "grid", gap: 16 }}>
@@ -3385,7 +3866,34 @@ ${eventoAtual?.nome || "OmniStage"}`);
             </div>
           )}
 
-          {gruposConvidados.map(({ grupo, integrantes }) => {
+          {nucleosAgrupados.map(([nucleo, grupos]) => {
+            const temNucleo = nucleo !== "__sem_nucleo__";
+            const expandido = !temNucleo || nucleosExpandidos.has(nucleo);
+            const totalIntegrantes = grupos.reduce((s, g) => s + g.integrantes.length, 0);
+            const totalConfirmados = grupos.reduce((s, g) => s + g.integrantes.filter((c) => c.status_rsvp === "confirmado").length, 0);
+
+            return (
+              <div key={nucleo}>
+                {temNucleo && (
+                  <div
+                    onClick={() => setNucleosExpandidos((prev) => {
+                      const novo = new Set(prev);
+                      if (novo.has(nucleo)) novo.delete(nucleo); else novo.add(nucleo);
+                      return novo;
+                    })}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#ede9fe", borderRadius: 10, marginBottom: expandido ? 8 : 0, cursor: "pointer", border: "1.5px solid #c4b5fd" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 16 }}>{expandido ? "▾" : "▸"}</span>
+                      <strong style={{ fontSize: 14, color: "#5b21b6" }}>{nucleo}</strong>
+                      <span style={{ fontSize: 12, color: "#7c3aed" }}>{totalIntegrantes} convidado{totalIntegrantes !== 1 ? "s" : ""}</span>
+                    </div>
+                    <span style={{ fontSize: 12, background: totalConfirmados > 0 ? "#dcfce7" : "#f1f5f9", color: totalConfirmados > 0 ? "#166534" : "#64748b", borderRadius: 20, padding: "2px 10px", fontWeight: 600 }}>
+                      {totalConfirmados} confirmado{totalConfirmados !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+                {expandido && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{grupos.map(({ grupo, integrantes }) => {
             const nomesIntegrantes = integrantes
               .map((convidado) => convidado.nome)
               .filter(Boolean)
@@ -3399,32 +3907,59 @@ ${eventoAtual?.nome || "OmniStage"}`);
             const conviteAgrupadoPorNucleo = grupoComNome && !todosConvitesIndividuais;
             const mostrarGrupo = grupoComNome;
 
-            return (
+            return (() => {
+                const grupoExpandido = !mostrarGrupo || gruposExpandidos.has(grupo);
+                const confirmadosGrupo = integrantes.filter((c) => c.status_rsvp === "confirmado").length;
+                return (
               <article key={grupo} style={groupCardLargeStyle}>
                 {mostrarGrupo && (
                   <>
-                    <div style={groupCardHeaderStyle}>
-                      <div>
-                        <span style={groupEyebrowStyle}>
-                          {visualizacaoEmGrupo ? "Visualização em grupo" : "Grupo encontrado"}
-                        </span>
-                        <strong style={groupTitleStyle}>{grupo}</strong>
+                    <div
+                      style={{ ...groupCardHeaderStyle, cursor: "pointer", userSelect: "none" }}
+                      onClick={() => setGruposExpandidos((prev) => {
+                        const novo = new Set(prev);
+                        if (novo.has(grupo)) novo.delete(grupo); else novo.add(grupo);
+                        return novo;
+                      })}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 14, color: "#7c3aed" }}>{grupoExpandido ? "▾" : "▸"}</span>
+                        <div>
+                          <span style={groupEyebrowStyle}>
+                            {visualizacaoEmGrupo ? "Visualização em grupo" : "Grupo encontrado"}
+                          </span>
+                          <strong style={groupTitleStyle}>{grupo}</strong>
+                        </div>
                       </div>
 
-                      <span style={groupCountStyle}>
-                        {integrantes.length} integrante
-                        {integrantes.length === 1 ? "" : "s"}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {confirmadosGrupo > 0 && (
+                          <span style={{ fontSize: 12, background: "#dcfce7", color: "#166534", borderRadius: 20, padding: "2px 10px", fontWeight: 600 }}>
+                            {confirmadosGrupo} confirmado{confirmadosGrupo !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                        <span style={groupCountStyle}>
+                          {integrantes.length} integrante{integrantes.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
                     </div>
 
-                    <p style={groupMembersSummaryStyle}>
-                      <strong>Integrantes:</strong>{" "}
-                      {nomesIntegrantes || "Sem integrantes"}
-                    </p>
+                    {!grupoExpandido && (
+                      <p style={{ ...groupMembersSummaryStyle, marginBottom: 0 }}>
+                        <strong>Integrantes:</strong>{" "}
+                        {nomesIntegrantes || "Sem integrantes"}
+                      </p>
+                    )}
+                    {grupoExpandido && (
+                      <p style={groupMembersSummaryStyle}>
+                        <strong>Integrantes:</strong>{" "}
+                        {nomesIntegrantes || "Sem integrantes"}
+                      </p>
+                    )}
                   </>
                 )}
 
-                <div style={groupMemberListStyle}>
+                {grupoExpandido && <div style={groupMemberListStyle}>
                   {integrantes.map((convidado) => {
                     const linkWhatsApp = gerarLinkWhatsApp(convidado);
                     const linkWhatsAppListaPresentes =
@@ -3483,6 +4018,22 @@ ${eventoAtual?.nome || "OmniStage"}`);
                             <span>Perfil do convidado: <strong>{convidado.crianca === "sim" ? "Criança" : "Adulto"}</strong>{convidado.crianca === "sim" && convidado.idade_crianca ? ` · Idade: ${convidado.idade_crianca}` : ""}</span>
                             <span>·</span>
                             <span>Perfil do convite: <strong>{(convidado.tipo_convite || "individual") === "grupo" ? "Núcleo" : "Individual"}</strong></span>
+                            {convidado.grupo_envio && (
+                              <>
+                                <span>·</span>
+                                <span>Núcleo: <button
+                                  type="button"
+                                  onClick={() => setFiltroNucleo(filtroNucleo === convidado.grupo_envio ? "" : (convidado.grupo_envio || ""))}
+                                  style={{ background: filtroNucleo === convidado.grupo_envio ? "#7c3aed" : "#ede9fe", color: filtroNucleo === convidado.grupo_envio ? "#fff" : "#7c3aed", border: "none", borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                                >{convidado.grupo_envio} {filtroNucleo === convidado.grupo_envio ? "✕" : "↗"}</button></span>
+                              </>
+                            )}
+                            {convidado.grupo && (
+                              <>
+                                <span>·</span>
+                                <span>Agrupamento: <strong>{convidado.grupo}</strong></span>
+                              </>
+                            )}
                           </div>
 
                           {(() => {
@@ -3872,8 +4423,12 @@ ${eventoAtual?.nome || "OmniStage"}`);
                       </div>
                     );
                   })}
-                </div>
+                </div>}
               </article>
+                );
+              })();
+            })}</div>}
+              </div>
             );
           })}
         </div>
@@ -4652,6 +5207,7 @@ const formBlockGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
   gap: 16,
+  alignItems: "start",
 };
 
 const responsavelSubBlockStyle: CSSProperties = {
